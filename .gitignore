@@ -38,3 +38,6 @@ Thumbs.db
 .env.local
 *.pem
 *.key
+
+# Worktrees
+.worktrees/
