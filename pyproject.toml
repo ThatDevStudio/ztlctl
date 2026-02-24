@@ -18,6 +18,7 @@ ztlctl = "ztlctl.cli:cli"
 
 [dependency-groups]
 dev = [
+    "commitizen>=4.1",
     "pre-commit>=4.0",
     "mypy>=1.13",
     { include-group = "test" },
@@ -65,3 +66,15 @@ omit = ["src/ztlctl/__main__.py"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 80
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+version_files = [
+    "src/ztlctl/__init__.py:__version__",
+]
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
+tag_format = "v$version"
+bump_message = "release: v$new_version"
+annotated_tag = true
