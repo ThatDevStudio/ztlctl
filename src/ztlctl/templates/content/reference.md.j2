@@ -1,0 +1,12 @@
+---
+id: {{ id }}
+type: reference
+status: captured
+title: "{{ title }}"
+url: "{{ url | default('') }}"
+session: {{ session }}
+tags: [{{ tags | join(', ') }}]
+created: {{ created }}
+---
+
+{{ body | default('') }}

@@ -1,0 +1,11 @@
+---
+id: {{ id }}
+type: note
+status: draft
+title: "{{ title }}"
+session: {{ session }}
+tags: [{{ tags | join(', ') }}]
+created: {{ created }}
+---
+
+{{ body | default('') }}
