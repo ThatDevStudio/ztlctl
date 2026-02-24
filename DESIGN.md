@@ -52,6 +52,22 @@ These rules apply across the entire codebase. Violating any of them is a bug.
 
 Each layer is independently usable. `pip install ztlctl` provides everything through the service layer. The CLI, MCP adapter, and workflow layer are consumption interfaces over the same services.
 
+### Package Structure
+
+```
+src/ztlctl/
+├── cli.py                   # Root Click group + global flags
+├── commands/                # Presentation: 7 groups + 6 standalone commands
+├── config/                  # Configuration: Pydantic models + TOML discovery
+├── domain/                  # Domain: types, lifecycle, IDs, subtypes, frontmatter
+├── infrastructure/          # Infrastructure: database/, graph/, filesystem
+├── mcp/                     # MCP adapter (optional extra, import-guarded)
+├── output/                  # Presentation: Rich/JSON formatters
+├── plugins/                 # Extension: hookspecs, manager, builtins/
+├── services/                # Service: result contract + 6 service classes
+└── templates/               # Bundled Jinja2 templates (content/ + self/)
+```
+
 ### Design Principles
 
 1. **Files are truth, DB is index.** The filesystem is authoritative. The database accelerates queries. `ztlctl check --rebuild` reconstructs the DB from files.
@@ -63,12 +79,13 @@ Each layer is independently usable. `pip install ztlctl` provides everything thr
 
 ### Technology Stack
 
-- **Language:** Python 3.13+
+- **Language:** Python 3.13+ (uses `StrEnum` for all enums)
 - **CLI:** Click
 - **Database:** SQLite (WAL mode) via SQLAlchemy Core
 - **Graph:** NetworkX (in-memory, rebuilt per invocation)
 - **Migrations:** Alembic (auto-generated from model diffs)
 - **Templates:** Jinja2 (self/ generation)
+- **Models:** Pydantic v2 (configuration, service contracts, frontmatter schemas)
 - **Plugins:** pluggy (event bus)
 - **Packaging:** uv, Hatchling, PyPI
 - **Type checking:** strict mypy
@@ -232,10 +249,10 @@ Lazy rebuild from SQLite per invocation. No cross-invocation cache.
 class GraphEngine:
     def __init__(self, db: Engine):
         self._db = db
-        self._graph: nx.DiGraph | None = None
+        self._graph: nx.DiGraph[str] | None = None
 
     @property
-    def graph(self) -> nx.DiGraph:
+    def graph(self) -> nx.DiGraph[str]:
         if self._graph is None:
             self._graph = self._build_from_db()
         return self._graph
@@ -680,17 +697,28 @@ DB stored at `{vault_root}/.ztlctl/ztlctl.db`. Tracked in git (clone gives worki
 
 ### Service Layer
 
-All business logic returns `ServiceResult`:
+All business logic returns `ServiceResult` — a frozen Pydantic `BaseModel` (not `dataclass`). This enables `model_dump_json()` for `--json` output and enforces immutability:
 
 ```python
-@dataclass
-class ServiceResult:
+class ServiceError(BaseModel):
+    """Structured error payload."""
+    model_config = {"frozen": True}
+
+    code: str
+    message: str
+    detail: dict[str, Any] = Field(default_factory=dict)
+
+
+class ServiceResult(BaseModel):
+    """Universal return type for all service operations."""
+    model_config = {"frozen": True}
+
     ok: bool
     op: str
-    data: dict
-    warnings: list[str] = field(default_factory=list)
-    error: dict | None = None
-    meta: dict | None = None
+    data: dict[str, Any] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+    error: ServiceError | None = None
+    meta: dict[str, Any] | None = None
 ```
 
 The CLI is a thin presentation layer that renders `ServiceResult` for humans (Rich output, colors, icons, progress bars) or machines (`--json`).
@@ -708,6 +736,34 @@ The CLI is a thin presentation layer that renders `ServiceResult` for humans (Ri
 | `--sync` | Force synchronous event dispatch |
 
 `--json` and `--no-interact` are **orthogonal**. `--json` controls output format. `--no-interact` controls interactivity. Neither implies the other.
+
+### AppContext
+
+Global CLI flags are captured into a frozen Pydantic model and stored on `click.Context.obj`:
+
+```python
+class AppContext(BaseModel):
+    """Global CLI flags, frozen after construction. Passed via Click ctx.obj."""
+    model_config = {"frozen": True}
+
+    json_output: bool = False
+    quiet: bool = False
+    verbose: bool = False
+    no_interact: bool = False
+    no_reweave: bool = False
+    sync: bool = False
+    config_path: str | None = None
+```
+
+### Command Registration
+
+Commands are registered via deferred imports in `register_commands()` to keep `ztlctl --help` fast as the codebase grows:
+
+| Groups (7) | Standalone (6) |
+|-----------|---------------|
+| `create`, `query`, `graph`, `agent`, `garden`, `export`, `workflow` | `check`, `init`, `upgrade`, `reweave`, `archive`, `extract` |
+
+> **Note:** The `init` command lives in `init_cmd.py` to avoid shadowing the Python builtin. It registers as `@click.command("init")`.
 
 ### Config Discovery
 
@@ -852,6 +908,13 @@ Eight lifecycle events dispatched asynchronously via `ThreadPoolExecutor`:
 
 Plugin failures are always warnings, never errors. A broken plugin degrades the workflow; it never degrades the core tool.
 
+**Built-in plugin entry point:**
+
+```toml
+[project.entry-points."ztlctl.plugins"]
+git = "ztlctl.plugins.builtins.git:GitPlugin"
+```
+
 ### Git Plugin (Built-In)
 
 ```toml
@@ -896,6 +959,8 @@ Claude Code plugin ships as a separate artifact (plugin.json + skills/ + hooks/)
 
 Optional extra (`pip install ztlctl[mcp]`). Thin adapter over the service layer.
 
+The MCP module uses `try/except ImportError` with a module-level `mcp_available` flag. When the `mcp` extra is not installed, the module loads without error but `create_server()` raises `RuntimeError` with install instructions.
+
 ### Tools (12)
 
 | Category | Tools |
@@ -931,6 +996,29 @@ At 15+ tools (from plugin registration), activate `discover_tools` meta-tool for
 ---
 
 ## 17. Configuration Reference
+
+### Configuration Models
+
+All configuration is modeled as frozen Pydantic `BaseModel` classes. Defaults are code-baked; TOML only contains user overrides. Loaded via `ZtlConfig.model_validate(toml_data)`.
+
+| TOML Section | Pydantic Model | Key Fields |
+|-------------|----------------|------------|
+| `[vault]` | `VaultConfig` | `name`, `client` |
+| `[agent]` | `AgentConfig` | `tone`, `context` (nested `AgentContextConfig`) |
+| `[reweave]` | `ReweaveConfig` | `enabled`, weights, thresholds |
+| `[garden]` | `GardenConfig` | `seed_age_warning_days`, evergreen criteria |
+| `[search]` | `SearchConfig` | `semantic_enabled`, embedding settings |
+| `[session]` | `SessionConfig` | `close_reweave`, `close_orphan_sweep` |
+| `[tags]` | `TagsConfig` | `auto_register` |
+| `[check]` | `CheckConfig` | `backup_retention_days`, `backup_max_count` |
+| `[plugins]` | `PluginsConfig` | `git`, `obsidian` (dicts) |
+| `[git]` | `GitConfig` | `enabled`, `branch`, `auto_push`, `batch_commits` |
+| `[mcp]` | `McpConfig` | `enabled`, `transport` |
+| `[workflow]` | `WorkflowConfig` | `template`, `skill_set` |
+
+Root model `ZtlConfig` composes all sections. All models are frozen.
+
+**Config discovery:** Walk up from cwd looking for `ztlctl.toml`. `ZTLCTL_CONFIG` env var overrides walk-up. `--config` CLI flag overrides both. No file found → all-defaults `ZtlConfig()`.
 
 ### Minimal Config (Fresh Vault)
 
@@ -1020,7 +1108,8 @@ skill_set = "research"
 
 ```toml
 dependencies = [
-    "click>=8.0",
+    "click>=8.1",
+    "pydantic>=2.0",
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "networkx>=3.0",
@@ -1067,6 +1156,13 @@ Decisions made during the design process (CONV-0017):
 | — | `ztlctl upgrade` as first-class command | Worst-case schema migration with backup/rollback |
 | — | Batch commits by default | Session = natural commit boundary for agent workflows |
 | — | Claude Code plugin as separate artifact | Skills evolve faster than tool schemas; independent release cycle |
+| — | Pydantic BaseModel for ServiceResult, not dataclass | Frozen models provide JSON serialization via `model_dump_json()`, validation, and immutability |
+| — | ServiceError as separate model | Structured `code`/`message`/`detail` instead of bare dict enables consistent error handling |
+| — | StrEnum (Python 3.13+) for all enums | Values serialize cleanly to strings without `.value`; replaces `(str, Enum)` pattern |
+| — | AppContext as frozen Pydantic model on `ctx.obj` | Global CLI flags immutable after construction; single source of runtime config |
+| — | Deferred imports in command registration | `register_commands()` uses local imports to keep `ztlctl --help` fast at scale |
+| — | `init_cmd.py` naming for init command | Avoids shadowing Python's `init` builtin; registers as `@click.command("init")` |
+| — | MCP import guard with `mcp_available` flag | `try/except ImportError` prevents optional extra from breaking core CLI |
 
 ---
 
@@ -1095,6 +1191,22 @@ Decisions made during the design process (CONV-0017):
 Features have hard dependencies. This is the recommended build order:
 
 ```
+Phase 0 — CLI Structural Foundation (complete):
+  Package structure, all layers as stub modules
+  Config: Pydantic model hierarchy, TOML discovery, AppContext
+  CLI: Root Click group, global flags, 7 groups + 6 commands
+  Domain: StrEnum types, lifecycle transitions, ID system, SubtypeRule ABC
+  Services: ServiceResult/ServiceError (Pydantic), 6 service stubs
+  Infrastructure: SQLite engine (WAL mode), GraphEngine (lazy NetworkX)
+  Plugins: 8 hookspecs, manager scaffold, Git plugin stub
+  MCP: Import-guarded server scaffold
+  Templates: Content + self Jinja2 templates
+  Output: ServiceResult formatter with --json support
+
+Phase 0 established the skeleton and type contracts. All modules exist
+with correct layer dependencies. Service methods raise NotImplementedError
+— ready for Phase 1 implementations.
+
 Phase 1 — Foundation (no dependencies):
   F9  Database Layer        ← everything depends on this
   F6  ID System             ← create pipeline needs IDs
@@ -1108,14 +1220,14 @@ Phase 2 — Core Pipeline (depends on Phase 1):
 Phase 3 — Enrichment (depends on Phase 2):
   F4  Reweave              ← depends on F2, F3, F7
   F5  Update & Close       ← depends on F3, F4
-  F14 Integrity            ← depends on F9
+  F11 Integrity            ← depends on F9
 
 Phase 4 — Presentation (depends on Phase 2):
   F12 CLI Interface        ← depends on all services
   F8  Progressive Disclosure ← cross-cutting, applied to F12
 
 Phase 5 — Lifecycle (depends on Phase 3):
-  F11 Init & Self-Gen      ← depends on F9, F12
+  F13 Init & Self-Gen      ← depends on F9, F12
   F10 Export               ← depends on F7, F9
 
 Phase 6 — Extension (depends on Phase 4):
