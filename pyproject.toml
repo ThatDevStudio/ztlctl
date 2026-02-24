@@ -11,16 +11,33 @@ requires-python = ">=3.13"
 license = "MIT"
 dependencies = [
     "click>=8.1",
+    "pydantic>=2.0",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "networkx>=3.0",
+    "ruamel.yaml>=0.18",
+    "jinja2>=3.1",
+    "pluggy>=1.4",
+    "rich>=13.0",
 ]
 
 [project.scripts]
 ztlctl = "ztlctl.cli:cli"
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0", "anyio>=4.0"]
+community = ["leidenalg"]
+semantic = ["sqlite-vec"]
+
+[project.entry-points."ztlctl.plugins"]
+git = "ztlctl.plugins.builtins.git:GitPlugin"
 
 [dependency-groups]
 dev = [
     "commitizen>=4.1",
     "pre-commit>=4.0",
     "mypy>=1.13",
+    "types-networkx>=3.6.1.20260210",
     { include-group = "test" },
     { include-group = "lint" },
 ]
@@ -57,11 +74,12 @@ warn_return_any = true
 warn_unused_configs = true
 mypy_path = "src"
 packages = ["ztlctl"]
+plugins = ["pydantic.mypy"]
 
 [tool.coverage.run]
 source = ["ztlctl"]
 branch = true
-omit = ["src/ztlctl/__main__.py"]
+omit = ["src/ztlctl/__main__.py", "src/ztlctl/mcp/*"]
 
 [tool.coverage.report]
 show_missing = true

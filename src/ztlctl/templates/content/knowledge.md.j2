@@ -1,0 +1,13 @@
+---
+id: {{ id }}
+type: note
+subtype: knowledge
+status: draft
+title: "{{ title }}"
+session: {{ session }}
+tags: [{{ tags | join(', ') }}]
+key_points: []
+created: {{ created }}
+---
+
+{{ body | default('') }}

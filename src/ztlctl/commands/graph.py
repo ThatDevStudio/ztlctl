@@ -1,0 +1,16 @@
+"""Command group: graph traversal and analysis."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import click
+
+if TYPE_CHECKING:
+    from ztlctl.config.models import AppContext
+
+
+@click.group()
+@click.pass_obj
+def graph(ctx: AppContext) -> None:
+    """Traverse and analyze the knowledge graph."""
