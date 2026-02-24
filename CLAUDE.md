@@ -94,11 +94,30 @@ All commit messages AND PR titles MUST follow the conventional commits format:
 
 ### Feature Development Workflow
 
-1. Ensure `develop` is up to date: `git pull origin develop`
-2. Branch from develop: `git checkout -b feature/<name> develop`
-3. Commit with conventional format: `git commit -m "feat(scope): description"`
-4. Push and create PR to develop: `gh pr create --base develop --title "feat(scope): description"`
-5. Wait for user to review, approve, and squash-merge
+1. **Pull latest develop** — if diverged, reset to match origin:
+   ```bash
+   git checkout develop && git pull origin develop
+   ```
+2. **Create feature/fix branch:**
+   ```bash
+   git checkout -b feature/<name>
+   ```
+3. **Work in small, frequent commits** using conventional messages
+4. **Run full validation before PR:**
+   ```bash
+   uv run ruff check . && uv run ruff format --check . && uv run pytest && uv run mypy src/
+   ```
+   Fix any issues and commit fixes.
+5. **Push and create PR to develop:**
+   ```bash
+   git push -u origin feature/<name>
+   gh pr create --base develop --title "feat(scope): description"
+   ```
+   Provide the PR link for the user to review.
+6. **Address review feedback** — push additional commits to the same branch
+7. Wait for user to review, approve, and squash-merge
+
+**Do NOT use git worktrees** — work directly on feature/fix branches in the main repo checkout.
 
 ### Post-Release Sync
 
@@ -130,6 +149,8 @@ If the user has already synced `develop`, just `git pull origin develop`.
 - **Don't create git tags manually** — the release workflow creates annotated tags
 - **Don't push to `main` directly** — merge via PR from `develop` or `hotfix/*`
 - **Don't merge PRs** — the user reviews and merges; Claude only creates PRs and addresses feedback
+- **Don't use git worktrees** — work directly on feature/fix branches
+- **Don't use `uv pip install`** — always use `uv add` (or `uv add --group <group>` for dev deps)
 
 ## CI/CD Pipeline
 
@@ -141,5 +162,14 @@ If the user has already synced `develop`, just `git pull origin develop`.
 
 ## Architecture
 
-- Click-based CLI with entry point: `ztlctl`
-- Project is in early scaffolding phase
+- **Entry point**: `ztlctl` (Click CLI)
+- **6-layer package structure** under `src/ztlctl/`:
+  - `domain/` — types, enums, lifecycle rules, ID patterns (no external deps beyond pydantic)
+  - `infrastructure/` — SQLite/SQLAlchemy Core, NetworkX graph engine, filesystem ops
+  - `config/` — Pydantic config models, TOML discovery/loading
+  - `services/` — business logic (imports domain, infrastructure, config)
+  - `output/` — Rich/JSON formatters (imports services)
+  - `commands/` — Click command groups/commands (imports services, output, config)
+  - `plugins/` — pluggy hook specs and built-in plugins
+  - `mcp/` — optional MCP adapter (guarded imports)
+  - `templates/` — Jinja2 templates for content creation
