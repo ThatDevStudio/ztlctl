@@ -3,21 +3,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
 from ztlctl.cli import cli
-
-
-@pytest.fixture
-def _isolated_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Change CWD to a tmp_path so the CLI creates an isolated vault."""
-    (tmp_path / "notes").mkdir()
-    (tmp_path / "ops" / "logs").mkdir(parents=True)
-    (tmp_path / "ops" / "tasks").mkdir(parents=True)
-    monkeypatch.chdir(tmp_path)
 
 
 def _seed_via_cli(runner: CliRunner) -> None:
@@ -88,7 +78,7 @@ class TestGetCommand:
 
     def test_get_not_found(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["--json", "query", "get", "nonexistent"])
-        assert result.exit_code == 0
+        assert result.exit_code == 1
         data = json.loads(result.output)
         assert data["ok"] is False
         assert data["error"]["code"] == "NOT_FOUND"

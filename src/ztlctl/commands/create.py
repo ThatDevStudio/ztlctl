@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import click
 
-from ztlctl.config.settings import ZtlSettings
-from ztlctl.infrastructure.vault import Vault
-from ztlctl.output.formatters import format_result
+from ztlctl.commands._context import AppContext
 from ztlctl.services.create import CreateService
 
 
 @click.group()
 @click.pass_obj
-def create(ctx: ZtlSettings) -> None:
+def create(app: AppContext) -> None:
     """Create notes, references, and tasks."""
 
 
@@ -24,7 +22,7 @@ def create(ctx: ZtlSettings) -> None:
 @click.option("--session", default=None, help="Session ID (LOG-NNNN).")
 @click.pass_obj
 def note(
-    settings: ZtlSettings,
+    app: AppContext,
     title: str,
     subtype: str | None,
     tags: tuple[str, ...],
@@ -32,8 +30,7 @@ def note(
     session: str | None,
 ) -> None:
     """Create a new note."""
-    vault = Vault(settings)
-    svc = CreateService(vault)
+    svc = CreateService(app.vault)
     result = svc.create_note(
         title,
         subtype=subtype,
@@ -41,7 +38,7 @@ def note(
         topic=topic,
         session=session,
     )
-    click.echo(format_result(result, json_output=settings.json_output))
+    app.emit(result)
 
 
 @create.command()
@@ -55,7 +52,7 @@ def note(
 @click.option("--session", default=None, help="Session ID (LOG-NNNN).")
 @click.pass_obj
 def reference(
-    settings: ZtlSettings,
+    app: AppContext,
     title: str,
     url: str | None,
     subtype: str | None,
@@ -64,8 +61,7 @@ def reference(
     session: str | None,
 ) -> None:
     """Create a new reference."""
-    vault = Vault(settings)
-    svc = CreateService(vault)
+    svc = CreateService(app.vault)
     result = svc.create_reference(
         title,
         url=url,
@@ -74,7 +70,7 @@ def reference(
         topic=topic,
         session=session,
     )
-    click.echo(format_result(result, json_output=settings.json_output))
+    app.emit(result)
 
 
 @create.command()
@@ -101,7 +97,7 @@ def reference(
 @click.option("--session", default=None, help="Session ID (LOG-NNNN).")
 @click.pass_obj
 def task(
-    settings: ZtlSettings,
+    app: AppContext,
     title: str,
     priority: str,
     impact: str,
@@ -110,8 +106,7 @@ def task(
     session: str | None,
 ) -> None:
     """Create a new task."""
-    vault = Vault(settings)
-    svc = CreateService(vault)
+    svc = CreateService(app.vault)
     result = svc.create_task(
         title,
         priority=priority,
@@ -120,4 +115,4 @@ def task(
         tags=list(tags) if tags else None,
         session=session,
     )
-    click.echo(format_result(result, json_output=settings.json_output))
+    app.emit(result)

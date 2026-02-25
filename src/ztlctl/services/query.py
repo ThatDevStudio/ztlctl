@@ -255,7 +255,7 @@ class QueryService(BaseService):
 
         return ServiceResult(
             ok=True,
-            op="list",
+            op="list_items",
             data={"count": len(items), "items": items},
         )
 
@@ -286,6 +286,7 @@ class QueryService(BaseService):
             ).fetchall()
 
         tasks: list[dict[str, Any]] = []
+        warnings: list[str] = []
         for row in rows:
             # Parse frontmatter to get priority/impact/effort
             priority = "medium"
@@ -299,6 +300,8 @@ class QueryService(BaseService):
                 priority = str(fm.get("priority", "medium"))
                 impact = str(fm.get("impact", "medium"))
                 effort = str(fm.get("effort", "medium"))
+            else:
+                warnings.append(f"Task file missing for {row.id}: {row.path}")
 
             p_score = _PRIORITY_SCORES.get(priority, 2.0)
             i_score = _IMPACT_SCORES.get(impact, 2.0)
@@ -327,6 +330,7 @@ class QueryService(BaseService):
             ok=True,
             op="work_queue",
             data={"count": len(tasks), "items": tasks},
+            warnings=warnings,
         )
 
     # ------------------------------------------------------------------
