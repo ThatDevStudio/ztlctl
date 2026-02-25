@@ -7,24 +7,14 @@ item links to its creation session. (DESIGN.md Section 2, 8)
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 
 from sqlalchemy import insert, select, text
 
 from ztlctl.infrastructure.database.counters import next_sequential_id
 from ztlctl.infrastructure.database.schema import edges, nodes
+from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
-
-
-def _today() -> str:
-    """ISO date string for today (UTC)."""
-    return datetime.now(UTC).date().isoformat()
-
-
-def _now_iso() -> str:
-    """ISO timestamp for log entries."""
-    return datetime.now(UTC).isoformat()
 
 
 class SessionService(BaseService):
@@ -37,7 +27,7 @@ class SessionService(BaseService):
     def start(self, topic: str) -> ServiceResult:
         """Start a new session, returning the LOG-NNNN id."""
         op = "session_start"
-        today = _today()
+        today = today_iso()
 
         with self._vault.transaction() as txn:
             session_id = next_sequential_id(txn.conn, "LOG-")
@@ -49,7 +39,7 @@ class SessionService(BaseService):
                     "type": "session_start",
                     "session_id": session_id,
                     "topic": topic,
-                    "timestamp": _now_iso(),
+                    "timestamp": now_iso(),
                 },
                 separators=(",", ":"),
             )
@@ -93,7 +83,7 @@ class SessionService(BaseService):
         Pipeline: LOG CLOSE -> CROSS-SESSION REWEAVE -> ORPHAN SWEEP -> INTEGRITY CHECK -> REPORT
         """
         op = "session_close"
-        today = _today()
+        today = today_iso()
         warnings: list[str] = []
         cfg = self._vault.settings.session
 
@@ -132,7 +122,7 @@ class SessionService(BaseService):
                     "type": "session_close",
                     "session_id": session_id,
                     "summary": summary or "",
-                    "timestamp": _now_iso(),
+                    "timestamp": now_iso(),
                 },
                 separators=(",", ":"),
             )
@@ -171,7 +161,7 @@ class SessionService(BaseService):
     def reopen(self, session_id: str) -> ServiceResult:
         """Reopen a previously closed session."""
         op = "session_reopen"
-        today = _today()
+        today = today_iso()
 
         with self._vault.transaction() as txn:
             session = txn.conn.execute(
@@ -208,7 +198,7 @@ class SessionService(BaseService):
                 {
                     "type": "session_reopen",
                     "session_id": session_id,
-                    "timestamp": _now_iso(),
+                    "timestamp": now_iso(),
                 },
                 separators=(",", ":"),
             )

@@ -6,7 +6,6 @@ Pipeline: VALIDATE → APPLY → PROPAGATE → INDEX → RESPOND
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete, insert, select, text
@@ -21,17 +20,13 @@ from ztlctl.domain.lifecycle import (
 )
 from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
+from ztlctl.services._helpers import today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.create import CreateService, _resolve_wikilink
 from ztlctl.services.result import ServiceError, ServiceResult
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
-
-
-def _today() -> str:
-    """ISO date string for today (UTC)."""
-    return datetime.now(UTC).date().isoformat()
 
 
 # Map content type to transition map
@@ -56,7 +51,7 @@ class UpdateService(BaseService):
         """
         op = "update"
         warnings: list[str] = []
-        today = _today()
+        today = today_iso()
 
         with self._vault.transaction() as txn:
             # ── VALIDATE ─────────────────────────────────────────
@@ -227,7 +222,7 @@ class UpdateService(BaseService):
 
     def archive(self, content_id: str) -> ServiceResult:
         """Archive a content item (soft delete, preserves edges)."""
-        today = _today()
+        today = today_iso()
 
         with self._vault.transaction() as txn:
             node_row = txn.conn.execute(

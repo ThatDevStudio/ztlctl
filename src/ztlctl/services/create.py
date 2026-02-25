@@ -6,7 +6,6 @@ Pipeline: VALIDATE → GENERATE → PERSIST → INDEX → RESPOND
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import insert, select, text
@@ -19,13 +18,9 @@ from ztlctl.domain.ids import TYPE_PREFIXES, generate_content_hash
 from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
 from ztlctl.infrastructure.database.counters import next_sequential_id
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
+from ztlctl.services._helpers import parse_tag_parts, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
-
-
-def _today() -> str:
-    """ISO date string for today (UTC)."""
-    return datetime.now(UTC).date().isoformat()
 
 
 class CreateService(BaseService):
@@ -158,7 +153,7 @@ class CreateService(BaseService):
         op = f"create_{content_type}"
         warnings: list[str] = []
         tags = tags or []
-        today = _today()
+        today = today_iso()
 
         # ── VALIDATE ──────────────────────────────────────────────
         try:
@@ -326,9 +321,7 @@ class CreateService(BaseService):
     def _index_tags(conn: Connection, content_id: str, tags: list[str], today: str) -> None:
         """Register tags and link them to the content node."""
         for tag in tags:
-            parts = tag.split("/", 1)
-            domain = parts[0] if len(parts) == 2 else "unscoped"
-            scope = parts[1] if len(parts) == 2 else parts[0]
+            domain, scope = parse_tag_parts(tag)
 
             # Upsert tag into registry (ignore if already exists)
             existing_tag = conn.execute(

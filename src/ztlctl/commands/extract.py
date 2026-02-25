@@ -6,11 +6,13 @@ from typing import TYPE_CHECKING
 
 import click
 
+from ztlctl.commands._base import ZtlCommand
+
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
 
-@click.command()
+@click.command(cls=ZtlCommand)
 @click.argument("session_id")
 @click.pass_obj
 def extract(app: AppContext, session_id: str) -> None:

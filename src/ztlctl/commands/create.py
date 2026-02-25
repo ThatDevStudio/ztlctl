@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import click
 
 from ztlctl.commands._base import ZtlGroup
-from ztlctl.commands._context import AppContext
 from ztlctl.services.create import CreateService
+
+if TYPE_CHECKING:
+    from ztlctl.commands._context import AppContext
 
 _CREATE_EXAMPLES = """\
   ztlctl create note "Python Design Patterns"
@@ -163,12 +166,34 @@ def batch(app: AppContext, file: str, partial: bool) -> None:
         with open(file, encoding="utf-8") as f:
             items = json.load(f)
     except (json.JSONDecodeError, OSError) as exc:
-        click.echo(f"Error reading {file}: {exc}", err=True)
-        raise SystemExit(1) from exc
+        from ztlctl.services.result import ServiceError, ServiceResult
+
+        app.emit(
+            ServiceResult(
+                ok=False,
+                op="batch_create",
+                error=ServiceError(
+                    code="invalid_file",
+                    message=f"Error reading {file}: {exc}",
+                ),
+            )
+        )
+        return
 
     if not isinstance(items, list):
-        click.echo("JSON file must contain a top-level array.", err=True)
-        raise SystemExit(1)
+        from ztlctl.services.result import ServiceError, ServiceResult
+
+        app.emit(
+            ServiceResult(
+                ok=False,
+                op="batch_create",
+                error=ServiceError(
+                    code="invalid_format",
+                    message="JSON file must contain a top-level array.",
+                ),
+            )
+        )
+        return
 
     svc = CreateService(app.vault)
     app.emit(svc.create_batch(items, partial=partial))

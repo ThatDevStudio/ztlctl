@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import click
 
 from ztlctl.commands._base import ZtlGroup
-from ztlctl.commands._context import AppContext
 from ztlctl.services.query import QueryService
+
+if TYPE_CHECKING:
+    from ztlctl.commands._context import AppContext
 
 _QUERY_EXAMPLES = """\
   ztlctl query search "python design patterns"

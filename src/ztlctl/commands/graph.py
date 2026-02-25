@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import click
 
 from ztlctl.commands._base import ZtlGroup
-from ztlctl.commands._context import AppContext
 from ztlctl.services.graph import GraphService
+
+if TYPE_CHECKING:
+    from ztlctl.commands._context import AppContext
 
 _GRAPH_EXAMPLES = """\
   ztlctl graph related ztl_abc12345 --depth 3

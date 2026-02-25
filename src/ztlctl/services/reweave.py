@@ -6,28 +6,18 @@ Five-stage: DISCOVER -> SCORE -> FILTER -> PRESENT -> CONNECT
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 from sqlalchemy import delete, insert, select, text
 
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, reweave_log
+from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
-
-
-def _today() -> str:
-    """ISO date string for today (UTC)."""
-    return datetime.now(UTC).date().isoformat()
-
-
-def _now_iso() -> str:
-    """ISO timestamp for audit trail."""
-    return datetime.now(UTC).isoformat()
 
 
 class ReweaveService(BaseService):
@@ -497,8 +487,8 @@ class ReweaveService(BaseService):
         suggestions: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """Apply link suggestions: update frontmatter, insert edges, log."""
-        today = _today()
-        timestamp = _now_iso()
+        today = today_iso()
+        timestamp = now_iso()
         connected: list[dict[str, Any]] = []
 
         with self._vault.transaction() as txn:
@@ -601,8 +591,8 @@ class ReweaveService(BaseService):
         stale: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """Remove stale links from frontmatter, DB, and body."""
-        today = _today()
-        timestamp = _now_iso()
+        today = today_iso()
+        timestamp = now_iso()
         pruned: list[dict[str, Any]] = []
 
         with self._vault.transaction() as txn:
@@ -681,7 +671,7 @@ class ReweaveService(BaseService):
 
     def _apply_undo(self, entries: list[Any]) -> list[dict[str, Any]]:
         """Reverse reweave log entries."""
-        today = _today()
+        today = today_iso()
         undone_results: list[dict[str, Any]] = []
 
         with self._vault.transaction() as txn:
