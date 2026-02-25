@@ -16,41 +16,6 @@ from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 
 
-def _pagerank_no_scipy(
-    g: nx.DiGraph[str],
-    alpha: float = 0.85,
-    max_iter: int = 100,
-    tol: float = 1.0e-6,
-) -> dict[str, float]:
-    """Pure Python PageRank (no scipy/numpy dependency).
-
-    Iterative power-method implementation matching NetworkX semantics.
-    """
-    n = g.number_of_nodes()
-    if n == 0:
-        return {}
-
-    node_list = list(g.nodes())
-    score: dict[str, float] = {node: 1.0 / n for node in node_list}
-
-    for _ in range(max_iter):
-        prev = score.copy()
-        dangling_sum = sum(prev[node] for node in node_list if g.out_degree(node) == 0)
-
-        for node in node_list:
-            rank = (1.0 - alpha) / n + alpha * dangling_sum / n
-            for pred in g.predecessors(node):
-                rank += alpha * prev[pred] / g.out_degree(pred)
-            score[node] = rank
-
-        # Check convergence
-        err = sum(abs(score[node] - prev[node]) for node in node_list)
-        if err < n * tol:
-            break
-
-    return score
-
-
 class GraphService(BaseService):
     """Handles graph queries and analysis."""
 
@@ -252,7 +217,7 @@ class GraphService(BaseService):
                 data={"count": 0, "items": []},
             )
 
-        scores = _pagerank_no_scipy(g)
+        scores = nx.pagerank(g)
 
         # Sort by PageRank score descending
         ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top]
