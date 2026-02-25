@@ -326,7 +326,7 @@ ztlctl create --batch notes.json           # all-or-nothing by default
 ztlctl create --batch notes.json --partial  # continue past failures
 ```
 
-> **Implementation note (Phase 2):** `CreateService.create_batch()` is implemented in the service layer (all-or-nothing and partial modes). The `--batch` CLI flag is not yet exposed on the `create` command group.
+> **Implementation note (Phase 4):** `CreateService.create_batch()` is implemented in the service layer (all-or-nothing and partial modes). The `create batch` CLI subcommand is implemented — it reads a JSON file of item objects and passes them to the service. File read errors and format validation route through `app.emit(ServiceResult)` for structured JSON error output.
 
 ---
 
@@ -389,7 +389,7 @@ def should_modify_body(note) -> bool:
 - `--undo` reverses via audit trail (`reweave_log` table)
 - `--no-reweave` skips on any creation command
 
-> **Implementation note (Phase 3):** ReweaveService implements `reweave()`, `prune()`, and `undo()`. All four scoring signals are implemented with configurable weights from `ReweaveConfig`. Garden note protection is enforced — body wikilinks are never added to notes with `maturity` set, but frontmatter `links.relates` entries are still added. The `reweave_log` table tracks all add/remove actions with timestamps for undo support. Undo can target a specific reweave ID or the most recent batch (same timestamp). Interactive confirmation and `--dry-run` CLI flag are deferred to Phase 4 (Presentation); the service layer supports dry-run mode via the `dry_run` parameter.
+> **Implementation note (Phase 3+4):** ReweaveService implements `reweave()`, `prune()`, and `undo()`. All four scoring signals are implemented with configurable weights from `ReweaveConfig`. Garden note protection is enforced — body wikilinks are never added to notes with `maturity` set, but frontmatter `links.relates` entries are still added. The `reweave_log` table tracks all add/remove actions with timestamps for undo support. Undo can target a specific reweave ID (`--undo-id N`) or the most recent batch (`--undo`). CLI flags `--dry-run`, `--prune`, `--undo`, `--undo-id`, and `--id` are all implemented. Interactive confirmation is deferred to Phase 5 (Lifecycle).
 
 ---
 
@@ -431,7 +431,7 @@ ztlctl create note "New approach" --subtype decision --supersedes ztl_old123
 # New decision: supersedes → old ID
 ```
 
-> **Implementation note (Phase 3):** UpdateService implements the full 5-stage pipeline with `update()`, `archive()`, and `supersede()`. Status transitions are validated against lifecycle transition maps. Note status is automatically recomputed from outgoing edge count after any update (PROPAGATE stage). Garden note protection rejects body changes when `maturity` is set (warning instead of error). Decision immutability prevents body changes after `status=accepted`. FTS5 updates use DELETE + INSERT (virtual tables don't support UPDATE). Edge re-indexing re-extracts both frontmatter links and body wikilinks. SessionService implements start/close/reopen with close enrichment pipeline (cross-session reweave → orphan sweep → integrity check). Session lookup and close happen inside the same `VaultTransaction` to prevent TOCTOU races. Stub methods (`log_entry`, `cost`, `context`) return `ServiceResult(ok=False)` with `NOT_IMPLEMENTED` error codes. Event WAL drain is deferred to Phase 6 when the pluggy event system is implemented.
+> **Implementation note (Phase 3+4):** UpdateService implements the full 5-stage pipeline with `update()`, `archive()`, and `supersede()`. All three have CLI commands: `ztlctl update` (with `--title`, `--status`, `--tags`, `--topic`, `--body`, `--maturity`), `ztlctl archive`, and `ztlctl supersede`. Status transitions are validated against lifecycle transition maps. Note status is automatically recomputed from outgoing edge count after any update (PROPAGATE stage). Garden note protection rejects body changes when `maturity` is set (warning instead of error). Decision immutability prevents body changes after `status=accepted`. FTS5 updates use DELETE + INSERT (virtual tables don't support UPDATE). Edge re-indexing re-extracts both frontmatter links and body wikilinks. SessionService implements start/close/reopen with close enrichment pipeline (cross-session reweave → orphan sweep → integrity check). Session lookup and close happen inside the same `VaultTransaction` to prevent TOCTOU races. Stub methods (`log_entry`, `cost`, `context`) return `ServiceResult(ok=False)` with `NOT_IMPLEMENTED` error codes. Event WAL drain is deferred to Phase 6 when the pluggy event system is implemented.
 
 ---
 
@@ -534,7 +534,7 @@ Shared across all content-returning commands:
 --sort relevance|recency|graph|priority
 ```
 
-> **Implementation note (Phase 3):** The `list` command implements `--type`, `--status`, `--tag`, `--topic`, `--sort` (recency|title|type), and `--limit`. The `search` command implements `--type`, `--tag`, `--rank-by` (relevance|recency), and `--limit`. Remaining filter flags (`--subtype`, `--maturity`, `--since`, `--space`, `--include-archived`) and sort modes (`priority`, `graph`) are deferred to Phase 4 (Presentation).
+> **Implementation note (Phase 4):** The `list` command implements all core filters: `--type`, `--status`, `--tag`, `--topic`, `--subtype`, `--maturity`, `--since`, `--include-archived`, `--sort` (recency|title|type|priority), and `--limit`. Priority sort scores tasks using the existing weighted formula (priority×2 + impact×1.5 + (4−effort)), sorts in Python after DB fetch, and applies limit post-sort. The `search` command implements `--type`, `--tag`, `--rank-by` (relevance|recency), and `--limit`. Remaining: `--space` filter and `graph` sort mode (BM25 × PageRank) are deferred to Phase 5 when materialized graph metrics are available.
 
 ### Agent Context Protocol
 
@@ -595,7 +595,7 @@ The `--ignore-checkpoints` flag reads full history when needed.
   - `recency`: BM25 × time decay
 - **Semantic search:** Optional, feature-flagged (`[search] semantic_enabled = false`)
 
-> **Implementation note (Phase 3):** Search supports `--rank-by relevance|recency`. The `relevance` mode uses raw BM25 ordering. The `recency` mode orders by `modified DESC`. The `graph` ranking mode (BM25 × PageRank) is deferred to Phase 4 when materialized graph metrics are computed. Time-decay weighting for recency is also a Phase 4 enhancement.
+> **Implementation note (Phase 3):** Search supports `--rank-by relevance|recency`. The `relevance` mode uses raw BM25 ordering. The `recency` mode orders by `modified DESC`. The `graph` ranking mode (BM25 × PageRank) is deferred to Phase 5 when materialized graph metrics are computed. Time-decay weighting for recency is also a Phase 5 enhancement.
 
 ---
 
@@ -865,26 +865,20 @@ def get(app: AppContext, content_id: str) -> None:
     app.emit(QueryService(app.vault).get(content_id))
 ```
 
-### Human-Readable Output Format
+### Output Rendering
 
-The `format_result()` function renders `ServiceResult` as human-readable key-value pairs (default) or JSON (`--json`):
+Three verbosity modes, all rendering `ServiceResult`:
 
-```text
-# Success:
-OK: create_note
-  id: ztl_abc12345
-  path: notes/ztl_abc12345.md
-  title: My Note
-WARNING: Tag "unscoped" has no domain/scope format    # stderr
+| Mode | Flag | Rendering |
+|------|------|-----------|
+| Quiet | `--quiet` | One-line: `OK: create_note` or `ERROR: create_note — message` |
+| Default | (none) | Rich Console: styled text, tables, icons, colored status |
+| Verbose | `--verbose` | Default + debug details (timing, full error payloads) |
+| JSON | `--json` | `ServiceResult.model_dump_json()` — structured, machine-readable |
 
-# Error:
-ERROR: create_note — Title is required                # stderr, exit 1
+The output layer (`output/renderers.py`) dispatches to `render_quiet()`, `render_default()`, or `render_verbose()` based on settings. Item lists render as Rich tables with auto-detected Score columns (present for both search results and priority-sorted lists). Warnings go to stderr in human mode (so they don't pollute piped output) and are included in the serialized payload in JSON mode.
 
-# JSON (--json):
-{ "ok": true, "op": "create_note", "data": {...}, "warnings": [...] }
-```
-
-Complex values (lists, dicts) render as compact JSON inline: `fields_changed: ["title","status"]`. Warnings go to stderr in human mode (so they don't pollute piped output) and are included in the serialized payload in JSON mode.
+> **Implementation note (Phase 4):** The original `format_result()` function was replaced by a Rich-based rendering layer. Three renderers share a common `_render_error()` helper. The `_render_item_table()` function auto-detects score columns via `"score" in items[0]`, avoiding the need for explicit sort-mode flags in the renderer.
 
 ### Vault
 
@@ -910,11 +904,13 @@ class BaseService:
 
 Commands are registered via deferred imports in `register_commands()` to keep `ztlctl --help` fast as the codebase grows:
 
-| Groups (7) | Standalone (6) |
+| Groups (7) | Standalone (8) |
 |-----------|---------------|
-| `create`, `query`, `graph`, `agent`, `garden`, `export`, `workflow` | `check`, `init`, `upgrade`, `reweave`, `archive`, `extract` |
+| `create`, `query`, `graph`, `agent`, `garden`, `export`, `workflow` | `check`, `init`, `upgrade`, `reweave`, `archive`, `extract`, `update`, `supersede` |
 
 > **Note:** The `init` command lives in `init_cmd.py` to avoid shadowing the Python builtin. It registers as `@click.command("init")`.
+
+> **Implementation note (Phase 4):** All commands and groups use custom base classes `ZtlCommand` and `ZtlGroup` (in `commands/_base.py`). These support an `examples` kwarg that auto-registers an eager `--examples` flag — processed before argument validation, same pattern as Click's `--version`. `ZtlGroup` sets `command_class = ZtlCommand` so subcommands inherit the base class automatically. All service-layer errors in command handlers route through `app.emit(ServiceResult)` for consistent structured output in `--json` mode.
 
 ### Config Discovery
 
@@ -1344,11 +1340,18 @@ Decisions made during the design process (CONV-0017):
 | — | Stub service methods return `ServiceResult`, not `NotImplementedError` | Maintains no-exceptions-cross-service-boundary contract; `NOT_IMPLEMENTED` error code for graceful CLI/MCP handling |
 | — | Database indexes on high-cardinality columns | 7 indexes across nodes, edges, node_tags; improves query performance for filtered listing and edge traversal |
 | — | Path traversal guard in `resolve_content_path()` | `path.resolve().is_relative_to(vault_root.resolve())` prevents crafted topic/content_id from escaping vault |
-| — | Human-readable output: `OK:` prefix + indented key-value data | Lists/dicts render as compact JSON inline; warnings to stderr in human mode, serialized in JSON mode |
+| — | Human-readable output: Rich styled tables and text | Phase 4 replaced `OK:` prefix format with Rich Console rendering; quiet mode retains one-line prefix format; JSON mode unchanged |
 | — | Command stubs receive `AppContext`, not `ZtlSettings` | Ensures correct type flow through Click context; lazy Vault and `emit()` available to all commands |
 | — | TOML parse errors surface as `ClickException` | `tomllib.TOMLDecodeError` caught and wrapped with file path context; prevents cryptic stack traces |
 | — | Shared wikilink resolution function `_resolve_wikilink()` | Title → alias (`json_each`) → ID; shared between CreateService (indexing) and CheckService (rebuild/re-index) |
 | — | Shared test helpers in `conftest.py` | `create_note()`, `create_reference()`, `create_task()`, `create_decision()`, `start_session()` as plain functions with deferred imports |
+| — | ZtlCommand/ZtlGroup base classes with eager `--examples` | Same pattern as Click's `--version`; `is_eager=True` + `expose_value=False` processes before argument parsing; `command_class = ZtlCommand` on groups for subcommand inheritance |
+| — | Rich output layer with 3 verbosity modes | `--quiet` (one-line), default (styled tables/text), `--verbose` (debug details); renderer dispatches on `AppContext.settings` flags |
+| — | Score column auto-detection in renderer | `"score" in items[0]` check renders Score column for both search results and priority-sorted list results; no explicit flag needed |
+| — | Shared `services/_helpers.py` for date/tag utilities | `today_iso()`, `now_iso()`, `now_compact()`, `parse_tag_parts()`; eliminates 5× `_today()` and 3× `_now_iso()` (with format inconsistency) duplication |
+| — | Two timestamp formats: `now_iso()` vs `now_compact()` | Standard ISO for audit trails/session logs; compact (no colons) for backup filenames; makes distinction explicit after fixing silent format divergence |
+| — | All command errors route through `app.emit(ServiceResult)` | Ensures `--json` mode outputs structured error payloads; replaces `raise SystemExit(1)` bypass in update and batch commands |
+| — | Priority sort: Python-side scoring with post-sort limit | No SQL `ORDER BY` for priority; fetch all matching rows, score in Python using frontmatter fields, sort, then apply limit; same pattern as `work_queue()` |
 
 ---
 
@@ -1358,16 +1361,16 @@ Decisions made during the design process (CONV-0017):
 |----|---------|----------|--------|-------|
 | BL-0019 | Content Model (F1) | high | **done** | Types, spaces, IDs, lifecycle, ContentModel hierarchy, validation, registry |
 | BL-0020 | Graph Architecture (F2) | high | **done** | 6 algorithms (related, themes, rank, path, gaps, bridges), CLI subcommands, node attribute loading |
-| BL-0021 | Create Pipeline (F3) | high | **done** | 5-stage pipeline (notes, references, tasks), tag/link indexing, batch (service only). Alias resolution now complete (Phase 3). Deferred: event bus dispatch, batch CLI |
-| BL-0022 | Reweave (F4) | high | **done** | 4-signal scoring (BM25, Jaccard, graph proximity, topic), prune, undo with audit trail. Deferred: interactive confirmation, --dry-run CLI flag |
-| BL-0023 | Update & Close (F5) | high | **done** | 5-stage update pipeline, archive, supersede. Session close with enrichment (cross-session reweave, orphan sweep, integrity check). Deferred: event WAL drain, log_entry, cost, context stubs |
+| BL-0021 | Create Pipeline (F3) | high | **done** | 5-stage pipeline (notes, references, tasks), tag/link indexing, batch (service + CLI). Alias resolution complete (Phase 3). Batch CLI subcommand added (Phase 4). Deferred: event bus dispatch |
+| BL-0022 | Reweave (F4) | high | **done** | 4-signal scoring (BM25, Jaccard, graph proximity, topic), prune, undo with audit trail. CLI: `--dry-run`, `--prune`, `--undo`, `--undo-id`, `--id` all implemented (Phase 4). Deferred: interactive confirmation |
+| BL-0023 | Update & Close (F5) | high | **done** | 5-stage update pipeline, archive, supersede — all with CLI commands (Phase 4). Session close with enrichment. Deferred: event WAL drain, log_entry, cost, context stubs |
 | BL-0024 | ID System (F6) | high | **done** | Hashing, counters, validation |
-| BL-0025 | Query Surface (F7) | high | **done** | 5 methods (search, get, list, work-queue, decision-support), CLI subcommands. Deferred: graph/priority sort, advanced filters, BM25×time-decay ranking |
-| BL-0026 | Progressive Disclosure (F8) | medium | pending | Verbosity, sparse config, examples |
+| BL-0025 | Query Surface (F7) | high | **done** | 5 methods (search, get, list, work-queue, decision-support), CLI subcommands. Extended filters: `--subtype`, `--maturity`, `--since`, `--include-archived`, `--sort priority` (Phase 4). Deferred: `--space` filter, graph sort mode, BM25×time-decay ranking |
+| BL-0026 | Progressive Disclosure (F8) | medium | **done** | Rich output with 3 verbosity modes (quiet/default/verbose), `--examples` flag on all implemented commands, ZtlCommand/ZtlGroup base classes. Sparse TOML config unchanged |
 | BL-0027 | Database Layer (F9) | high | **done** | SQLite, NetworkX, Alembic, upgrade. Indexes on nodes (type, status, archived, topic), edges (source, target), node_tags (tag) |
 | BL-0028 | Export (F10) | low | pending | Markdown, indexes, graph export |
 | BL-0029 | Integrity (F11) | high | **done** | 4-category check (DB-file, schema, graph, structural), safe/aggressive fix, full rebuild, rollback. Uses VaultTransaction for atomicity |
-| BL-0030 | CLI Interface (F12) | high | pending | Layered architecture, Click, Rich |
+| BL-0030 | CLI Interface (F12) | high | **done** | Rich rendering (tables, styled text, icons), 3 verbosity modes, structured JSON errors, ZtlCommand/ZtlGroup base classes, all service operations have CLI commands. Consolidated `_helpers.py` for shared service utilities |
 | BL-0031 | Init & Self-Generation (F13) | high | pending | Init flow, Jinja2, Obsidian |
 | BL-0032 | Event System & Plugins (F14) | high | pending | Pluggy, WAL, Git plugin, Copier |
 | BL-0033 | MCP Adapter (F15) | high | pending | Tools, resources, prompts, stdio |
@@ -1421,7 +1424,7 @@ Phase 2 — Core Pipeline (complete):
     - Three creation paths: notes (with subtypes), references (with URL), tasks (with priority matrix)
     - Link extraction: frontmatter links and [[wikilinks]] → edges table
     - Tag indexing: auto-register tags, unscoped tag warnings
-    - Batch creation: all-or-nothing and partial modes (service only, CLI deferred)
+    - Batch creation: all-or-nothing and partial modes (service layer; CLI subcommand added in Phase 4)
     - ID generation: content-hash (notes/refs) returns None on unknown type; sequential (tasks)
   F7  Query Surface:
     - FTS5 search with BM25 ranking (relevance, recency)
@@ -1483,9 +1486,36 @@ Phase 3 — Enrichment (complete):
 
   557 tests, mypy strict, ruff clean.
 
-Phase 4 — Presentation (depends on Phase 2):
-  F12 CLI Interface        ← depends on all services
-  F8  Progressive Disclosure ← cross-cutting, applied to F12
+Phase 4 — Presentation (complete):
+  F12 CLI Interface:
+    - Rich output layer: styled text, tables, icons via Rich Console
+    - 3 verbosity modes: quiet (one-line), default (Rich formatted), verbose (debug details)
+    - JSON mode: structured ServiceResult serialization unchanged
+    - Score column auto-detection for priority-sorted and search results
+  F8  Progressive Disclosure:
+    - `--examples` flag on all implemented commands (eager callback, skips argument validation)
+    - ZtlCommand/ZtlGroup base classes with `examples=` kwarg and `command_class` inheritance
+    - All stub commands updated to use ZtlCommand/ZtlGroup for consistency
+  CLI Commands:
+    - `update` — standalone command with --title, --status, --tags, --topic, --body, --maturity
+    - `supersede` — standalone command with OLD_ID, NEW_ID positional args
+    - `create batch` — subcommand reading JSON files with --partial flag
+    - `reweave --undo-id` — undo specific reweave log entry by ID
+  Query Extensions:
+    - `list` extended with --subtype, --maturity, --since, --include-archived filters
+    - `list --sort priority` — weighted scoring with Python-side sort and post-sort limit
+    - `maturity` field now included in list result dicts
+  Refactoring:
+    - Shared `services/_helpers.py`: today_iso(), now_iso(), now_compact(), parse_tag_parts()
+    - Eliminated _today() duplication (5 files) and _now_iso() format inconsistency (3 files)
+    - AppContext imports aligned to TYPE_CHECKING guard across all command files
+    - Error handling in update/batch routed through app.emit(ServiceResult) for --json support
+  Architecture:
+    - All commands use ZtlCommand/ZtlGroup base classes (no plain click.command/group)
+    - 7 groups + 8 standalone commands registered
+    - Command stubs receive AppContext, deferred service imports in function bodies
+
+  715 tests, mypy strict, ruff clean.
 
 Phase 5 — Lifecycle (depends on Phase 3):
   F13 Init & Self-Gen      ← depends on F9, F12
