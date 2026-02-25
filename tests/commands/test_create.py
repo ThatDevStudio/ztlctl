@@ -1,0 +1,126 @@
+"""Tests for create CLI commands (note, reference, task)."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from click.testing import CliRunner
+
+from ztlctl.cli import cli
+
+
+@pytest.fixture
+def _isolated_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Change CWD to a tmp_path so the CLI creates an isolated vault."""
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "ops" / "logs").mkdir(parents=True)
+    (tmp_path / "ops" / "tasks").mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+
+
+@pytest.mark.usefixtures("_isolated_vault")
+class TestCreateNoteCommand:
+    def test_create_note(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["create", "note", "CLI Note"])
+        assert result.exit_code == 0
+        assert "OK" in result.output
+
+    def test_create_note_json(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["--json", "create", "note", "JSON Note"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["data"]["title"] == "JSON Note"
+
+    def test_create_note_with_subtype(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(
+            cli, ["--json", "create", "note", "Decision", "--subtype", "decision"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+
+    def test_create_note_with_tags(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["--json", "create", "note", "Tagged", "--tags", "ai/ml"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+
+    def test_create_note_with_topic(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(
+            cli, ["--json", "create", "note", "Topic Note", "--topic", "math"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "math" in data["data"]["path"]
+
+    def test_create_note_help(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["create", "note", "--help"])
+        assert result.exit_code == 0
+        assert "--subtype" in result.output
+        assert "--tags" in result.output
+
+
+@pytest.mark.usefixtures("_isolated_vault")
+class TestCreateReferenceCommand:
+    def test_create_reference(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["--json", "create", "reference", "Cool Article"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["data"]["id"].startswith("ref_")
+
+    def test_create_reference_with_url(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "create", "reference", "Python Docs", "--url", "https://python.org"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+
+    def test_create_reference_help(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["create", "reference", "--help"])
+        assert result.exit_code == 0
+        assert "--url" in result.output
+        assert "--subtype" in result.output
+
+
+@pytest.mark.usefixtures("_isolated_vault")
+class TestCreateTaskCommand:
+    def test_create_task(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["--json", "create", "task", "Fix bug"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["data"]["id"].startswith("TASK-")
+
+    def test_create_task_with_priority(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(
+            cli, ["--json", "create", "task", "Urgent", "--priority", "high"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+
+    def test_create_task_invalid_priority(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["create", "task", "Bad", "--priority", "invalid"])
+        assert result.exit_code != 0
+
+    def test_create_task_help(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["create", "task", "--help"])
+        assert result.exit_code == 0
+        assert "--priority" in result.output
+        assert "--impact" in result.output
+        assert "--effort" in result.output
+
+
+class TestCreateGroupHelp:
+    def test_create_group_help(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["create", "--help"])
+        assert result.exit_code == 0
+        assert "note" in result.output
+        assert "reference" in result.output
+        assert "task" in result.output
