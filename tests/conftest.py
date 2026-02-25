@@ -6,7 +6,9 @@ import pytest
 from click.testing import CliRunner
 from sqlalchemy.engine import Engine
 
+from ztlctl.config.settings import ZtlSettings
 from ztlctl.infrastructure.database.engine import init_database
+from ztlctl.infrastructure.vault import Vault
 
 
 @pytest.fixture
@@ -28,3 +30,17 @@ def vault_root(tmp_path: Path) -> Path:
     (tmp_path / "ops" / "logs").mkdir(parents=True)
     (tmp_path / "ops" / "tasks").mkdir(parents=True)
     return tmp_path
+
+
+@pytest.fixture
+def vault(tmp_path: Path) -> Vault:
+    """Fully initialized vault on a temp directory.
+
+    Creates the vault directory structure, initializes the database,
+    and returns a ready-to-use Vault instance.
+    """
+    (tmp_path / "notes").mkdir(exist_ok=True)
+    (tmp_path / "ops" / "logs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "ops" / "tasks").mkdir(parents=True, exist_ok=True)
+    settings = ZtlSettings.from_cli(vault_root=tmp_path)
+    return Vault(settings)

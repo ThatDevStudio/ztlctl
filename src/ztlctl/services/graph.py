@@ -6,10 +6,11 @@ Six algorithms via NetworkX computed on demand.
 
 from __future__ import annotations
 
+from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceResult
 
 
-class GraphService:
+class GraphService(BaseService):
     """Handles graph queries and analysis."""
 
     def related(

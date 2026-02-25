@@ -6,10 +6,11 @@ Pipeline: VALIDATE → GENERATE → PERSIST → INDEX → RESPOND
 
 from __future__ import annotations
 
+from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceResult
 
 
-class CreateService:
+class CreateService(BaseService):
     """Handles content creation for all types."""
 
     def create_note(

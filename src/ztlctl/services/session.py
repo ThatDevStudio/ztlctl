@@ -6,10 +6,11 @@ item links to its creation session. (DESIGN.md Section 2, 8)
 
 from __future__ import annotations
 
+from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceResult
 
 
-class SessionService:
+class SessionService(BaseService):
     """Handles session lifecycle and agent context."""
 
     def start(self, topic: str) -> ServiceResult:
