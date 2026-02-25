@@ -1,6 +1,8 @@
-"""Command group: content creation (note, reference, task)."""
+"""Command group: content creation (note, reference, task, batch)."""
 
 from __future__ import annotations
+
+import json
 
 import click
 
@@ -116,3 +118,28 @@ def task(
         session=session,
     )
     app.emit(result)
+
+
+@create.command()
+@click.argument("file", type=click.Path(exists=True))
+@click.option("--partial", is_flag=True, help="Continue on errors (partial mode).")
+@click.pass_obj
+def batch(app: AppContext, file: str, partial: bool) -> None:
+    """Create multiple items from a JSON file.
+
+    FILE must contain a JSON array of objects, each with at least
+    "type" and "title" keys.
+    """
+    try:
+        with open(file, encoding="utf-8") as f:
+            items = json.load(f)
+    except (json.JSONDecodeError, OSError) as exc:
+        click.echo(f"Error reading {file}: {exc}", err=True)
+        raise SystemExit(1) from exc
+
+    if not isinstance(items, list):
+        click.echo("JSON file must contain a top-level array.", err=True)
+        raise SystemExit(1)
+
+    svc = CreateService(app.vault)
+    app.emit(svc.create_batch(items, partial=partial))
