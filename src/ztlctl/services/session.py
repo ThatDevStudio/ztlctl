@@ -7,11 +7,12 @@ item links to its creation session. (DESIGN.md Section 2, 8)
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from sqlalchemy import insert, select, text
 
 from ztlctl.infrastructure.database.counters import next_sequential_id
-from ztlctl.infrastructure.database.schema import edges, nodes
+from ztlctl.infrastructure.database.schema import edges, nodes, session_logs
 from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
@@ -245,15 +246,82 @@ class SessionService(BaseService):
         *,
         pin: bool = False,
         cost: int = 0,
+        detail: str | None = None,
+        entry_type: str = "log_entry",
+        subtype: str | None = None,
+        references: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ServiceResult:
-        """Append a log entry to the active session."""
+        """Append a log entry to the active session.
+
+        Writes to both the JSONL file (for portability) and the
+        session_logs DB table (for querying and budget tracking).
+        """
+        op = "log_entry"
+        timestamp = now_iso()
+
+        with self._vault.transaction() as txn:
+            # Find active session
+            active = txn.conn.execute(
+                select(nodes)
+                .where(nodes.c.type == "log", nodes.c.status == "open")
+                .order_by(nodes.c.created.desc())
+                .limit(1)
+            ).first()
+
+            if active is None:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NO_ACTIVE_SESSION",
+                        message="No active session for log entry",
+                    ),
+                )
+
+            session_id = str(active.id)
+
+            # Append to JSONL
+            file_path = self._vault.root / active.path
+            jsonl_entry = json.dumps(
+                {
+                    "type": "log_entry",
+                    "session_id": session_id,
+                    "message": message,
+                    "pinned": pin,
+                    "cost": cost,
+                    "timestamp": timestamp,
+                },
+                separators=(",", ":"),
+            )
+            existing = txn.read_file(file_path)
+            txn.write_file(file_path, existing + jsonl_entry + "\n")
+
+            # Insert into session_logs DB table
+            result = txn.conn.execute(
+                insert(session_logs).values(
+                    session_id=session_id,
+                    timestamp=timestamp,
+                    type=entry_type,
+                    subtype=subtype,
+                    summary=message,
+                    detail=detail,
+                    cost=cost,
+                    pinned=1 if pin else 0,
+                    references=json.dumps(references) if references else None,
+                    metadata=json.dumps(metadata) if metadata else None,
+                )
+            )
+            entry_id = result.lastrowid
+
         return ServiceResult(
-            ok=False,
-            op="log_entry",
-            error=ServiceError(
-                code="NOT_IMPLEMENTED",
-                message="log_entry is not yet implemented",
-            ),
+            ok=True,
+            op=op,
+            data={
+                "entry_id": entry_id,
+                "session_id": session_id,
+                "timestamp": timestamp,
+            },
         )
 
     def cost(self, *, report: int | None = None) -> ServiceResult:

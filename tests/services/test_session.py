@@ -1,4 +1,4 @@
-"""Tests for SessionService — start, close, reopen."""
+"""Tests for SessionService — start, close, reopen, log_entry, cost, context."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from tests.conftest import create_note, start_session
-from ztlctl.infrastructure.database.schema import nodes
+from ztlctl.infrastructure.database.schema import nodes, session_logs
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.session import SessionService
 
@@ -223,3 +223,120 @@ class TestSessionReopen:
         result = SessionService(vault).close()
         assert result.ok
         assert result.data["session_id"] == data["id"]
+
+
+# ---------------------------------------------------------------------------
+# log_entry()
+# ---------------------------------------------------------------------------
+
+
+class TestLogEntry:
+    def test_log_entry_basic(self, vault: Vault) -> None:
+        start_session(vault, "Log Test")
+        result = SessionService(vault).log_entry("Found something interesting")
+        assert result.ok
+        assert result.op == "log_entry"
+        assert "entry_id" in result.data
+
+    def test_log_entry_appends_to_jsonl(self, vault: Vault) -> None:
+        data = start_session(vault, "JSONL Log Test")
+        SessionService(vault).log_entry("Entry one")
+        SessionService(vault).log_entry("Entry two")
+
+        path = vault.root / data["path"]
+        lines = path.read_text(encoding="utf-8").strip().split("\n")
+        assert len(lines) == 3  # start + 2 entries
+        entry = json.loads(lines[1])
+        assert entry["type"] == "log_entry"
+        assert entry["message"] == "Entry one"
+
+    def test_log_entry_inserts_db_row(self, vault: Vault) -> None:
+        start_session(vault, "DB Log Test")
+        SessionService(vault).log_entry("DB entry", cost=1500)
+
+        with vault.engine.connect() as conn:
+            rows = conn.execute(select(session_logs)).fetchall()
+            assert len(rows) == 1
+            assert rows[0].summary == "DB entry"
+            assert rows[0].cost == 1500
+
+    def test_log_entry_with_pin(self, vault: Vault) -> None:
+        start_session(vault, "Pin Test")
+        result = SessionService(vault).log_entry("Important!", pin=True)
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(session_logs)).first()
+            assert row is not None
+            assert row.pinned == 1
+
+    def test_log_entry_with_detail(self, vault: Vault) -> None:
+        start_session(vault, "Detail Test")
+        result = SessionService(vault).log_entry(
+            "Summary line",
+            detail="Full detailed context here",
+        )
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(session_logs)).first()
+            assert row is not None
+            assert row.detail == "Full detailed context here"
+
+    def test_log_entry_with_references(self, vault: Vault) -> None:
+        start_session(vault, "Ref Test")
+        note = create_note(vault, "Referenced Note")
+        result = SessionService(vault).log_entry(
+            "Found relevant note",
+            references=[note["id"]],
+        )
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(session_logs)).first()
+            assert row is not None
+            refs = json.loads(row.references)
+            assert note["id"] in refs
+
+    def test_log_entry_with_entry_type(self, vault: Vault) -> None:
+        start_session(vault, "Type Test")
+        result = SessionService(vault).log_entry(
+            "Made a decision",
+            entry_type="decision_made",
+        )
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(session_logs)).first()
+            assert row is not None
+            assert row.type == "decision_made"
+
+    def test_log_entry_checkpoint_subtype(self, vault: Vault) -> None:
+        start_session(vault, "Checkpoint Test")
+        result = SessionService(vault).log_entry(
+            "Checkpoint snapshot",
+            entry_type="checkpoint",
+            subtype="checkpoint",
+            detail="Full accumulated context...",
+        )
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(session_logs)).first()
+            assert row is not None
+            assert row.subtype == "checkpoint"
+
+    def test_log_entry_no_active_session(self, vault: Vault) -> None:
+        result = SessionService(vault).log_entry("Orphan entry")
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "NO_ACTIVE_SESSION"
+
+    def test_log_entry_preserves_session_id(self, vault: Vault) -> None:
+        data = start_session(vault, "ID Test")
+        SessionService(vault).log_entry("Test entry")
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(session_logs)).first()
+            assert row is not None
+            assert row.session_id == data["id"]
