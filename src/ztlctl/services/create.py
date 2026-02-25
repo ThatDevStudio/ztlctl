@@ -7,9 +7,12 @@ Pipeline: VALIDATE → GENERATE → PERSIST → INDEX → RESPOND
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import insert, select, text
+
+if TYPE_CHECKING:
+    from sqlalchemy import Connection
 
 from ztlctl.domain.content import get_content_model
 from ztlctl.domain.ids import TYPE_PREFIXES, generate_content_hash
@@ -195,6 +198,15 @@ class CreateService(BaseService):
         with self._vault.transaction() as txn:
             # GENERATE
             content_id = self._generate_id(txn.conn, content_type, title)
+            if content_id is None:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="UNKNOWN_TYPE",
+                        message=f"No ID prefix for content type: {content_type!r}",
+                    ),
+                )
 
             # Check for ID collision
             existing = txn.conn.execute(select(nodes.c.id).where(nodes.c.id == content_id)).first()
@@ -297,19 +309,21 @@ class CreateService(BaseService):
         }.get(content_type, "draft")
 
     @staticmethod
-    def _generate_id(conn: Any, content_type: str, title: str) -> str:
-        """Generate the appropriate ID for the content type."""
+    def _generate_id(conn: Connection, content_type: str, title: str) -> str | None:
+        """Generate the appropriate ID for the content type.
+
+        Returns None if the content type has no registered ID prefix.
+        """
         prefix = TYPE_PREFIXES.get(content_type)
         if prefix is None:
-            msg = f"No ID prefix for content type: {content_type!r}"
-            raise ValueError(msg)
+            return None
 
         if content_type in ("log", "task"):
             return next_sequential_id(conn, prefix)
         return generate_content_hash(title, prefix)
 
     @staticmethod
-    def _index_tags(conn: Any, content_id: str, tags: list[str], today: str) -> None:
+    def _index_tags(conn: Connection, content_id: str, tags: list[str], today: str) -> None:
         """Register tags and link them to the content node."""
         for tag in tags:
             parts = tag.split("/", 1)
@@ -329,7 +343,7 @@ class CreateService(BaseService):
 
     @staticmethod
     def _index_links(
-        conn: Any,
+        conn: Connection,
         source_id: str,
         fm_links: dict[str, list[str]],
         body: str,
@@ -377,7 +391,7 @@ class CreateService(BaseService):
                     )
 
 
-def _resolve_wikilink(conn: Any, raw: str) -> str | None:
+def _resolve_wikilink(conn: Connection, raw: str) -> str | None:
     """Resolve a wikilink target to a node ID.
 
     Resolution order (DESIGN.md Section 3):

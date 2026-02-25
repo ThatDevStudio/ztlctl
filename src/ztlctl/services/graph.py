@@ -7,6 +7,7 @@ Uses ``self._vault.graph.graph`` to access the graph (triggers lazy build).
 
 from __future__ import annotations
 
+import math
 from collections import deque
 from typing import Any
 
@@ -18,6 +19,15 @@ from ztlctl.services.result import ServiceError, ServiceResult
 
 class GraphService(BaseService):
     """Handles graph queries and analysis."""
+
+    # ------------------------------------------------------------------
+    # Shared helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _empty_graph_result(op: str, *, key: str = "items") -> ServiceResult:
+        """Return an ok result for an empty graph."""
+        return ServiceResult(ok=True, op=op, data={"count": 0, key: []})
 
     # ------------------------------------------------------------------
     # related — spreading activation (BFS with decay)
@@ -56,8 +66,10 @@ class GraphService(BaseService):
         depth = max(1, min(depth, 5))
         decay = 0.5
 
-        # BFS with activation scores on undirected view
+        # BFS with activation scores on undirected view.
+        # Track both score and depth per node during traversal.
         scores: dict[str, float] = {}
+        depths: dict[str, int] = {}
         visited: set[str] = {content_id}
         queue: deque[tuple[str, int, float]] = deque()
 
@@ -69,7 +81,9 @@ class GraphService(BaseService):
 
         while queue:
             node, d, activation = queue.popleft()
-            scores[node] = max(scores.get(node, 0.0), activation)
+            if activation > scores.get(node, 0.0):
+                scores[node] = activation
+                depths[node] = d
             if d < depth:
                 for neighbor in nx.all_neighbors(g, node):
                     if neighbor not in visited:
@@ -88,7 +102,7 @@ class GraphService(BaseService):
                     "title": attrs.get("title", ""),
                     "type": attrs.get("type", ""),
                     "score": round(score, 4),
-                    "depth": self._node_depth(g, content_id, node_id, depth),
+                    "depth": depths[node_id],
                 }
             )
 
@@ -101,14 +115,6 @@ class GraphService(BaseService):
                 "items": items,
             },
         )
-
-    @staticmethod
-    def _node_depth(g: nx.DiGraph[str], source: str, target: str, max_depth: int) -> int:
-        """Compute BFS distance from source to target on undirected view."""
-        try:
-            return int(nx.shortest_path_length(g.to_undirected(as_view=True), source, target))
-        except nx.NetworkXNoPath:
-            return max_depth
 
     # ------------------------------------------------------------------
     # themes — community detection (Leiden → Louvain fallback)
@@ -123,11 +129,7 @@ class GraphService(BaseService):
         g = self._vault.graph.graph
 
         if g.number_of_nodes() == 0:
-            return ServiceResult(
-                ok=True,
-                op="themes",
-                data={"count": 0, "communities": []},
-            )
+            return self._empty_graph_result("themes", key="communities")
 
         # Work on undirected view for community detection
         ug = g.to_undirected(as_view=True)
@@ -211,11 +213,7 @@ class GraphService(BaseService):
         g = self._vault.graph.graph
 
         if g.number_of_nodes() == 0:
-            return ServiceResult(
-                ok=True,
-                op="rank",
-                data={"count": 0, "items": []},
-            )
+            return self._empty_graph_result("rank")
 
         scores = nx.pagerank(g)
 
@@ -318,20 +316,14 @@ class GraphService(BaseService):
         g = self._vault.graph.graph
 
         if g.number_of_nodes() == 0:
-            return ServiceResult(
-                ok=True,
-                op="gaps",
-                data={"count": 0, "items": []},
-            )
+            return self._empty_graph_result("gaps")
 
         ug = g.to_undirected(as_view=True)
         constraints = nx.constraint(ug)
 
-        # Filter to nodes with valid (non-NaN) constraint values
+        # Filter out NaN/Inf (isolated or degree-1 nodes)
         valid: list[tuple[str, float]] = [
-            (n, c)
-            for n, c in constraints.items()
-            if c == c  # NaN != NaN
+            (n, c) for n, c in constraints.items() if math.isfinite(c)
         ]
 
         # Sort by constraint descending (highest = most constrained = structural hole)
@@ -372,11 +364,7 @@ class GraphService(BaseService):
         g = self._vault.graph.graph
 
         if g.number_of_nodes() == 0:
-            return ServiceResult(
-                ok=True,
-                op="bridges",
-                data={"count": 0, "items": []},
-            )
+            return self._empty_graph_result("bridges")
 
         bc = nx.betweenness_centrality(g)
 

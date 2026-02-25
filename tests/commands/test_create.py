@@ -3,21 +3,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
 from ztlctl.cli import cli
-
-
-@pytest.fixture
-def _isolated_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Change CWD to a tmp_path so the CLI creates an isolated vault."""
-    (tmp_path / "notes").mkdir()
-    (tmp_path / "ops" / "logs").mkdir(parents=True)
-    (tmp_path / "ops" / "tasks").mkdir(parents=True)
-    monkeypatch.chdir(tmp_path)
 
 
 @pytest.mark.usefixtures("_isolated_vault")

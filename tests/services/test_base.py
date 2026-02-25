@@ -16,11 +16,11 @@ from ztlctl.services.session import SessionService
 
 
 class TestBaseService:
-    def test_vault_property(self, tmp_path: Path) -> None:
+    def test_vault_stored(self, tmp_path: Path) -> None:
         settings = ZtlSettings.from_cli(vault_root=tmp_path)
         vault = Vault(settings)
         service = BaseService(vault)
-        assert service.vault is vault
+        assert service._vault is vault
 
     def test_subclass_pattern(self, tmp_path: Path) -> None:
         """Verify the intended subclass usage pattern works."""
@@ -56,9 +56,9 @@ class TestServiceInheritance:
 
     @pytest.mark.parametrize("service_cls", ALL_SERVICES, ids=lambda c: c.__name__)
     def test_vault_injection(self, service_cls: type, vault: Vault) -> None:
-        """Each service accepts a Vault and exposes it via .vault property."""
+        """Each service accepts a Vault and stores it as _vault."""
         svc = service_cls(vault)
-        assert svc.vault is vault
+        assert svc._vault is vault
 
     @pytest.mark.parametrize("service_cls", ALL_SERVICES, ids=lambda c: c.__name__)
     def test_protected_vault_access(self, service_cls: type, vault: Vault) -> None:

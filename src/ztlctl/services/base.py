@@ -29,8 +29,3 @@ class BaseService:
 
     def __init__(self, vault: Vault) -> None:
         self._vault = vault
-
-    @property
-    def vault(self) -> Vault:
-        """The vault this service operates on."""
-        return self._vault

@@ -6,6 +6,7 @@ import click
 
 from ztlctl import __version__
 from ztlctl.commands import register_commands
+from ztlctl.commands._context import AppContext
 from ztlctl.config.settings import ZtlSettings
 
 
@@ -31,7 +32,7 @@ def cli(
 ) -> None:
     """ztlctl — Zettelkasten Control CLI utility."""
     ctx.ensure_object(dict)
-    ctx.obj = ZtlSettings.from_cli(
+    settings = ZtlSettings.from_cli(
         config_path=config_path,
         json_output=json_output,
         quiet=quiet,
@@ -40,6 +41,7 @@ def cli(
         no_reweave=no_reweave,
         sync=sync,
     )
+    ctx.obj = AppContext(settings)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
