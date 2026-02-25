@@ -1,14 +1,1 @@
----
-id: {{ id }}
-type: task
-status: inbox
-title: "{{ title }}"
-priority: {{ priority | default('medium') }}
-impact: {{ impact | default('medium') }}
-effort: {{ effort | default('medium') }}
-session: {{ session }}
-tags: [{{ tags | join(', ') }}]
-created: {{ created }}
----
-
 {{ body | default('') }}

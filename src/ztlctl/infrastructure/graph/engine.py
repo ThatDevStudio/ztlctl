@@ -39,5 +39,18 @@ class GraphEngine:
 
     def _build_from_db(self) -> _Graph:
         """Build a NetworkX DiGraph from the edges table."""
-        # Implementation deferred to graph architecture feature
-        return nx.DiGraph()
+        from sqlalchemy import select
+
+        from ztlctl.infrastructure.database.schema import edges
+
+        g: _Graph = nx.DiGraph()
+        with self._db.connect() as conn:
+            for row in conn.execute(select(edges)):
+                g.add_edge(
+                    row.source_id,
+                    row.target_id,
+                    edge_type=row.edge_type,
+                    weight=row.weight,
+                    source_layer=row.source_layer,
+                )
+        return g
