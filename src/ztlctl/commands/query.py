@@ -59,9 +59,18 @@ def get(app: AppContext, content_id: str) -> None:
 @click.option("--status", default=None, help="Filter by status.")
 @click.option("--tag", default=None, help="Filter by tag.")
 @click.option("--topic", default=None, help="Filter by topic.")
+@click.option("--subtype", default=None, help="Filter by subtype (e.g. decision).")
+@click.option(
+    "--maturity",
+    type=click.Choice(["seed", "budding", "evergreen"]),
+    default=None,
+    help="Filter by garden maturity.",
+)
+@click.option("--since", default=None, help="Modified on or after ISO date (YYYY-MM-DD).")
+@click.option("--include-archived", is_flag=True, default=False, help="Include archived items.")
 @click.option(
     "--sort",
-    type=click.Choice(["recency", "title", "type"]),
+    type=click.Choice(["recency", "title", "type", "priority"]),
     default="recency",
     help="Sort mode.",
 )
@@ -73,6 +82,10 @@ def list_cmd(
     status: str | None,
     tag: str | None,
     topic: str | None,
+    subtype: str | None,
+    maturity: str | None,
+    since: str | None,
+    include_archived: bool,
     sort: str,
     limit: int,
 ) -> None:
@@ -83,6 +96,10 @@ def list_cmd(
         status=status,
         tag=tag,
         topic=topic,
+        subtype=subtype,
+        maturity=maturity,
+        since=since,
+        include_archived=include_archived,
         sort=sort,
         limit=limit,
     )

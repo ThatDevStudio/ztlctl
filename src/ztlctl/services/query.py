@@ -189,6 +189,10 @@ class QueryService(BaseService):
         status: str | None = None,
         tag: str | None = None,
         topic: str | None = None,
+        subtype: str | None = None,
+        maturity: str | None = None,
+        since: str | None = None,
+        include_archived: bool = False,
         sort: str = "recency",
         limit: int = 20,
     ) -> ServiceResult:
@@ -199,7 +203,11 @@ class QueryService(BaseService):
             status: Filter by status.
             tag: Filter by tag.
             topic: Filter by topic.
-            sort: Sort mode — "recency", "title", or "type".
+            subtype: Filter by subtype (e.g. decision).
+            maturity: Filter by garden maturity (seed/budding/evergreen).
+            since: Include items modified on or after this ISO date.
+            include_archived: If True, include archived items.
+            sort: Sort mode — "recency", "title", "type", or "priority".
             limit: Maximum results.
         """
         stmt = select(
@@ -207,12 +215,16 @@ class QueryService(BaseService):
             nodes.c.title,
             nodes.c.type,
             nodes.c.subtype,
+            nodes.c.maturity,
             nodes.c.status,
             nodes.c.path,
             nodes.c.topic,
             nodes.c.created,
             nodes.c.modified,
-        ).where(nodes.c.archived == 0)
+        )
+
+        if not include_archived:
+            stmt = stmt.where(nodes.c.archived == 0)
 
         if content_type:
             stmt = stmt.where(nodes.c.type == content_type)
@@ -224,16 +236,25 @@ class QueryService(BaseService):
             stmt = stmt.where(
                 nodes.c.id.in_(select(node_tags.c.node_id).where(node_tags.c.tag == tag))
             )
+        if subtype:
+            stmt = stmt.where(nodes.c.subtype == subtype)
+        if maturity:
+            stmt = stmt.where(nodes.c.maturity == maturity)
+        if since:
+            stmt = stmt.where(nodes.c.modified >= since)
 
-        # Sort
-        if sort == "title":
+        # Sort — priority sort fetches all rows for in-Python scoring
+        if sort == "priority":
+            pass
+        elif sort == "title":
             stmt = stmt.order_by(nodes.c.title)
         elif sort == "type":
             stmt = stmt.order_by(nodes.c.type, nodes.c.modified.desc())
         else:  # recency (default)
             stmt = stmt.order_by(nodes.c.modified.desc())
 
-        stmt = stmt.limit(limit)
+        if sort != "priority":
+            stmt = stmt.limit(limit)
 
         with self._vault.engine.connect() as conn:
             rows = conn.execute(stmt).fetchall()
@@ -244,6 +265,7 @@ class QueryService(BaseService):
                 "title": r.title,
                 "type": r.type,
                 "subtype": r.subtype,
+                "maturity": r.maturity,
                 "status": r.status,
                 "path": r.path,
                 "topic": r.topic,
@@ -253,10 +275,50 @@ class QueryService(BaseService):
             for r in rows
         ]
 
+        if sort == "priority":
+            return self._apply_priority_sort(items, limit=limit)
+
         return ServiceResult(
             ok=True,
             op="list_items",
             data={"count": len(items), "items": items},
+        )
+
+    def _apply_priority_sort(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        limit: int,
+    ) -> ServiceResult:
+        """Score items by priority and return sorted, limited results."""
+        warnings: list[str] = []
+        for item in items:
+            if item["type"] == "task":
+                file_path = self._vault.root / item["path"]
+                priority, impact, effort = "medium", "medium", "medium"
+                if file_path.exists():
+                    content = file_path.read_text(encoding="utf-8")
+                    fm, _ = parse_frontmatter(content)
+                    priority = str(fm.get("priority", "medium"))
+                    impact = str(fm.get("impact", "medium"))
+                    effort = str(fm.get("effort", "medium"))
+                else:
+                    warnings.append(f"File missing for {item['id']}: {item['path']}")
+                p = _PRIORITY_SCORES.get(priority, 2.0)
+                i = _IMPACT_SCORES.get(impact, 2.0)
+                e = _EFFORT_SCORES.get(effort, 2.0)
+                item["score"] = round(p * 2 + i * 1.5 + (4 - e), 2)
+            else:
+                item["score"] = 0.0
+
+        items.sort(key=lambda x: x["score"], reverse=True)
+        items = items[:limit]
+
+        return ServiceResult(
+            ok=True,
+            op="list_items",
+            data={"count": len(items), "items": items},
+            warnings=warnings,
         )
 
     # ------------------------------------------------------------------
