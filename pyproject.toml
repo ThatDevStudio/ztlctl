@@ -83,16 +83,10 @@ branch = true
 omit = [
     "src/ztlctl/__main__.py",
     "src/ztlctl/mcp/*",
-    "src/ztlctl/services/create.py",
-    "src/ztlctl/services/query.py",
-    "src/ztlctl/services/graph.py",
     "src/ztlctl/services/session.py",
     "src/ztlctl/services/reweave.py",
     "src/ztlctl/services/check.py",
-    "src/ztlctl/infrastructure/*",
     "src/ztlctl/plugins/*",
-    "src/ztlctl/output/formatters.py",
-    "src/ztlctl/domain/content.py",
 ]
 
 [tool.coverage.report]
