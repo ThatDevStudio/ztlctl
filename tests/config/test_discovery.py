@@ -1,9 +1,8 @@
-"""Tests for config discovery and loading."""
+"""Tests for config discovery."""
 
 from pathlib import Path
 
-from ztlctl.config.discovery import CONFIG_FILENAME, find_config, load_config
-from ztlctl.config.models import ZtlConfig
+from ztlctl.config.discovery import CONFIG_FILENAME, find_config
 
 
 class TestFindConfig:
@@ -39,26 +38,3 @@ class TestFindConfig:
             assert result == config_file
         finally:
             mp.undo()
-
-
-class TestLoadConfig:
-    def test_loads_from_file(self, tmp_path: Path) -> None:
-        config_file = tmp_path / CONFIG_FILENAME
-        config_file.write_text(
-            '[vault]\nname = "loaded"\nclient = "vanilla"\n[reweave]\nmin_score_threshold = 0.4\n'
-        )
-        cfg = load_config(config_file)
-        assert cfg.vault.name == "loaded"
-        assert cfg.vault.client == "vanilla"
-        assert cfg.reweave.min_score_threshold == 0.4
-        assert cfg.agent.tone == "research-partner"  # default
-
-    def test_returns_defaults_when_no_file(self, tmp_path: Path) -> None:
-        cfg = load_config(cwd=tmp_path)
-        assert cfg == ZtlConfig()
-
-    def test_empty_file_returns_defaults(self, tmp_path: Path) -> None:
-        config_file = tmp_path / CONFIG_FILENAME
-        config_file.write_text("")
-        cfg = load_config(config_file)
-        assert cfg == ZtlConfig()

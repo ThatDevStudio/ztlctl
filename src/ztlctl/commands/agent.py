@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.models import AppContext
+    from ztlctl.config.settings import ZtlSettings
 
 
 @click.group()
 @click.pass_obj
-def agent(ctx: AppContext) -> None:
+def agent(ctx: ZtlSettings) -> None:
     """Manage sessions, context, and agent workflows."""

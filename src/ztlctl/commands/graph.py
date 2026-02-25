@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.models import AppContext
+    from ztlctl.config.settings import ZtlSettings
 
 
 @click.group()
 @click.pass_obj
-def graph(ctx: AppContext) -> None:
+def graph(ctx: ZtlSettings) -> None:
     """Traverse and analyze the knowledge graph."""

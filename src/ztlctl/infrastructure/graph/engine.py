@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
 # Node and edge types are loosely typed until the schema is finalized.
-_Graph = nx.DiGraph[str]
+type _Graph = nx.DiGraph
 
 
 class GraphEngine:

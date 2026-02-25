@@ -14,25 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ztlctl.domain.content import (
-    CANONICAL_KEY_ORDER,
-    order_frontmatter,
-    parse_frontmatter,
-    render_frontmatter,
-)
-
-# Re-export so existing callers don't break.
-__all__ = [
-    "CANONICAL_KEY_ORDER",
-    "CONTENT_PATHS",
-    "find_content_files",
-    "order_frontmatter",
-    "parse_frontmatter",
-    "read_content_file",
-    "render_frontmatter",
-    "resolve_content_path",
-    "write_content_file",
-]
+from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 
 # Map content type to vault-relative directory.
 CONTENT_PATHS: dict[str, str] = {

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.models import AppContext
+    from ztlctl.config.settings import ZtlSettings
 
 
 @click.command()
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 @click.option("--id", "content_id", default=None, help="Target a specific content ID.")
 @click.pass_obj
 def reweave(
-    ctx: AppContext,
+    ctx: ZtlSettings,
     prune: bool,
     dry_run: bool,
     undo: bool,

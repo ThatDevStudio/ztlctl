@@ -19,6 +19,7 @@ dependencies = [
     "jinja2>=3.1",
     "pluggy>=1.4",
     "rich>=13.0",
+    "pydantic-settings>=2.13.1",
 ]
 
 [project.scripts]
@@ -91,7 +92,6 @@ omit = [
     "src/ztlctl/infrastructure/*",
     "src/ztlctl/plugins/*",
     "src/ztlctl/output/formatters.py",
-    "src/ztlctl/domain/subtypes.py",
     "src/ztlctl/domain/content.py",
 ]
 

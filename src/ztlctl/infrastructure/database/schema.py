@@ -10,6 +10,7 @@ from __future__ import annotations
 from sqlalchemy import (
     REAL,
     Column,
+    ForeignKey,
     Integer,
     MetaData,
     Table,
@@ -46,8 +47,8 @@ nodes = Table(
 edges = Table(
     "edges",
     metadata,
-    Column("source_id", Text, nullable=False),
-    Column("target_id", Text, nullable=False),
+    Column("source_id", Text, ForeignKey("nodes.id"), nullable=False),
+    Column("target_id", Text, ForeignKey("nodes.id"), nullable=False),
     Column("edge_type", Text, default="relates"),
     Column("source_layer", Text),  # frontmatter | body
     Column("weight", REAL, default=1.0),
@@ -69,7 +70,7 @@ tags_registry = Table(
 node_tags = Table(
     "node_tags",
     metadata,
-    Column("node_id", Text, nullable=False),
+    Column("node_id", Text, ForeignKey("nodes.id"), nullable=False),
     Column("tag", Text, nullable=False),
     UniqueConstraint("node_id", "tag"),
 )
