@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.settings import ZtlSettings
+    from ztlctl.commands._context import AppContext
 
 
 @click.command()
@@ -17,11 +17,20 @@ if TYPE_CHECKING:
 @click.option("--id", "content_id", default=None, help="Target a specific content ID.")
 @click.pass_obj
 def reweave(
-    ctx: ZtlSettings,
+    app: AppContext,
     prune: bool,
     dry_run: bool,
     undo: bool,
     content_id: str | None,
 ) -> None:
     """Reweave links to densify the knowledge graph."""
-    click.echo("reweave: not yet implemented")
+    from ztlctl.services.reweave import ReweaveService
+
+    svc = ReweaveService(app.vault)
+
+    if undo:
+        app.emit(svc.undo())
+    elif prune:
+        app.emit(svc.prune(content_id=content_id, dry_run=dry_run))
+    else:
+        app.emit(svc.reweave(content_id=content_id, dry_run=dry_run))
