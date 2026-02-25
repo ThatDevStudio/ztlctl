@@ -57,7 +57,7 @@ Each layer is independently usable. `pip install ztlctl` provides everything thr
 ```
 src/ztlctl/
 ├── cli.py                   # Root Click group + global flags
-├── commands/                # Presentation: 7 groups + 6 standalone commands
+├── commands/                # Presentation: AppContext, 7 groups + 6 standalone commands
 ├── config/                  # Configuration: Pydantic models + TOML discovery
 ├── domain/                  # Domain: types, lifecycle, IDs, content models, frontmatter
 ├── infrastructure/          # Infrastructure: database/, graph/, filesystem
@@ -228,6 +228,8 @@ Both layers merge into a unified edge table (→ Section 9 for schema). Backlink
 
 Title match → alias match → ID match. Ambiguous matches warn; no silent wrong resolution.
 
+> **Implementation note (Phase 2):** Currently implements title match → ID match. Alias match is deferred to Phase 3 (Update & Close) when the alias indexing pipeline is built.
+
 ### Edge Schema
 
 ```python
@@ -249,8 +251,8 @@ Six algorithms via NetworkX, computed on demand:
 
 | Algorithm | Purpose | Command |
 |-----------|---------|---------|
-| Spreading activation | Find related content | `ztlctl graph related` |
-| Leiden community detection | Discover topic clusters | `ztlctl graph themes` |
+| Spreading activation | Find related content (BFS with 0.5 decay) | `ztlctl graph related` |
+| Community detection (Leiden → Louvain fallback) | Discover topic clusters | `ztlctl graph themes` |
 | PageRank | Identify important nodes | `ztlctl graph rank` |
 | Shortest path | Find connection chains | `ztlctl graph path` |
 | Structural holes | Find gaps in the graph | `ztlctl graph gaps` |
@@ -292,9 +294,11 @@ VALIDATE → GENERATE → PERSIST → INDEX → RESPOND
 2. **Generate** — compute ID (content-hash or sequential), build frontmatter, render template
 3. **Persist** — write markdown file to disk
 4. **Index** — import into SQLite (nodes, edges, tags, FTS5)
-5. **Respond** — return `ServiceResult` with path, ID, warnings, reweave suggestions
+5. **Respond** — return `ServiceResult` with path, ID, warnings
 
 Single write path. No fallback mechanism. If the pipeline fails, it fails with a clear error. Post-create, the event bus (→ Section 15) dispatches `post_create` asynchronously. Reweave (→ Section 5) runs unless `--no-reweave` is passed.
+
+> **Implementation note (Phase 2):** The five-stage pipeline is complete for notes, references, and tasks. The RESPOND stage currently returns `{id, path, title, type}` plus warnings. Reweave suggestions in RESPOND, event bus dispatch, and post-create reweave invocation are deferred to Phase 3 when ReweaveService and the plugin event bus are implemented.
 
 ### Command Surface
 
@@ -319,6 +323,8 @@ ztlctl extract decision LOG-0042            # JSONL → markdown
 ztlctl create --batch notes.json           # all-or-nothing by default
 ztlctl create --batch notes.json --partial  # continue past failures
 ```
+
+> **Implementation note (Phase 2):** `CreateService.create_batch()` is implemented in the service layer (all-or-nothing and partial modes). The `--batch` CLI flag is not yet exposed on the `create` command group.
 
 ---
 
@@ -522,6 +528,8 @@ Shared across all content-returning commands:
 --sort relevance|recency|graph|priority
 ```
 
+> **Implementation note (Phase 2):** The `list` command currently implements `--type`, `--status`, `--tag`, `--topic`, `--sort` (recency|title|type), and `--limit`. The `search` command implements `--type`, `--tag`, `--rank-by` (relevance|recency), and `--limit`. Remaining filter flags (`--subtype`, `--maturity`, `--since`, `--space`, `--include-archived`) and sort modes (`priority`, `graph`) are deferred to Phase 4 (Presentation).
+
 ### Agent Context Protocol
 
 Layered token-budgeted payload:
@@ -581,6 +589,8 @@ The `--ignore-checkpoints` flag reads full history when needed.
   - `recency`: BM25 × time decay
 - **Semantic search:** Optional, feature-flagged (`[search] semantic_enabled = false`)
 
+> **Implementation note (Phase 2):** Search supports `--rank-by relevance|recency`. The `relevance` mode uses raw BM25 ordering. The `recency` mode orders by `modified DESC`. The `graph` ranking mode (BM25 × PageRank) is deferred to Phase 3 when materialized graph metrics are computed. Time-decay weighting for recency is a Phase 4 enhancement.
+
 ---
 
 ## 9. Database Layer
@@ -611,9 +621,9 @@ nodes = Table("nodes", metadata,
     # Materialized graph metrics
     Column("degree_in", Integer, default=0),
     Column("degree_out", Integer, default=0),
-    Column("pagerank", Real, default=0.0),
+    Column("pagerank", REAL, default=0.0),
     Column("cluster_id", Integer),
-    Column("betweenness", Real, default=0.0),
+    Column("betweenness", REAL, default=0.0),
 )
 
 edges = Table("edges", metadata,
@@ -627,11 +637,10 @@ edges = Table("edges", metadata,
     UniqueConstraint("source_id", "target_id", "edge_type"),
 )
 
-nodes_fts = Table("nodes_fts", metadata,  # FTS5 virtual table
-    Column("id", Text),
-    Column("title", Text),
-    Column("body", Text),
-)
+# FTS5 virtual table — created via raw DDL since SQLAlchemy cannot express
+# virtual tables natively. Standalone (no content= clause); the service
+# layer manages inserts explicitly.
+# CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(id UNINDEXED, title, body)
 
 tags_registry = Table("tags_registry", metadata,
     Column("tag", Text, primary_key=True),
@@ -760,7 +769,7 @@ The CLI is a thin presentation layer that renders `ServiceResult` for humans (Ri
 
 ### ZtlSettings
 
-All runtime state — CLI flags, env vars, TOML config sections, and resolved paths — is unified into a single frozen `ZtlSettings` object (Pydantic Settings v2) stored on `click.Context.obj`:
+All runtime state — CLI flags, env vars, TOML config sections, and resolved paths — is unified into a single frozen `ZtlSettings` object (Pydantic Settings v2). The CLI wraps `ZtlSettings` in an `AppContext` object stored on `click.Context.obj`:
 
 ```python
 class ZtlSettings(BaseSettings):
@@ -787,6 +796,44 @@ class ZtlSettings(BaseSettings):
 ```
 
 **Priority chain** (highest to lowest): CLI flags → `ZTLCTL_*` env vars → `ztlctl.toml` (walk-up discovery) → code-baked defaults. Constructed via `ZtlSettings.from_cli()` which discovers the TOML file, resolves `vault_root`, and merges all sources. Thread-safe TOML path passing uses `threading.local()`.
+
+### AppContext
+
+The CLI stores an `AppContext` on `click.Context.obj` — not `ZtlSettings` directly. `AppContext` provides two features on top of raw settings:
+
+1. **Lazy Vault** — `--help` and `--version` never touch the database. The `Vault` is constructed on first access via a cached property.
+2. **Centralized `emit()`** — routes `ServiceResult` to stdout (ok) or stderr + `SystemExit(1)` (error), replacing the repeated 4-line output boilerplate across all command handlers.
+
+```python
+class AppContext:
+    def __init__(self, settings: ZtlSettings) -> None:
+        self.settings = settings
+        self._vault: Vault | None = None
+
+    @property
+    def vault(self) -> Vault:
+        if self._vault is None:
+            self._vault = Vault(self.settings)
+        return self._vault
+
+    def emit(self, result: ServiceResult) -> None:
+        output = format_result(result, json_output=self.settings.json_output)
+        if result.ok:
+            click.echo(output)
+        else:
+            click.echo(output, err=True)
+            raise SystemExit(1)
+```
+
+Commands receive `AppContext` via `@click.pass_obj` and typically reduce to one or two lines:
+
+```python
+@query_group.command("get")
+@click.argument("content_id")
+@click.pass_obj
+def get(app: AppContext, content_id: str) -> None:
+    app.emit(QueryService(app.vault).get(content_id))
+```
 
 ### Vault
 
@@ -1214,7 +1261,7 @@ Decisions made during the design process (CONV-0017):
 | — | Pydantic BaseModel for ServiceResult, not dataclass | Frozen models provide JSON serialization via `model_dump_json()`, validation, and immutability |
 | — | ServiceError as separate model | Structured `code`/`message`/`detail` instead of bare dict enables consistent error handling |
 | — | StrEnum (Python 3.13+) for all enums | Values serialize cleanly to strings without `.value`; replaces `(str, Enum)` pattern |
-| — | ZtlSettings (Pydantic Settings v2) replaces AppContext + ZtlConfig | Single frozen object merges CLI flags, env vars, TOML, and code defaults; eliminates two separate config objects |
+| — | ZtlSettings (Pydantic Settings v2) replaces ZtlConfig | Single frozen object merges CLI flags, env vars, TOML, and code defaults; eliminates separate config object |
 | — | ContentModel hierarchy replaces SubtypeRule strategy pattern | Validation, required sections, and status transitions live as classmethods on model subclasses; eliminates parallel hierarchy since types map 1:1 to classes |
 | — | CONTENT_REGISTRY dict replaces SubtypeRule registry | Simple `dict[str, type[ContentModel]]` with `get_content_model()` lookup; subtype priority with type fallback |
 | — | ValidationResult frozen dataclass | Replaces SubtypeValidation; `valid`, `errors`, `warnings` fields; returned by validate_create/validate_update classmethods |
@@ -1227,6 +1274,12 @@ Decisions made during the design process (CONV-0017):
 | — | Deferred imports in command registration | `register_commands()` uses local imports to keep `ztlctl --help` fast at scale |
 | — | `init_cmd.py` naming for init command | Avoids shadowing Python's `init` builtin; registers as `@click.command("init")` |
 | — | MCP import guard with `mcp_available` flag | `try/except ImportError` prevents optional extra from breaking core CLI |
+| — | AppContext wraps ZtlSettings on `ctx.obj` | Lazy Vault (--help never touches DB) + centralized `emit()` for exit codes and stderr routing; separates CLI adapter concerns from configuration |
+| — | `_generate_id()` returns `None` instead of raising | Service methods never raise on bad input; caller converts to `ServiceResult(ok=False)`, maintaining the no-exceptions-cross-service-boundary contract |
+| — | Leiden → Louvain fallback for community detection | `leidenalg` is an optional extra; Louvain (bundled with NetworkX) provides adequate results; warn in `ServiceResult.warnings` |
+| — | FTS5 standalone DDL (no `content=` clause, no `Table()`) | SQLAlchemy cannot express virtual tables natively; standalone FTS avoids `content=` sync issues; service layer manages inserts explicitly |
+| — | BaseService exposes `_vault` only (no public `.vault` property) | Services access vault via `self._vault`; no public accessor since external callers should use service methods, not reach through to the repository |
+| — | GraphEngine loads node attributes (type, title) | Graph algorithms need node metadata for result building; avoids per-node DB lookups in service methods |
 
 ---
 
@@ -1235,12 +1288,12 @@ Decisions made during the design process (CONV-0017):
 | BL | Feature | Priority | Status | Scope |
 |----|---------|----------|--------|-------|
 | BL-0019 | Content Model (F1) | high | **done** | Types, spaces, IDs, lifecycle, ContentModel hierarchy, validation, registry |
-| BL-0020 | Graph Architecture (F2) | high | pending | Edges, backlinks, algorithms |
-| BL-0021 | Create Pipeline (F3) | high | pending | 5-stage pipeline, batch, tags |
+| BL-0020 | Graph Architecture (F2) | high | **done** | 6 algorithms (related, themes, rank, path, gaps, bridges), CLI subcommands, node attribute loading |
+| BL-0021 | Create Pipeline (F3) | high | **done** | 5-stage pipeline (notes, references, tasks), tag/link indexing, batch (service only). Deferred: event bus dispatch, reweave invocation, batch CLI, alias resolution |
 | BL-0022 | Reweave (F4) | high | pending | Scoring, discovery, injection |
 | BL-0023 | Update & Close (F5) | high | pending | Pipeline, session close enrichment |
 | BL-0024 | ID System (F6) | high | **done** | Hashing, counters, validation |
-| BL-0025 | Query Surface (F7) | high | pending | Search, context, filters |
+| BL-0025 | Query Surface (F7) | high | **done** | 5 methods (search, get, list, work-queue, decision-support), CLI subcommands. Deferred: graph/priority sort, advanced filters, BM25×time-decay ranking |
 | BL-0026 | Progressive Disclosure (F8) | medium | pending | Verbosity, sparse config, examples |
 | BL-0027 | Database Layer (F9) | high | **done** | SQLite, NetworkX, Alembic, upgrade |
 | BL-0028 | Export (F10) | low | pending | Markdown, indexes, graph export |
@@ -1293,10 +1346,33 @@ Phase 1 — Foundation (complete):
 
   233 tests, mypy strict, ruff clean.
 
-Phase 2 — Core Pipeline (depends on Phase 1):
-  F3  Create Pipeline       ← depends on F1, F6, F9
-  F7  Query Surface         ← depends on F9
-  F2  Graph Architecture    ← depends on F9
+Phase 2 — Core Pipeline (complete):
+  F3  Create Pipeline:
+    - Five-stage pipeline (VALIDATE → GENERATE → PERSIST → INDEX → RESPOND)
+    - Three creation paths: notes (with subtypes), references (with URL), tasks (with priority matrix)
+    - Link extraction: frontmatter links and [[wikilinks]] → edges table
+    - Tag indexing: auto-register tags, unscoped tag warnings
+    - Batch creation: all-or-nothing and partial modes (service only, CLI deferred)
+    - ID generation: content-hash (notes/refs) returns None on unknown type; sequential (tasks)
+  F7  Query Surface:
+    - FTS5 search with BM25 ranking (relevance, recency)
+    - Single-item retrieval with tags, body, and graph neighbors
+    - Filtered listing with sort modes (recency, title, type)
+    - Scored work queue: priority×2 + impact×1.5 + (4 − effort)
+    - Decision support: notes + decisions + references partitioned by topic
+  F2  Graph Architecture:
+    - GraphEngine loads node attributes (type, title) from nodes table
+    - Spreading activation: BFS with 0.5 decay per hop, undirected traversal
+    - Community detection: Leiden (leidenalg) → Louvain (NetworkX) fallback
+    - PageRank importance scoring, structural holes (constraint), bridge nodes (betweenness)
+    - Shortest path on undirected view
+  Architecture:
+    - AppContext pattern: lazy Vault on ctx.obj, centralized emit() for exit codes
+    - Commands reduced to 1–2 line handlers via AppContext
+    - BaseService: _vault only (no public property)
+    - Domain links module: extract_wikilinks(), extract_frontmatter_links()
+
+  419 tests, mypy strict, ruff clean.
 
 Phase 3 — Enrichment (depends on Phase 2):
   F4  Reweave              ← depends on F2, F3, F7
