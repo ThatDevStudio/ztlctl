@@ -396,7 +396,7 @@ def _resolve_wikilink(conn: Connection, raw: str) -> str | None:
 
     Resolution order (DESIGN.md Section 3):
     1. Exact title match
-    2. Alias match (JSON array in nodes.aliases)
+    2. Alias match (JSON array in nodes.aliases via json_each)
     3. Direct ID match
     """
     # 1. Title match
@@ -404,7 +404,15 @@ def _resolve_wikilink(conn: Connection, raw: str) -> str | None:
     if row is not None:
         return str(row.id)
 
-    # 2. Direct ID match (covers [[ztl_abc12345]] style)
+    # 2. Alias match (JSON array in nodes.aliases)
+    alias_row = conn.execute(
+        text("SELECT nodes.id FROM nodes, json_each(nodes.aliases) WHERE json_each.value = :raw"),
+        {"raw": raw},
+    ).first()
+    if alias_row is not None:
+        return str(alias_row.id)
+
+    # 3. Direct ID match (covers [[ztl_abc12345]] style)
     row = conn.execute(select(nodes.c.id).where(nodes.c.id == raw)).first()
     if row is not None:
         return str(row.id)

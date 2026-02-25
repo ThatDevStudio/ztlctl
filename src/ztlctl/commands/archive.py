@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.settings import ZtlSettings
+    from ztlctl.commands._context import AppContext
 
 
 @click.command()
 @click.argument("content_id")
 @click.pass_obj
-def archive(ctx: ZtlSettings, content_id: str) -> None:
+def archive(app: AppContext, content_id: str) -> None:
     """Archive a content item by ID (sets archived flag, preserves edges)."""
-    click.echo("archive: not yet implemented")
+    from ztlctl.services.update import UpdateService
+
+    app.emit(UpdateService(app.vault).archive(content_id))
