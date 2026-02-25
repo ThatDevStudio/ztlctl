@@ -7,10 +7,11 @@ graph health, structural validation. (DESIGN.md Section 14)
 
 from __future__ import annotations
 
+from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceResult
 
 
-class CheckService:
+class CheckService(BaseService):
     """Handles vault integrity checking and repair."""
 
     def check(self) -> ServiceResult:

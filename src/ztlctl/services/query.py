@@ -6,10 +6,11 @@ Three surfaces: search, list/get, and agent-oriented queries.
 
 from __future__ import annotations
 
+from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceResult
 
 
-class QueryService:
+class QueryService(BaseService):
     """Handles search, retrieval, and agent context queries."""
 
     def search(

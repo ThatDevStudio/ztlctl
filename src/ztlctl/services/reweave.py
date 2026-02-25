@@ -6,10 +6,11 @@ Five-stage: DISCOVER → SCORE → FILTER → PRESENT → CONNECT
 
 from __future__ import annotations
 
+from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceResult
 
 
-class ReweaveService:
+class ReweaveService(BaseService):
     """Handles link suggestion, creation, and pruning."""
 
     def reweave(

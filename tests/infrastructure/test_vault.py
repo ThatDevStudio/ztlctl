@@ -9,12 +9,7 @@ from ztlctl.config.settings import ZtlSettings
 from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.infrastructure.vault import Vault
 
-
-@pytest.fixture
-def vault(tmp_path: Path) -> Vault:
-    """Fully initialized vault on a temp directory."""
-    settings = ZtlSettings.from_cli(vault_root=tmp_path)
-    return Vault(settings)
+# Uses shared `vault` fixture from tests/conftest.py
 
 
 # ---------------------------------------------------------------------------

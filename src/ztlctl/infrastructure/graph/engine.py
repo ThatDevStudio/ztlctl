@@ -1,4 +1,4 @@
-"""GraphEngine — lazy-built NetworkX graph from SQLite edges.
+"""GraphEngine — lazy-built NetworkX graph from SQLite nodes and edges.
 
 Rebuilt per invocation, no cross-invocation cache.
 At vault scale (< 10K nodes), full rebuild takes < 10ms.
@@ -38,13 +38,22 @@ class GraphEngine:
         self._graph = None
 
     def _build_from_db(self) -> _Graph:
-        """Build a NetworkX DiGraph from the edges table."""
+        """Build a NetworkX DiGraph from nodes and edges tables.
+
+        Loads all nodes first (so isolated nodes appear in the graph),
+        then adds edges with their attributes.
+        """
         from sqlalchemy import select
 
-        from ztlctl.infrastructure.database.schema import edges
+        from ztlctl.infrastructure.database.schema import edges, nodes
 
         g: _Graph = nx.DiGraph()
         with self._db.connect() as conn:
+            # Add all nodes (ensures isolated nodes are visible to algorithms)
+            for row in conn.execute(select(nodes.c.id, nodes.c.type, nodes.c.title)):
+                g.add_node(row.id, type=row.type, title=row.title)
+
+            # Add edges with attributes
             for row in conn.execute(select(edges)):
                 g.add_edge(
                     row.source_id,
