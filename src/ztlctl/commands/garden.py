@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.settings import ZtlSettings
+    from ztlctl.commands._context import AppContext
 
 
 @click.group()
 @click.pass_obj
-def garden(ctx: ZtlSettings) -> None:
+def garden(app: AppContext) -> None:
     """Cultivate knowledge with the garden persona."""

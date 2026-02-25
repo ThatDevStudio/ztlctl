@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import insert, select, text
 
@@ -16,9 +15,6 @@ from ztlctl.infrastructure.database.counters import next_sequential_id
 from ztlctl.infrastructure.database.schema import edges, nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
-
-if TYPE_CHECKING:
-    pass
 
 
 def _today() -> str:
@@ -101,29 +97,27 @@ class SessionService(BaseService):
         warnings: list[str] = []
         cfg = self._vault.settings.session
 
-        # Find the active (most recent open) session
-        with self._vault.engine.connect() as conn:
-            active = conn.execute(
+        # -- LOG CLOSE (find + update in one transaction to avoid TOCTOU) --
+        with self._vault.transaction() as txn:
+            active = txn.conn.execute(
                 select(nodes)
                 .where(nodes.c.type == "log", nodes.c.status == "open")
                 .order_by(nodes.c.created.desc())
                 .limit(1)
             ).first()
 
-        if active is None:
-            return ServiceResult(
-                ok=False,
-                op=op,
-                error=ServiceError(
-                    code="NO_ACTIVE_SESSION",
-                    message="No active session to close",
-                ),
-            )
+            if active is None:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NO_ACTIVE_SESSION",
+                        message="No active session to close",
+                    ),
+                )
 
-        session_id = str(active.id)
+            session_id = str(active.id)
 
-        # -- LOG CLOSE --
-        with self._vault.transaction() as txn:
             # Update status to closed
             txn.conn.execute(
                 nodes.update()
@@ -179,32 +173,31 @@ class SessionService(BaseService):
         op = "session_reopen"
         today = _today()
 
-        with self._vault.engine.connect() as conn:
-            session = conn.execute(
+        with self._vault.transaction() as txn:
+            session = txn.conn.execute(
                 select(nodes).where(nodes.c.id == session_id, nodes.c.type == "log")
             ).first()
 
-        if session is None:
-            return ServiceResult(
-                ok=False,
-                op=op,
-                error=ServiceError(
-                    code="NOT_FOUND",
-                    message=f"No session found with ID: {session_id}",
-                ),
-            )
+            if session is None:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NOT_FOUND",
+                        message=f"No session found with ID: {session_id}",
+                    ),
+                )
 
-        if session.status == "open":
-            return ServiceResult(
-                ok=False,
-                op=op,
-                error=ServiceError(
-                    code="ALREADY_OPEN",
-                    message=f"Session {session_id} is already open",
-                ),
-            )
+            if session.status == "open":
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="ALREADY_OPEN",
+                        message=f"Session {session_id} is already open",
+                    ),
+                )
 
-        with self._vault.transaction() as txn:
             txn.conn.execute(
                 nodes.update().where(nodes.c.id == session_id).values(status="open", modified=today)
             )
@@ -239,11 +232,25 @@ class SessionService(BaseService):
         cost: int = 0,
     ) -> ServiceResult:
         """Append a log entry to the active session."""
-        raise NotImplementedError
+        return ServiceResult(
+            ok=False,
+            op="log_entry",
+            error=ServiceError(
+                code="NOT_IMPLEMENTED",
+                message="log_entry is not yet implemented",
+            ),
+        )
 
     def cost(self, *, report: int | None = None) -> ServiceResult:
         """Query or report accumulated token cost for the session."""
-        raise NotImplementedError
+        return ServiceResult(
+            ok=False,
+            op="cost",
+            error=ServiceError(
+                code="NOT_IMPLEMENTED",
+                message="cost is not yet implemented",
+            ),
+        )
 
     def context(
         self,
@@ -252,7 +259,14 @@ class SessionService(BaseService):
         budget: int = 8000,
     ) -> ServiceResult:
         """Build token-budgeted agent context payload."""
-        raise NotImplementedError
+        return ServiceResult(
+            ok=False,
+            op="context",
+            error=ServiceError(
+                code="NOT_IMPLEMENTED",
+                message="context is not yet implemented",
+            ),
+        )
 
     # ------------------------------------------------------------------
     # Close pipeline helpers

@@ -6,25 +6,19 @@ from typing import Any
 
 from sqlalchemy import insert, select
 
+from tests.conftest import create_note
 from ztlctl.domain.content import parse_frontmatter
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, reweave_log
 from ztlctl.infrastructure.vault import Vault
-from ztlctl.services.create import CreateService
 from ztlctl.services.reweave import ReweaveService, _jaccard
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers (test-specific)
 # ---------------------------------------------------------------------------
 
 
-def _create_note(vault: Vault, title: str, **kwargs: Any) -> dict[str, Any]:
-    result = CreateService(vault).create_note(title, **kwargs)
-    assert result.ok, result.error
-    return result.data
-
-
 def _create_note_with_topic(vault: Vault, title: str, topic: str) -> dict[str, Any]:
-    return _create_note(vault, title, topic=topic)
+    return create_note(vault, title, topic=topic)
 
 
 def _add_edge(vault: Vault, source_id: str, target_id: str) -> None:
@@ -90,15 +84,15 @@ class TestJaccard:
 
 class TestDiscover:
     def test_discover_specific_id(self, vault: Vault) -> None:
-        data = _create_note(vault, "Target Note")
+        data = create_note(vault, "Target Note")
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data["id"], dry_run=True)
         assert result.ok
         assert result.data["target_id"] == data["id"]
 
     def test_discover_latest_modified(self, vault: Vault) -> None:
-        _create_note(vault, "Old Note")
-        _create_note(vault, "New Note")
+        create_note(vault, "Old Note")
+        create_note(vault, "New Note")
         svc = ReweaveService(vault)
         result = svc.reweave(dry_run=True)
         assert result.ok
@@ -112,7 +106,7 @@ class TestDiscover:
         assert result.error.code == "NOT_FOUND"
 
     def test_empty_vault_no_candidates(self, vault: Vault) -> None:
-        data = _create_note(vault, "Lonely Note")
+        data = create_note(vault, "Lonely Note")
         result = ReweaveService(vault).reweave(content_id=data["id"], dry_run=True)
         assert result.ok
         assert result.data["count"] == 0
@@ -126,9 +120,9 @@ class TestDiscover:
 class TestBm25Signal:
     def test_lexical_scoring(self, vault: Vault) -> None:
         """Candidates with similar titles get higher BM25 scores."""
-        data_target = _create_note(vault, "Python Programming Guide")
-        data_similar = _create_note(vault, "Python Language Reference")
-        data_unrelated = _create_note(vault, "Cooking Recipes Collection")
+        data_target = create_note(vault, "Python Programming Guide")
+        data_similar = create_note(vault, "Python Language Reference")
+        data_unrelated = create_note(vault, "Cooking Recipes Collection")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_target["id"], dry_run=True)
@@ -142,8 +136,8 @@ class TestBm25Signal:
 
     def test_top_bm25_is_one(self, vault: Vault) -> None:
         """Top BM25 match should be normalized to 1.0."""
-        data_target = _create_note(vault, "Alpha Beta Gamma")
-        _create_note(vault, "Alpha Beta Gamma Delta")
+        data_target = create_note(vault, "Alpha Beta Gamma")
+        create_note(vault, "Alpha Beta Gamma Delta")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_target["id"], dry_run=True)
@@ -157,9 +151,9 @@ class TestBm25Signal:
 class TestTagSignal:
     def test_tag_overlap_scores(self, vault: Vault) -> None:
         """Shared tags increase the tag overlap signal."""
-        data_a = _create_note(vault, "Note A", tags=["lang/python", "tool/cli"])
-        data_b = _create_note(vault, "Note B", tags=["lang/python", "tool/cli"])
-        data_c = _create_note(vault, "Note C", tags=["food/pizza"])
+        data_a = create_note(vault, "Note A", tags=["lang/python", "tool/cli"])
+        data_b = create_note(vault, "Note B", tags=["lang/python", "tool/cli"])
+        data_c = create_note(vault, "Note C", tags=["food/pizza"])
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_a["id"], dry_run=True)
@@ -201,10 +195,10 @@ class TestTopicSignal:
 class TestGraphProximitySignal:
     def test_closer_nodes_score_higher(self, vault: Vault) -> None:
         """Nodes closer in the graph get higher proximity scores."""
-        data_a = _create_note(vault, "Hub")
-        data_b = _create_note(vault, "Direct Neighbor")
-        data_c = _create_note(vault, "Two Hops Away")
-        data_d = _create_note(vault, "Three Hops Away")
+        data_a = create_note(vault, "Hub")
+        data_b = create_note(vault, "Direct Neighbor")
+        data_c = create_note(vault, "Two Hops Away")
+        data_d = create_note(vault, "Three Hops Away")
 
         # A -> B -> C -> D (chain)
         _add_edge(vault, data_a["id"], data_b["id"])
@@ -230,8 +224,8 @@ class TestGraphProximitySignal:
 class TestFilter:
     def test_threshold_filtering(self, vault: Vault) -> None:
         """Candidates below min_score_threshold are excluded."""
-        data_a = _create_note(vault, "Alpha Note About Testing")
-        _create_note(vault, "Completely Unrelated Cooking Topic")
+        data_a = create_note(vault, "Alpha Note About Testing")
+        create_note(vault, "Completely Unrelated Cooking Topic")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_a["id"], dry_run=True)
@@ -242,10 +236,10 @@ class TestFilter:
 
     def test_max_links_cap(self, vault: Vault) -> None:
         """Don't suggest more links than max_links_per_note allows."""
-        data = _create_note(vault, "Hub")
+        data = create_note(vault, "Hub")
         # Create many candidates
         for i in range(10):
-            _create_note(vault, f"Related Note {i}", tags=["same/tag"])
+            create_note(vault, f"Related Note {i}", tags=["same/tag"])
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data["id"], dry_run=True)
@@ -255,10 +249,10 @@ class TestFilter:
 
     def test_already_at_max_links(self, vault: Vault) -> None:
         """Returns empty suggestions if node is already at max links."""
-        data = _create_note(vault, "Full Node")
+        data = create_note(vault, "Full Node")
         max_links = vault.settings.reweave.max_links_per_note
         for i in range(max_links):
-            t = _create_note(vault, f"Target {i}")
+            t = create_note(vault, f"Target {i}")
             _add_edge(vault, data["id"], t["id"])
 
         svc = ReweaveService(vault)
@@ -283,7 +277,7 @@ class TestDisabled:
         settings = ZtlSettings.from_cli(vault_root=vault_root)
         disabled_vault = Vault(settings)
 
-        _create_note(disabled_vault, "Some Note")
+        create_note(disabled_vault, "Some Note")
         svc = ReweaveService(disabled_vault)
         result = svc.reweave(dry_run=True)
         assert result.ok
@@ -298,8 +292,8 @@ class TestDisabled:
 class TestConnect:
     def test_connect_creates_edge(self, vault: Vault) -> None:
         """Reweave with dry_run=False creates edges in DB."""
-        data_a = _create_note(vault, "Python Programming")
-        _create_note(vault, "Python Language Reference")
+        data_a = create_note(vault, "Python Programming")
+        create_note(vault, "Python Language Reference")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_a["id"], dry_run=False)
@@ -317,8 +311,8 @@ class TestConnect:
 
     def test_connect_updates_frontmatter(self, vault: Vault) -> None:
         """Reweave with dry_run=False updates frontmatter links."""
-        data_a = _create_note(vault, "Python Programming")
-        _create_note(vault, "Python Language Reference")
+        data_a = create_note(vault, "Python Programming")
+        create_note(vault, "Python Language Reference")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_a["id"], dry_run=False)
@@ -334,8 +328,8 @@ class TestConnect:
 
     def test_connect_logs_reweave(self, vault: Vault) -> None:
         """Reweave creates audit log entries."""
-        data_a = _create_note(vault, "Python Programming")
-        _create_note(vault, "Python Language Reference")
+        data_a = create_note(vault, "Python Programming")
+        create_note(vault, "Python Language Reference")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_a["id"], dry_run=False)
@@ -352,8 +346,8 @@ class TestConnect:
 
     def test_garden_note_no_body_wikilink(self, vault: Vault) -> None:
         """Garden notes (maturity set) get frontmatter links only, not body wikilinks."""
-        data_a = _create_note(vault, "Python Programming Garden")
-        _create_note(vault, "Python Language Reference")
+        data_a = create_note(vault, "Python Programming Garden")
+        create_note(vault, "Python Language Reference")
 
         # Set maturity on the target
         with vault.engine.begin() as conn:
@@ -372,8 +366,8 @@ class TestConnect:
 
     def test_dry_run_no_side_effects(self, vault: Vault) -> None:
         """Dry run produces suggestions but doesn't modify DB or files."""
-        data_a = _create_note(vault, "Python Programming")
-        _create_note(vault, "Python Language Reference")
+        data_a = create_note(vault, "Python Programming")
+        create_note(vault, "Python Language Reference")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_a["id"], dry_run=True)
@@ -402,8 +396,8 @@ class TestConnect:
 class TestPrune:
     def test_prune_removes_stale_links(self, vault: Vault) -> None:
         """Prune removes links that score below threshold."""
-        data_a = _create_note(vault, "Alpha")
-        data_b = _create_note(vault, "Completely Different Topic About Cooking")
+        data_a = create_note(vault, "Alpha")
+        data_b = create_note(vault, "Completely Different Topic About Cooking")
 
         # Manually link them
         _add_edge(vault, data_a["id"], data_b["id"])
@@ -433,8 +427,8 @@ class TestPrune:
 
     def test_prune_dry_run(self, vault: Vault) -> None:
         """Prune dry run doesn't remove links."""
-        data_a = _create_note(vault, "Alpha")
-        data_b = _create_note(vault, "Beta Unrelated Cooking")
+        data_a = create_note(vault, "Alpha")
+        data_b = create_note(vault, "Beta Unrelated Cooking")
         _add_edge(vault, data_a["id"], data_b["id"])
 
         svc = ReweaveService(vault)
@@ -459,7 +453,7 @@ class TestPrune:
         assert result.error.code == "NOT_FOUND"
 
     def test_prune_no_links(self, vault: Vault) -> None:
-        data = _create_note(vault, "No Links")
+        data = create_note(vault, "No Links")
         result = ReweaveService(vault).prune(content_id=data["id"])
         assert result.ok
         assert result.data["count"] == 0
@@ -473,8 +467,8 @@ class TestPrune:
 class TestUndo:
     def test_undo_add_removes_link(self, vault: Vault) -> None:
         """Undoing an 'add' action removes the link."""
-        data_a = _create_note(vault, "Python Programming")
-        _create_note(vault, "Python Language Reference")
+        data_a = create_note(vault, "Python Programming")
+        create_note(vault, "Python Language Reference")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_a["id"], dry_run=False)
@@ -507,8 +501,8 @@ class TestUndo:
 
     def test_undo_specific_id(self, vault: Vault) -> None:
         """Undo a specific reweave log entry by ID."""
-        data_a = _create_note(vault, "Python Programming")
-        _create_note(vault, "Python Language Reference")
+        data_a = create_note(vault, "Python Programming")
+        create_note(vault, "Python Language Reference")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_a["id"], dry_run=False)
@@ -535,8 +529,8 @@ class TestUndo:
 
     def test_undo_already_undone(self, vault: Vault) -> None:
         """Cannot undo an already-undone entry."""
-        data_a = _create_note(vault, "Python Programming")
-        _create_note(vault, "Python Language Reference")
+        data_a = create_note(vault, "Python Programming")
+        create_note(vault, "Python Language Reference")
 
         svc = ReweaveService(vault)
         result = svc.reweave(content_id=data_a["id"], dry_run=False)
@@ -569,8 +563,8 @@ class TestUndo:
 class TestFts5Sanitization:
     def test_special_chars_in_title(self, vault: Vault) -> None:
         """Special characters in title don't crash the FTS5 query."""
-        data = _create_note(vault, 'Special: "quotes" & symbols!')
-        _create_note(vault, "Normal Note")
+        data = create_note(vault, 'Special: "quotes" & symbols!')
+        create_note(vault, "Normal Note")
 
         result = ReweaveService(vault).reweave(content_id=data["id"], dry_run=True)
         assert result.ok  # Should not crash
@@ -578,8 +572,8 @@ class TestFts5Sanitization:
     def test_empty_title(self, vault: Vault) -> None:
         """Edge case: title with only whitespace."""
         # Create a note and manually clear its title in FTS
-        data = _create_note(vault, "Placeholder")
-        _create_note(vault, "Another Note")
+        data = create_note(vault, "Placeholder")
+        create_note(vault, "Another Note")
 
         result = ReweaveService(vault).reweave(content_id=data["id"], dry_run=True)
         assert result.ok

@@ -77,7 +77,15 @@ def resolve_content_path(
         path = path / topic
 
     ext = ".jsonl" if content_type == "log" else ".md"
-    return path / f"{content_id}{ext}"
+    result = path / f"{content_id}{ext}"
+
+    # Guard against path traversal via crafted topic or content_id
+    vault_resolved = vault_root.resolve()
+    if not result.resolve().is_relative_to(vault_resolved):
+        msg = f"Path escapes vault root: {result}"
+        raise ValueError(msg)
+
+    return result
 
 
 def find_content_files(

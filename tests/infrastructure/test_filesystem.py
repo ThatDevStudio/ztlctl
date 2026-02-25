@@ -188,6 +188,20 @@ class TestFindContentFiles:
             find_content_files(vault_root, content_type="invalid")
 
 
+class TestPathTraversalGuard:
+    def test_topic_traversal_rejected(self, vault_root: Path) -> None:
+        with pytest.raises(ValueError, match="Path escapes vault root"):
+            resolve_content_path(vault_root, "note", "ztl_abc12345", topic="../../etc")
+
+    def test_content_id_traversal_rejected(self, vault_root: Path) -> None:
+        with pytest.raises(ValueError, match="Path escapes vault root"):
+            resolve_content_path(vault_root, "note", "../../../etc/passwd")
+
+    def test_normal_topic_accepted(self, vault_root: Path) -> None:
+        path = resolve_content_path(vault_root, "note", "ztl_abc12345", topic="python")
+        assert "notes/python/ztl_abc12345.md" in str(path)
+
+
 class TestContentPathsMapping:
     def test_all_types_mapped(self) -> None:
         assert set(CONTENT_PATHS.keys()) == {"note", "reference", "log", "task"}

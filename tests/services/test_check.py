@@ -2,33 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from sqlalchemy import delete, insert, select, text
 
+from tests.conftest import create_note, create_reference
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.check import CheckService
-from ztlctl.services.create import CreateService
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _create_note(vault: Vault, title: str, **kwargs: Any) -> dict[str, Any]:
-    """Shortcut to create a note via CreateService and return result data."""
-    result = CreateService(vault).create_note(title, **kwargs)
-    assert result.ok, result.error
-    return result.data
-
-
-def _create_reference(vault: Vault, title: str, **kwargs: Any) -> dict[str, Any]:
-    result = CreateService(vault).create_reference(title, **kwargs)
-    assert result.ok, result.error
-    return result.data
-
 
 # ---------------------------------------------------------------------------
 # check() — read-only integrity reporting
@@ -49,8 +29,8 @@ class TestCheckCleanVault:
 
         Isolated node warnings are expected for unlinked notes.
         """
-        _create_note(vault, "Note A", tags=["domain/scope"])
-        _create_note(vault, "Note B", tags=["area/test"])
+        create_note(vault, "Note A", tags=["domain/scope"])
+        create_note(vault, "Note B", tags=["area/test"])
         svc = CheckService(vault)
         result = svc.check()
         assert result.ok
@@ -61,7 +41,7 @@ class TestCheckCleanVault:
 class TestCheckDbFileConsistency:
     def test_orphan_db_row_detected(self, vault: Vault) -> None:
         """DB row with no corresponding file → detected as error."""
-        data = _create_note(vault, "Ghost Note")
+        data = create_note(vault, "Ghost Note")
         # Delete the file
         (vault.root / data["path"]).unlink()
 
@@ -88,7 +68,7 @@ class TestCheckDbFileConsistency:
 
     def test_title_mismatch_detected(self, vault: Vault) -> None:
         """Title mismatch between DB and file → warning."""
-        data = _create_note(vault, "Original Title")
+        data = create_note(vault, "Original Title")
         # Modify file title directly
         file_path = vault.root / data["path"]
         fm, body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
@@ -103,7 +83,7 @@ class TestCheckDbFileConsistency:
 
     def test_status_mismatch_detected(self, vault: Vault) -> None:
         """Status mismatch between DB and file → warning."""
-        data = _create_note(vault, "Status Note")
+        data = create_note(vault, "Status Note")
         file_path = vault.root / data["path"]
         fm, body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
         fm["status"] = "linked"
@@ -118,7 +98,7 @@ class TestCheckDbFileConsistency:
 class TestCheckSchemaIntegrity:
     def test_dangling_edge_detected(self, vault: Vault) -> None:
         """Edge referencing nonexistent node → error."""
-        data = _create_note(vault, "Source Node")
+        data = create_note(vault, "Source Node")
         # Temporarily disable FK checks to insert corrupted data
         with vault.engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=OFF"))
@@ -148,7 +128,7 @@ class TestCheckSchemaIntegrity:
 
     def test_fts_desync_detected(self, vault: Vault) -> None:
         """Node missing from FTS5 → error."""
-        data = _create_note(vault, "FTS Note")
+        data = create_note(vault, "FTS Note")
         # Delete FTS row directly
         with vault.engine.begin() as conn:
             conn.execute(
@@ -185,7 +165,7 @@ class TestCheckSchemaIntegrity:
 class TestCheckGraphHealth:
     def test_self_referencing_edge_detected(self, vault: Vault) -> None:
         """Self-loop edge → error."""
-        data = _create_note(vault, "Self Linker")
+        data = create_note(vault, "Self Linker")
         with vault.engine.begin() as conn:
             conn.execute(
                 insert(edges).values(
@@ -206,7 +186,7 @@ class TestCheckGraphHealth:
 
     def test_isolated_node_warning(self, vault: Vault) -> None:
         """Node with zero connections → warning."""
-        _create_note(vault, "Lonely Node")
+        create_note(vault, "Lonely Node")
 
         result = CheckService(vault).check()
         issues = result.data["issues"]
@@ -278,7 +258,7 @@ class TestCheckStructuralValidation:
 
     def test_tag_format_warning(self, vault: Vault) -> None:
         """Tag without domain/scope format → warning."""
-        _create_note(vault, "Unscoped Tag Note", tags=["noscopeformat"])
+        create_note(vault, "Unscoped Tag Note", tags=["noscopeformat"])
 
         result = CheckService(vault).check()
         issues = result.data["issues"]
@@ -299,7 +279,7 @@ class TestCheckStructuralValidation:
 class TestFix:
     def test_fix_removes_orphan_db_row(self, vault: Vault) -> None:
         """Fix removes DB rows whose files are gone."""
-        data = _create_note(vault, "To Be Deleted")
+        data = create_note(vault, "To Be Deleted")
         (vault.root / data["path"]).unlink()
 
         svc = CheckService(vault)
@@ -314,7 +294,7 @@ class TestFix:
 
     def test_fix_removes_dangling_edges(self, vault: Vault) -> None:
         """Fix removes edges to nonexistent nodes."""
-        data = _create_note(vault, "Edge Source")
+        data = create_note(vault, "Edge Source")
         with vault.engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=OFF"))
             conn.execute(
@@ -340,7 +320,7 @@ class TestFix:
 
     def test_fix_reinserts_missing_fts(self, vault: Vault) -> None:
         """Fix re-inserts missing FTS5 rows."""
-        data = _create_note(vault, "FTS Recovery")
+        data = create_note(vault, "FTS Recovery")
         with vault.engine.begin() as conn:
             conn.execute(
                 text("DELETE FROM nodes_fts WHERE id = :id"),
@@ -361,7 +341,7 @@ class TestFix:
 
     def test_fix_resyncs_title_from_file(self, vault: Vault) -> None:
         """Fix updates DB title to match file (files are truth)."""
-        data = _create_note(vault, "Old Title")
+        data = create_note(vault, "Old Title")
         file_path = vault.root / data["path"]
         fm, body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
         fm["title"] = "New Title"
@@ -376,7 +356,7 @@ class TestFix:
 
     def test_fix_creates_backup(self, vault: Vault) -> None:
         """Fix creates a DB backup before modifying anything."""
-        _create_note(vault, "Backup Test")
+        create_note(vault, "Backup Test")
         CheckService(vault).fix()
 
         backups = list((vault.root / ".ztlctl" / "backups").glob("ztlctl-*.db"))
@@ -384,8 +364,8 @@ class TestFix:
 
     def test_aggressive_reindexes_edges(self, vault: Vault) -> None:
         """Aggressive fix re-indexes all edges from files."""
-        data_a = _create_note(vault, "Node A")
-        data_b = _create_note(vault, "Node B")
+        data_a = create_note(vault, "Node A")
+        data_b = create_note(vault, "Node B")
 
         # Create a frontmatter link from A to B in the file
         path_a = vault.root / data_a["path"]
@@ -416,8 +396,8 @@ class TestFix:
 class TestRebuild:
     def test_rebuild_recovers_all_nodes(self, vault: Vault) -> None:
         """Rebuild reconstructs DB from files."""
-        data_a = _create_note(vault, "Rebuild A", tags=["domain/scope"])
-        data_b = _create_reference(vault, "Rebuild B")
+        data_a = create_note(vault, "Rebuild A", tags=["domain/scope"])
+        data_b = create_reference(vault, "Rebuild B")
 
         # Wipe the DB manually (but leave files)
         with vault.engine.begin() as conn:
@@ -439,7 +419,7 @@ class TestRebuild:
 
     def test_rebuild_recovers_tags(self, vault: Vault) -> None:
         """Rebuild recovers tags from file frontmatter."""
-        data = _create_note(vault, "Tagged Rebuild", tags=["ai/nlp"])
+        data = create_note(vault, "Tagged Rebuild", tags=["ai/nlp"])
 
         with vault.engine.begin() as conn:
             conn.execute(text("DELETE FROM nodes_fts"))
@@ -459,8 +439,8 @@ class TestRebuild:
 
     def test_rebuild_recovers_edges(self, vault: Vault) -> None:
         """Rebuild recovers frontmatter edges between existing nodes."""
-        data_a = _create_note(vault, "Edge Source")
-        data_b = _create_note(vault, "Edge Target")
+        data_a = create_note(vault, "Edge Source")
+        data_b = create_note(vault, "Edge Target")
 
         # Add a frontmatter link from A -> B
         path_a = vault.root / data_a["path"]
@@ -499,7 +479,7 @@ class TestRebuild:
 
     def test_rebuild_creates_backup(self, vault: Vault) -> None:
         """Rebuild creates a backup before starting."""
-        _create_note(vault, "Backup Before Rebuild")
+        create_note(vault, "Backup Before Rebuild")
         CheckService(vault).rebuild()
 
         backups = list((vault.root / ".ztlctl" / "backups").glob("ztlctl-*.db"))
@@ -507,7 +487,7 @@ class TestRebuild:
 
     def test_rebuild_recovers_fts(self, vault: Vault) -> None:
         """Rebuild re-creates FTS5 entries."""
-        data = _create_note(vault, "FTS Rebuild Test")
+        data = create_note(vault, "FTS Rebuild Test")
 
         with vault.engine.begin() as conn:
             conn.execute(text("DELETE FROM nodes_fts"))
@@ -551,7 +531,7 @@ class TestRollback:
     def test_rollback_restores_backup(self, vault: Vault) -> None:
         """Rollback copies the latest backup over the DB."""
         # Create initial content
-        _create_note(vault, "Before Backup")
+        create_note(vault, "Before Backup")
 
         # Create a backup
         svc = CheckService(vault)
@@ -559,7 +539,7 @@ class TestRollback:
         assert backup_path.exists()
 
         # Create more content after backup
-        _create_note(vault, "After Backup")
+        create_note(vault, "After Backup")
 
         # Rollback
         result = svc.rollback()
@@ -568,7 +548,7 @@ class TestRollback:
 
     def test_rollback_returns_backup_filename(self, vault: Vault) -> None:
         """Rollback result includes the backup filename."""
-        _create_note(vault, "Content")
+        create_note(vault, "Content")
         svc = CheckService(vault)
         svc._backup_db()
 
