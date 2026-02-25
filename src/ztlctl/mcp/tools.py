@@ -180,9 +180,17 @@ def agent_context_impl(
 ) -> dict[str, Any]:
     """Build agent context from vault state.
 
-    Since SessionService.context() is NOT_IMPLEMENTED, this provides
-    a basic context from search results and overview data.
+    Delegates to SessionService.context() when a session is active.
+    Falls back to QueryService-based context when no session is open.
     """
+    from ztlctl.services.session import SessionService
+
+    # Try session-based context first
+    result = SessionService(vault).context(topic=query)
+    if result.ok:
+        return {"ok": True, "op": "agent_context", "data": result.data}
+
+    # Fallback: no active session — use QueryService directly
     from ztlctl.services.query import QueryService
 
     svc = QueryService(vault)
