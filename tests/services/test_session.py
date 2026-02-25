@@ -7,7 +7,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from tests.conftest import create_note, start_session
+from tests.conftest import create_note, create_task, start_session
 from ztlctl.infrastructure.database.schema import nodes, session_logs
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.session import SessionService
@@ -402,3 +402,161 @@ class TestCost:
         result = svc.cost()
         assert result.ok
         assert result.data["session_id"] == data["id"]
+
+
+# ---------------------------------------------------------------------------
+# context()
+# ---------------------------------------------------------------------------
+
+
+class TestContext:
+    def test_context_basic(self, vault: Vault) -> None:
+        start_session(vault, "Context Test")
+        result = SessionService(vault).context()
+        assert result.ok
+        assert result.op == "context"
+        assert "layers" in result.data
+        assert "total_tokens" in result.data
+
+    def test_context_layer0_identity(self, vault: Vault) -> None:
+        """Layer 0 includes self/ files."""
+        (vault.root / "self").mkdir(exist_ok=True)
+        (vault.root / "self" / "identity.md").write_text("I am a researcher.", encoding="utf-8")
+        (vault.root / "self" / "methodology.md").write_text("Use zettelkasten.", encoding="utf-8")
+
+        start_session(vault, "L0 Test")
+        result = SessionService(vault).context()
+        assert result.ok
+        layers = result.data["layers"]
+        assert "I am a researcher" in layers["identity"]
+        assert "Use zettelkasten" in layers["methodology"]
+
+    def test_context_layer0_missing_files(self, vault: Vault) -> None:
+        """Layer 0 handles missing self/ files gracefully."""
+        start_session(vault, "Missing L0 Test")
+        result = SessionService(vault).context()
+        assert result.ok
+        layers = result.data["layers"]
+        assert layers["identity"] is None
+        assert layers["methodology"] is None
+
+    def test_context_layer1_session(self, vault: Vault) -> None:
+        """Layer 1 includes active session info."""
+        start_session(vault, "L1 Test")
+        result = SessionService(vault).context()
+        assert result.ok
+        layers = result.data["layers"]
+        assert "session" in layers
+        assert layers["session"]["topic"] == "L1 Test"
+        assert layers["session"]["status"] == "open"
+
+    def test_context_layer1_work_queue(self, vault: Vault) -> None:
+        """Layer 1 includes work queue."""
+        start_session(vault, "WQ Test")
+        create_task(vault, "Do something", priority="high")
+
+        result = SessionService(vault).context()
+        assert result.ok
+        layers = result.data["layers"]
+        assert "work_queue" in layers
+
+    def test_context_layer1_recent_decisions(self, vault: Vault) -> None:
+        """Layer 1 includes recent decisions."""
+        start_session(vault, "Decisions Test")
+        create_note(vault, "Decision: use postgres", subtype="decision")
+
+        result = SessionService(vault).context()
+        assert result.ok
+        layers = result.data["layers"]
+        assert "recent_decisions" in layers
+
+    def test_context_no_active_session(self, vault: Vault) -> None:
+        result = SessionService(vault).context()
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "NO_ACTIVE_SESSION"
+
+    def test_context_budget_tracking(self, vault: Vault) -> None:
+        """Context tracks total tokens used."""
+        start_session(vault, "Budget Test")
+        result = SessionService(vault).context(budget=8000)
+        assert result.ok
+        assert result.data["total_tokens"] > 0
+        assert result.data["budget"] == 8000
+        assert result.data["remaining"] >= 0
+
+    def test_context_layer2_topic_content(self, vault: Vault) -> None:
+        """Layer 2 includes topic-scoped notes."""
+        start_session(vault, "Topic Content")
+        create_note(vault, "Python Basics", topic="python")
+        create_note(vault, "Python Advanced", topic="python")
+
+        result = SessionService(vault).context(topic="python")
+        assert result.ok
+        layers = result.data["layers"]
+        assert "topic_content" in layers
+
+    def test_context_layer3_graph_adjacent(self, vault: Vault) -> None:
+        """Layer 3 includes graph neighbors of Layer 2 content."""
+        start_session(vault, "Graph Test")
+        create_note(vault, "Graph Source", topic="math")
+        create_note(vault, "Graph Neighbor")
+
+        result = SessionService(vault).context(topic="math")
+        assert result.ok
+        layers = result.data["layers"]
+        assert "graph_adjacent" in layers
+
+    def test_context_layer4_background(self, vault: Vault) -> None:
+        """Layer 4 includes background signals."""
+        start_session(vault, "Background Test")
+        create_note(vault, "Recent Activity")
+
+        result = SessionService(vault).context()
+        assert result.ok
+        layers = result.data["layers"]
+        assert "background" in layers
+
+    def test_context_budget_pressure_caution(self, vault: Vault) -> None:
+        """Small budget triggers caution or exceeded pressure."""
+        (vault.root / "self").mkdir(exist_ok=True)
+        # 400 chars = ~100 tokens, which with session metadata will exceed budget=100
+        (vault.root / "self" / "identity.md").write_text("x" * 400, encoding="utf-8")
+
+        start_session(vault, "Pressure Test")
+        result = SessionService(vault).context(budget=100)
+        assert result.ok
+        assert result.data["pressure"] in ("caution", "exceeded")
+
+    def test_context_log_entries_with_checkpoint(self, vault: Vault) -> None:
+        """Context starts from latest checkpoint."""
+        start_session(vault, "Checkpoint Context")
+        svc = SessionService(vault)
+        svc.log_entry("Before checkpoint", cost=100)
+        svc.log_entry(
+            "Checkpoint",
+            entry_type="checkpoint",
+            subtype="checkpoint",
+            detail="Accumulated context snapshot",
+        )
+        svc.log_entry("After checkpoint", cost=200)
+
+        result = svc.context()
+        assert result.ok
+        entries = result.data["layers"]["log_entries"]
+        # Should include checkpoint and after, not before
+        types = [e["type"] for e in entries]
+        assert "checkpoint" in types
+
+    def test_context_pinned_entries_survive_budget(self, vault: Vault) -> None:
+        """Pinned entries are never dropped under budget pressure."""
+        start_session(vault, "Pin Budget Test")
+        svc = SessionService(vault)
+        svc.log_entry("Pinned!", pin=True, cost=50)
+        svc.log_entry("Not pinned", cost=50)
+
+        result = svc.context(budget=50)
+        assert result.ok
+        entries = result.data["layers"]["log_entries"]
+        pinned = [e for e in entries if e.get("pinned")]
+        assert len(pinned) >= 1
