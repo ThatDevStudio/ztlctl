@@ -497,3 +497,102 @@ class TestDecisionSupport:
         for n in result.data["notes"]:
             assert n["type"] == "note"
             assert n["subtype"] != "decision"
+
+
+# ---------------------------------------------------------------------------
+# space filter
+# ---------------------------------------------------------------------------
+
+
+class TestSpaceFilter:
+    """Tests for --space filtering across query methods."""
+
+    def test_search_space_notes(self, vault: Vault) -> None:
+        """Notes/refs returned when filtering by notes space."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        # "Note" matches Alpha Note, Beta Note — both under notes/
+        result = svc.search("Note", space="notes")
+        assert result.ok
+        assert result.data["count"] >= 2
+        for item in result.data["items"]:
+            assert item["path"].startswith("notes/")
+
+    def test_search_space_ops(self, vault: Vault) -> None:
+        """Tasks returned when filtering by ops space."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        # "bug" matches "Fix login bug" task — under ops/
+        result = svc.search("bug", space="ops")
+        assert result.ok
+        assert result.data["count"] >= 1
+        for item in result.data["items"]:
+            assert item["path"].startswith("ops/")
+
+    def test_search_space_excludes_other(self, vault: Vault) -> None:
+        """Notes space excludes tasks."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        # "bug" is a task — shouldn't appear in notes space
+        result = svc.search("bug", space="notes")
+        assert result.ok
+        assert result.data["count"] == 0
+
+    def test_list_space_notes(self, vault: Vault) -> None:
+        """List with notes space returns only notes/refs."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(space="notes")
+        assert result.ok
+        assert result.data["count"] == 5  # 3 notes + 2 refs
+        for item in result.data["items"]:
+            assert item["path"].startswith("notes/")
+
+    def test_list_space_ops(self, vault: Vault) -> None:
+        """List with ops space returns only tasks."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(space="ops")
+        assert result.ok
+        assert result.data["count"] == 3  # 3 tasks
+        for item in result.data["items"]:
+            assert item["path"].startswith("ops/")
+
+    def test_work_queue_space_ops(self, vault: Vault) -> None:
+        """Work queue with ops space returns tasks (all tasks are under ops)."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.work_queue(space="ops")
+        assert result.ok
+        assert result.data["count"] == 3
+
+    def test_work_queue_space_notes(self, vault: Vault) -> None:
+        """Work queue with notes space returns 0 (no tasks under notes/)."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.work_queue(space="notes")
+        assert result.ok
+        assert result.data["count"] == 0
+
+    def test_decision_support_space_notes(self, vault: Vault) -> None:
+        """Decision support with notes space returns decisions/notes/refs."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.decision_support(space="notes")
+        assert result.ok
+        total = (
+            result.data["counts"]["decisions"]
+            + result.data["counts"]["notes"]
+            + result.data["counts"]["references"]
+        )
+        assert total >= 1
+
+    def test_decision_support_space_ops(self, vault: Vault) -> None:
+        """Decision support with ops space returns empty (no notes/refs in ops)."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.decision_support(space="ops")
+        assert result.ok
+        assert result.data["counts"]["decisions"] == 0
+        assert result.data["counts"]["notes"] == 0
+        assert result.data["counts"]["references"] == 0

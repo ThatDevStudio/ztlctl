@@ -252,6 +252,53 @@ class TestDecisionSupportCommand:
         assert "--topic" in result.output
 
 
+@pytest.mark.usefixtures("_isolated_vault")
+class TestSpaceFilterCLI:
+    """CLI tests for --space option."""
+
+    def test_search_with_space_filter(self, cli_runner: CliRunner) -> None:
+        _seed_via_cli(cli_runner)
+        result = cli_runner.invoke(cli, ["--json", "query", "search", "Note", "--space", "notes"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        for item in data["data"]["items"]:
+            assert item["path"].startswith("notes/")
+
+    def test_list_with_space_filter(self, cli_runner: CliRunner) -> None:
+        _seed_via_cli(cli_runner)
+        result = cli_runner.invoke(cli, ["--json", "query", "list", "--space", "ops"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        for item in data["data"]["items"]:
+            assert item["path"].startswith("ops/")
+
+    def test_search_invalid_space(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["query", "search", "test", "--space", "invalid"])
+        assert result.exit_code != 0
+
+    def test_search_help_shows_space(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["query", "search", "--help"])
+        assert result.exit_code == 0
+        assert "--space" in result.output
+
+    def test_list_help_shows_space(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["query", "list", "--help"])
+        assert result.exit_code == 0
+        assert "--space" in result.output
+
+    def test_work_queue_help_shows_space(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["query", "work-queue", "--help"])
+        assert result.exit_code == 0
+        assert "--space" in result.output
+
+    def test_decision_support_help_shows_space(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["query", "decision-support", "--help"])
+        assert result.exit_code == 0
+        assert "--space" in result.output
+
+
 class TestQueryGroupHelp:
     def test_query_group_help(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["query", "--help"])

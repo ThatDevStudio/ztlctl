@@ -45,6 +45,7 @@ class QueryService(BaseService):
         *,
         content_type: str | None = None,
         tag: str | None = None,
+        space: str | None = None,
         rank_by: str = "relevance",
         limit: int = 20,
     ) -> ServiceResult:
@@ -54,6 +55,7 @@ class QueryService(BaseService):
             query: FTS5 search expression.
             content_type: Filter to a specific type (note, reference, task).
             tag: Filter to items with this tag.
+            space: Filter by vault space (notes, ops, self).
             rank_by: Sort mode — "relevance" (BM25) or "recency".
             limit: Maximum results to return.
         """
@@ -85,6 +87,10 @@ class QueryService(BaseService):
         if tag:
             sql += " AND n.id IN (SELECT node_id FROM node_tags WHERE tag = :tag)"
             params["tag"] = tag
+
+        if space:
+            sql += " AND n.path LIKE :space_prefix"
+            params["space_prefix"] = f"{space}/%"
 
         sql += f" ORDER BY {order_clause} LIMIT :limit"
 
@@ -191,6 +197,7 @@ class QueryService(BaseService):
         topic: str | None = None,
         subtype: str | None = None,
         maturity: str | None = None,
+        space: str | None = None,
         since: str | None = None,
         include_archived: bool = False,
         sort: str = "recency",
@@ -205,6 +212,7 @@ class QueryService(BaseService):
             topic: Filter by topic.
             subtype: Filter by subtype (e.g. decision).
             maturity: Filter by garden maturity (seed/budding/evergreen).
+            space: Filter by vault space (notes, ops, self).
             since: Include items modified on or after this ISO date.
             include_archived: If True, include archived items.
             sort: Sort mode — "recency", "title", "type", or "priority".
@@ -242,6 +250,8 @@ class QueryService(BaseService):
             stmt = stmt.where(nodes.c.maturity == maturity)
         if since:
             stmt = stmt.where(nodes.c.modified >= since)
+        if space:
+            stmt = stmt.where(nodes.c.path.like(f"{space}/%"))
 
         # Sort — priority sort fetches all rows for in-Python scoring
         if sort == "priority":
@@ -325,15 +335,18 @@ class QueryService(BaseService):
     # work_queue — scored task prioritization
     # ------------------------------------------------------------------
 
-    def work_queue(self) -> ServiceResult:
+    def work_queue(self, *, space: str | None = None) -> ServiceResult:
         """Return prioritized task list using scoring formula.
 
         Score = priority*2 + impact*1.5 + (4 - effort).
         Only includes tasks in actionable statuses (inbox, active, blocked).
+
+        Args:
+            space: Filter by vault space (notes, ops, self).
         """
         with self._vault.engine.connect() as conn:
             # Read file content to extract priority/impact/effort from frontmatter
-            rows = conn.execute(
+            stmt = (
                 select(
                     nodes.c.id,
                     nodes.c.title,
@@ -345,7 +358,10 @@ class QueryService(BaseService):
                 .where(nodes.c.type == "task")
                 .where(nodes.c.status.in_(["inbox", "active", "blocked"]))
                 .where(nodes.c.archived == 0)
-            ).fetchall()
+            )
+            if space:
+                stmt = stmt.where(nodes.c.path.like(f"{space}/%"))
+            rows = conn.execute(stmt).fetchall()
 
         tasks: list[dict[str, Any]] = []
         warnings: list[str] = []
@@ -399,11 +415,17 @@ class QueryService(BaseService):
     # decision_support — aggregated decision context
     # ------------------------------------------------------------------
 
-    def decision_support(self, *, topic: str | None = None) -> ServiceResult:
+    def decision_support(
+        self, *, topic: str | None = None, space: str | None = None
+    ) -> ServiceResult:
         """Aggregate notes, decisions, and references for a topic.
 
         Partitions relevant content into decisions, notes, and references
         to provide comprehensive context for decision-making.
+
+        Args:
+            topic: Filter by topic.
+            space: Filter by vault space (notes, ops, self).
         """
         base_stmt = select(
             nodes.c.id,
@@ -422,6 +444,8 @@ class QueryService(BaseService):
 
         if topic:
             base_stmt = base_stmt.where(nodes.c.topic == topic)
+        if space:
+            base_stmt = base_stmt.where(nodes.c.path.like(f"{space}/%"))
 
         base_stmt = base_stmt.order_by(nodes.c.modified.desc())
 
