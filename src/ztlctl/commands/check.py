@@ -6,11 +6,21 @@ from typing import TYPE_CHECKING
 
 import click
 
+from ztlctl.commands._base import ZtlCommand
+
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
 
-@click.command()
+@click.command(
+    cls=ZtlCommand,
+    examples="""\
+  ztlctl check
+  ztlctl check --fix
+  ztlctl check --fix --level aggressive
+  ztlctl check --rebuild
+  ztlctl check --rollback""",
+)
 @click.option("--fix", is_flag=True, help="Automatically repair issues.")
 @click.option(
     "--level",

@@ -6,11 +6,21 @@ from typing import TYPE_CHECKING
 
 import click
 
+from ztlctl.commands._base import ZtlCommand
+
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
 
-@click.command()
+@click.command(
+    cls=ZtlCommand,
+    examples="""\
+  ztlctl update ztl_abc12345 --title "New Title"
+  ztlctl update ztl_abc12345 --status linked
+  ztlctl update ztl_abc12345 --tags domain/scope --topic math
+  ztlctl update ztl_abc12345 --maturity seed
+  ztlctl update ztl_abc12345 --body "Updated body text" """,
+)
 @click.argument("content_id")
 @click.option("--title", default=None, help="New title.")
 @click.option("--status", default=None, help="New status (must be valid transition).")

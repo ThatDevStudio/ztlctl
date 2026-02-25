@@ -6,11 +6,19 @@ from typing import TYPE_CHECKING
 
 import click
 
+from ztlctl.commands._base import ZtlCommand
+
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
 
-@click.command()
+@click.command(
+    cls=ZtlCommand,
+    examples="""\
+  ztlctl archive ztl_abc12345
+  ztlctl archive TASK-0001
+  ztlctl --json archive ref_abc12345""",
+)
 @click.argument("content_id")
 @click.pass_obj
 def archive(app: AppContext, content_id: str) -> None:

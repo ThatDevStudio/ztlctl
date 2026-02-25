@@ -6,17 +6,31 @@ import json
 
 import click
 
+from ztlctl.commands._base import ZtlGroup
 from ztlctl.commands._context import AppContext
 from ztlctl.services.create import CreateService
 
+_CREATE_EXAMPLES = """\
+  ztlctl create note "Python Design Patterns"
+  ztlctl create note "Use Composition" --subtype decision --tags arch/patterns
+  ztlctl create reference "FastAPI Docs" --url https://fastapi.tiangolo.com
+  ztlctl create task "Fix login bug" --priority high --impact high --effort low
+  ztlctl create batch items.json --partial"""
 
-@click.group()
+
+@click.group(cls=ZtlGroup, examples=_CREATE_EXAMPLES)
 @click.pass_obj
 def create(app: AppContext) -> None:
     """Create notes, references, and tasks."""
 
 
-@create.command()
+@create.command(
+    examples="""\
+  ztlctl create note "Python Design Patterns"
+  ztlctl create note "Use Composition" --subtype decision
+  ztlctl create note "ML Overview" --tags ai/ml --topic machine-learning
+  ztlctl create note "Session Note" --session LOG-0001"""
+)
 @click.argument("title")
 @click.option("--subtype", type=click.Choice(["knowledge", "decision"]), help="Note subtype.")
 @click.option("--tags", multiple=True, help="Tags (repeatable, e.g. --tags domain/scope).")
@@ -43,7 +57,12 @@ def note(
     app.emit(result)
 
 
-@create.command()
+@create.command(
+    examples="""\
+  ztlctl create reference "FastAPI Docs" --url https://fastapi.tiangolo.com
+  ztlctl create reference "OAuth2 Spec" --subtype spec --tags auth/oauth
+  ztlctl create reference "pytest" --subtype tool --topic testing"""
+)
 @click.argument("title")
 @click.option("--url", default=None, help="Source URL.")
 @click.option(
@@ -75,7 +94,12 @@ def reference(
     app.emit(result)
 
 
-@create.command()
+@create.command(
+    examples="""\
+  ztlctl create task "Fix login bug" --priority high --impact high --effort low
+  ztlctl create task "Write tests" --priority medium
+  ztlctl create task "Refactor auth" --tags tech/debt --session LOG-0001"""
+)
 @click.argument("title")
 @click.option(
     "--priority",
@@ -120,7 +144,12 @@ def task(
     app.emit(result)
 
 
-@create.command()
+@create.command(
+    examples="""\
+  ztlctl create batch items.json
+  ztlctl create batch items.json --partial
+  ztlctl --json create batch bulk-notes.json"""
+)
 @click.argument("file", type=click.Path(exists=True))
 @click.option("--partial", is_flag=True, help="Continue on errors (partial mode).")
 @click.pass_obj
