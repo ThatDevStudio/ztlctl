@@ -178,7 +178,9 @@ created: 2026-02-24
 ---
 ```
 
-**Session lifecycle:** `OPEN → ACTIVE → CLOSING → CLOSED` (reopenable)
+**Session lifecycle:** `open → closed` (reopenable via `session reopen`)
+
+> **Implementation note (Phase 3):** The design originally specified `OPEN → ACTIVE → CLOSING → CLOSED`. The implementation simplified to two states (`open`, `closed`) since `ACTIVE` and `CLOSING` were intermediate states with no distinct behavior. The transition is bidirectional — closed sessions can be reopened.
 
 **1:N with Claude sessions:** A ztlctl session is a logical research session persisting in the DB. It can span multiple Claude Code context windows. The `agent_context` tool loads session state at the start of each window, providing continuity.
 
@@ -228,7 +230,7 @@ Both layers merge into a unified edge table (→ Section 9 for schema). Backlink
 
 Title match → alias match → ID match. Ambiguous matches warn; no silent wrong resolution.
 
-> **Implementation note (Phase 2):** Currently implements title match → ID match. Alias match is deferred to Phase 3 (Update & Close) when the alias indexing pipeline is built.
+> **Implementation note (Phase 3):** Full 3-step resolution chain implemented: title match → alias match (via `json_each()` on the `aliases` JSON column) → ID match. Shared as a module-level function `_resolve_wikilink()` in `services/create.py`, reused by CheckService for rebuild/re-index operations.
 
 ### Edge Schema
 
@@ -298,7 +300,7 @@ VALIDATE → GENERATE → PERSIST → INDEX → RESPOND
 
 Single write path. No fallback mechanism. If the pipeline fails, it fails with a clear error. Post-create, the event bus (→ Section 15) dispatches `post_create` asynchronously. Reweave (→ Section 5) runs unless `--no-reweave` is passed.
 
-> **Implementation note (Phase 2):** The five-stage pipeline is complete for notes, references, and tasks. The RESPOND stage currently returns `{id, path, title, type}` plus warnings. Reweave suggestions in RESPOND, event bus dispatch, and post-create reweave invocation are deferred to Phase 3 when ReweaveService and the plugin event bus are implemented.
+> **Implementation note (Phase 3):** The five-stage pipeline is complete for notes, references, and tasks. The RESPOND stage returns `{id, path, title, type}` plus warnings, rendered as human-readable key-value pairs or JSON. Post-create reweave invocation is available via ReweaveService. Event bus dispatch is deferred to Phase 6 (Extension) when the pluggy event system is implemented.
 
 ### Command Surface
 
@@ -387,6 +389,8 @@ def should_modify_body(note) -> bool:
 - `--undo` reverses via audit trail (`reweave_log` table)
 - `--no-reweave` skips on any creation command
 
+> **Implementation note (Phase 3):** ReweaveService implements `reweave()`, `prune()`, and `undo()`. All four scoring signals are implemented with configurable weights from `ReweaveConfig`. Garden note protection is enforced — body wikilinks are never added to notes with `maturity` set, but frontmatter `links.relates` entries are still added. The `reweave_log` table tracks all add/remove actions with timestamps for undo support. Undo can target a specific reweave ID or the most recent batch (same timestamp). Interactive confirmation and `--dry-run` CLI flag are deferred to Phase 4 (Presentation); the service layer supports dry-run mode via the `dry_run` parameter.
+
 ---
 
 ## 6. Update and Close Lifecycle
@@ -426,6 +430,8 @@ ztlctl create note "New approach" --subtype decision --supersedes ztl_old123
 # Old decision: status → superseded, superseded_by → new ID
 # New decision: supersedes → old ID
 ```
+
+> **Implementation note (Phase 3):** UpdateService implements the full 5-stage pipeline with `update()`, `archive()`, and `supersede()`. Status transitions are validated against lifecycle transition maps. Note status is automatically recomputed from outgoing edge count after any update (PROPAGATE stage). Garden note protection rejects body changes when `maturity` is set (warning instead of error). Decision immutability prevents body changes after `status=accepted`. FTS5 updates use DELETE + INSERT (virtual tables don't support UPDATE). Edge re-indexing re-extracts both frontmatter links and body wikilinks. SessionService implements start/close/reopen with close enrichment pipeline (cross-session reweave → orphan sweep → integrity check). Session lookup and close happen inside the same `VaultTransaction` to prevent TOCTOU races. Stub methods (`log_entry`, `cost`, `context`) return `ServiceResult(ok=False)` with `NOT_IMPLEMENTED` error codes. Event WAL drain is deferred to Phase 6 when the pluggy event system is implemented.
 
 ---
 
@@ -528,7 +534,7 @@ Shared across all content-returning commands:
 --sort relevance|recency|graph|priority
 ```
 
-> **Implementation note (Phase 2):** The `list` command currently implements `--type`, `--status`, `--tag`, `--topic`, `--sort` (recency|title|type), and `--limit`. The `search` command implements `--type`, `--tag`, `--rank-by` (relevance|recency), and `--limit`. Remaining filter flags (`--subtype`, `--maturity`, `--since`, `--space`, `--include-archived`) and sort modes (`priority`, `graph`) are deferred to Phase 4 (Presentation).
+> **Implementation note (Phase 3):** The `list` command implements `--type`, `--status`, `--tag`, `--topic`, `--sort` (recency|title|type), and `--limit`. The `search` command implements `--type`, `--tag`, `--rank-by` (relevance|recency), and `--limit`. Remaining filter flags (`--subtype`, `--maturity`, `--since`, `--space`, `--include-archived`) and sort modes (`priority`, `graph`) are deferred to Phase 4 (Presentation).
 
 ### Agent Context Protocol
 
@@ -589,7 +595,7 @@ The `--ignore-checkpoints` flag reads full history when needed.
   - `recency`: BM25 × time decay
 - **Semantic search:** Optional, feature-flagged (`[search] semantic_enabled = false`)
 
-> **Implementation note (Phase 2):** Search supports `--rank-by relevance|recency`. The `relevance` mode uses raw BM25 ordering. The `recency` mode orders by `modified DESC`. The `graph` ranking mode (BM25 × PageRank) is deferred to Phase 3 when materialized graph metrics are computed. Time-decay weighting for recency is a Phase 4 enhancement.
+> **Implementation note (Phase 3):** Search supports `--rank-by relevance|recency`. The `relevance` mode uses raw BM25 ordering. The `recency` mode orders by `modified DESC`. The `graph` ranking mode (BM25 × PageRank) is deferred to Phase 4 when materialized graph metrics are computed. Time-decay weighting for recency is also a Phase 4 enhancement.
 
 ---
 
@@ -698,6 +704,22 @@ session_logs = Table("session_logs", metadata,
 )
 ```
 
+### Indexes
+
+Performance indexes on high-cardinality columns, created via `metadata.create_all()`:
+
+| Index | Column | Table |
+|-------|--------|-------|
+| `ix_nodes_type` | `type` | `nodes` |
+| `ix_nodes_status` | `status` | `nodes` |
+| `ix_nodes_archived` | `archived` | `nodes` |
+| `ix_nodes_topic` | `topic` | `nodes` |
+| `ix_edges_source` | `source_id` | `edges` |
+| `ix_edges_target` | `target_id` | `edges` |
+| `ix_node_tags_tag` | `tag` | `node_tags` |
+
+> **Note:** The `edges.bidirectional` column is reserved but not yet maintained by services. It exists in the schema for future bidirectional edge materialization.
+
 ### Transaction Model
 
 The `Vault.transaction()` context manager coordinates DB + file + graph writes:
@@ -705,6 +727,10 @@ The `Vault.transaction()` context manager coordinates DB + file + graph writes:
 - **DB**: Native SQLAlchemy `engine.begin()` with auto-commit/rollback.
 - **Files**: Compensation-based — newly created files are deleted, modified files are restored from backup, on rollback. Rollback is best-effort per file to avoid masking the original exception.
 - **Graph**: Cache is invalidated on transaction end (success or failure). Lazy-rebuilt from DB on next access.
+
+**Warning:** Do not access `vault.graph` within a transaction block — the graph is built from committed DB state and will not reflect pending writes. Access the graph only *after* the transaction succeeds.
+
+The `VaultTransaction` object yields a connection and tracked file I/O methods (`write_file()`, `write_content()`, `read_file()`, `read_content()`, `resolve_path()`). All write services must use `vault.transaction()` — not `engine.begin()` directly — to ensure coordinated rollback.
 
 `ztlctl check` (→ Section 14) reconciles any remaining drift between files and DB.
 
@@ -820,6 +846,10 @@ class AppContext:
         output = format_result(result, json_output=self.settings.json_output)
         if result.ok:
             click.echo(output)
+            # In JSON mode, warnings are already in the serialized payload.
+            if not self.settings.json_output:
+                for warning in result.warnings:
+                    click.echo(f"WARNING: {warning}", err=True)
         else:
             click.echo(output, err=True)
             raise SystemExit(1)
@@ -834,6 +864,27 @@ Commands receive `AppContext` via `@click.pass_obj` and typically reduce to one 
 def get(app: AppContext, content_id: str) -> None:
     app.emit(QueryService(app.vault).get(content_id))
 ```
+
+### Human-Readable Output Format
+
+The `format_result()` function renders `ServiceResult` as human-readable key-value pairs (default) or JSON (`--json`):
+
+```text
+# Success:
+OK: create_note
+  id: ztl_abc12345
+  path: notes/ztl_abc12345.md
+  title: My Note
+WARNING: Tag "unscoped" has no domain/scope format    # stderr
+
+# Error:
+ERROR: create_note — Title is required                # stderr, exit 1
+
+# JSON (--json):
+{ "ok": true, "op": "create_note", "data": {...}, "warnings": [...] }
+```
+
+Complex values (lists, dicts) render as compact JSON inline: `fields_changed: ["title","status"]`. Warnings go to stderr in human mode (so they don't pollute piped output) and are included in the serialized payload in JSON mode.
 
 ### Vault
 
@@ -978,6 +1029,8 @@ ztlctl check --rollback                   # Restore from latest backup
 **Safety contract:** Body text NEVER modified by check. Frontmatter only re-read. Safe fixes only touch rebuildable/recomputable data.
 
 **Backup strategy:** Automatic SQLite file-copy before destructive operations. Stored in `.ztlctl/backups/`.
+
+> **Implementation note (Phase 3):** CheckService implements `check()`, `fix()`, `rebuild()`, and `rollback()`. All four check categories are implemented. Safe fixes cover orphan DB rows, dangling edges, missing FTS5 entries, and file-to-DB re-sync. Aggressive fixes add full edge re-indexing (clear and rebuild from files) and frontmatter key reordering via `order_frontmatter()`. Rebuild uses two-pass loading (nodes first, then edges) to maintain referential integrity. Fix and rebuild operations use `VaultTransaction` for atomic DB + file writes. Wikilink resolution during rebuild/re-index shares the 3-step `_resolve_wikilink()` function from CreateService. Backup naming uses `ztlctl-{YYYYMMDDTHHmmss}.db` format with configurable retention via `check.backup_max_count`. Rollback disposes the engine (releasing SQLite locks) before restoring.
 
 ---
 
@@ -1280,6 +1333,22 @@ Decisions made during the design process (CONV-0017):
 | — | FTS5 standalone DDL (no `content=` clause, no `Table()`) | SQLAlchemy cannot express virtual tables natively; standalone FTS avoids `content=` sync issues; service layer manages inserts explicitly |
 | — | BaseService exposes `_vault` only (no public `.vault` property) | Services access vault via `self._vault`; no public accessor since external callers should use service methods, not reach through to the repository |
 | — | GraphEngine loads node attributes (type, title) | Graph algorithms need node metadata for result building; avoids per-node DB lookups in service methods |
+| — | Reweave 4-signal scoring with percentile normalization | BM25 (percentile), Jaccard tags, graph proximity, topic co-occurrence; configurable weights; conservative 0.6 threshold |
+| — | Reweave audit trail via `reweave_log` table | Every add/remove tracked with timestamp; enables undo of specific operations or latest batch |
+| — | Garden note body protection in reweave | Frontmatter `links.relates` added but body wikilinks never injected when `maturity` is set |
+| — | UpdateService note status propagation | Automatic recompute from outgoing edge count after any update; prevents status drift without explicit commands |
+| — | FTS5 DELETE + INSERT for updates | FTS5 virtual tables don't support UPDATE; service layer manages sync explicitly |
+| — | CheckService two-pass rebuild | Nodes inserted first, then edges; ensures referential integrity during full rebuild from files |
+| — | CheckService backup before destructive ops | Timestamped `ztlctl-{YYYYMMDDTHHmmss}.db` copies; configurable retention via `check.backup_max_count` |
+| — | SessionService TOCTOU fix: read+write in one transaction | Session lookup and status update inside same `VaultTransaction` block; prevents race where session state changes between read and write |
+| — | Stub service methods return `ServiceResult`, not `NotImplementedError` | Maintains no-exceptions-cross-service-boundary contract; `NOT_IMPLEMENTED` error code for graceful CLI/MCP handling |
+| — | Database indexes on high-cardinality columns | 7 indexes across nodes, edges, node_tags; improves query performance for filtered listing and edge traversal |
+| — | Path traversal guard in `resolve_content_path()` | `path.resolve().is_relative_to(vault_root.resolve())` prevents crafted topic/content_id from escaping vault |
+| — | Human-readable output: `OK:` prefix + indented key-value data | Lists/dicts render as compact JSON inline; warnings to stderr in human mode, serialized in JSON mode |
+| — | Command stubs receive `AppContext`, not `ZtlSettings` | Ensures correct type flow through Click context; lazy Vault and `emit()` available to all commands |
+| — | TOML parse errors surface as `ClickException` | `tomllib.TOMLDecodeError` caught and wrapped with file path context; prevents cryptic stack traces |
+| — | Shared wikilink resolution function `_resolve_wikilink()` | Title → alias (`json_each`) → ID; shared between CreateService (indexing) and CheckService (rebuild/re-index) |
+| — | Shared test helpers in `conftest.py` | `create_note()`, `create_reference()`, `create_task()`, `create_decision()`, `start_session()` as plain functions with deferred imports |
 
 ---
 
@@ -1289,15 +1358,15 @@ Decisions made during the design process (CONV-0017):
 |----|---------|----------|--------|-------|
 | BL-0019 | Content Model (F1) | high | **done** | Types, spaces, IDs, lifecycle, ContentModel hierarchy, validation, registry |
 | BL-0020 | Graph Architecture (F2) | high | **done** | 6 algorithms (related, themes, rank, path, gaps, bridges), CLI subcommands, node attribute loading |
-| BL-0021 | Create Pipeline (F3) | high | **done** | 5-stage pipeline (notes, references, tasks), tag/link indexing, batch (service only). Deferred: event bus dispatch, reweave invocation, batch CLI, alias resolution |
-| BL-0022 | Reweave (F4) | high | pending | Scoring, discovery, injection |
-| BL-0023 | Update & Close (F5) | high | pending | Pipeline, session close enrichment |
+| BL-0021 | Create Pipeline (F3) | high | **done** | 5-stage pipeline (notes, references, tasks), tag/link indexing, batch (service only). Alias resolution now complete (Phase 3). Deferred: event bus dispatch, batch CLI |
+| BL-0022 | Reweave (F4) | high | **done** | 4-signal scoring (BM25, Jaccard, graph proximity, topic), prune, undo with audit trail. Deferred: interactive confirmation, --dry-run CLI flag |
+| BL-0023 | Update & Close (F5) | high | **done** | 5-stage update pipeline, archive, supersede. Session close with enrichment (cross-session reweave, orphan sweep, integrity check). Deferred: event WAL drain, log_entry, cost, context stubs |
 | BL-0024 | ID System (F6) | high | **done** | Hashing, counters, validation |
 | BL-0025 | Query Surface (F7) | high | **done** | 5 methods (search, get, list, work-queue, decision-support), CLI subcommands. Deferred: graph/priority sort, advanced filters, BM25×time-decay ranking |
 | BL-0026 | Progressive Disclosure (F8) | medium | pending | Verbosity, sparse config, examples |
-| BL-0027 | Database Layer (F9) | high | **done** | SQLite, NetworkX, Alembic, upgrade |
+| BL-0027 | Database Layer (F9) | high | **done** | SQLite, NetworkX, Alembic, upgrade. Indexes on nodes (type, status, archived, topic), edges (source, target), node_tags (tag) |
 | BL-0028 | Export (F10) | low | pending | Markdown, indexes, graph export |
-| BL-0029 | Integrity (F11) | high | pending | Check, fix, backup, rollback |
+| BL-0029 | Integrity (F11) | high | **done** | 4-category check (DB-file, schema, graph, structural), safe/aggressive fix, full rebuild, rollback. Uses VaultTransaction for atomicity |
 | BL-0030 | CLI Interface (F12) | high | pending | Layered architecture, Click, Rich |
 | BL-0031 | Init & Self-Generation (F13) | high | pending | Init flow, Jinja2, Obsidian |
 | BL-0032 | Event System & Plugins (F14) | high | pending | Pluggy, WAL, Git plugin, Copier |
@@ -1374,10 +1443,45 @@ Phase 2 — Core Pipeline (complete):
 
   419 tests, mypy strict, ruff clean.
 
-Phase 3 — Enrichment (depends on Phase 2):
-  F4  Reweave              ← depends on F2, F3, F7
-  F5  Update & Close       ← depends on F3, F4
-  F11 Integrity            ← depends on F9
+Phase 3 — Enrichment (complete):
+  F4  Reweave:
+    - 4-signal scoring: BM25 (percentile normalized), Jaccard tags, graph proximity, topic co-occurrence
+    - Weighted sum with configurable weights (default: 0.35/0.25/0.25/0.15)
+    - Prune: removes stale edges below threshold, updates frontmatter + body
+    - Undo: reverses via audit trail (reweave_log table), supports specific ID or latest batch
+    - Garden note protection: adds frontmatter links but never modifies body text
+    - Dry-run mode: returns suggestions without modifying data
+  F5  Update & Close:
+    - UpdateService: 5-stage pipeline (VALIDATE → APPLY → PROPAGATE → INDEX → RESPOND)
+    - Status transitions validated per content type via lifecycle transition maps
+    - Decision immutability: body cannot change after status=accepted
+    - Garden note protection: rejects body changes when maturity is set
+    - Note status propagation: automatic recompute from outgoing edge count
+    - Archive: soft delete (archived=true), preserves edges, excluded from active queries
+    - Supersede: old decision status → superseded, adds superseded_by field, bidirectional links
+    - SessionService: start/close/reopen with JSONL append-only event streams
+    - Close enrichment pipeline: cross-session reweave → orphan sweep → integrity check → report
+    - TOCTOU fix: session lookup + update inside same VaultTransaction
+    - Stub methods (log_entry, cost, context) return ServiceResult errors, not NotImplementedError
+  F11 Integrity:
+    - 4-category check: DB-file consistency, schema integrity, graph health, structural validation
+    - Safe fix: remove orphan DB rows, remove dangling edges, re-insert missing FTS5, re-sync from files
+    - Aggressive fix: adds full edge re-indexing + frontmatter key reordering
+    - Full rebuild: two-pass (nodes first, then edges) from filesystem
+    - Rollback: restore from timestamped backup
+    - Backup: automatic before fix/rebuild, retention by count
+    - Uses VaultTransaction for atomic fix/rebuild operations
+    - Wikilink resolution: shares 3-step chain (title → alias → ID) with CreateService
+  Architecture:
+    - VaultTransaction used consistently across all write services
+    - Path traversal guard on filesystem operations
+    - Human-readable output: OK/ERROR prefix + indented key-value data
+    - Warnings emitted to stderr (human mode) or included in JSON payload
+    - Database indexes on high-cardinality columns (7 indexes total)
+    - Command stubs use AppContext (not ZtlSettings) for correct type flow
+    - TOML parse errors surface as ClickException with file path
+
+  557 tests, mypy strict, ruff clean.
 
 Phase 4 — Presentation (depends on Phase 2):
   F12 CLI Interface        ← depends on all services
