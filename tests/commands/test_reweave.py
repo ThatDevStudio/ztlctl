@@ -36,3 +36,17 @@ class TestReweaveCommand:
     def test_reweave_undo_no_history(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["reweave", "--undo"])
         assert result.exit_code == 1  # NO_HISTORY error
+
+    def test_reweave_help_shows_undo_id(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["reweave", "--help"])
+        assert "--undo-id" in result.output
+
+    def test_reweave_undo_id_not_found(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["reweave", "--undo-id", "9999"])
+        assert result.exit_code == 1  # NOT_FOUND error
+
+    def test_reweave_undo_id_triggers_undo(self, cli_runner: CliRunner) -> None:
+        # --undo-id alone (without --undo) should trigger the undo path
+        result = cli_runner.invoke(cli, ["reweave", "--undo-id", "1"])
+        # Will fail with NOT_FOUND since no log entries, but proves undo path runs
+        assert result.exit_code == 1

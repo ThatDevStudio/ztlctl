@@ -79,9 +79,11 @@ EXPECTED_COMMANDS = [
     "check",
     "init",
     "upgrade",
+    "update",
     "reweave",
     "archive",
     "extract",
+    "supersede",
 ]
 
 
@@ -98,7 +100,7 @@ def test_command_registered(cli_runner: CliRunner, command: str) -> None:
 
 
 def test_all_commands_in_help(cli_runner: CliRunner) -> None:
-    """All 13 commands should appear in the root --help output."""
+    """All 15 commands should appear in the root --help output."""
     result = cli_runner.invoke(cli, ["--help"])
     for name in EXPECTED_GROUPS + EXPECTED_COMMANDS:
         assert name in result.output, f"{name} missing from --help"
