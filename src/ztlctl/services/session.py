@@ -359,12 +359,12 @@ class SessionService(BaseService):
             row = conn.execute(
                 select(
                     func.coalesce(func.sum(session_logs.c.cost), 0).label("total"),
-                    func.count(session_logs.c.id).label("count"),
+                    func.count(session_logs.c.id).label("entry_count"),
                 ).where(session_logs.c.session_id == session_id)
             ).first()
 
             total_cost = int(row.total) if row else 0
-            entry_count = int(row.count) if row else 0
+            entry_count = int(row.entry_count) if row else 0
 
         data: dict[str, Any] = {
             "session_id": session_id,
@@ -553,7 +553,8 @@ class SessionService(BaseService):
 
             result = QueryService(self._vault).work_queue()
             if result.ok:
-                return result.data.get("items", [])[:5]
+                items: list[dict[str, Any]] = result.data.get("items", [])
+                return items[:5]
             return []
         except Exception:
             warnings.append("Failed to load work queue")
