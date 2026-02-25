@@ -132,6 +132,78 @@ class TestListCommand:
         assert "--status" in result.output
         assert "--sort" in result.output
 
+    # -- Extended filters ---------------------------------------------------
+
+    def test_list_by_subtype(self, cli_runner: CliRunner) -> None:
+        cli_runner.invoke(cli, ["create", "note", "My Decision", "--subtype", "decision"])
+        result = cli_runner.invoke(cli, ["--json", "query", "list", "--subtype", "decision"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        for item in data["data"]["items"]:
+            assert item["subtype"] == "decision"
+
+    def test_list_by_maturity(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["--json", "query", "list", "--maturity", "seed"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+
+    def test_list_since(self, cli_runner: CliRunner) -> None:
+        _seed_via_cli(cli_runner)
+        result = cli_runner.invoke(cli, ["--json", "query", "list", "--since", "2000-01-01"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["data"]["count"] == 5
+
+    def test_list_since_future(self, cli_runner: CliRunner) -> None:
+        _seed_via_cli(cli_runner)
+        result = cli_runner.invoke(cli, ["--json", "query", "list", "--since", "2099-01-01"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["data"]["count"] == 0
+
+    def test_list_include_archived(self, cli_runner: CliRunner) -> None:
+        _seed_via_cli(cli_runner)
+        # Find an item to archive
+        search = cli_runner.invoke(cli, ["--json", "query", "search", "Alpha"])
+        item_id = json.loads(search.output)["data"]["items"][0]["id"]
+        cli_runner.invoke(cli, ["archive", item_id])
+
+        # Default: archived excluded
+        result = cli_runner.invoke(cli, ["--json", "query", "list"])
+        data = json.loads(result.output)
+        assert data["data"]["count"] == 4
+
+        # With flag: all items
+        result = cli_runner.invoke(cli, ["--json", "query", "list", "--include-archived"])
+        data = json.loads(result.output)
+        assert data["data"]["count"] == 5
+
+    def test_list_sort_priority(self, cli_runner: CliRunner) -> None:
+        _seed_via_cli(cli_runner)
+        result = cli_runner.invoke(cli, ["--json", "query", "list", "--sort", "priority"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        for item in data["data"]["items"]:
+            assert "score" in item
+
+    def test_list_invalid_maturity(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["query", "list", "--maturity", "invalid"])
+        assert result.exit_code != 0
+
+    def test_list_help_extended(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["query", "list", "--help"])
+        assert result.exit_code == 0
+        assert "--subtype" in result.output
+        assert "--maturity" in result.output
+        assert "--since" in result.output
+        assert "--include-archived" in result.output
+        assert "priority" in result.output
+
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestWorkQueueCommand:

@@ -232,6 +232,163 @@ class TestListItems:
 
 
 # ---------------------------------------------------------------------------
+# list_items — extended filters and sort modes
+# ---------------------------------------------------------------------------
+
+
+class TestListItemsExtended:
+    """Extended filters and sort modes for list_items."""
+
+    def test_filter_by_subtype(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(subtype="decision")
+        assert result.ok
+        assert result.data["count"] >= 1
+        for item in result.data["items"]:
+            assert item["subtype"] == "decision"
+
+    def test_filter_by_subtype_no_match(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(subtype="article")
+        assert result.ok
+        assert result.data["count"] == 0
+
+    def test_filter_by_maturity(self, vault: Vault) -> None:
+        from ztlctl.services.update import UpdateService
+
+        svc_c = CreateService(vault)
+        r = svc_c.create_note("Garden Note", topic="botany")
+        assert r.ok
+        UpdateService(vault).update(r.data["id"], changes={"maturity": "seed"})
+
+        svc = QueryService(vault)
+        result = svc.list_items(maturity="seed")
+        assert result.ok
+        assert result.data["count"] >= 1
+        for item in result.data["items"]:
+            assert item["maturity"] == "seed"
+
+    def test_filter_by_maturity_no_match(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(maturity="evergreen")
+        assert result.ok
+        assert result.data["count"] == 0
+
+    def test_maturity_in_result(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items()
+        assert result.ok
+        for item in result.data["items"]:
+            assert "maturity" in item
+
+    def test_since_today(self, vault: Vault) -> None:
+        from datetime import UTC, datetime
+
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        today = datetime.now(UTC).date().isoformat()
+        result = svc.list_items(since=today)
+        assert result.ok
+        assert result.data["count"] == 8
+
+    def test_since_future(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(since="2099-01-01")
+        assert result.ok
+        assert result.data["count"] == 0
+
+    def test_since_past(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(since="2000-01-01")
+        assert result.ok
+        assert result.data["count"] == 8
+
+    def test_include_archived(self, vault: Vault) -> None:
+        from ztlctl.services.update import UpdateService
+
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        us = UpdateService(vault)
+
+        all_result = svc.list_items()
+        first_id = all_result.data["items"][0]["id"]
+        us.archive(first_id)
+
+        result = svc.list_items()
+        assert result.ok
+        assert result.data["count"] == 7
+
+        result = svc.list_items(include_archived=True)
+        assert result.ok
+        assert result.data["count"] == 8
+
+    def test_include_archived_default(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items()
+        assert result.ok
+        assert result.data["count"] == 8
+
+    def test_sort_priority_scores_present(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(sort="priority")
+        assert result.ok
+        for item in result.data["items"]:
+            assert "score" in item
+
+    def test_sort_priority_descending(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(sort="priority")
+        assert result.ok
+        scores = [item["score"] for item in result.data["items"]]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_sort_priority_tasks_first(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(sort="priority")
+        assert result.ok
+        first = result.data["items"][0]
+        assert first["type"] == "task"
+        assert first["title"] == "Fix login bug"
+
+    def test_sort_priority_nontasks_zero(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(sort="priority")
+        assert result.ok
+        for item in result.data["items"]:
+            if item["type"] != "task":
+                assert item["score"] == 0.0
+
+    def test_sort_priority_with_limit(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(sort="priority", limit=3)
+        assert result.ok
+        assert result.data["count"] == 3
+        for item in result.data["items"]:
+            assert item["type"] == "task"
+
+    def test_combined_filters(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_items(content_type="note", topic="math")
+        assert result.ok
+        for item in result.data["items"]:
+            assert item["type"] == "note"
+            assert item["topic"] == "math"
+
+
+# ---------------------------------------------------------------------------
 # work_queue
 # ---------------------------------------------------------------------------
 

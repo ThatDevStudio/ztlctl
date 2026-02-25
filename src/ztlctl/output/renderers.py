@@ -248,6 +248,8 @@ def _render_item_table(result: ServiceResult, console: Console, *, verbose: bool
     """Render search or list_items results as a table."""
     items = result.data.get("items", [])
     score_key = "score" if result.op == "search" else None
+    if score_key is None and items and "score" in items[0]:
+        score_key = "score"
     table = _item_table(items, score_key=score_key, verbose=verbose)
     console.print(table)
     console.print(f"\n{result.data.get('count', len(items))} items")
