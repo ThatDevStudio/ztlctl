@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.settings import ZtlSettings
+    from ztlctl.commands._context import AppContext
 
 
 @click.command()
@@ -22,11 +22,22 @@ if TYPE_CHECKING:
 @click.option("--rollback", is_flag=True, help="Restore from latest backup.")
 @click.pass_obj
 def check(
-    ctx: ZtlSettings,
+    app: AppContext,
     fix: bool,
     level: str,
     rebuild: bool,
     rollback: bool,
 ) -> None:
     """Check vault integrity and optionally repair issues."""
-    click.echo("check: not yet implemented")
+    from ztlctl.services.check import CheckService
+
+    svc = CheckService(app.vault)
+
+    if rollback:
+        app.emit(svc.rollback())
+    elif rebuild:
+        app.emit(svc.rebuild())
+    elif fix:
+        app.emit(svc.fix(level=level))
+    else:
+        app.emit(svc.check())
