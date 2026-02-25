@@ -1,7 +1,9 @@
-"""Pydantic configuration models with code-baked defaults.
+"""Pydantic configuration section models with code-baked defaults.
 
 Sparse TOML contract: defaults baked here, ztlctl.toml only contains overrides.
 A fresh vault needs only [vault] name and [agent] tone.
+
+These section models are composed by :class:`~ztlctl.config.settings.ZtlSettings`.
 """
 
 from __future__ import annotations
@@ -9,23 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 from pydantic import BaseModel, Field
-
-# --- CLI context (passed via click ctx.obj) ---
-
-
-class AppContext(BaseModel):
-    """Global CLI flags, frozen after construction."""
-
-    model_config = {"frozen": True}
-
-    json_output: bool = False
-    quiet: bool = False
-    verbose: bool = False
-    no_interact: bool = False
-    no_reweave: bool = False
-    sync: bool = False
-    config_path: str | None = None
-
 
 # --- ztlctl.toml sections ---
 
@@ -160,25 +145,3 @@ class WorkflowConfig(BaseModel):
 
     template: str = "claude-driven"
     skill_set: str = "research"
-
-
-class ZtlConfig(BaseModel):
-    """Root configuration composing all sections.
-
-    Matches the full ztlctl.toml schema from DESIGN.md Section 17.
-    """
-
-    model_config = {"frozen": True}
-
-    vault: VaultConfig = Field(default_factory=VaultConfig)
-    agent: AgentConfig = Field(default_factory=AgentConfig)
-    reweave: ReweaveConfig = Field(default_factory=ReweaveConfig)
-    garden: GardenConfig = Field(default_factory=GardenConfig)
-    search: SearchConfig = Field(default_factory=SearchConfig)
-    session: SessionConfig = Field(default_factory=SessionConfig)
-    tags: TagsConfig = Field(default_factory=TagsConfig)
-    check: CheckConfig = Field(default_factory=CheckConfig)
-    plugins: PluginsConfig = Field(default_factory=PluginsConfig)
-    git: GitConfig = Field(default_factory=GitConfig)
-    mcp: McpConfig = Field(default_factory=McpConfig)
-    workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)

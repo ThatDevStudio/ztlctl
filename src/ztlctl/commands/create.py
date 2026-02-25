@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.models import AppContext
+    from ztlctl.config.settings import ZtlSettings
 
 
 @click.group()
 @click.pass_obj
-def create(ctx: AppContext) -> None:
+def create(ctx: ZtlSettings) -> None:
     """Create notes, references, and tasks."""

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.models import AppContext
+    from ztlctl.config.settings import ZtlSettings
 
 
 @click.command()
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 @click.option("--rollback", is_flag=True, help="Restore from latest backup.")
 @click.pass_obj
 def check(
-    ctx: AppContext,
+    ctx: ZtlSettings,
     fix: bool,
     level: str,
     rebuild: bool,

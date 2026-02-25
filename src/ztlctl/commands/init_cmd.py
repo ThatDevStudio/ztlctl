@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.models import AppContext
+    from ztlctl.config.settings import ZtlSettings
 
 
 @click.command("init")
 @click.argument("path", required=False)
 @click.option("--no-workflow", is_flag=True, help="Skip workflow setup.")
 @click.pass_obj
-def init_cmd(ctx: AppContext, path: str | None, no_workflow: bool) -> None:
+def init_cmd(ctx: ZtlSettings, path: str | None, no_workflow: bool) -> None:
     """Initialize a new ztlctl vault."""
     click.echo("init: not yet implemented")

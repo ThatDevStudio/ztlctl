@@ -14,18 +14,15 @@ so that if any fail, they all roll back:
 
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
-from ztlctl.infrastructure.database.engine import create_db_engine, init_database
-from ztlctl.infrastructure.filesystem import (
-    CONTENT_PATHS,
-    find_content_files,
-    resolve_content_path,
-)
+from ztlctl.infrastructure.database.engine import init_database
+from ztlctl.infrastructure.filesystem import find_content_files, resolve_content_path
 from ztlctl.infrastructure.graph.engine import GraphEngine
 
 if TYPE_CHECKING:
@@ -35,6 +32,8 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
     from ztlctl.config.settings import ZtlSettings
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -50,11 +49,14 @@ class _FileOp:
     backup: str | None  # original content for updates, None for creates
 
     def rollback(self) -> None:
-        """Undo this file operation."""
-        if self.backup is not None:
-            self.path.write_text(self.backup, encoding="utf-8")
-        else:
-            self.path.unlink(missing_ok=True)
+        """Undo this file operation (best-effort)."""
+        try:
+            if self.backup is not None:
+                self.path.write_text(self.backup, encoding="utf-8")
+            else:
+                self.path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Failed to rollback file operation: %s", self.path)
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +130,7 @@ class Vault:
 
     def __init__(self, settings: ZtlSettings) -> None:
         self._settings = settings
-        self._engine: Engine = self._init_engine()
+        self._engine: Engine = init_database(self.root)
         self._graph = GraphEngine(self._engine)
 
     @property
@@ -151,10 +153,6 @@ class Vault:
         """The resolved settings for this vault."""
         return self._settings
 
-    def content_paths(self) -> dict[str, str]:
-        """Map of content type to vault-relative directory."""
-        return CONTENT_PATHS
-
     def find_content(self, *, content_type: str | None = None) -> list[Path]:
         """Discover content files in the vault."""
         return find_content_files(self.root, content_type=content_type)
@@ -169,6 +167,7 @@ class Vault:
           success, auto-rollback on exception).
         - File writes are tracked for compensation — on failure, created
           files are deleted and modified files are restored from backup.
+          Rollback is best-effort per file to avoid masking the original error.
         - Graph cache is invalidated on transaction end (success or
           failure) so the next access rebuilds from committed DB state.
 
@@ -193,10 +192,3 @@ class Vault:
                 raise
             finally:
                 self._graph.invalidate()
-
-    def _init_engine(self) -> Engine:
-        """Initialize or connect to the vault database."""
-        db_path = self.root / ".ztlctl" / "ztlctl.db"
-        if db_path.exists():
-            return create_db_engine(db_path)
-        return init_database(self.root)

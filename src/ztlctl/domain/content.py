@@ -1,22 +1,27 @@
-"""Content models — frontmatter schema + body methods.
+"""Content models — frontmatter schema + body methods + validation.
 
 ContentModel attributes map 1:1 to YAML frontmatter keys (similar to
 how Pydantic Settings maps fields to environment variables).  Body
 content is handled exclusively via methods:
 
-- ``write_body()``: renders a body-only Jinja2 template with typed args.
+- ``write_body()``: renders a body-only Jinja2 template with kwargs.
 - ``read_body()``: returns the raw body string — no structural parsing.
 
-These models replace the former ``frontmatter.py`` Pydantic schemas.
-They are the single source of truth for content structure.
+Validation lives directly on the model hierarchy:
+
+- ``validate_create()``: business-rule checks before creation.
+- ``validate_update()``: business-rule checks before modification.
+- ``required_sections()``: body sections required for this content type.
+- ``status_transitions()``: delegates to ``lifecycle.py`` maps.
 
 Pure parsing utilities (``parse_frontmatter``, ``order_frontmatter``,
 ``render_frontmatter``) live here so that the dependency direction stays
-clean: infrastructure → domain, never the reverse.
+clean: infrastructure -> domain, never the reverse.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import date
 from io import StringIO
 from pathlib import Path
@@ -25,6 +30,13 @@ from typing import Any, ClassVar, Self
 from jinja2 import Environment, PackageLoader
 from pydantic import BaseModel, Field
 from ruamel.yaml import YAML
+
+from ztlctl.domain.lifecycle import (
+    DECISION_TRANSITIONS,
+    NOTE_TRANSITIONS,
+    REFERENCE_TRANSITIONS,
+    TASK_TRANSITIONS,
+)
 
 # ---------------------------------------------------------------------------
 # YAML parser (round-trip preserves comments and quote styles)
@@ -74,6 +86,20 @@ _FRONTMATTER_DELIMITER = "---"
 
 
 # ---------------------------------------------------------------------------
+# Validation result
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    """Result of a content validation check."""
+
+    valid: bool
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # Pure parsing / rendering utilities
 # ---------------------------------------------------------------------------
 
@@ -84,11 +110,15 @@ def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     Expects the file to start with ``---`` on the first line. The second
     ``---`` closes the YAML block. Everything after is the body.
 
+    Handles both ``\\n`` and ``\\r\\n`` line endings.
+
     Returns:
         A ``(frontmatter_dict, body_text)`` tuple. If no valid
         frontmatter delimiters are found, returns ``({}, content)``.
     """
-    lines = content.split("\n")
+    # Normalize line endings to \n before parsing.
+    normalized = content.replace("\r\n", "\n")
+    lines = normalized.split("\n")
     if not lines or lines[0].strip() != _FRONTMATTER_DELIMITER:
         return {}, content
 
@@ -148,6 +178,34 @@ def render_frontmatter(frontmatter: dict[str, Any], body: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Content model registry
+# ---------------------------------------------------------------------------
+
+# Populated by _register_models() at module load time.
+CONTENT_REGISTRY: dict[str, type[ContentModel]] = {}
+
+
+def get_content_model(
+    content_type: str,
+    subtype: str | None = None,
+) -> type[ContentModel]:
+    """Look up the ContentModel class for a content type + optional subtype.
+
+    Checks subtype-specific registration first, then falls back to the
+    base type registration.
+
+    Raises:
+        KeyError: If no model is registered for the given type/subtype.
+    """
+    if subtype and subtype in CONTENT_REGISTRY:
+        return CONTENT_REGISTRY[subtype]
+    if content_type in CONTENT_REGISTRY:
+        return CONTENT_REGISTRY[content_type]
+    msg = f"No content model registered for type={content_type!r}, subtype={subtype!r}"
+    raise KeyError(msg)
+
+
+# ---------------------------------------------------------------------------
 # Base content model
 # ---------------------------------------------------------------------------
 
@@ -155,8 +213,12 @@ def render_frontmatter(frontmatter: dict[str, Any], body: str) -> str:
 class ContentModel(BaseModel):
     """Base content model — attributes ARE frontmatter keys.
 
-    Subclasses add type-specific fields and override ``write_body()``
-    when the body template requires typed parameters beyond ``body``.
+    Subclasses add type-specific fields and may override:
+
+    - ``write_body(**kwargs)`` for type-specific template parameters.
+    - ``validate_create()`` / ``validate_update()`` for business rules.
+    - ``required_sections()`` for body section requirements.
+    - ``status_transitions()`` to delegate to lifecycle.py maps.
     """
 
     model_config = {"frozen": True}
@@ -170,25 +232,28 @@ class ContentModel(BaseModel):
     created: date
     modified: date | None = None
 
-    # Subclasses set this to their body-only template filename.
+    # Subclasses set these to their body-only template filename and type info.
     _template_name: ClassVar[str] = ""
+    _content_type: ClassVar[str] = ""
+    _subtype_name: ClassVar[str | None] = None
 
     def to_frontmatter(self) -> dict[str, Any]:
         """Serialize model attributes to an ordered frontmatter dict."""
         fm = self.model_dump(mode="json", exclude_none=True)
         return order_frontmatter(fm)
 
-    def write_body(self, body: str = "") -> str:
+    def write_body(self, **kwargs: Any) -> str:
         """Render the body-only Jinja2 template.
 
-        Base implementation returns *body* as-is when no template is
-        configured, or renders the template with ``body`` as the only
-        variable. Subclasses override for typed template parameters.
+        All keyword arguments are passed to the Jinja2 template. Common
+        usage: ``model.write_body(body="...")`` for simple templates,
+        ``model.write_body(context="...", choice="...")`` for structured
+        templates like decisions.
         """
         if not self._template_name:
-            return body
+            return str(kwargs.get("body", ""))
         template = _jinja_env.get_template(self._template_name)
-        return template.render(body=body)
+        return template.render(**kwargs)
 
     @staticmethod
     def read_body(raw: str) -> str:
@@ -208,6 +273,40 @@ class ContentModel(BaseModel):
         instance = cls.model_validate(fm)
         return instance, cls.read_body(raw_body)
 
+    # --- Validation (override in subclasses for business rules) ---
+
+    @classmethod
+    def validate_create(cls, data: dict[str, Any]) -> ValidationResult:
+        """Validate data before creation.
+
+        Base implementation accepts all valid data. Subclasses override
+        to enforce business rules (e.g. required initial status).
+        """
+        return ValidationResult(valid=True)
+
+    @classmethod
+    def validate_update(
+        cls,
+        existing: dict[str, Any],
+        changes: dict[str, Any],
+    ) -> ValidationResult:
+        """Validate an update against existing content.
+
+        Base implementation accepts all updates. Subclasses override
+        for invariants (e.g. immutability after acceptance).
+        """
+        return ValidationResult(valid=True)
+
+    @classmethod
+    def required_sections(cls) -> list[str]:
+        """Markdown body sections required for this content type."""
+        return []
+
+    @classmethod
+    def status_transitions(cls) -> dict[str, list[str]]:
+        """Allowed status transitions — delegates to lifecycle.py."""
+        return {}
+
 
 # ---------------------------------------------------------------------------
 # Concrete content models
@@ -218,6 +317,7 @@ class NoteModel(ContentModel):
     """Plain note — flexible structure, no enforced sections."""
 
     _template_name: ClassVar[str] = "note.md.j2"
+    _content_type: ClassVar[str] = "note"
 
     subtype: str | None = None
     maturity: str | None = None
@@ -225,47 +325,114 @@ class NoteModel(ContentModel):
     topic: str | None = None
     links: dict[str, list[str]] = Field(default_factory=dict)
 
+    @classmethod
+    def status_transitions(cls) -> dict[str, list[str]]:
+        return NOTE_TRANSITIONS
+
 
 class KnowledgeModel(NoteModel):
     """Knowledge note — advisory key_points, same body as plain note."""
 
     _template_name: ClassVar[str] = "knowledge.md.j2"
+    _subtype_name: ClassVar[str] = "knowledge"
 
     key_points: list[str] = Field(default_factory=list)
 
+    @classmethod
+    def validate_create(cls, data: dict[str, Any]) -> ValidationResult:
+        warnings: list[str] = []
+        if not data.get("key_points"):
+            warnings.append("Knowledge notes benefit from key_points in frontmatter")
+        return ValidationResult(valid=True, warnings=warnings)
+
+    @classmethod
+    def validate_update(
+        cls,
+        existing: dict[str, Any],
+        changes: dict[str, Any],
+    ) -> ValidationResult:
+        warnings: list[str] = []
+        if "key_points" in changes:
+            kp = changes["key_points"]
+            if isinstance(kp, list) and len(kp) == 0:
+                warnings.append("Removing all key_points is not recommended")
+        return ValidationResult(valid=True, warnings=warnings)
+
 
 class DecisionModel(NoteModel):
-    """Decision note — strict sections, immutable after acceptance."""
+    """Decision note — strict sections, immutable after acceptance.
+
+    INVARIANT: Decisions are immutable after ``status = accepted``.
+    Required sections: Context, Choice, Rationale, Alternatives, Consequences.
+    Status flow: ``proposed -> accepted -> superseded``.
+    """
 
     _template_name: ClassVar[str] = "decision.md.j2"
+    _subtype_name: ClassVar[str] = "decision"
 
     supersedes: str | None = None
     superseded_by: str | None = None
 
-    def write_body(  # type: ignore[override]
-        self,
-        *,
-        context: str = "",
-        choice: str = "",
-        rationale: str = "",
-        alternatives: str = "",
-        consequences: str = "",
-    ) -> str:
-        """Render decision body with required section content."""
-        template = _jinja_env.get_template(self._template_name)
-        return template.render(
-            context=context,
-            choice=choice,
-            rationale=rationale,
-            alternatives=alternatives,
-            consequences=consequences,
-        )
+    @classmethod
+    def validate_create(cls, data: dict[str, Any]) -> ValidationResult:
+        errors: list[str] = []
+        if data.get("status") != "proposed":
+            errors.append("New decisions must have status 'proposed'")
+        return ValidationResult(valid=len(errors) == 0, errors=errors)
+
+    @classmethod
+    def validate_update(
+        cls,
+        existing: dict[str, Any],
+        changes: dict[str, Any],
+    ) -> ValidationResult:
+        errors: list[str] = []
+        current_status = existing.get("status")
+
+        # INVARIANT: Decisions are immutable after accepted.
+        if current_status == "accepted":
+            allowed_after_accepted = {
+                "status",
+                "superseded_by",
+                "modified",
+                "tags",
+                "aliases",
+                "topic",
+            }
+            disallowed = set(changes.keys()) - allowed_after_accepted
+            if disallowed:
+                errors.append(
+                    f"Cannot modify accepted decision. "
+                    f"Disallowed fields: {sorted(disallowed)}. "
+                    f"Supersede with a new decision instead."
+                )
+
+        if "status" in changes:
+            new_status = str(changes["status"])
+            allowed = cls.status_transitions().get(str(current_status), [])
+            if new_status not in allowed:
+                errors.append(
+                    f"Invalid status transition: "
+                    f"{current_status} -> {new_status}. "
+                    f"Allowed: {allowed}"
+                )
+
+        return ValidationResult(valid=len(errors) == 0, errors=errors)
+
+    @classmethod
+    def required_sections(cls) -> list[str]:
+        return ["Context", "Choice", "Rationale", "Alternatives", "Consequences"]
+
+    @classmethod
+    def status_transitions(cls) -> dict[str, list[str]]:
+        return DECISION_TRANSITIONS
 
 
 class ReferenceModel(ContentModel):
     """External reference — article, tool, or spec."""
 
     _template_name: ClassVar[str] = "reference.md.j2"
+    _content_type: ClassVar[str] = "reference"
 
     subtype: str | None = None
     url: str | None = None
@@ -273,12 +440,38 @@ class ReferenceModel(ContentModel):
     topic: str | None = None
     links: dict[str, list[str]] = Field(default_factory=dict)
 
+    @classmethod
+    def status_transitions(cls) -> dict[str, list[str]]:
+        return REFERENCE_TRANSITIONS
+
 
 class TaskModel(ContentModel):
     """Actionable task with priority/impact/effort matrix."""
 
     _template_name: ClassVar[str] = "task.md.j2"
+    _content_type: ClassVar[str] = "task"
 
     priority: str = "medium"
     impact: str = "medium"
     effort: str = "medium"
+
+    @classmethod
+    def status_transitions(cls) -> dict[str, list[str]]:
+        return TASK_TRANSITIONS
+
+
+# ---------------------------------------------------------------------------
+# Registry population
+# ---------------------------------------------------------------------------
+
+
+def _register_models() -> None:
+    """Populate :data:`CONTENT_REGISTRY` with built-in content models."""
+    CONTENT_REGISTRY["note"] = NoteModel
+    CONTENT_REGISTRY["knowledge"] = KnowledgeModel
+    CONTENT_REGISTRY["decision"] = DecisionModel
+    CONTENT_REGISTRY["reference"] = ReferenceModel
+    CONTENT_REGISTRY["task"] = TaskModel
+
+
+_register_models()

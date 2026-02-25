@@ -13,6 +13,7 @@ reuses the existing ``find_config`` walk-up discovery from
 
 from __future__ import annotations
 
+import threading
 import tomllib
 from pathlib import Path
 from typing import Any, ClassVar
@@ -55,6 +56,10 @@ class TomlSettingsSource(PydanticBaseSettingsSource):
     def __call__(self) -> dict[str, Any]:
         """Return the full TOML data dict for Pydantic to merge."""
         return self._data
+
+
+# Thread-local storage for TOML path during construction.
+_tls = threading.local()
 
 
 class ZtlSettings(BaseSettings):
@@ -102,7 +107,7 @@ class ZtlSettings(BaseSettings):
     mcp: McpConfig = Field(default_factory=McpConfig)
     workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
 
-    # Class-level config for TOML path discovery.
+    # Retained for type-checker visibility; not used at runtime.
     _toml_path: ClassVar[Path | None] = None
 
     @classmethod
@@ -115,10 +120,11 @@ class ZtlSettings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         """Insert TOML source between env vars and defaults."""
+        toml_path = getattr(_tls, "toml_path", None)
         return (
             init_settings,
             env_settings,
-            TomlSettingsSource(settings_cls, cls._toml_path),
+            TomlSettingsSource(settings_cls, toml_path),
         )
 
     @classmethod
@@ -147,7 +153,7 @@ class ZtlSettings(BaseSettings):
         if resolved_root is None:
             resolved_root = toml_path.parent if toml_path else Path.cwd()
 
-        cls._toml_path = toml_path
+        _tls.toml_path = toml_path
         try:
             return cls(
                 vault_root=resolved_root,
@@ -155,4 +161,4 @@ class ZtlSettings(BaseSettings):
                 **cli_flags,
             )
         finally:
-            cls._toml_path = None
+            _tls.toml_path = None

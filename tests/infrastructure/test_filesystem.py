@@ -1,16 +1,14 @@
-"""Tests for filesystem operations — frontmatter parsing, file I/O, paths."""
+"""Tests for filesystem operations — file I/O, path resolution, discovery."""
 
 from pathlib import Path
 
 import pytest
 
+from ztlctl.domain.content import order_frontmatter, parse_frontmatter, render_frontmatter
 from ztlctl.infrastructure.filesystem import (
     CONTENT_PATHS,
     find_content_files,
-    order_frontmatter,
-    parse_frontmatter,
     read_content_file,
-    render_frontmatter,
     resolve_content_path,
     write_content_file,
 )

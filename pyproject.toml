@@ -92,7 +92,6 @@ omit = [
     "src/ztlctl/infrastructure/*",
     "src/ztlctl/plugins/*",
     "src/ztlctl/output/formatters.py",
-    "src/ztlctl/domain/subtypes.py",
     "src/ztlctl/domain/content.py",
 ]
 
