@@ -1,9 +1,103 @@
 ---
 generated: true
 vault: "{{ vault_name }}"
+tone: "{{ tone }}"
+client: "{{ client }}"
 created: {{ created }}
 ---
 
-# Methodology
+# Methodology — {{ vault_name }}
 
-Core principles and tool configuration for the {{ vault_name }} vault.
+Operational guide for working within this zettelkasten vault.
+{% if topics %}
+Focus areas: {{ topics | join(", ") }}.
+{% endif %}
+
+## Core Principles
+
+1. **Atomic notes** — one idea per note, linked to related concepts
+2. **Progressive formalization** — seeds capture, saplings develop, evergreens solidify
+3. **Bidirectional linking** — connections go both ways; isolated notes lose value
+4. **Tag taxonomy** — `domain/scope` pattern keeps tags navigable at scale
+5. **Evidence-based promotion** — status upgrades require demonstrated quality
+
+## Content Type Reference
+
+| Type | ID Pattern | Purpose | Status Flow |
+|------|-----------|---------|-------------|
+| Note | `ZTL-NNNN` | Core knowledge atoms | seed → sapling → evergreen |
+| Decision | `ZTL-NNNN` | Architectural/design decisions | seed → sapling → evergreen |
+| Knowledge | `ZTL-NNNN` | Synthesized understanding | seed → sapling → evergreen |
+| Reference | `ref_NNNN` | External sources and citations | seed → sapling → evergreen |
+| Task | `TASK-NNNN` | Actionable work items | open → active → done/cancelled |
+| Log | `LOG-NNNN` | Session records | open → closed |
+
+{% if tone == "research-partner" %}
+## Workflow Guidance
+
+### Creating Notes
+
+1. **Search first** — check for existing notes on the topic
+2. **Choose the right type** — note for ideas, reference for sources, decision for choices
+3. **Tag immediately** — apply `domain/scope` tags at creation time
+4. **Link aggressively** — add wikilinks to related notes in the body
+5. **Set honest status** — new insights start as seeds unless they arrive fully formed
+
+### Developing Notes
+
+- Review seed notes regularly — promote or archive stale seeds
+- Add key points and supporting evidence to move seed → sapling
+- Ensure bidirectional links and referenced claims for sapling → evergreen
+- Use decision notes to record and revisit architectural choices
+
+### Session Workflow
+
+- Start sessions with `agent session start "topic"` to track work context
+- Close sessions to trigger enrichment: reweave, orphan sweep, integrity check
+- Session logs capture what was accomplished for future reference
+
+### Graph Maintenance
+
+- Run `check` periodically to detect structural issues
+- Use `reweave` to discover and create missing connections
+- Review `graph gaps` to find structurally important but underconnected notes
+- Use `graph themes` to discover emergent topic clusters
+
+{% elif tone == "assistant" %}
+## Workflow Summary
+
+- Search before creating to avoid duplicates
+- Use proper content types and tag conventions
+- Start sessions to track work context
+- Close sessions to trigger automatic enrichment
+- Run `check` periodically for vault health
+
+{% elif tone == "minimal" %}
+## Workflow
+
+- Search → Create → Tag → Link
+- Use sessions for work tracking
+- Run `check` for vault health
+{% endif %}
+
+{% if client == "obsidian" %}
+## Obsidian Integration
+
+- Vault is configured for Obsidian compatibility
+- Wikilinks (`[[note]]`) work natively in Obsidian
+- Tags render in Obsidian's tag pane
+- The `.obsidian/` directory contains client-specific configuration
+{% endif %}
+
+## Tool Reference
+
+| Command | Purpose |
+|---------|---------|
+| `create note/reference/task` | Create new content |
+| `query search/get/list` | Find and retrieve content |
+| `graph related/themes/gaps` | Explore knowledge structure |
+| `update` | Modify existing content |
+| `reweave` | Discover missing connections |
+| `check` | Vault integrity scanner |
+| `agent session start/close` | Session lifecycle |
+| `export markdown/indexes/graph` | Export vault content |

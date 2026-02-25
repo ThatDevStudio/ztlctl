@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 _AGENT_EXAMPLES = """\
   ztlctl agent session start "refactor auth module"
   ztlctl agent session close --summary "Completed auth refactor"
-  ztlctl agent session reopen LOG-0001"""
+  ztlctl agent session reopen LOG-0001
+  ztlctl agent regenerate"""
 
 
 @click.group(cls=ZtlGroup, examples=_AGENT_EXAMPLES)
@@ -76,3 +77,15 @@ def reopen(app: AppContext, session_id: str) -> None:
     from ztlctl.services.session import SessionService
 
     app.emit(SessionService(app.vault).reopen(session_id))
+
+
+@agent.command(
+    examples="""\
+  ztlctl agent regenerate"""
+)
+@click.pass_obj
+def regenerate(app: AppContext) -> None:
+    """Re-render self/ files from current vault settings."""
+    from ztlctl.services.init import InitService
+
+    app.emit(InitService.regenerate_self(app.vault))

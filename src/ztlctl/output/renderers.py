@@ -516,6 +516,27 @@ def _render_undo(result: ServiceResult, console: Console, *, verbose: bool = Fal
         console.print(table)
 
 
+# ── Init renderers ───────────────────────────────────────────────────
+
+
+def _render_init(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
+    """Render init_vault results with vault details and file manifest."""
+    _status_line(console, result)
+    d = result.data
+    for key in ("vault_path", "name", "client", "tone"):
+        if key in d:
+            _field(console, key, d[key])
+    topics = d.get("topics", [])
+    if topics:
+        _field(console, "topics", ", ".join(topics))
+    files = d.get("files_created", [])
+    _field(console, "files_created", len(files))
+    if verbose:
+        for f in files:
+            console.print(f"    {f}")
+        _render_meta(console, result)
+
+
 # ── Generic fallback ──────────────────────────────────────────────────
 
 
@@ -570,4 +591,8 @@ _OP_RENDERERS: dict[str, Any] = {
     "reweave": _render_reweave,
     "prune": _render_reweave,
     "undo": _render_undo,
+    # Init
+    "init_vault": _render_init,
+    "regenerate_self": _render_mutation,
+    "check_staleness": _render_generic,
 }
