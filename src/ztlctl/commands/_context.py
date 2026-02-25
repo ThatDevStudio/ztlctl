@@ -44,11 +44,16 @@ class AppContext:
         """Format and output a ServiceResult with correct exit semantics.
 
         * Success (``result.ok``): writes to stdout, returns normally.
+          Warnings are emitted to stderr so they don't pollute piped output.
         * Failure: writes to stderr, exits with code 1.
         """
         output = format_result(result, json_output=self.settings.json_output)
         if result.ok:
             click.echo(output)
+            # In JSON mode, warnings are already in the serialized payload.
+            if not self.settings.json_output:
+                for warning in result.warnings:
+                    click.echo(f"WARNING: {warning}", err=True)
         else:
             click.echo(output, err=True)
             raise SystemExit(1)

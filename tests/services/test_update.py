@@ -2,44 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from sqlalchemy import insert, select, text
 
+from tests.conftest import create_decision, create_note, create_task
 from ztlctl.domain.content import parse_frontmatter
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
 from ztlctl.infrastructure.vault import Vault
-from ztlctl.services.create import CreateService
 from ztlctl.services.update import UpdateService
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _create_note(vault: Vault, title: str, **kwargs: Any) -> dict[str, Any]:
-    result = CreateService(vault).create_note(title, **kwargs)
-    assert result.ok, result.error
-    return result.data
-
-
-def _create_reference(vault: Vault, title: str, **kwargs: Any) -> dict[str, Any]:
-    result = CreateService(vault).create_reference(title, **kwargs)
-    assert result.ok, result.error
-    return result.data
-
-
-def _create_task(vault: Vault, title: str, **kwargs: Any) -> dict[str, Any]:
-    result = CreateService(vault).create_task(title, **kwargs)
-    assert result.ok, result.error
-    return result.data
-
-
-def _create_decision(vault: Vault, title: str, **kwargs: Any) -> dict[str, Any]:
-    result = CreateService(vault).create_note(title, subtype="decision", **kwargs)
-    assert result.ok, result.error
-    return result.data
-
 
 # ---------------------------------------------------------------------------
 # update() — basic field changes
@@ -48,7 +17,7 @@ def _create_decision(vault: Vault, title: str, **kwargs: Any) -> dict[str, Any]:
 
 class TestUpdateBasic:
     def test_update_title(self, vault: Vault) -> None:
-        data = _create_note(vault, "Old Title")
+        data = create_note(vault, "Old Title")
         svc = UpdateService(vault)
         result = svc.update(data["id"], changes={"title": "New Title"})
         assert result.ok
@@ -65,7 +34,7 @@ class TestUpdateBasic:
             assert row.title == "New Title"
 
     def test_update_tags(self, vault: Vault) -> None:
-        data = _create_note(vault, "Tag Note", tags=["old/tag"])
+        data = create_note(vault, "Tag Note", tags=["old/tag"])
         svc = UpdateService(vault)
         result = svc.update(data["id"], changes={"tags": ["new/tag", "extra/tag"]})
         assert result.ok
@@ -84,7 +53,7 @@ class TestUpdateBasic:
         assert result.error.code == "NOT_FOUND"
 
     def test_update_bumps_modified(self, vault: Vault) -> None:
-        data = _create_note(vault, "Mod Note")
+        data = create_note(vault, "Mod Note")
         result = UpdateService(vault).update(data["id"], changes={"title": "Updated"})
         assert result.ok
 
@@ -94,7 +63,7 @@ class TestUpdateBasic:
 
     def test_immutable_fields_warned(self, vault: Vault) -> None:
         """Attempting to change immutable fields (id, type, created) produces warnings."""
-        data = _create_note(vault, "Immutable Test")
+        data = create_note(vault, "Immutable Test")
         result = UpdateService(vault).update(data["id"], changes={"id": "ztl_new00000"})
         assert result.ok
         assert any("immutable" in w.lower() for w in result.warnings)
@@ -107,13 +76,13 @@ class TestUpdateBasic:
 
 class TestUpdateStatus:
     def test_valid_task_transition(self, vault: Vault) -> None:
-        data = _create_task(vault, "Status Task")
+        data = create_task(vault, "Status Task")
         result = UpdateService(vault).update(data["id"], changes={"status": "active"})
         assert result.ok
         assert result.data["status"] == "active"
 
     def test_invalid_task_transition(self, vault: Vault) -> None:
-        data = _create_task(vault, "Bad Transition")
+        data = create_task(vault, "Bad Transition")
         result = UpdateService(vault).update(data["id"], changes={"status": "done"})
         assert not result.ok
         assert result.error is not None
@@ -128,7 +97,7 @@ class TestUpdateStatus:
 class TestDecisionImmutability:
     def test_accepted_decision_rejects_body(self, vault: Vault) -> None:
         """Accepted decisions are immutable — can't change title."""
-        data = _create_decision(vault, "My Decision")
+        data = create_decision(vault, "My Decision")
         svc = UpdateService(vault)
         # Accept it first
         svc.update(data["id"], changes={"status": "accepted"})
@@ -140,7 +109,7 @@ class TestDecisionImmutability:
 
     def test_accepted_decision_allows_supersede(self, vault: Vault) -> None:
         """Accepted decisions CAN be superseded."""
-        data = _create_decision(vault, "Old Decision")
+        data = create_decision(vault, "Old Decision")
         svc = UpdateService(vault)
         svc.update(data["id"], changes={"status": "accepted"})
         result = svc.update(
@@ -158,7 +127,7 @@ class TestDecisionImmutability:
 class TestGardenProtection:
     def test_body_rejected_for_garden_note(self, vault: Vault) -> None:
         """Notes with maturity set reject body modifications."""
-        data = _create_note(vault, "Garden Note")
+        data = create_note(vault, "Garden Note")
         svc = UpdateService(vault)
         # Set maturity on the note
         svc.update(data["id"], changes={"maturity": "seed"})
@@ -169,7 +138,7 @@ class TestGardenProtection:
 
     def test_body_accepted_for_machine_note(self, vault: Vault) -> None:
         """Notes without maturity allow body modifications."""
-        data = _create_note(vault, "Machine Note")
+        data = create_note(vault, "Machine Note")
         result = UpdateService(vault).update(data["id"], changes={"body": "new body text"})
         assert result.ok
         assert "body" in result.data["fields_changed"]
@@ -182,14 +151,14 @@ class TestGardenProtection:
 
 class TestNoteStatusPropagation:
     def test_draft_stays_draft_with_no_links(self, vault: Vault) -> None:
-        data = _create_note(vault, "Lonely Note")
+        data = create_note(vault, "Lonely Note")
         result = UpdateService(vault).update(data["id"], changes={"title": "Still Lonely"})
         assert result.ok
         assert result.data["status"] == "draft"
 
     def test_becomes_linked_with_one_edge(self, vault: Vault) -> None:
-        data_a = _create_note(vault, "Source")
-        data_b = _create_note(vault, "Target")
+        data_a = create_note(vault, "Source")
+        data_b = create_note(vault, "Target")
         # Add an edge A -> B
         with vault.engine.begin() as conn:
             conn.execute(
@@ -208,8 +177,8 @@ class TestNoteStatusPropagation:
         assert result.data["status"] == "linked"
 
     def test_becomes_connected_with_three_edges(self, vault: Vault) -> None:
-        data_a = _create_note(vault, "Hub Node")
-        targets = [_create_note(vault, f"Target {i}") for i in range(3)]
+        data_a = create_note(vault, "Hub Node")
+        targets = [create_note(vault, f"Target {i}") for i in range(3)]
         with vault.engine.begin() as conn:
             for t in targets:
                 conn.execute(
@@ -234,7 +203,7 @@ class TestNoteStatusPropagation:
 
 class TestFtsReindex:
     def test_fts_updated_on_title_change(self, vault: Vault) -> None:
-        data = _create_note(vault, "Searchable Original")
+        data = create_note(vault, "Searchable Original")
         UpdateService(vault).update(data["id"], changes={"title": "Searchable Updated"})
 
         with vault.engine.connect() as conn:
@@ -259,8 +228,8 @@ class TestFtsReindex:
 
 class TestEdgeReindex:
     def test_edges_reindexed_on_links_change(self, vault: Vault) -> None:
-        data_a = _create_note(vault, "Link Source")
-        data_b = _create_note(vault, "Link Target")
+        data_a = create_note(vault, "Link Source")
+        data_b = create_note(vault, "Link Target")
 
         result = UpdateService(vault).update(
             data_a["id"],
@@ -285,7 +254,7 @@ class TestEdgeReindex:
 
 class TestArchive:
     def test_archive_sets_flag(self, vault: Vault) -> None:
-        data = _create_note(vault, "Archive Me")
+        data = create_note(vault, "Archive Me")
         result = UpdateService(vault).archive(data["id"])
         assert result.ok
 
@@ -300,8 +269,8 @@ class TestArchive:
         assert fm["archived"] is True
 
     def test_archive_preserves_edges(self, vault: Vault) -> None:
-        data_a = _create_note(vault, "Archived Node")
-        data_b = _create_note(vault, "Connected Node")
+        data_a = create_note(vault, "Archived Node")
+        data_b = create_note(vault, "Connected Node")
         with vault.engine.begin() as conn:
             conn.execute(
                 insert(edges).values(
@@ -336,8 +305,8 @@ class TestArchive:
 
 class TestSupersede:
     def test_supersede_sets_status_and_link(self, vault: Vault) -> None:
-        data_old = _create_decision(vault, "Old Decision")
-        data_new = _create_decision(vault, "New Decision")
+        data_old = create_decision(vault, "Old Decision")
+        data_new = create_decision(vault, "New Decision")
 
         svc = UpdateService(vault)
         svc.update(data_old["id"], changes={"status": "accepted"})
@@ -362,7 +331,7 @@ class TestAliasResolution:
         """Wikilinks can resolve via node aliases."""
         import json
 
-        data = _create_note(vault, "Python Language")
+        data = create_note(vault, "Python Language")
         # Store aliases in DB
         with vault.engine.begin() as conn:
             conn.execute(
@@ -372,7 +341,7 @@ class TestAliasResolution:
             )
 
         # Create another note with a wikilink to the alias
-        data_b = _create_note(vault, "Uses Python")
+        data_b = create_note(vault, "Uses Python")
         path_b = vault.root / data_b["path"]
         fm, _ = parse_frontmatter(path_b.read_text(encoding="utf-8"))
         body_with_link = "This references [[py]] language."

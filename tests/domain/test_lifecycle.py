@@ -13,6 +13,7 @@ from ztlctl.domain.lifecycle import (
     NoteStatus,
     ReferenceStatus,
     TaskStatus,
+    compute_note_status,
     is_valid_transition,
 )
 
@@ -88,6 +89,23 @@ class TestGardenMaturity:
         assert is_valid_transition("budding", "evergreen", GARDEN_TRANSITIONS)
         assert not is_valid_transition("seed", "evergreen", GARDEN_TRANSITIONS)
         assert not is_valid_transition("evergreen", "seed", GARDEN_TRANSITIONS)
+
+
+class TestComputeNoteStatus:
+    def test_zero_links_is_draft(self) -> None:
+        assert compute_note_status(0) == "draft"
+
+    def test_one_link_is_linked(self) -> None:
+        assert compute_note_status(1) == "linked"
+
+    def test_two_links_is_linked(self) -> None:
+        assert compute_note_status(2) == "linked"
+
+    def test_three_links_is_connected(self) -> None:
+        assert compute_note_status(3) == "connected"
+
+    def test_many_links_is_connected(self) -> None:
+        assert compute_note_status(100) == "connected"
 
 
 class TestInvalidTransition:

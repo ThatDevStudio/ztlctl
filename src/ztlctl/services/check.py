@@ -14,15 +14,18 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete, insert, select, text
 
-from ztlctl.domain.content import parse_frontmatter
+from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.domain.ids import ID_PATTERNS
 from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
 from ztlctl.services.base import BaseService
+from ztlctl.services.create import _resolve_wikilink
 from ztlctl.services.result import ServiceError, ServiceResult
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
+
+    from ztlctl.infrastructure.vault import VaultTransaction
 
 
 # ---------------------------------------------------------------------------
@@ -81,15 +84,15 @@ class CheckService(BaseService):
         fixes: list[str] = []
         today = _today()
 
-        with self._vault.engine.begin() as conn:
-            fixes.extend(self._fix_orphan_db_rows(conn))
-            fixes.extend(self._fix_dangling_edges(conn))
-            fixes.extend(self._fix_missing_fts(conn))
-            fixes.extend(self._fix_resync_from_files(conn, today))
+        with self._vault.transaction() as txn:
+            fixes.extend(self._fix_orphan_db_rows(txn.conn))
+            fixes.extend(self._fix_dangling_edges(txn.conn))
+            fixes.extend(self._fix_missing_fts(txn.conn))
+            fixes.extend(self._fix_resync_from_files(txn.conn, today))
 
             if level == "aggressive":
-                fixes.extend(self._fix_reindex_edges(conn, today))
-                fixes.extend(self._fix_reorder_frontmatter())
+                fixes.extend(self._fix_reindex_edges(txn.conn, today))
+                fixes.extend(self._fix_reorder_frontmatter(txn))
 
         return ServiceResult(
             ok=True,
@@ -103,7 +106,8 @@ class CheckService(BaseService):
         warnings: list[str] = []
         today = _today()
 
-        with self._vault.engine.begin() as conn:
+        with self._vault.transaction() as txn:
+            conn = txn.conn
             # Clear derived tables (preserve id_counters and tags_registry)
             conn.execute(text("DELETE FROM nodes_fts"))
             conn.execute(delete(node_tags))
@@ -220,7 +224,7 @@ class CheckService(BaseService):
 
                 # Body wikilinks
                 for wlink in extract_wikilinks(body):
-                    resolved_id = self._resolve_wikilink_simple(conn, wlink.raw)
+                    resolved_id = _resolve_wikilink(conn, wlink.raw)
                     if resolved_id is not None and resolved_id != content_id:
                         # Avoid duplicates
                         existing = conn.execute(
@@ -763,7 +767,7 @@ class CheckService(BaseService):
 
             # Body wikilinks
             for wlink in extract_wikilinks(body):
-                resolved = self._resolve_wikilink_simple(conn, wlink.raw)
+                resolved = _resolve_wikilink(conn, wlink.raw)
                 if resolved is not None and resolved != row.id:
                     existing = conn.execute(
                         select(edges.c.source_id).where(
@@ -787,10 +791,12 @@ class CheckService(BaseService):
         fixes.append("Re-indexed all edges from files")
         return fixes
 
-    def _fix_reorder_frontmatter(self) -> list[str]:
-        """Aggressive: re-order frontmatter keys in canonical order on disk."""
-        from ztlctl.domain.content import order_frontmatter, render_frontmatter
+    def _fix_reorder_frontmatter(self, txn: VaultTransaction) -> list[str]:
+        """Aggressive: re-order frontmatter keys in canonical order on disk.
 
+        Uses ``txn.write_file()`` so writes are tracked for rollback.
+        ``render_frontmatter()`` applies ``order_frontmatter()`` internally.
+        """
         fixes: list[str] = []
         content_files = self._vault.find_content()
 
@@ -803,26 +809,8 @@ class CheckService(BaseService):
             if not fm:
                 continue
 
-            ordered = order_frontmatter(fm)
-            rendered = render_frontmatter(ordered, body)
-            file_path.write_text(rendered, encoding="utf-8")
+            rendered = render_frontmatter(fm, body)
+            txn.write_file(file_path, rendered)
             fixes.append(f"Re-ordered frontmatter: {file_path.name}")
 
         return fixes
-
-    # ------------------------------------------------------------------
-    # Shared helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _resolve_wikilink_simple(conn: Connection, raw: str) -> str | None:
-        """Resolve a wikilink target to a node ID (title or ID match)."""
-        row = conn.execute(select(nodes.c.id).where(nodes.c.title == raw)).first()
-        if row is not None:
-            return str(row.id)
-
-        row = conn.execute(select(nodes.c.id).where(nodes.c.id == raw)).first()
-        if row is not None:
-            return str(row.id)
-
-        return None

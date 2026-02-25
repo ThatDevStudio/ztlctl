@@ -11,6 +11,7 @@ from sqlalchemy import (
     REAL,
     Column,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     Table,
@@ -52,7 +53,7 @@ edges = Table(
     Column("edge_type", Text, default="relates"),
     Column("source_layer", Text),  # frontmatter | body
     Column("weight", REAL, default=1.0),
-    Column("bidirectional", Integer),  # materialized flag
+    Column("bidirectional", Integer),  # Reserved — not yet maintained by services
     Column("created", Text, nullable=False),
     UniqueConstraint("source_id", "target_id", "edge_type"),
 )
@@ -74,6 +75,18 @@ node_tags = Table(
     Column("tag", Text, nullable=False),
     UniqueConstraint("node_id", "tag"),
 )
+
+# ---------------------------------------------------------------------------
+# Indexes for frequently filtered columns
+# ---------------------------------------------------------------------------
+
+Index("ix_nodes_type", nodes.c.type)
+Index("ix_nodes_status", nodes.c.status)
+Index("ix_nodes_archived", nodes.c.archived)
+Index("ix_nodes_topic", nodes.c.topic)
+Index("ix_edges_source", edges.c.source_id)
+Index("ix_edges_target", edges.c.target_id)
+Index("ix_node_tags_tag", node_tags.c.tag)
 
 id_counters = Table(
     "id_counters",

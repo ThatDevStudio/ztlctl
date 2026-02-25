@@ -171,6 +171,11 @@ class Vault:
         - Graph cache is invalidated on transaction end (success or
           failure) so the next access rebuilds from committed DB state.
 
+        **Warning:** Do not access ``vault.graph`` within a transaction
+        block — the graph is built from committed DB state and will not
+        reflect pending writes.  Access the graph only *after* the
+        transaction succeeds.
+
         Usage::
 
             with vault.transaction() as txn:

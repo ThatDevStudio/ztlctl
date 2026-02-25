@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import click
 
 if TYPE_CHECKING:
-    from ztlctl.config.settings import ZtlSettings
+    from ztlctl.commands._context import AppContext
 
 
 @click.group()
 @click.pass_obj
-def workflow(ctx: ZtlSettings) -> None:
+def workflow(app: AppContext) -> None:
     """Manage workflow templates and configuration."""

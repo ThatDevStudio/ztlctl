@@ -7,10 +7,22 @@ ServiceResult to the requested output mode.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json as _json
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ztlctl.services.result import ServiceResult
+
+
+def _format_data_human(data: dict[str, Any]) -> str:
+    """Format result data as indented key-value pairs."""
+    lines: list[str] = []
+    for key, value in data.items():
+        if isinstance(value, (dict, list)):
+            lines.append(f"  {key}: {_json.dumps(value, separators=(',', ':'))}")
+        else:
+            lines.append(f"  {key}: {value}")
+    return "\n".join(lines)
 
 
 def format_result(result: ServiceResult, *, json_output: bool = False) -> str:
@@ -22,8 +34,10 @@ def format_result(result: ServiceResult, *, json_output: bool = False) -> str:
     """
     if json_output:
         return result.model_dump_json(indent=2)
-    # Rich formatting deferred to output feature implementation
     if result.ok:
-        return f"OK: {result.op}"
+        parts = [f"OK: {result.op}"]
+        if result.data:
+            parts.append(_format_data_human(result.data))
+        return "\n".join(parts)
     error_msg = result.error.message if result.error else "Unknown error"
     return f"ERROR: {result.op} — {error_msg}"

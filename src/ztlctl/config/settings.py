@@ -46,7 +46,13 @@ class TomlSettingsSource(PydanticBaseSettingsSource):
         self._data: dict[str, Any] = {}
         if toml_path and toml_path.is_file():
             raw = toml_path.read_text(encoding="utf-8")
-            self._data = tomllib.loads(raw)
+            try:
+                self._data = tomllib.loads(raw)
+            except tomllib.TOMLDecodeError as exc:
+                import click
+
+                msg = f"Invalid TOML in {toml_path}: {exc}"
+                raise click.ClickException(msg) from exc
 
     def get_field_value(self, field: Any, field_name: str) -> tuple[Any, str, bool]:
         """Return ``(value, field_name, value_is_complex)``."""
