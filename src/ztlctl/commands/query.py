@@ -4,17 +4,32 @@ from __future__ import annotations
 
 import click
 
+from ztlctl.commands._base import ZtlGroup
 from ztlctl.commands._context import AppContext
 from ztlctl.services.query import QueryService
 
+_QUERY_EXAMPLES = """\
+  ztlctl query search "python design patterns"
+  ztlctl query get ztl_abc12345
+  ztlctl query list --type note --sort recency
+  ztlctl query list --sort priority --limit 10
+  ztlctl query work-queue
+  ztlctl query decision-support --topic architecture"""
 
-@click.group()
+
+@click.group(cls=ZtlGroup, examples=_QUERY_EXAMPLES)
 @click.pass_obj
 def query(app: AppContext) -> None:
     """Search, list, and query vault content."""
 
 
-@query.command()
+@query.command(
+    examples="""\
+  ztlctl query search "python"
+  ztlctl query search "design patterns" --type note
+  ztlctl query search "auth" --tag security/web --rank-by recency
+  ztlctl --json query search "API" --limit 5"""
+)
 @click.argument("query_text")
 @click.option("--type", "content_type", default=None, help="Filter by content type.")
 @click.option("--tag", default=None, help="Filter by tag.")
@@ -46,7 +61,11 @@ def search(
     app.emit(result)
 
 
-@query.command()
+@query.command(
+    examples="""\
+  ztlctl query get ztl_abc12345
+  ztlctl --json query get TASK-0001"""
+)
 @click.argument("content_id")
 @click.pass_obj
 def get(app: AppContext, content_id: str) -> None:
@@ -54,7 +73,17 @@ def get(app: AppContext, content_id: str) -> None:
     app.emit(QueryService(app.vault).get(content_id))
 
 
-@query.command(name="list")
+@query.command(
+    name="list",
+    examples="""\
+  ztlctl query list
+  ztlctl query list --type note --status linked
+  ztlctl query list --tag ai/ml --sort title
+  ztlctl query list --subtype decision --topic architecture
+  ztlctl query list --maturity seed
+  ztlctl query list --since 2026-01-01 --include-archived
+  ztlctl query list --sort priority --limit 10""",
+)
 @click.option("--type", "content_type", default=None, help="Filter by content type.")
 @click.option("--status", default=None, help="Filter by status.")
 @click.option("--tag", default=None, help="Filter by tag.")
@@ -106,14 +135,25 @@ def list_cmd(
     app.emit(result)
 
 
-@query.command(name="work-queue")
+@query.command(
+    name="work-queue",
+    examples="""\
+  ztlctl query work-queue
+  ztlctl --json query work-queue""",
+)
 @click.pass_obj
 def work_queue(app: AppContext) -> None:
     """Show prioritized task queue."""
     app.emit(QueryService(app.vault).work_queue())
 
 
-@query.command(name="decision-support")
+@query.command(
+    name="decision-support",
+    examples="""\
+  ztlctl query decision-support
+  ztlctl query decision-support --topic architecture
+  ztlctl --json query decision-support --topic security""",
+)
 @click.option("--topic", default=None, help="Filter by topic.")
 @click.pass_obj
 def decision_support(app: AppContext, topic: str | None) -> None:

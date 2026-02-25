@@ -6,11 +6,22 @@ from typing import TYPE_CHECKING
 
 import click
 
+from ztlctl.commands._base import ZtlCommand
+
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
 
-@click.command()
+@click.command(
+    cls=ZtlCommand,
+    examples="""\
+  ztlctl reweave --dry-run
+  ztlctl reweave --id ztl_abc12345 --dry-run
+  ztlctl reweave
+  ztlctl reweave --prune --dry-run
+  ztlctl reweave --undo
+  ztlctl reweave --undo-id 42""",
+)
 @click.option("--prune", is_flag=True, help="Remove stale links.")
 @click.option("--dry-run", is_flag=True, help="Show changes without applying.")
 @click.option("--undo", is_flag=True, help="Reverse last reweave via audit trail.")

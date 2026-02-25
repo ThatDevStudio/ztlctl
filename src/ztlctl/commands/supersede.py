@@ -6,11 +6,18 @@ from typing import TYPE_CHECKING
 
 import click
 
+from ztlctl.commands._base import ZtlCommand
+
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
 
-@click.command()
+@click.command(
+    cls=ZtlCommand,
+    examples="""\
+  ztlctl supersede ztl_olddecision ztl_newdecision
+  ztlctl --json supersede ztl_abc12345 ztl_def67890""",
+)
 @click.argument("old_id")
 @click.argument("new_id")
 @click.pass_obj
