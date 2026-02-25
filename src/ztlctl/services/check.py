@@ -62,10 +62,19 @@ class CheckService(BaseService):
             issues.extend(self._check_graph_health(conn))
             issues.extend(self._check_structural_validation(conn))
 
+        warnings: list[str] = []
+        issues_fixed = sum(1 for i in issues if i.get("fix_action") is not None)
+        self._dispatch_event(
+            "post_check",
+            {"issues_found": len(issues), "issues_fixed": issues_fixed},
+            warnings,
+        )
+
         return ServiceResult(
             ok=True,
             op="check",
             data={"issues": issues, "count": len(issues)},
+            warnings=warnings,
         )
 
     def fix(self, *, level: str = "safe") -> ServiceResult:

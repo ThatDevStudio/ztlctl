@@ -66,6 +66,10 @@ class SessionService(BaseService):
                 {"id": session_id, "title": f"Session: {topic}", "body": topic},
             )
 
+        # Dispatch event
+        warnings: list[str] = []
+        self._dispatch_event("post_session_start", {"session_id": session_id}, warnings)
+
         return ServiceResult(
             ok=True,
             op=op,
@@ -75,6 +79,7 @@ class SessionService(BaseService):
                 "path": rel_path,
                 "status": "open",
             },
+            warnings=warnings,
         )
 
     def close(self, *, summary: str | None = None) -> ServiceResult:
@@ -143,6 +148,26 @@ class SessionService(BaseService):
         integrity_issues = 0
         if cfg.close_integrity_check:
             integrity_issues = self._integrity_check(warnings)
+
+        # -- EVENT DISPATCH --
+        self._dispatch_event(
+            "post_session_close",
+            {
+                "session_id": session_id,
+                "stats": {
+                    "reweave_count": reweave_count,
+                    "orphan_count": orphan_count,
+                    "integrity_issues": integrity_issues,
+                },
+            },
+            warnings,
+            session_id=session_id,
+        )
+
+        # Drain event bus as sync barrier
+        bus = self._vault.event_bus
+        if bus is not None:
+            bus.drain()
 
         # -- REPORT --
         return ServiceResult(

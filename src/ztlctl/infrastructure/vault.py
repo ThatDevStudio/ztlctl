@@ -132,6 +132,7 @@ class Vault:
         self._settings = settings
         self._engine: Engine = init_database(self.root)
         self._graph = GraphEngine(self._engine)
+        self._event_bus: Any | None = None
 
     @property
     def root(self) -> Path:
@@ -152,6 +153,32 @@ class Vault:
     def settings(self) -> ZtlSettings:
         """The resolved settings for this vault."""
         return self._settings
+
+    @property
+    def event_bus(self) -> Any | None:
+        """The plugin event bus (None if not initialized)."""
+        return self._event_bus
+
+    def init_event_bus(self, *, sync: bool = False) -> None:
+        """Initialize the plugin event bus.
+
+        Creates a PluginManager, discovers entry-point plugins,
+        registers the built-in GitPlugin, and wires up the EventBus.
+        Called by AppContext when the vault is first accessed.
+        """
+        from ztlctl.plugins.builtins.git import GitPlugin
+        from ztlctl.plugins.event_bus import EventBus
+        from ztlctl.plugins.manager import PluginManager
+
+        pm = PluginManager()
+        pm.discover_and_load()
+
+        # Register built-in git plugin with vault context
+        git_config = self._settings.git
+        git_plugin = GitPlugin(config=git_config, vault_root=self.root)
+        pm.register_plugin(git_plugin, name="git-builtin")
+
+        self._event_bus = EventBus(self._engine, pm, sync=sync)
 
     def find_content(self, *, content_type: str | None = None) -> list[Path]:
         """Discover content files in the vault."""
