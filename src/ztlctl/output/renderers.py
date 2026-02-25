@@ -537,6 +537,29 @@ def _render_init(result: ServiceResult, console: Console, *, verbose: bool = Fal
         _render_meta(console, result)
 
 
+# ── Export renderers ─────────────────────────────────────────────────
+
+
+def _render_export(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
+    """Render export results with output path and counts."""
+    _status_line(console, result)
+    d = result.data
+    for key in ("output_dir", "output_file", "format"):
+        if key in d:
+            _field(console, key, d[key])
+    for key in ("file_count", "node_count", "edge_count"):
+        if key in d:
+            _field(console, key, d[key])
+    files = d.get("files_created", [])
+    if files:
+        _field(console, "files_created", len(files))
+        if verbose:
+            for f in files:
+                console.print(f"    {f}")
+    if verbose:
+        _render_meta(console, result)
+
+
 # ── Generic fallback ──────────────────────────────────────────────────
 
 
@@ -595,4 +618,8 @@ _OP_RENDERERS: dict[str, Any] = {
     "init_vault": _render_init,
     "regenerate_self": _render_mutation,
     "check_staleness": _render_generic,
+    # Export
+    "export_markdown": _render_export,
+    "export_indexes": _render_export,
+    "export_graph": _render_export,
 }
