@@ -42,8 +42,8 @@ These rules apply across the entire codebase. Violating any of them is a bug.
 │   SessionService · ReweaveService · CheckService     │
 ├─────────────────────────────────────────────────────┤
 │                 Domain Layer                          │
-│   Content types · ID generation · Frontmatter        │
-│   Subtype rules · Lifecycle models                   │
+│   Content models · ID generation · Frontmatter       │
+│   Validation · Content registry · Lifecycle          │
 ├─────────────────────────────────────────────────────┤
 │              Infrastructure Layer                     │
 │   SQLite + FTS5 · NetworkX · Alembic · Filesystem    │
@@ -59,7 +59,7 @@ src/ztlctl/
 ├── cli.py                   # Root Click group + global flags
 ├── commands/                # Presentation: 7 groups + 6 standalone commands
 ├── config/                  # Configuration: Pydantic models + TOML discovery
-├── domain/                  # Domain: types, lifecycle, IDs, subtypes, frontmatter
+├── domain/                  # Domain: types, lifecycle, IDs, content models, frontmatter
 ├── infrastructure/          # Infrastructure: database/, graph/, filesystem
 ├── mcp/                     # MCP adapter (optional extra, import-guarded)
 ├── output/                  # Presentation: Rich/JSON formatters
@@ -106,32 +106,47 @@ src/ztlctl/
 
 Three spaces: `self/` (generated identity, read by agents — → Section 11), `notes/` (growing knowledge graph — → Section 3), `ops/` (transient operational state).
 
-### Note Subtypes
+### Note Subtypes and Content Models
 
-Subtypes are enforced via a code-baked `SubtypeRule` registry. Each subtype defines frontmatter schema, lifecycle rules, validation constraints, and Jinja2 creation templates.
+Subtypes are enforced via a `ContentModel` class hierarchy with a `CONTENT_REGISTRY` for lookup. Each model subclass owns its frontmatter schema, validation rules, lifecycle transitions, and Jinja2 body templates — all as classmethods on the model itself.
 
-| Subtype | Parent | Strictness | Key Rules |
-|---------|--------|-----------|-----------|
-| `decision` | note | Strict | Immutable after `accepted`. Required sections: Context, Choice, Rationale, Alternatives, Consequences. Status: `proposed → accepted → superseded`. |
-| `knowledge` | note | Advisory | Recommends `key_points` in frontmatter. Flexible structure. |
-| (none) | note | None | Plain note. No additional constraints. |
+| Subtype | Model class | Strictness | Key Rules |
+|---------|-------------|-----------|-----------|
+| `decision` | `DecisionModel` | Strict | Immutable after `accepted`. Required sections: Context, Choice, Rationale, Alternatives, Consequences. Status: `proposed → accepted → superseded`. |
+| `knowledge` | `KnowledgeModel` | Advisory | Recommends `key_points` in frontmatter. Flexible structure. |
+| (none) | `NoteModel` | None | Plain note. No additional constraints. |
 
 Reference subtypes (`article`, `tool`, `spec`) are classification-only — useful for CLI filtering, no lifecycle enforcement.
 
 ```python
-class SubtypeRule(ABC):
-    @property
-    def name(self) -> str: ...
-    @property
-    def parent_type(self) -> str: ...
-    def required_frontmatter(self) -> dict[str, type]: ...
-    def validate_create(self, content: dict) -> SubtypeValidation: ...
-    def validate_update(self, existing: dict, changes: dict) -> SubtypeValidation: ...
-    def required_sections(self) -> list[str]: ...
-    def allowed_status_transitions(self) -> dict[str, list[str]]: ...
+class ContentModel(BaseModel):
+    """Base — attributes ARE frontmatter keys."""
+    model_config = {"frozen": True}
+    id: str; type: str; status: str; title: str; ...
+
+    def write_body(self, **kwargs: Any) -> str: ...
+    @classmethod
+    def validate_create(cls, data: dict) -> ValidationResult: ...
+    @classmethod
+    def validate_update(cls, existing: dict, changes: dict) -> ValidationResult: ...
+    @classmethod
+    def required_sections(cls) -> list[str]: ...
+    @classmethod
+    def status_transitions(cls) -> dict[str, list[str]]: ...
+
+class DecisionModel(NoteModel): ...  # strict validation, immutability
+class KnowledgeModel(NoteModel): ... # advisory warnings
+class ReferenceModel(ContentModel): ... # classification-only
+class TaskModel(ContentModel): ...     # priority matrix
+
+CONTENT_REGISTRY: dict[str, type[ContentModel]] = {
+    "note": NoteModel, "knowledge": KnowledgeModel,
+    "decision": DecisionModel, "reference": ReferenceModel,
+    "task": TaskModel,
+}
 ```
 
-Subtypes ship with bundled Jinja2 creation templates. User-provided templates supported in future versions. No custom subtypes in v1 — the system is built so shipped subtypes use the same extensibility mechanism, allowing us to tune before opening to users.
+Lookup via `get_content_model(content_type, subtype)` — subtype takes priority, falls back to type. Models ship with bundled Jinja2 body-only templates. User-provided templates supported in future versions. No custom subtypes in v1 — shipped subtypes use the same extensibility mechanism, allowing us to tune before opening to users.
 
 Machine-layer subtypes are **strict** (validation blocks creation if rules violated). Garden-layer content is **flexible** (advisory warnings, never blocking).
 
@@ -217,11 +232,11 @@ Title match → alias match → ID match. Ambiguous matches warn; no silent wron
 
 ```python
 edges = Table("edges", metadata,
-    Column("source_id", Text, nullable=False),
-    Column("target_id", Text, nullable=False),
+    Column("source_id", Text, ForeignKey("nodes.id"), nullable=False),
+    Column("target_id", Text, ForeignKey("nodes.id"), nullable=False),
     Column("edge_type", Text, default="relates"),
     Column("source_layer", Text),        # frontmatter | body
-    Column("weight", Real, default=1.0),
+    Column("weight", REAL, default=1.0),
     Column("bidirectional", Integer),     # materialized
     Column("created", Text, nullable=False),
     UniqueConstraint("source_id", "target_id", "edge_type"),
@@ -273,7 +288,7 @@ At vault scale (< 10K nodes), full rebuild takes < 10ms. Commands that don't nee
 VALIDATE → GENERATE → PERSIST → INDEX → RESPOND
 ```
 
-1. **Validate** — check type, required fields, subtype rules, tag format
+1. **Validate** — check type, required fields via `ContentModel.validate_create()`, tag format
 2. **Generate** — compute ID (content-hash or sequential), build frontmatter, render template
 3. **Persist** — write markdown file to disk
 4. **Index** — import into SQLite (nodes, edges, tags, FTS5)
@@ -376,7 +391,7 @@ def should_modify_body(note) -> bool:
 VALIDATE → APPLY → PROPAGATE → INDEX → RESPOND
 ```
 
-1. **Validate** — check transition legality, subtype rules (decision immutability)
+1. **Validate** — check transition legality via `ContentModel.validate_update()` (decision immutability)
 2. **Apply** — modify file (frontmatter and/or body)
 3. **Propagate** — downstream effects (cascade status, update edges)
 4. **Index** — re-import modified node
@@ -602,11 +617,11 @@ nodes = Table("nodes", metadata,
 )
 
 edges = Table("edges", metadata,
-    Column("source_id", Text, nullable=False),
-    Column("target_id", Text, nullable=False),
+    Column("source_id", Text, ForeignKey("nodes.id"), nullable=False),
+    Column("target_id", Text, ForeignKey("nodes.id"), nullable=False),
     Column("edge_type", Text, default="relates"),
     Column("source_layer", Text),
-    Column("weight", Real, default=1.0),
+    Column("weight", REAL, default=1.0),
     Column("bidirectional", Integer),
     Column("created", Text, nullable=False),
     UniqueConstraint("source_id", "target_id", "edge_type"),
@@ -627,7 +642,7 @@ tags_registry = Table("tags_registry", metadata,
 )
 
 node_tags = Table("node_tags", metadata,
-    Column("node_id", Text, nullable=False),
+    Column("node_id", Text, ForeignKey("nodes.id"), nullable=False),
     Column("tag", Text, nullable=False),
     UniqueConstraint("node_id", "tag"),
 )
@@ -676,7 +691,13 @@ session_logs = Table("session_logs", metadata,
 
 ### Transaction Model
 
-File writes happen outside the transaction. All DB operations happen in a single atomic transaction. `ztlctl check` (→ Section 14) reconciles drift between files and DB.
+The `Vault.transaction()` context manager coordinates DB + file + graph writes:
+
+- **DB**: Native SQLAlchemy `engine.begin()` with auto-commit/rollback.
+- **Files**: Compensation-based — newly created files are deleted, modified files are restored from backup, on rollback. Rollback is best-effort per file to avoid masking the original exception.
+- **Graph**: Cache is invalidated on transaction end (success or failure). Lazy-rebuilt from DB on next access.
+
+`ztlctl check` (→ Section 14) reconciles any remaining drift between files and DB.
 
 ### Migrations
 
@@ -737,22 +758,54 @@ The CLI is a thin presentation layer that renders `ServiceResult` for humans (Ri
 
 `--json` and `--no-interact` are **orthogonal**. `--json` controls output format. `--no-interact` controls interactivity. Neither implies the other.
 
-### AppContext
+### ZtlSettings
 
-Global CLI flags are captured into a frozen Pydantic model and stored on `click.Context.obj`:
+All runtime state — CLI flags, env vars, TOML config sections, and resolved paths — is unified into a single frozen `ZtlSettings` object (Pydantic Settings v2) stored on `click.Context.obj`:
 
 ```python
-class AppContext(BaseModel):
-    """Global CLI flags, frozen after construction. Passed via Click ctx.obj."""
-    model_config = {"frozen": True}
+class ZtlSettings(BaseSettings):
+    """Unified settings: CLI flags + env vars + TOML + code defaults."""
+    model_config = {"frozen": True, "env_prefix": "ZTLCTL_"}
 
+    # Resolved paths
+    vault_root: Path = Field(default_factory=Path.cwd)
+    config_path: Path | None = None
+
+    # CLI flags
     json_output: bool = False
     quiet: bool = False
     verbose: bool = False
     no_interact: bool = False
     no_reweave: bool = False
     sync: bool = False
-    config_path: str | None = None
+
+    # TOML sections (reuse existing frozen section models)
+    vault: VaultConfig = Field(default_factory=VaultConfig)
+    agent: AgentConfig = Field(default_factory=AgentConfig)
+    reweave: ReweaveConfig = Field(default_factory=ReweaveConfig)
+    # ... all 12 section models
+```
+
+**Priority chain** (highest to lowest): CLI flags → `ZTLCTL_*` env vars → `ztlctl.toml` (walk-up discovery) → code-baked defaults. Constructed via `ZtlSettings.from_cli()` which discovers the TOML file, resolves `vault_root`, and merges all sources. Thread-safe TOML path passing uses `threading.local()`.
+
+### Vault
+
+The `Vault` class is constructed from `ZtlSettings` and serves as the repository for all data access. It owns the database engine, graph engine, and filesystem operations. Services receive a `Vault` via `BaseService.__init__()`.
+
+```python
+class Vault:
+    def __init__(self, settings: ZtlSettings) -> None:
+        self._engine = init_database(self.root)  # idempotent
+        self._graph = GraphEngine(self._engine)
+
+    @contextmanager
+    def transaction(self) -> Iterator[VaultTransaction]:
+        """Coordinated DB + file + graph transaction."""
+        ...
+
+class BaseService:
+    def __init__(self, vault: Vault) -> None:
+        self._vault = vault
 ```
 
 ### Command Registration
@@ -999,7 +1052,7 @@ At 15+ tools (from plugin registration), activate `discover_tools` meta-tool for
 
 ### Configuration Models
 
-All configuration is modeled as frozen Pydantic `BaseModel` classes. Defaults are code-baked; TOML only contains user overrides. Loaded via `ZtlConfig.model_validate(toml_data)`.
+All configuration sections are frozen Pydantic `BaseModel` classes. Defaults are code-baked; TOML only contains user overrides. Sections are composed into `ZtlSettings` (Pydantic Settings v2), which merges CLI flags, env vars, TOML, and defaults into a single frozen object via `ZtlSettings.from_cli()`.
 
 | TOML Section | Pydantic Model | Key Fields |
 |-------------|----------------|------------|
@@ -1016,9 +1069,11 @@ All configuration is modeled as frozen Pydantic `BaseModel` classes. Defaults ar
 | `[mcp]` | `McpConfig` | `enabled`, `transport` |
 | `[workflow]` | `WorkflowConfig` | `template`, `skill_set` |
 
-Root model `ZtlConfig` composes all sections. All models are frozen.
+`ZtlSettings` composes all section models plus CLI flags and resolved paths. All models are frozen.
 
-**Config discovery:** Walk up from cwd looking for `ztlctl.toml`. `ZTLCTL_CONFIG` env var overrides walk-up. `--config` CLI flag overrides both. No file found → all-defaults `ZtlConfig()`.
+**Config discovery:** Walk up from cwd looking for `ztlctl.toml`. `ZTLCTL_CONFIG` env var overrides walk-up. `--config` CLI flag overrides both. No file found → all-defaults `ZtlSettings()`.
+
+**Priority chain:** Init kwargs (CLI flags) → `ZTLCTL_*` env vars → TOML file → code defaults. Thread-safe TOML path passing via `threading.local()`.
 
 ### Minimal Config (Fresh Vault)
 
@@ -1138,7 +1193,7 @@ Decisions made during the design process (CONV-0017):
 | ID | Decision | Rationale |
 |----|----------|-----------|
 | DEC-0021 | Reweave scoring: percentile normalization, high threshold (0.6), add-and-flag-stale | Conservative default prevents noise; percentile handles vault size variance; flag-not-prune keeps humans in control |
-| DEC-0022 | Subtypes: code-baked registry, strict machine / flexible garden | Build the extensibility system internally first; tune before exposing to users |
+| DEC-0022 | Subtypes: ContentModel class hierarchy, strict machine / flexible garden | Validation as classmethods on model subclasses; build internally first, tune before exposing to users |
 | DEC-0023 | Session context: log-based checkpoints, tool provides primitives | Tool never guesses; checkpoints bound reduction windows; workflow makes judgment calls |
 | — | Layered architecture (services → presentation) | Same logic backs CLI, MCP, and future interfaces |
 | — | SQLite + NetworkX dual-layer DB | SQLite for persistence/FTS; NetworkX for graph algorithms; rebuilt per invocation |
@@ -1159,7 +1214,16 @@ Decisions made during the design process (CONV-0017):
 | — | Pydantic BaseModel for ServiceResult, not dataclass | Frozen models provide JSON serialization via `model_dump_json()`, validation, and immutability |
 | — | ServiceError as separate model | Structured `code`/`message`/`detail` instead of bare dict enables consistent error handling |
 | — | StrEnum (Python 3.13+) for all enums | Values serialize cleanly to strings without `.value`; replaces `(str, Enum)` pattern |
-| — | AppContext as frozen Pydantic model on `ctx.obj` | Global CLI flags immutable after construction; single source of runtime config |
+| — | ZtlSettings (Pydantic Settings v2) replaces AppContext + ZtlConfig | Single frozen object merges CLI flags, env vars, TOML, and code defaults; eliminates two separate config objects |
+| — | ContentModel hierarchy replaces SubtypeRule strategy pattern | Validation, required sections, and status transitions live as classmethods on model subclasses; eliminates parallel hierarchy since types map 1:1 to classes |
+| — | CONTENT_REGISTRY dict replaces SubtypeRule registry | Simple `dict[str, type[ContentModel]]` with `get_content_model()` lookup; subtype priority with type fallback |
+| — | ValidationResult frozen dataclass | Replaces SubtypeValidation; `valid`, `errors`, `warnings` fields; returned by validate_create/validate_update classmethods |
+| — | Vault as repository with ACID transaction coordination | DB (native SQLAlchemy), files (compensation-based rollback), graph (cache invalidation); single dependency for all services |
+| — | BaseService with Vault injection | All services inherit `BaseService(vault)` and use `self._vault.transaction()` for data access |
+| — | Thread-local TOML path for ZtlSettings construction | `threading.local()` scopes TOML path between `from_cli()` and `settings_customise_sources()`; avoids class-level mutation |
+| — | ForeignKey constraints on edges and node_tags | Referential integrity enforced at DB level; edges.source_id/target_id → nodes.id, node_tags.node_id → nodes.id |
+| — | Best-effort file rollback in Vault transactions | Per-file try/except in rollback prevents cascading failures from masking the original exception |
+| — | `write_body(**kwargs)` uniform signature | All content models accept kwargs; DecisionModel uses named sections (context, choice, etc.); allows future typing refinement |
 | — | Deferred imports in command registration | `register_commands()` uses local imports to keep `ztlctl --help` fast at scale |
 | — | `init_cmd.py` naming for init command | Avoids shadowing Python's `init` builtin; registers as `@click.command("init")` |
 | — | MCP import guard with `mcp_available` flag | `try/except ImportError` prevents optional extra from breaking core CLI |
@@ -1168,23 +1232,23 @@ Decisions made during the design process (CONV-0017):
 
 ## 20. Implementation Backlog
 
-| BL | Feature | Priority | Scope |
-|----|---------|----------|-------|
-| BL-0019 | Content Model (F1) | high | Types, spaces, IDs, lifecycle |
-| BL-0020 | Graph Architecture (F2) | high | Edges, backlinks, algorithms |
-| BL-0021 | Create Pipeline (F3) | high | 5-stage pipeline, batch, tags |
-| BL-0022 | Reweave (F4) | high | Scoring, discovery, injection |
-| BL-0023 | Update & Close (F5) | high | Pipeline, session close enrichment |
-| BL-0024 | ID System (F6) | high | Hashing, counters, validation |
-| BL-0025 | Query Surface (F7) | high | Search, context, filters |
-| BL-0026 | Progressive Disclosure (F8) | medium | Verbosity, sparse config, examples |
-| BL-0027 | Database Layer (F9) | high | SQLite, NetworkX, Alembic, upgrade |
-| BL-0028 | Export (F10) | low | Markdown, indexes, graph export |
-| BL-0029 | Integrity (F11) | high | Check, fix, backup, rollback |
-| BL-0030 | CLI Interface (F12) | high | Layered architecture, Click, Rich |
-| BL-0031 | Init & Self-Generation (F13) | high | Init flow, Jinja2, Obsidian |
-| BL-0032 | Event System & Plugins (F14) | high | Pluggy, WAL, Git plugin, Copier |
-| BL-0033 | MCP Adapter (F15) | high | Tools, resources, prompts, stdio |
+| BL | Feature | Priority | Status | Scope |
+|----|---------|----------|--------|-------|
+| BL-0019 | Content Model (F1) | high | **done** | Types, spaces, IDs, lifecycle, ContentModel hierarchy, validation, registry |
+| BL-0020 | Graph Architecture (F2) | high | pending | Edges, backlinks, algorithms |
+| BL-0021 | Create Pipeline (F3) | high | pending | 5-stage pipeline, batch, tags |
+| BL-0022 | Reweave (F4) | high | pending | Scoring, discovery, injection |
+| BL-0023 | Update & Close (F5) | high | pending | Pipeline, session close enrichment |
+| BL-0024 | ID System (F6) | high | **done** | Hashing, counters, validation |
+| BL-0025 | Query Surface (F7) | high | pending | Search, context, filters |
+| BL-0026 | Progressive Disclosure (F8) | medium | pending | Verbosity, sparse config, examples |
+| BL-0027 | Database Layer (F9) | high | **done** | SQLite, NetworkX, Alembic, upgrade |
+| BL-0028 | Export (F10) | low | pending | Markdown, indexes, graph export |
+| BL-0029 | Integrity (F11) | high | pending | Check, fix, backup, rollback |
+| BL-0030 | CLI Interface (F12) | high | pending | Layered architecture, Click, Rich |
+| BL-0031 | Init & Self-Generation (F13) | high | pending | Init flow, Jinja2, Obsidian |
+| BL-0032 | Event System & Plugins (F14) | high | pending | Pluggy, WAL, Git plugin, Copier |
+| BL-0033 | MCP Adapter (F15) | high | pending | Tools, resources, prompts, stdio |
 
 ### Implementation Dependency Graph
 
@@ -1193,9 +1257,9 @@ Features have hard dependencies. This is the recommended build order:
 ```
 Phase 0 — CLI Structural Foundation (complete):
   Package structure, all layers as stub modules
-  Config: Pydantic model hierarchy, TOML discovery, AppContext
+  Config: Pydantic model hierarchy, TOML discovery
   CLI: Root Click group, global flags, 7 groups + 6 commands
-  Domain: StrEnum types, lifecycle transitions, ID system, SubtypeRule ABC
+  Domain: StrEnum types, lifecycle transitions, ID system
   Services: ServiceResult/ServiceError (Pydantic), 6 service stubs
   Infrastructure: SQLite engine (WAL mode), GraphEngine (lazy NetworkX)
   Plugins: 8 hookspecs, manager scaffold, Git plugin stub
@@ -1203,14 +1267,31 @@ Phase 0 — CLI Structural Foundation (complete):
   Templates: Content + self Jinja2 templates
   Output: ServiceResult formatter with --json support
 
-Phase 0 established the skeleton and type contracts. All modules exist
-with correct layer dependencies. Service methods raise NotImplementedError
-— ready for Phase 1 implementations.
+Phase 1 — Foundation (complete):
+  F9  Database Layer:
+    - 8 SQLAlchemy Core tables with ForeignKey constraints
+    - FTS5 virtual table (standalone, no content= clause)
+    - init_database() — idempotent, creates .ztlctl/ dirs, seeds counters
+    - next_sequential_id() — atomic read-and-increment for LOG/TASK IDs
+  F6  ID System:
+    - Content-hash (ztl_/ref_ + 8 hex) and sequential (LOG-/TASK-NNNN)
+    - normalize_title(), generate_content_hash(), validate_id()
+  F1  Content Model:
+    - ContentModel hierarchy (NoteModel, KnowledgeModel, DecisionModel,
+      ReferenceModel, TaskModel) with frozen Pydantic models
+    - Validation classmethods: validate_create(), validate_update(),
+      required_sections(), status_transitions()
+    - CONTENT_REGISTRY + get_content_model() lookup
+    - Frontmatter parsing (ruamel.yaml round-trip, CRLF normalization)
+    - Body-only Jinja2 templates with write_body(**kwargs)
+  Architecture:
+    - ZtlSettings (Pydantic Settings v2) — unified CLI/env/TOML/defaults
+    - Vault — repository with ACID transaction coordination (DB + files + graph)
+    - BaseService — abstract foundation with Vault injection
+    - Filesystem — file I/O, path resolution, content discovery
+    - GraphEngine — lazy NetworkX rebuild from edges table
 
-Phase 1 — Foundation (no dependencies):
-  F9  Database Layer        ← everything depends on this
-  F6  ID System             ← create pipeline needs IDs
-  F1  Content Model         ← types, subtypes, frontmatter
+  233 tests, mypy strict, ruff clean.
 
 Phase 2 — Core Pipeline (depends on Phase 1):
   F3  Create Pipeline       ← depends on F1, F6, F9
