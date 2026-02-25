@@ -105,6 +105,12 @@ GARDEN_TRANSITIONS: dict[str, list[str]] = {
 }
 
 
+# --- Note status thresholds (outgoing link count) ---
+
+NOTE_LINKED_THRESHOLD = 1  # outgoing links required for "linked"
+NOTE_CONNECTED_THRESHOLD = 3  # outgoing links required for "connected"
+
+
 def is_valid_transition(
     current: str,
     target: str,
@@ -113,3 +119,16 @@ def is_valid_transition(
     """Check if transitioning from *current* to *target* is allowed."""
     allowed = transitions.get(current, [])
     return target in allowed
+
+
+def compute_note_status(outgoing_link_count: int) -> str:
+    """Compute note status from outgoing link count.
+
+    Returns the highest status the note qualifies for based on
+    link count thresholds.
+    """
+    if outgoing_link_count >= NOTE_CONNECTED_THRESHOLD:
+        return str(NoteStatus.CONNECTED)
+    if outgoing_link_count >= NOTE_LINKED_THRESHOLD:
+        return str(NoteStatus.LINKED)
+    return str(NoteStatus.DRAFT)

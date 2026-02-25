@@ -13,6 +13,7 @@ from ztlctl.services.graph import GraphService
 from ztlctl.services.query import QueryService
 from ztlctl.services.reweave import ReweaveService
 from ztlctl.services.session import SessionService
+from ztlctl.services.update import UpdateService
 
 
 class TestBaseService:
@@ -36,7 +37,7 @@ class TestBaseService:
 
 
 # ---------------------------------------------------------------------------
-# Service inheritance — all 6 services extend BaseService
+# Service inheritance — all 7 services extend BaseService
 # ---------------------------------------------------------------------------
 
 ALL_SERVICES = [
@@ -46,6 +47,7 @@ ALL_SERVICES = [
     SessionService,
     ReweaveService,
     CheckService,
+    UpdateService,
 ]
 
 
