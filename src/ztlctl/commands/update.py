@@ -62,7 +62,18 @@ def update(
         changes["maturity"] = maturity
 
     if not changes:
-        click.echo("No changes specified. Use --help for options.", err=True)
-        raise SystemExit(1)
+        from ztlctl.services.result import ServiceError, ServiceResult
+
+        app.emit(
+            ServiceResult(
+                ok=False,
+                op="update",
+                error=ServiceError(
+                    code="no_changes",
+                    message="No changes specified. Use --help for options.",
+                ),
+            )
+        )
+        return
 
     app.emit(UpdateService(app.vault).update(content_id, changes=changes))

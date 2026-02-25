@@ -8,7 +8,6 @@ graph health, structural validation. (DESIGN.md Section 14)
 from __future__ import annotations
 
 import shutil
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,6 +17,7 @@ from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.domain.ids import ID_PATTERNS
 from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
+from ztlctl.services._helpers import now_compact, parse_tag_parts, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.create import _resolve_wikilink
 from ztlctl.services.result import ServiceError, ServiceResult
@@ -39,16 +39,6 @@ CAT_DB_FILE = "db_file_consistency"
 CAT_SCHEMA = "schema_integrity"
 CAT_GRAPH = "graph_health"
 CAT_STRUCTURAL = "structural_validation"
-
-
-def _now_iso() -> str:
-    """ISO timestamp for backup naming."""
-    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
-
-
-def _today() -> str:
-    """ISO date string for today (UTC)."""
-    return datetime.now(UTC).date().isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +72,7 @@ class CheckService(BaseService):
         """Automatically repair issues. Level: 'safe' or 'aggressive'."""
         self._backup_db()
         fixes: list[str] = []
-        today = _today()
+        today = today_iso()
 
         with self._vault.transaction() as txn:
             fixes.extend(self._fix_orphan_db_rows(txn.conn))
@@ -104,7 +94,7 @@ class CheckService(BaseService):
         """Full DB rebuild from filesystem (files are truth)."""
         self._backup_db()
         warnings: list[str] = []
-        today = _today()
+        today = today_iso()
 
         with self._vault.transaction() as txn:
             conn = txn.conn
@@ -172,9 +162,7 @@ class CheckService(BaseService):
                 if isinstance(file_tags, list):
                     for tag in file_tags:
                         tag = str(tag)
-                        parts = tag.split("/", 1)
-                        domain = parts[0] if len(parts) == 2 else "unscoped"
-                        scope = parts[1] if len(parts) == 2 else parts[0]
+                        domain, scope = parse_tag_parts(tag)
 
                         existing = conn.execute(
                             select(tags_registry.c.tag).where(tags_registry.c.tag == tag)
@@ -309,7 +297,7 @@ class CheckService(BaseService):
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         db_path = self._vault.root / ".ztlctl" / "ztlctl.db"
-        timestamp = _now_iso()
+        timestamp = now_compact()
         backup_path = backup_dir / f"ztlctl-{timestamp}.db"
         shutil.copy2(str(db_path), str(backup_path))
 

@@ -6,11 +6,13 @@ from typing import TYPE_CHECKING
 
 import click
 
+from ztlctl.commands._base import ZtlCommand
+
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
 
-@click.command("init")
+@click.command("init", cls=ZtlCommand)
 @click.argument("path", required=False)
 @click.option("--no-workflow", is_flag=True, help="Skip workflow setup.")
 @click.pass_obj
