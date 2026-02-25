@@ -4,7 +4,32 @@ from __future__ import annotations
 
 import re
 
-from ztlctl.services._helpers import now_compact, now_iso, parse_tag_parts, today_iso
+from ztlctl.services._helpers import (
+    estimate_tokens,
+    now_compact,
+    now_iso,
+    parse_tag_parts,
+    today_iso,
+)
+
+
+class TestEstimateTokens:
+    def test_empty_string(self) -> None:
+        assert estimate_tokens("") == 1
+
+    def test_short_string(self) -> None:
+        # "hello" = 5 chars -> 5//4 = 1
+        assert estimate_tokens("hello") == 1
+
+    def test_longer_string(self) -> None:
+        # 100 chars -> 25 tokens
+        assert estimate_tokens("a" * 100) == 25
+
+    def test_realistic_text(self) -> None:
+        text = "This is a realistic paragraph of text that might appear in a note."
+        result = estimate_tokens(text)
+        assert result > 0
+        assert result == len(text) // 4
 
 
 class TestTodayIso:

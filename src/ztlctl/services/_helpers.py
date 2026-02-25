@@ -20,6 +20,16 @@ def now_compact() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
 
 
+def estimate_tokens(text: str) -> int:
+    """Rough token count estimate (chars/4). No external dependency.
+
+    This is a heuristic — real token counts come from the workflow layer
+    via the ``cost`` parameter on log_entry(). This is only used for
+    budget enforcement in context assembly.
+    """
+    return max(1, len(text) // 4)
+
+
 def parse_tag_parts(tag: str) -> tuple[str, str]:
     """Split 'domain/scope' tag into (domain, scope).
 
