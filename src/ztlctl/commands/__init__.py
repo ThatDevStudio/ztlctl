@@ -41,6 +41,7 @@ def register_commands(cli: click.Group) -> None:
     from ztlctl.commands.extract import extract
     from ztlctl.commands.init_cmd import init_cmd
     from ztlctl.commands.reweave import reweave
+    from ztlctl.commands.serve import serve
     from ztlctl.commands.supersede import supersede
     from ztlctl.commands.update import update
     from ztlctl.commands.upgrade import upgrade
@@ -53,3 +54,4 @@ def register_commands(cli: click.Group) -> None:
     cli.add_command(archive)
     cli.add_command(extract)
     cli.add_command(supersede)
+    cli.add_command(serve)
