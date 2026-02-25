@@ -516,6 +516,29 @@ def _render_undo(result: ServiceResult, console: Console, *, verbose: bool = Fal
         console.print(table)
 
 
+# ── Export renderers ─────────────────────────────────────────────────
+
+
+def _render_export(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
+    """Render export results with output path and counts."""
+    _status_line(console, result)
+    d = result.data
+    for key in ("output_dir", "output_file", "format"):
+        if key in d:
+            _field(console, key, d[key])
+    for key in ("file_count", "node_count", "edge_count"):
+        if key in d:
+            _field(console, key, d[key])
+    files = d.get("files_created", [])
+    if files:
+        _field(console, "files_created", len(files))
+        if verbose:
+            for f in files:
+                console.print(f"    {f}")
+    if verbose:
+        _render_meta(console, result)
+
+
 # ── Generic fallback ──────────────────────────────────────────────────
 
 
@@ -570,4 +593,8 @@ _OP_RENDERERS: dict[str, Any] = {
     "reweave": _render_reweave,
     "prune": _render_reweave,
     "undo": _render_undo,
+    # Export
+    "export_markdown": _render_export,
+    "export_indexes": _render_export,
+    "export_graph": _render_export,
 }
