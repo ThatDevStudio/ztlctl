@@ -953,6 +953,8 @@ The `research-partner` tone includes the full behavioral framework proven in the
 
 `ztlctl agent regenerate` re-derives self/ from current config. Staleness detection via timestamp comparison.
 
+> **Implementation note (Phase 5):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--client/--tone/--topics`) modes. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, and optionally scaffolds `.obsidian/` for Obsidian clients. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Copier workflow templates (`ztlctl workflow init/update`) are deferred — the init command covers the core vault bootstrapping need.
+
 ### Vault Structure
 
 ```
@@ -1005,6 +1007,8 @@ ztlctl export indexes --output ./export/   # For GitHub rendering
 ztlctl export graph --format dot           # GraphViz visualization
 ztlctl export graph --format json          # D3/vis.js compatible
 ```
+
+> **Implementation note (Phase 5):** All three export subcommands are implemented. `export markdown` copies vault content into a portable directory tree. `export indexes` generates topic and tag index markdown files suitable for GitHub rendering. `export graph` supports both `dot` (GraphViz) and `json` (D3/vis.js) output formats. All commands accept `--output` to specify the target directory.
 
 ---
 
@@ -1102,6 +1106,8 @@ pip install ztlctl[mcp]       # Adds MCP adapter
 
 Claude Code plugin ships as a separate artifact (plugin.json + skills/ + hooks/) with an independent release cycle.
 
+> **Implementation note (Phase 6):** EventBus is implemented with WAL-backed async dispatch (`ThreadPoolExecutor`, configurable `max_workers=2`). Events persist to `event_wal` table before dispatch, retry on failure (configurable `max_retries=3`), and transition to `dead_letter` status after exhausting retries. `--sync` flag forces synchronous dispatch for deterministic testing. `drain()` retries all pending/failed events synchronously — called as a sync barrier at session close. PluginManager uses `pluggy.load_setuptools_entrypoints("ztlctl.plugins")` for discovery; built-in GitPlugin is registered explicitly via `register_plugin()` in `Vault.init_event_bus()`. GitPlugin implements all 8 hooks with subprocess-based git operations; all calls are wrapped in `try/except (OSError, CalledProcessError)` so a missing git binary silently degrades. `BaseService._dispatch_event()` is the fire-and-forget helper — plugin failures are captured as warnings in the ServiceResult, never propagated. Local directory plugin discovery (`.ztlctl/plugins/`) and Copier workflow templates are deferred.
+
 ---
 
 ## 16. MCP Adapter
@@ -1141,6 +1147,8 @@ stdio default (sub-ms latency). Streamable HTTP optional for remote access.
 ### Tool Proliferation Guard
 
 At 15+ tools (from plugin registration), activate `discover_tools` meta-tool for progressive discovery by category.
+
+> **Implementation note (Phase 6):** All 12 tools, 6 resources, and 4 prompts are implemented as thin service adapters. Each has a `_<name>_impl(vault, **params) -> dict` function that is testable without the `mcp` package installed. `register_tools()`, `register_resources()`, and `register_prompts()` wrap these with `@server.tool()` / `@server.resource()` / `@server.prompt()` FastMCP decorators. `create_server()` creates a `ZtlSettings` + `Vault` from the vault root and registers all components. `ztlctl serve --transport stdio` is the CLI entry point with an import guard for the optional `mcp` extra. The tool proliferation guard (discover_tools meta-tool) and streamable HTTP transport are deferred.
 
 ---
 
@@ -1368,12 +1376,12 @@ Decisions made during the design process (CONV-0017):
 | BL-0025 | Query Surface (F7) | high | **done** | 5 methods (search, get, list, work-queue, decision-support), CLI subcommands. Extended filters: `--subtype`, `--maturity`, `--since`, `--include-archived`, `--sort priority` (Phase 4). Deferred: `--space` filter, graph sort mode, BM25×time-decay ranking |
 | BL-0026 | Progressive Disclosure (F8) | medium | **done** | Rich output with 3 verbosity modes (quiet/default/verbose), `--examples` flag on all implemented commands, ZtlCommand/ZtlGroup base classes. Sparse TOML config unchanged |
 | BL-0027 | Database Layer (F9) | high | **done** | SQLite, NetworkX, Alembic, upgrade. Indexes on nodes (type, status, archived, topic), edges (source, target), node_tags (tag) |
-| BL-0028 | Export (F10) | low | pending | Markdown, indexes, graph export |
+| BL-0028 | Export (F10) | low | **done** | Markdown, indexes, graph export. 3 export subcommands with format options |
 | BL-0029 | Integrity (F11) | high | **done** | 4-category check (DB-file, schema, graph, structural), safe/aggressive fix, full rebuild, rollback. Uses VaultTransaction for atomicity |
 | BL-0030 | CLI Interface (F12) | high | **done** | Rich rendering (tables, styled text, icons), 3 verbosity modes, structured JSON errors, ZtlCommand/ZtlGroup base classes, all service operations have CLI commands. Consolidated `_helpers.py` for shared service utilities |
-| BL-0031 | Init & Self-Generation (F13) | high | pending | Init flow, Jinja2, Obsidian |
-| BL-0032 | Event System & Plugins (F14) | high | pending | Pluggy, WAL, Git plugin, Copier |
-| BL-0033 | MCP Adapter (F15) | high | pending | Tools, resources, prompts, stdio |
+| BL-0031 | Init & Self-Generation (F13) | high | **done** | Init flow, Jinja2 templates, Obsidian scaffolding, agent regenerate. Deferred: Copier workflow templates |
+| BL-0032 | Event System & Plugins (F14) | high | **done** | WAL-backed EventBus, pluggy hookspecs, PluginManager with entry-point discovery, Git plugin (all 8 hooks). Deferred: local directory plugin discovery, Copier workflow templates |
+| BL-0033 | MCP Adapter (F15) | high | **done** | 12 tools, 6 resources, 4 prompts, `ztlctl serve` command with stdio transport. Deferred: tool proliferation guard |
 
 ### Implementation Dependency Graph
 
@@ -1517,13 +1525,51 @@ Phase 4 — Presentation (complete):
 
   715 tests, mypy strict, ruff clean.
 
-Phase 5 — Lifecycle (depends on Phase 3):
-  F13 Init & Self-Gen      ← depends on F9, F12
-  F10 Export               ← depends on F7, F9
+Phase 5 — Lifecycle (complete):
+  F13 Init & Self-Generation:
+    - Interactive `ztlctl init` with prompts for name, client, tone, topics
+    - Non-interactive `--name/--client/--tone/--topics` flags for scripting
+    - Vault scaffolding: ztlctl.toml, .ztlctl/, notes/, ops/, self/
+    - Obsidian client: .obsidian/ with graph colors and CSS snippets
+    - Jinja2 templates for self/identity.md and self/methodology.md
+    - `ztlctl agent regenerate` with staleness detection (timestamp comparison)
+    - Database initialization integrated into init flow
+  F10 Export:
+    - `export markdown` — full vault as portable markdown directory tree
+    - `export indexes` — topic and tag index files for GitHub rendering
+    - `export graph` — dot (GraphViz) and JSON (D3/vis.js) formats
+    - ExportService with format-specific renderers
+    - All commands support --output directory option
 
-Phase 6 — Extension (depends on Phase 4):
-  F14 Event System/Plugins ← depends on all core services
-  F15 MCP Adapter          ← depends on all services + F14
+  797 tests, mypy strict, ruff clean.
+
+Phase 6 — Extension (complete):
+  F14 Event System & Plugins:
+    - EventBus: WAL-backed async dispatch via pluggy + ThreadPoolExecutor
+    - Write-ahead log: events persist before dispatch, retry on failure, dead-letter after max retries
+    - Sync mode (--sync flag) for deterministic testing
+    - Drain barrier: session close flushes pending events synchronously
+    - PluginManager: entry-point discovery via pluggy load_setuptools_entrypoints
+    - register_plugin/unregister for runtime plugin management
+    - Git plugin (built-in): all 8 hookspecs implemented
+      - post_create/update/close: git add + optional immediate commit
+      - post_session_close: batch commit of all staged changes, optional auto-push
+      - post_init: .gitignore generation, git init, initial commit
+      - All subprocess calls wrapped in try/except (missing git silently fails)
+    - BaseService._dispatch_event(): fire-and-forget with safety net (failures → warnings)
+    - Vault.init_event_bus() called from AppContext on vault creation
+    - Event dispatch integrated into all 6 service modules (create, update, reweave, session, check, init)
+  F15 MCP Adapter:
+    - 12 tools: create (note, reference, task, log), lifecycle (update, close, reweave),
+      query (search, get_document, get_related, agent_context), session (session_close)
+    - 6 resources: context, self/identity, self/methodology, overview, work-queue, topics
+    - 4 prompts: research_session, knowledge_capture, vault_orientation, decision_record
+    - _impl function pattern: testable without mcp package installed
+    - register_tools/resources/prompts wraps _impl functions with FastMCP decorators
+    - `ztlctl serve --transport stdio` command with mcp install guard
+    - Deferred: tool proliferation guard (discover_tools meta-tool), streamable HTTP transport
+
+  882 tests, mypy strict, ruff clean.
 ```
 
 When implementing a feature, read its section in this document completely before writing code. Cross-reference the schema in Section 9 for all DB table definitions, and the `ServiceResult` contract in Section 10 for all return types.
