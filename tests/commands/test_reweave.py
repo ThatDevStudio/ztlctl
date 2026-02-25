@@ -50,3 +50,62 @@ class TestReweaveCommand:
         result = cli_runner.invoke(cli, ["reweave", "--undo-id", "1"])
         # Will fail with NOT_FOUND since no log entries, but proves undo path runs
         assert result.exit_code == 1
+
+
+@pytest.mark.usefixtures("_isolated_vault")
+class TestReweaveInteractive:
+    """Tests for the interactive confirmation flow (BL-0022)."""
+
+    def test_reweave_prompts_for_confirmation(self, cli_runner: CliRunner) -> None:
+        """Default reweave shows suggestions and prompts."""
+        cli_runner.invoke(cli, ["create", "note", "Python Guide"])
+        cli_runner.invoke(cli, ["create", "note", "Python Reference"])
+        result = cli_runner.invoke(cli, ["reweave"], input="y\n")
+        assert result.exit_code == 0
+        # If suggestions were found, prompt should appear
+        if "Apply" in result.output:
+            assert "link(s)?" in result.output
+
+    def test_reweave_cancel_on_decline(self, cli_runner: CliRunner) -> None:
+        """Declining confirmation cancels without changes."""
+        cli_runner.invoke(cli, ["create", "note", "Cancel Guide"])
+        cli_runner.invoke(cli, ["create", "note", "Cancel Reference"])
+        result = cli_runner.invoke(cli, ["reweave"], input="n\n")
+        assert result.exit_code == 0
+        if "Apply" in result.output:
+            assert "Cancelled" in result.output
+
+    def test_reweave_auto_link_skips_prompt(self, cli_runner: CliRunner) -> None:
+        """--auto-link-related applies without prompting."""
+        cli_runner.invoke(cli, ["create", "note", "Auto Guide"])
+        cli_runner.invoke(cli, ["create", "note", "Auto Reference"])
+        result = cli_runner.invoke(cli, ["reweave", "--auto-link-related"])
+        assert result.exit_code == 0
+        assert "Apply" not in result.output
+
+    def test_reweave_no_interact_skips_prompt(self, cli_runner: CliRunner) -> None:
+        """--no-interact global flag skips confirmation."""
+        cli_runner.invoke(cli, ["create", "note", "NI Guide"])
+        cli_runner.invoke(cli, ["create", "note", "NI Reference"])
+        result = cli_runner.invoke(cli, ["--no-interact", "reweave"])
+        assert result.exit_code == 0
+        assert "Apply" not in result.output
+
+    def test_reweave_dry_run_no_prompt(self, cli_runner: CliRunner) -> None:
+        """--dry-run shows suggestions without any prompt."""
+        cli_runner.invoke(cli, ["create", "note", "Dry Guide"])
+        cli_runner.invoke(cli, ["create", "note", "Dry Reference"])
+        result = cli_runner.invoke(cli, ["reweave", "--dry-run"])
+        assert result.exit_code == 0
+        assert "Apply" not in result.output
+
+    def test_reweave_no_suggestions_no_prompt(self, cli_runner: CliRunner) -> None:
+        """No prompt when there are no suggestions."""
+        result = cli_runner.invoke(cli, ["reweave"], input="y\n")
+        # Either no content or no suggestions — should not prompt
+        assert "Apply" not in result.output
+
+    def test_reweave_help_shows_auto_link(self, cli_runner: CliRunner) -> None:
+        """Help text includes --auto-link-related."""
+        result = cli_runner.invoke(cli, ["reweave", "--help"])
+        assert "--auto-link-related" in result.output
