@@ -1,14 +1,3 @@
----
-id: {{ id }}
-type: note
-subtype: decision
-status: proposed
-title: "{{ title }}"
-session: {{ session }}
-tags: [{{ tags | join(', ') }}]
-created: {{ created }}
----
-
 ## Context
 
 {{ context | default('') }}
