@@ -340,3 +340,65 @@ class TestLogEntry:
             row = conn.execute(select(session_logs)).first()
             assert row is not None
             assert row.session_id == data["id"]
+
+
+# ---------------------------------------------------------------------------
+# cost()
+# ---------------------------------------------------------------------------
+
+
+class TestCost:
+    def test_cost_query_empty_session(self, vault: Vault) -> None:
+        start_session(vault, "Cost Test")
+        result = SessionService(vault).cost()
+        assert result.ok
+        assert result.op == "cost"
+        assert result.data["total_cost"] == 0
+
+    def test_cost_query_with_entries(self, vault: Vault) -> None:
+        start_session(vault, "Cost Sum Test")
+        svc = SessionService(vault)
+        svc.log_entry("First", cost=1000)
+        svc.log_entry("Second", cost=2500)
+        svc.log_entry("Third", cost=500)
+
+        result = svc.cost()
+        assert result.ok
+        assert result.data["total_cost"] == 4000
+        assert result.data["entry_count"] == 3
+
+    def test_cost_report_mode(self, vault: Vault) -> None:
+        start_session(vault, "Report Test")
+        svc = SessionService(vault)
+        svc.log_entry("Entry", cost=3000)
+
+        result = svc.cost(report=10000)
+        assert result.ok
+        assert result.data["total_cost"] == 3000
+        assert result.data["budget"] == 10000
+        assert result.data["remaining"] == 7000
+
+    def test_cost_report_over_budget(self, vault: Vault) -> None:
+        start_session(vault, "Over Budget Test")
+        svc = SessionService(vault)
+        svc.log_entry("Big entry", cost=9000)
+
+        result = svc.cost(report=5000)
+        assert result.ok
+        assert result.data["remaining"] == -4000
+        assert result.data["over_budget"] is True
+
+    def test_cost_no_active_session(self, vault: Vault) -> None:
+        result = SessionService(vault).cost()
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "NO_ACTIVE_SESSION"
+
+    def test_cost_includes_session_id(self, vault: Vault) -> None:
+        data = start_session(vault, "ID Cost Test")
+        svc = SessionService(vault)
+        svc.log_entry("Entry", cost=100)
+
+        result = svc.cost()
+        assert result.ok
+        assert result.data["session_id"] == data["id"]

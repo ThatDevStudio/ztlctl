@@ -325,15 +325,60 @@ class SessionService(BaseService):
         )
 
     def cost(self, *, report: int | None = None) -> ServiceResult:
-        """Query or report accumulated token cost for the session."""
-        return ServiceResult(
-            ok=False,
-            op="cost",
-            error=ServiceError(
-                code="NOT_IMPLEMENTED",
-                message="cost is not yet implemented",
-            ),
-        )
+        """Query or report accumulated token cost for the active session.
+
+        Query mode (report=None): returns total cost and entry count.
+        Report mode (report=N): also includes budget, remaining, and over_budget flag.
+        """
+        op = "cost"
+
+        with self._vault.engine.connect() as conn:
+            # Find active session
+            active = conn.execute(
+                select(nodes)
+                .where(nodes.c.type == "log", nodes.c.status == "open")
+                .order_by(nodes.c.created.desc())
+                .limit(1)
+            ).first()
+
+            if active is None:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NO_ACTIVE_SESSION",
+                        message="No active session for cost query",
+                    ),
+                )
+
+            session_id = str(active.id)
+
+            # Sum costs from session_logs
+            from sqlalchemy import func
+
+            row = conn.execute(
+                select(
+                    func.coalesce(func.sum(session_logs.c.cost), 0).label("total"),
+                    func.count(session_logs.c.id).label("count"),
+                ).where(session_logs.c.session_id == session_id)
+            ).first()
+
+            total_cost = int(row.total) if row else 0
+            entry_count = int(row.count) if row else 0
+
+        data: dict[str, Any] = {
+            "session_id": session_id,
+            "total_cost": total_cost,
+            "entry_count": entry_count,
+        }
+
+        if report is not None:
+            remaining = report - total_cost
+            data["budget"] = report
+            data["remaining"] = remaining
+            data["over_budget"] = remaining < 0
+
+        return ServiceResult(ok=True, op=op, data=data)
 
     def context(
         self,
