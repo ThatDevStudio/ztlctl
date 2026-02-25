@@ -274,6 +274,19 @@ class CreateService(BaseService):
             if isinstance(fm_links, dict):
                 self._index_links(txn.conn, content_id, fm_links, body, today)
 
+        # ── EVENT ─────────────────────────────────────────────────
+        self._dispatch_event(
+            "post_create",
+            {
+                "content_type": content_type,
+                "content_id": content_id,
+                "title": title,
+                "path": rel_path,
+                "tags": tags,
+            },
+            warnings,
+        )
+
         # ── RESPOND ───────────────────────────────────────────────
         return ServiceResult(
             ok=True,

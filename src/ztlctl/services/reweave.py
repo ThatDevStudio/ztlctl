@@ -124,6 +124,19 @@ class ReweaveService(BaseService):
 
         # CONNECT — modify files and DB
         connected = self._connect(target_id, suggestions)
+
+        # Dispatch event
+        warnings: list[str] = []
+        self._dispatch_event(
+            "post_reweave",
+            {
+                "source_id": target_id,
+                "affected_ids": [c["id"] for c in connected],
+                "links_added": len(connected),
+            },
+            warnings,
+        )
+
         return ServiceResult(
             ok=True,
             op=op,
@@ -132,6 +145,7 @@ class ReweaveService(BaseService):
                 "connected": connected,
                 "count": len(connected),
             },
+            warnings=warnings,
         )
 
     def prune(

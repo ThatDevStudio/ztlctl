@@ -38,6 +38,7 @@ class AppContext:
             from ztlctl.infrastructure.vault import Vault
 
             self._vault = Vault(self.settings)
+            self._vault.init_event_bus(sync=self.settings.sync)
         return self._vault
 
     def emit(self, result: ServiceResult) -> None:

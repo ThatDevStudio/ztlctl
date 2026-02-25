@@ -207,6 +207,18 @@ class UpdateService(BaseService):
             if "links" in changes:
                 self._reindex_edges(txn.conn, content_id, fm, body, today)
 
+        # ── EVENT ────────────────────────────────────────────
+        self._dispatch_event(
+            "post_update",
+            {
+                "content_type": content_type,
+                "content_id": content_id,
+                "fields_changed": fields_changed,
+                "path": node_row.path,
+            },
+            warnings,
+        )
+
         # ── RESPOND ──────────────────────────────────────────
         return ServiceResult(
             ok=True,
@@ -226,7 +238,7 @@ class UpdateService(BaseService):
 
         with self._vault.transaction() as txn:
             node_row = txn.conn.execute(
-                select(nodes.c.id, nodes.c.path).where(nodes.c.id == content_id)
+                select(nodes.c.id, nodes.c.path, nodes.c.type).where(nodes.c.id == content_id)
             ).first()
             if node_row is None:
                 return ServiceResult(
@@ -251,10 +263,24 @@ class UpdateService(BaseService):
                 nodes.update().where(nodes.c.id == content_id).values(archived=1, modified=today)
             )
 
+        # Dispatch post_close event
+        warnings: list[str] = []
+        self._dispatch_event(
+            "post_close",
+            {
+                "content_type": node_row.type,
+                "content_id": content_id,
+                "path": node_row.path,
+                "summary": "archived",
+            },
+            warnings,
+        )
+
         return ServiceResult(
             ok=True,
             op="archive",
             data={"id": content_id, "path": node_row.path},
+            warnings=warnings,
         )
 
     def supersede(self, old_id: str, new_id: str) -> ServiceResult:
