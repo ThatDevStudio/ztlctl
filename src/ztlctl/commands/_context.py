@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import click
 
-from ztlctl.output.formatters import format_result
+from ztlctl.output.formatters import OutputSettings, format_result
 
 if TYPE_CHECKING:
     from ztlctl.config.settings import ZtlSettings
@@ -47,11 +47,16 @@ class AppContext:
           Warnings are emitted to stderr so they don't pollute piped output.
         * Failure: writes to stderr, exits with code 1.
         """
-        output = format_result(result, json_output=self.settings.json_output)
+        settings = OutputSettings(
+            json_output=self.settings.json_output,
+            quiet=self.settings.quiet,
+            verbose=self.settings.verbose,
+        )
+        output = format_result(result, settings=settings)
         if result.ok:
             click.echo(output)
             # In JSON mode, warnings are already in the serialized payload.
-            if not self.settings.json_output:
+            if not settings.json_output:
                 for warning in result.warnings:
                     click.echo(f"WARNING: {warning}", err=True)
         else:

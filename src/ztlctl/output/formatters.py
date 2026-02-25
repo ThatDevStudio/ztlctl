@@ -1,43 +1,60 @@
 """Rich/JSON output helpers.
 
 The CLI renders ServiceResult for humans (Rich output, colors, icons,
-progress bars) or machines (--json). The formatter layer adapts
+progress bars) or machines (--json).  The formatter layer adapts
 ServiceResult to the requested output mode.
+
+Three modes:
+- **JSON** (``--json``): ``model_dump_json()`` — machine-parseable, no color.
+- **Quiet** (``--quiet``): Minimal single-line or IDs-only output.
+- **Default / Verbose**: Rich-formatted, operation-aware output.
+  ``--verbose`` adds extra columns, error detail, and meta blocks.
 """
 
 from __future__ import annotations
 
-import json as _json
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from ztlctl.output.renderers import render_quiet, render_result
 
 if TYPE_CHECKING:
     from ztlctl.services.result import ServiceResult
 
 
-def _format_data_human(data: dict[str, Any]) -> str:
-    """Format result data as indented key-value pairs."""
-    lines: list[str] = []
-    for key, value in data.items():
-        if isinstance(value, (dict, list)):
-            lines.append(f"  {key}: {_json.dumps(value, separators=(',', ':'))}")
-        else:
-            lines.append(f"  {key}: {value}")
-    return "\n".join(lines)
+@dataclass(frozen=True)
+class OutputSettings:
+    """Presentation settings extracted from ZtlSettings for the formatter."""
+
+    json_output: bool = False
+    quiet: bool = False
+    verbose: bool = False
 
 
-def format_result(result: ServiceResult, *, json_output: bool = False) -> str:
+def format_result(
+    result: ServiceResult,
+    *,
+    settings: OutputSettings | None = None,
+    json_output: bool = False,
+) -> str:
     """Format a ServiceResult for display.
 
     Args:
         result: The service result to format.
-        json_output: If True, return JSON; otherwise return human-readable text.
+        settings: Full output settings (preferred).
+        json_output: Legacy shortcut — if True, return JSON.  Ignored
+            when *settings* is provided.
+
+    Returns:
+        Formatted string ready for ``click.echo()``.
     """
-    if json_output:
+    if settings is None:
+        settings = OutputSettings(json_output=json_output)
+
+    if settings.json_output:
         return result.model_dump_json(indent=2)
-    if result.ok:
-        parts = [f"OK: {result.op}"]
-        if result.data:
-            parts.append(_format_data_human(result.data))
-        return "\n".join(parts)
-    error_msg = result.error.message if result.error else "Unknown error"
-    return f"ERROR: {result.op} — {error_msg}"
+
+    if settings.quiet:
+        return render_quiet(result)
+
+    return render_result(result, verbose=settings.verbose)
