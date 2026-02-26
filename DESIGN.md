@@ -719,6 +719,8 @@ Performance indexes on high-cardinality columns, created via `metadata.create_al
 | `ix_node_tags_tag` | `tag` | `node_tags` |
 
 > **Note:** The `edges.bidirectional` column is reserved but not yet maintained by services. It exists in the schema for future bidirectional edge materialization.
+>
+> **Note:** All columns with `default=` also have `server_default=` to ensure `metadata.create_all()` and Alembic migrations produce identical DDL with `DEFAULT` clauses.
 
 ### Transaction Model
 
@@ -1367,6 +1369,10 @@ Decisions made during the design process (CONV-0017):
 | — | `extract_decision` pipeline: create + overwrite + FTS5 | Uses CreateService pipeline for ID/indexing/frontmatter, then overwrites body with extracted JSONL content, updates FTS5, creates `derived_from` edge |
 | — | `brief()` works without active session | Returns ok=True with session=null and vault stats; orientation is useful even outside a session |
 | — | `garden seed` reuses create pipeline with maturity="seed" | No new service method; passes maturity through existing `create_note()` → `_create_content()` path |
+| — | JSONL and DB entry types must stay in sync | `log_entry()` JSONL writes `entry_type` parameter, not hardcoded `"log_entry"`; enables `extract_decision()` to match entries by type in JSONL |
+| — | `extract_decision` FTS5 + edge in single transaction | Prevents partial state if edge insert fails after FTS5 update; atomic write of all derived data |
+| — | `server_default` alongside `default` on all schema columns | Ensures `metadata.create_all()` and Alembic migration produce identical DDL; prevents divergent DEFAULT clauses between init and upgrade paths |
+| — | Init stamp failures surface as warnings, not silent | `ServiceResult.warnings` carries stamp failure message; user knows to run `ztlctl upgrade` without having to diagnose |
 
 ---
 
@@ -1598,8 +1604,13 @@ Phase 7 — Stub Command Completion (complete):
   Renderers:
     - 4 new Rich renderers: _render_cost, _render_context, _render_brief, _render_upgrade
     - 2 existing renderers reused: log_entry → _render_mutation, extract_decision → _render_mutation
+  Fixes (code review):
+    - JSONL entry type now reflects entry_type parameter (was hardcoded "log_entry")
+    - extract_decision FTS5 update and edge insert merged into single transaction
+    - schema.py columns now have server_default alongside default for DDL parity with migration
+    - init_vault stamp failures surfaced as ServiceResult warnings instead of silently swallowed
 
-  1007 tests, mypy strict, ruff clean.
+  1014 tests, mypy strict, ruff clean.
 ```
 
 When implementing a feature, read its section in this document completely before writing code. Cross-reference the schema in Section 9 for all DB table definitions, and the `ServiceResult` contract in Section 10 for all return types.
