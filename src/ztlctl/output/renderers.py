@@ -428,9 +428,15 @@ def _render_fix(result: ServiceResult, console: Console, *, verbose: bool = Fals
 def _render_rebuild(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
     """Render rebuild results."""
     _status_line(console, result)
-    for key in ("nodes_indexed", "edges_created", "tags_found"):
+    for key in ("nodes_indexed", "edges_created", "tags_found", "nodes_materialized"):
         if key in result.data:
             _field(console, key, result.data[key])
+
+
+def _render_materialize(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
+    """Render materialize_metrics results."""
+    _status_line(console, result)
+    _field(console, "nodes_updated", result.data.get("nodes_updated", 0))
 
 
 # ── Session renderers ─────────────────────────────────────────────────
@@ -703,6 +709,7 @@ _OP_RENDERERS: dict[str, Any] = {
     "bridges": _render_scored_table,
     "themes": _render_themes,
     "path": _render_path,
+    "materialize_metrics": _render_materialize,
     # Check
     "check": _render_check,
     "fix": _render_fix,

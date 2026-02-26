@@ -150,6 +150,13 @@ class SessionService(BaseService):
         if cfg.close_integrity_check:
             integrity_issues = self._integrity_check(warnings)
 
+        # -- GRAPH MATERIALIZATION --
+        from ztlctl.services.graph import GraphService
+
+        mat_result = GraphService(self._vault).materialize_metrics()
+        if not mat_result.ok:
+            warnings.append("Graph metric materialization failed during session close")
+
         # -- EVENT DISPATCH --
         self._dispatch_event(
             "post_session_close",

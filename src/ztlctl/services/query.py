@@ -58,7 +58,8 @@ class QueryService(BaseService):
             content_type: Filter to a specific type (note, reference, task).
             tag: Filter to items with this tag.
             space: Filter by vault space (notes, ops, self).
-            rank_by: Sort mode — "relevance" (BM25) or "recency".
+            rank_by: Sort mode — "relevance" (BM25), "recency" (BM25*decay),
+                or "graph" (BM25*PageRank).
             limit: Maximum results to return.
         """
         if not query.strip():
@@ -68,16 +69,18 @@ class QueryService(BaseService):
                 error=ServiceError(code="EMPTY_QUERY", message="Search query cannot be empty"),
             )
 
-        # Recency mode: fetch more candidates for Python-side re-ranking
+        # Recency/graph modes: fetch more candidates for Python-side re-ranking
         use_time_decay = rank_by == "recency"
-        fetch_limit = min(limit * 3, 1000) if use_time_decay else limit
+        use_graph_rank = rank_by == "graph"
+        needs_rerank = use_time_decay or use_graph_rank
+        fetch_limit = min(limit * 3, 1000) if needs_rerank else limit
 
         # Always order by BM25 for the SQL fetch
         order_clause = "bm25(nodes_fts)"
 
         sql = """
             SELECT n.id, n.title, n.type, n.subtype, n.status, n.path,
-                   n.created, n.modified, bm25(nodes_fts) AS score
+                   n.created, n.modified, n.pagerank, bm25(nodes_fts) AS score
             FROM nodes_fts AS fts
             JOIN nodes AS n ON fts.id = n.id
             WHERE nodes_fts MATCH :query
@@ -113,24 +116,33 @@ class QueryService(BaseService):
                 "path": r.path,
                 "created": r.created,
                 "modified": r.modified,
+                "pagerank": float(r.pagerank or 0.0),
                 "score": float(r.score),
             }
             for r in rows
         ]
 
+        warnings: list[str] = []
+
         if use_time_decay:
             half_life = self._vault.settings.search.half_life_days
             items = self._apply_time_decay(items, half_life=half_life, limit=limit)
+        elif use_graph_rank:
+            items, warnings = self._apply_graph_rank(items, limit=limit)
 
-        # Round scores for final output
+        # Round scores for final output and strip pagerank from response
         for item in items:
             item["score"] = round(item["score"], 4)
+            item.pop("pagerank", None)
 
-        return ServiceResult(
-            ok=True,
-            op="search",
-            data={"query": query, "count": len(items), "items": items},
-        )
+        result_kwargs: dict[str, Any] = {
+            "ok": True,
+            "op": "search",
+            "data": {"query": query, "count": len(items), "items": items},
+        }
+        if warnings:
+            result_kwargs["warnings"] = warnings
+        return ServiceResult(**result_kwargs)
 
     def _apply_time_decay(
         self,
@@ -165,6 +177,39 @@ class QueryService(BaseService):
 
         items.sort(key=lambda x: x["score"], reverse=True)
         return items[:limit]
+
+    def _apply_graph_rank(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        limit: int,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Re-rank search results by BM25 x PageRank.
+
+        Combined score = abs(bm25) * pagerank.
+        Falls back to pure BM25 if all pagerank values are 0.0.
+        """
+        warnings: list[str] = []
+
+        all_zero = all(item.get("pagerank", 0.0) == 0.0 for item in items)
+        if all_zero and items:
+            warnings.append(
+                "All pagerank values are 0.0 — run 'ztlctl graph materialize' first. "
+                "Falling back to BM25 ranking."
+            )
+            # Fall back to pure BM25: negate to positive, sort desc
+            for item in items:
+                item["score"] = abs(item["score"])
+            items.sort(key=lambda x: x["score"], reverse=True)
+            return items[:limit], warnings
+
+        for item in items:
+            bm25_positive = abs(item["score"])
+            pr = item.get("pagerank", 0.0)
+            item["score"] = round(bm25_positive * pr, 4)
+
+        items.sort(key=lambda x: x["score"], reverse=True)
+        return items[:limit], warnings
 
     # ------------------------------------------------------------------
     # get — single item retrieval

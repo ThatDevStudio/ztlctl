@@ -244,6 +244,16 @@ class CheckService(BaseService):
                             )
                             edges_created += 1
 
+        # Materialize graph metrics after rebuild
+        from ztlctl.services.graph import GraphService
+
+        mat_result = GraphService(self._vault).materialize_metrics()
+        if mat_result.ok:
+            nodes_materialized = mat_result.data.get("nodes_updated", 0)
+        else:
+            nodes_materialized = 0
+            warnings.append("Graph metric materialization failed after rebuild")
+
         return ServiceResult(
             ok=True,
             op="rebuild",
@@ -251,6 +261,7 @@ class CheckService(BaseService):
                 "nodes_indexed": nodes_indexed,
                 "edges_created": edges_created,
                 "tags_found": tags_found,
+                "nodes_materialized": nodes_materialized,
             },
             warnings=warnings,
         )

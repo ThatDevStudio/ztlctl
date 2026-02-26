@@ -461,3 +461,76 @@ class TestBridges:
         result = svc.bridges(top=1)
         assert result.ok
         assert result.data["count"] <= 1
+
+
+# ---------------------------------------------------------------------------
+# materialize_metrics
+# ---------------------------------------------------------------------------
+
+
+class TestMaterializeMetrics:
+    def test_materialize_populates_pagerank(self, vault: Vault) -> None:
+        """Materialize should write non-zero pagerank for linked nodes."""
+        from sqlalchemy import select
+
+        _build_chain(vault, ["A", "B", "C"])
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+        assert result.data["nodes_updated"] == 3
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes.c.pagerank).where(nodes.c.id == "B")).first()
+        assert row is not None
+        assert row.pagerank > 0
+
+    def test_materialize_populates_degree(self, vault: Vault) -> None:
+        """Materialize should write correct degree_in and degree_out."""
+        from sqlalchemy import select
+
+        _build_star(vault, "HUB", ["S1", "S2", "S3"])
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            hub = conn.execute(
+                select(nodes.c.degree_in, nodes.c.degree_out).where(nodes.c.id == "HUB")
+            ).first()
+            spoke = conn.execute(
+                select(nodes.c.degree_in, nodes.c.degree_out).where(nodes.c.id == "S1")
+            ).first()
+        assert hub is not None
+        assert hub.degree_out == 3
+        assert spoke is not None
+        assert spoke.degree_in == 1
+
+    def test_materialize_empty_graph(self, vault: Vault) -> None:
+        """Materialize on an empty graph updates 0 nodes."""
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+        assert result.data["nodes_updated"] == 0
+
+    def test_materialize_updates_existing(self, vault: Vault) -> None:
+        """Calling materialize twice updates metrics correctly."""
+        from sqlalchemy import select
+
+        _build_chain(vault, ["A", "B"])
+        svc = GraphService(vault)
+        svc.materialize_metrics()
+
+        # Add another edge and re-materialize
+        _insert_node(vault, "C")
+        _insert_edge(vault, "B", "C")
+        # Force graph reload
+        vault.graph._graph = None
+
+        result = svc.materialize_metrics()
+        assert result.ok
+        assert result.data["nodes_updated"] == 3
+
+        with vault.engine.connect() as conn:
+            row_b = conn.execute(select(nodes.c.degree_out).where(nodes.c.id == "B")).first()
+        assert row_b is not None
+        assert row_b.degree_out == 1

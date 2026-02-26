@@ -299,6 +299,18 @@ class TestSpaceFilterCLI:
         assert "--space" in result.output
 
 
+@pytest.mark.usefixtures("_isolated_vault")
+class TestGraphRankCLI:
+    """CLI tests for --rank-by graph."""
+
+    def test_search_rank_by_graph_cli(self, cli_runner: CliRunner) -> None:
+        _seed_via_cli(cli_runner)
+        result = cli_runner.invoke(cli, ["--json", "query", "search", "Note", "--rank-by", "graph"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+
+
 class TestQueryGroupHelp:
     def test_query_group_help(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["query", "--help"])

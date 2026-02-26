@@ -13,6 +13,7 @@ from typing import Any
 
 import networkx as nx
 
+from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 
@@ -389,4 +390,54 @@ class GraphService(BaseService):
             ok=True,
             op="bridges",
             data={"count": len(items), "items": items},
+        )
+
+    # ------------------------------------------------------------------
+    # materialize_metrics — persist graph metrics to the nodes table
+    # ------------------------------------------------------------------
+
+    def materialize_metrics(self) -> ServiceResult:
+        """Compute and store graph metrics in the nodes table.
+
+        Computes PageRank, degree_in, degree_out, and betweenness centrality
+        via NetworkX and writes the results to the materialized columns
+        in the nodes table.
+        """
+        g = self._vault.graph.graph
+
+        if g.number_of_nodes() == 0:
+            return ServiceResult(
+                ok=True,
+                op="materialize_metrics",
+                data={"nodes_updated": 0},
+            )
+
+        # Compute metrics
+        pageranks = nx.pagerank(g)
+        betweenness = nx.betweenness_centrality(g)
+
+        updated = 0
+        with self._vault.engine.begin() as conn:
+            for node_id in g.nodes():
+                d_in = g.in_degree(node_id)
+                d_out = g.out_degree(node_id)
+                pr = pageranks.get(node_id, 0.0)
+                bc = betweenness.get(node_id, 0.0)
+
+                conn.execute(
+                    nodes.update()
+                    .where(nodes.c.id == node_id)
+                    .values(
+                        degree_in=d_in,
+                        degree_out=d_out,
+                        pagerank=round(pr, 8),
+                        betweenness=round(bc, 8),
+                    )
+                )
+                updated += 1
+
+        return ServiceResult(
+            ok=True,
+            op="materialize_metrics",
+            data={"nodes_updated": updated},
         )
