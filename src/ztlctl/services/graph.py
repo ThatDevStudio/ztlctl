@@ -16,7 +16,7 @@ import networkx as nx
 from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
-from ztlctl.services.telemetry import traced
+from ztlctl.services.telemetry import trace_span, traced
 
 
 class GraphService(BaseService):
@@ -130,7 +130,11 @@ class GraphService(BaseService):
         Tries leidenalg first (higher quality), falls back to NetworkX
         Louvain if leidenalg is not installed.
         """
-        g = self._vault.graph.graph
+        with trace_span("build_graph") as span:
+            g = self._vault.graph.graph
+            if span:
+                span.annotate("nodes", g.number_of_nodes())
+                span.annotate("edges", g.number_of_edges())
 
         if g.number_of_nodes() == 0:
             return self._empty_graph_result("themes", key="communities")
@@ -141,12 +145,13 @@ class GraphService(BaseService):
         warnings: list[str] = []
         partition: dict[str, int] = {}
 
-        try:
-            partition = self._leiden_communities(ug)
-        except ImportError:
-            warnings.append("leidenalg not installed, using Louvain fallback")
-            communities = nx.community.louvain_communities(ug, seed=42)
-            partition = self._sets_to_partition(communities)
+        with trace_span("community_detection"):
+            try:
+                partition = self._leiden_communities(ug)
+            except ImportError:
+                warnings.append("leidenalg not installed, using Louvain fallback")
+                communities = nx.community.louvain_communities(ug, seed=42)
+                partition = self._sets_to_partition(communities)
 
         # Group nodes by community
         comm_groups: dict[int, list[dict[str, Any]]] = {}

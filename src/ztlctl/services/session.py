@@ -16,7 +16,7 @@ from ztlctl.infrastructure.database.schema import edges, nodes, session_logs
 from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
-from ztlctl.services.telemetry import traced
+from ztlctl.services.telemetry import trace_span, traced
 
 
 class SessionService(BaseService):
@@ -145,26 +145,34 @@ class SessionService(BaseService):
             txn.write_file(file_path, existing + close_entry + "\n")
 
         # -- CROSS-SESSION REWEAVE --
-        reweave_count = 0
-        if cfg.close_reweave:
-            reweave_count = self._cross_session_reweave(session_id, warnings)
+        with trace_span("cross_session_reweave") as span:
+            reweave_count = 0
+            if cfg.close_reweave:
+                reweave_count = self._cross_session_reweave(session_id, warnings)
+            if span:
+                span.annotate("reweave_count", reweave_count)
 
         # -- ORPHAN SWEEP --
-        orphan_count = 0
-        if cfg.close_orphan_sweep:
-            orphan_count = self._orphan_sweep(warnings)
+        with trace_span("orphan_sweep") as span:
+            orphan_count = 0
+            if cfg.close_orphan_sweep:
+                orphan_count = self._orphan_sweep(warnings)
+            if span:
+                span.annotate("orphan_count", orphan_count)
 
         # -- INTEGRITY CHECK --
-        integrity_issues = 0
-        if cfg.close_integrity_check:
-            integrity_issues = self._integrity_check(warnings)
+        with trace_span("integrity_check"):
+            integrity_issues = 0
+            if cfg.close_integrity_check:
+                integrity_issues = self._integrity_check(warnings)
 
         # -- GRAPH MATERIALIZATION --
-        from ztlctl.services.graph import GraphService
+        with trace_span("materialize"):
+            from ztlctl.services.graph import GraphService
 
-        mat_result = GraphService(self._vault).materialize_metrics()
-        if not mat_result.ok:
-            warnings.append("Graph metric materialization failed during session close")
+            mat_result = GraphService(self._vault).materialize_metrics()
+            if not mat_result.ok:
+                warnings.append("Graph metric materialization failed during session close")
 
         # -- EVENT DISPATCH --
         self._dispatch_event(

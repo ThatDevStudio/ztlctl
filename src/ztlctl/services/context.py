@@ -17,7 +17,7 @@ from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services._helpers import estimate_tokens
 from ztlctl.services.result import ServiceResult
-from ztlctl.services.telemetry import traced
+from ztlctl.services.telemetry import trace_span, traced
 
 
 class ContextAssembler:
@@ -62,75 +62,102 @@ class ContextAssembler:
         layers: dict[str, Any] = {}
 
         # -- Layer 0: Identity + Methodology (always) --
-        identity_path = self._vault.root / "self" / "identity.md"
-        methodology_path = self._vault.root / "self" / "methodology.md"
+        with trace_span("layer_0_identity") as span:
+            identity_path = self._vault.root / "self" / "identity.md"
+            methodology_path = self._vault.root / "self" / "methodology.md"
 
-        identity = identity_path.read_text(encoding="utf-8") if identity_path.exists() else None
-        methodology = (
-            methodology_path.read_text(encoding="utf-8") if methodology_path.exists() else None
-        )
+            identity = identity_path.read_text(encoding="utf-8") if identity_path.exists() else None
+            methodology = (
+                methodology_path.read_text(encoding="utf-8") if methodology_path.exists() else None
+            )
 
-        layers["identity"] = identity
-        layers["methodology"] = methodology
-        if identity:
-            token_count += estimate_tokens(identity)
-        if methodology:
-            token_count += estimate_tokens(methodology)
+            layers["identity"] = identity
+            layers["methodology"] = methodology
+            layer_0_tokens = 0
+            if identity:
+                layer_0_tokens += estimate_tokens(identity)
+            if methodology:
+                layer_0_tokens += estimate_tokens(methodology)
+            token_count += layer_0_tokens
+            if span:
+                span.tokens = layer_0_tokens
 
         # -- Layer 1: Operational State (always) --
-        layers["session"] = {
-            "session_id": session_id,
-            "topic": str(session_row.topic or ""),
-            "status": str(session_row.status),
-            "started": str(session_row.created),
-        }
-        token_count += estimate_tokens(json.dumps(layers["session"]))
+        with trace_span("layer_1_operational") as span:
+            layers["session"] = {
+                "session_id": session_id,
+                "topic": str(session_row.topic or ""),
+                "status": str(session_row.status),
+                "started": str(session_row.created),
+            }
+            layer_1_tokens = estimate_tokens(json.dumps(layers["session"]))
 
-        # Recent decisions
-        layers["recent_decisions"] = self._recent_decisions(warnings)
-        for d in layers["recent_decisions"]:
-            token_count += estimate_tokens(json.dumps(d))
+            # Recent decisions
+            layers["recent_decisions"] = self._recent_decisions(warnings)
+            for d in layers["recent_decisions"]:
+                layer_1_tokens += estimate_tokens(json.dumps(d))
 
-        # Work queue
-        layers["work_queue"] = self._work_queue(warnings)
-        for t in layers["work_queue"]:
-            token_count += estimate_tokens(json.dumps(t))
+            # Work queue
+            layers["work_queue"] = self._work_queue(warnings)
+            for t in layers["work_queue"]:
+                layer_1_tokens += estimate_tokens(json.dumps(t))
 
-        # Session log entries (from latest checkpoint)
-        layers["log_entries"] = self._log_entries(session_id, budget - token_count, warnings)
-        for e in layers["log_entries"]:
-            token_count += estimate_tokens(json.dumps(e))
+            # Session log entries (from latest checkpoint)
+            layers["log_entries"] = self._log_entries(
+                session_id, budget - token_count - layer_1_tokens, warnings
+            )
+            for e in layers["log_entries"]:
+                layer_1_tokens += estimate_tokens(json.dumps(e))
+
+            token_count += layer_1_tokens
+            if span:
+                span.tokens = layer_1_tokens
 
         # -- Layer 2: Topic-scoped content (budget-dependent) --
-        remaining = budget - token_count
-        if remaining > 0 and session_topic:
-            layers["topic_content"] = self._topic_content(session_topic, remaining, warnings)
-            for item in layers["topic_content"]:
-                token_count += estimate_tokens(json.dumps(item))
-        else:
-            layers["topic_content"] = []
+        with trace_span("layer_2_topic") as span:
+            remaining = budget - token_count
+            layer_2_tokens = 0
+            if remaining > 0 and session_topic:
+                layers["topic_content"] = self._topic_content(session_topic, remaining, warnings)
+                for item in layers["topic_content"]:
+                    layer_2_tokens += estimate_tokens(json.dumps(item))
+            else:
+                layers["topic_content"] = []
+            token_count += layer_2_tokens
+            if span:
+                span.tokens = layer_2_tokens
 
         # -- Layer 3: Graph-adjacent (budget-dependent) --
-        remaining = budget - token_count
-        if remaining > 0 and layers["topic_content"]:
-            layers["graph_adjacent"] = self._graph_adjacent(
-                [item["id"] for item in layers["topic_content"] if "id" in item],
-                remaining,
-                warnings,
-            )
-            for item in layers["graph_adjacent"]:
-                token_count += estimate_tokens(json.dumps(item))
-        else:
-            layers["graph_adjacent"] = []
+        with trace_span("layer_3_graph") as span:
+            remaining = budget - token_count
+            layer_3_tokens = 0
+            if remaining > 0 and layers["topic_content"]:
+                layers["graph_adjacent"] = self._graph_adjacent(
+                    [item["id"] for item in layers["topic_content"] if "id" in item],
+                    remaining,
+                    warnings,
+                )
+                for item in layers["graph_adjacent"]:
+                    layer_3_tokens += estimate_tokens(json.dumps(item))
+            else:
+                layers["graph_adjacent"] = []
+            token_count += layer_3_tokens
+            if span:
+                span.tokens = layer_3_tokens
 
         # -- Layer 4: Background signals (budget-dependent) --
-        remaining = budget - token_count
-        if remaining > 0:
-            layers["background"] = self._background(remaining, warnings)
-            for item in layers["background"]:
-                token_count += estimate_tokens(json.dumps(item))
-        else:
-            layers["background"] = []
+        with trace_span("layer_4_background") as span:
+            remaining = budget - token_count
+            layer_4_tokens = 0
+            if remaining > 0:
+                layers["background"] = self._background(remaining, warnings)
+                for item in layers["background"]:
+                    layer_4_tokens += estimate_tokens(json.dumps(item))
+            else:
+                layers["background"] = []
+            token_count += layer_4_tokens
+            if span:
+                span.tokens = layer_4_tokens
 
         remaining = budget - token_count
         pressure = "normal"

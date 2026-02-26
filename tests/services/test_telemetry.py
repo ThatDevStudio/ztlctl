@@ -315,3 +315,105 @@ class TestTracedOnRealService:
             assert "telemetry" in result.meta
         finally:
             disable_telemetry()
+
+
+# ── trace_span in real services ────────────────────────────────────
+
+
+class TestTraceSpanInServices:
+    def test_create_note_has_child_spans(self, vault: Any) -> None:
+        from ztlctl.services.create import CreateService
+
+        enable_telemetry()
+        try:
+            result = CreateService(vault).create_note("Span Test")
+            assert result.ok
+            assert result.meta is not None
+            children = result.meta["telemetry"].get("children", [])
+            child_names = [c["name"] for c in children]
+            assert "validate" in child_names
+            assert "generate" in child_names
+            assert "persist" in child_names
+            assert "index" in child_names
+            assert "dispatch_event" in child_names
+        finally:
+            disable_telemetry()
+
+    def test_check_has_child_spans(self, vault: Any) -> None:
+        from ztlctl.services.check import CheckService
+
+        enable_telemetry()
+        try:
+            result = CheckService(vault).check()
+            assert result.ok
+            assert result.meta is not None
+            children = result.meta["telemetry"].get("children", [])
+            child_names = [c["name"] for c in children]
+            assert "db_file_consistency" in child_names
+            assert "schema_integrity" in child_names
+            assert "graph_health" in child_names
+            assert "structural_validation" in child_names
+        finally:
+            disable_telemetry()
+
+    def test_update_has_child_spans(self, vault: Any) -> None:
+        from ztlctl.services.create import CreateService
+        from ztlctl.services.update import UpdateService
+
+        svc = CreateService(vault)
+        create_result = svc.create_note("Update Span Test")
+        assert create_result.ok
+        content_id = create_result.data["id"]
+
+        enable_telemetry()
+        try:
+            result = UpdateService(vault).update(content_id, changes={"title": "Updated"})
+            assert result.ok
+            assert result.meta is not None
+            children = result.meta["telemetry"].get("children", [])
+            child_names = [c["name"] for c in children]
+            assert "validate" in child_names
+            assert "apply" in child_names
+            assert "propagate" in child_names
+            assert "index" in child_names
+        finally:
+            disable_telemetry()
+
+    def test_session_close_has_child_spans(self, vault: Any) -> None:
+        from ztlctl.services.session import SessionService
+
+        svc = SessionService(vault)
+        start_result = svc.start(topic="test spans")
+        assert start_result.ok
+        enable_telemetry()
+        try:
+            result = svc.close()
+            assert result.ok
+            assert result.meta is not None
+            children = result.meta["telemetry"].get("children", [])
+            child_names = [c["name"] for c in children]
+            assert "cross_session_reweave" in child_names
+            assert "orphan_sweep" in child_names
+            assert "integrity_check" in child_names
+            assert "materialize" in child_names
+        finally:
+            disable_telemetry()
+
+    def test_graph_themes_has_child_spans(self, vault: Any) -> None:
+        from ztlctl.services.create import CreateService
+        from ztlctl.services.graph import GraphService
+
+        # Need at least some content for the graph
+        CreateService(vault).create_note("Theme A")
+        CreateService(vault).create_note("Theme B")
+        enable_telemetry()
+        try:
+            result = GraphService(vault).themes()
+            assert result.ok
+            assert result.meta is not None
+            children = result.meta["telemetry"].get("children", [])
+            child_names = [c["name"] for c in children]
+            assert "build_graph" in child_names
+            # community_detection may not be reached if graph is too small
+        finally:
+            disable_telemetry()
