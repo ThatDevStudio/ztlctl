@@ -578,6 +578,18 @@ class GraphService(BaseService):
         pageranks = nx.pagerank(g)
         betweenness = nx.betweenness_centrality(g)
 
+        # Compute community assignments (Leiden → Louvain fallback)
+        warnings: list[str] = []
+        cluster_map: dict[str, int] = {}
+        ug = g.to_undirected(as_view=True)
+        if ug.number_of_edges() > 0:
+            try:
+                cluster_map = self._leiden_communities(ug)
+            except ImportError:
+                warnings.append("leidenalg not installed, using Louvain fallback")
+                communities = nx.community.louvain_communities(ug, seed=42)
+                cluster_map = self._sets_to_partition(communities)
+
         updated = 0
         with self._vault.engine.begin() as conn:
             for node_id in g.nodes():
@@ -585,6 +597,7 @@ class GraphService(BaseService):
                 d_out = g.out_degree(node_id)
                 pr = pageranks.get(node_id, 0.0)
                 bc = betweenness.get(node_id, 0.0)
+                cid = cluster_map.get(node_id)
 
                 conn.execute(
                     nodes.update()
@@ -594,6 +607,7 @@ class GraphService(BaseService):
                         degree_out=d_out,
                         pagerank=round(pr, 8),
                         betweenness=round(bc, 8),
+                        cluster_id=cid,
                     )
                 )
                 updated += 1
@@ -602,4 +616,5 @@ class GraphService(BaseService):
             ok=True,
             op="materialize_metrics",
             data={"nodes_updated": updated},
+            warnings=warnings,
         )

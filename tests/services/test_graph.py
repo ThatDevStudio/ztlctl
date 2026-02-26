@@ -535,6 +535,30 @@ class TestMaterializeMetrics:
         assert row_b is not None
         assert row_b.degree_out == 1
 
+    def test_materialize_populates_cluster_id(self, vault: Vault) -> None:
+        """Materialize should assign cluster_id from community detection."""
+        _build_star(vault, "HUB", ["S1", "S2", "S3"])
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            hub = conn.execute(select(nodes.c.cluster_id).where(nodes.c.id == "HUB")).first()
+        assert hub is not None
+        assert hub.cluster_id is not None
+
+    def test_materialize_cluster_id_none_for_isolated(self, vault: Vault) -> None:
+        """Isolated nodes (no edges) get cluster_id=None."""
+        _insert_node(vault, "LONE")
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes.c.cluster_id).where(nodes.c.id == "LONE")).first()
+        assert row is not None
+        assert row.cluster_id is None
+
 
 # ---------------------------------------------------------------------------
 # unlink — remove specific links
