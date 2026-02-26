@@ -558,6 +558,28 @@ class TestContext:
         types = [e["type"] for e in entries]
         assert "checkpoint" in types
 
+    def test_context_ignore_checkpoints(self, vault: Vault) -> None:
+        """With ignore_checkpoints, all entries are returned regardless of checkpoint."""
+        start_session(vault, "Ignore Checkpoint")
+        svc = SessionService(vault)
+        svc.log_entry("Before checkpoint", cost=100)
+        svc.log_entry(
+            "Checkpoint",
+            entry_type="checkpoint",
+            subtype="checkpoint",
+            detail="Accumulated context snapshot",
+        )
+        svc.log_entry("After checkpoint", cost=200)
+
+        result = svc.context(ignore_checkpoints=True)
+        assert result.ok
+        entries = result.data["layers"]["log_entries"]
+        summaries = [e["summary"] for e in entries]
+        # All three entries should be present (not just checkpoint + after)
+        assert "Before checkpoint" in summaries
+        assert "Checkpoint" in summaries
+        assert "After checkpoint" in summaries
+
     def test_context_pinned_entries_survive_budget(self, vault: Vault) -> None:
         """Pinned entries are never dropped under budget pressure."""
         start_session(vault, "Pin Budget Test")

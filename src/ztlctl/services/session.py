@@ -403,6 +403,7 @@ class SessionService(BaseService):
         *,
         topic: str | None = None,
         budget: int = 8000,
+        ignore_checkpoints: bool = False,
     ) -> ServiceResult:
         """Build token-budgeted agent context payload (delegates to ContextAssembler)."""
         from ztlctl.services.context import ContextAssembler
@@ -420,7 +421,9 @@ class SessionService(BaseService):
                 ),
             )
 
-        return ContextAssembler(self._vault).assemble(active, topic=topic, budget=budget)
+        return ContextAssembler(self._vault).assemble(
+            active, topic=topic, budget=budget, ignore_checkpoints=ignore_checkpoints
+        )
 
     @traced
     def brief(self) -> ServiceResult:
