@@ -596,3 +596,118 @@ class TestSpaceFilter:
         assert result.data["counts"]["decisions"] == 0
         assert result.data["counts"]["notes"] == 0
         assert result.data["counts"]["references"] == 0
+
+
+# ---------------------------------------------------------------------------
+# search — time-decay ranking
+# ---------------------------------------------------------------------------
+
+
+class TestSearchTimeDecay:
+    """Tests for BM25 x time-decay recency ranking."""
+
+    def test_recency_returns_positive_scores(self, vault: Vault) -> None:
+        """Recency mode produces positive combined scores (negated BM25 x decay)."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.search("Note", rank_by="recency")
+        assert result.ok
+        assert result.data["count"] >= 2
+        for item in result.data["items"]:
+            assert item["score"] > 0
+
+    def test_recency_recent_note_ranks_higher(self, vault: Vault) -> None:
+        """A recently modified note ranks higher than an older one."""
+        from datetime import UTC, datetime, timedelta
+
+        from sqlalchemy import text as sa_text
+
+        # Seed corpus for meaningful BM25 IDF
+        _seed_notes(vault)
+
+        svc_c = CreateService(vault)
+        r1 = svc_c.create_note("Recency Alpha Signal", tags=["test"])
+        r2 = svc_c.create_note("Recency Beta Signal", tags=["test"])
+        assert r1.ok and r2.ok
+
+        # Push the first note's modified time back by 365 days (>>half-life)
+        old_time = (datetime.now(UTC) - timedelta(days=365)).isoformat()
+        with vault.engine.begin() as conn:
+            conn.execute(
+                sa_text("UPDATE nodes SET modified = :ts WHERE id = :id"),
+                {"ts": old_time, "id": r1.data["id"]},
+            )
+
+        svc = QueryService(vault)
+        result = svc.search("Recency Signal", rank_by="recency")
+        assert result.ok
+        assert result.data["count"] == 2
+        ids = [i["id"] for i in result.data["items"]]
+        # New note should rank before old note (365-day gap overwhelms BM25 diff)
+        assert ids.index(r2.data["id"]) < ids.index(r1.data["id"])
+
+    def test_recency_with_custom_half_life(self, vault: Vault) -> None:
+        """Shorter half-life produces more aggressive decay."""
+        from datetime import UTC, datetime, timedelta
+
+        from sqlalchemy import text as sa_text
+
+        # Seed corpus for meaningful BM25 IDF
+        _seed_notes(vault)
+
+        svc_c = CreateService(vault)
+        r = svc_c.create_note("Decay Halflife Measure")
+        assert r.ok
+
+        # Push modified back by 30 days (exactly 1 half-life at default 30 days)
+        old_time = (datetime.now(UTC) - timedelta(days=30)).isoformat()
+        with vault.engine.begin() as conn:
+            conn.execute(
+                sa_text("UPDATE nodes SET modified = :ts WHERE id = :id"),
+                {"ts": old_time, "id": r.data["id"]},
+            )
+
+        svc = QueryService(vault)
+
+        # Default half-life (30 days) — 50% decay
+        result_default = svc.search("Decay Halflife", rank_by="recency")
+        assert result_default.ok
+        score_default = result_default.data["items"][0]["score"]
+        assert score_default > 0
+
+        # Override half-life to 1 day — much more decay for 30 days old
+        original = vault.settings.search.half_life_days
+        object.__setattr__(vault.settings.search, "half_life_days", 1.0)
+        try:
+            result_short = svc.search("Decay Halflife", rank_by="recency")
+            assert result_short.ok
+            score_short = result_short.data["items"][0]["score"]
+            assert score_short < score_default
+        finally:
+            object.__setattr__(vault.settings.search, "half_life_days", original)
+
+    def test_apply_time_decay_directly(self, vault: Vault) -> None:
+        """Unit test for _apply_time_decay with mock items."""
+        from datetime import UTC, datetime, timedelta
+
+        svc = QueryService(vault)
+        now = datetime.now(UTC)
+
+        items = [
+            {"score": -5.0, "modified": now.isoformat()},
+            {"score": -5.0, "modified": (now - timedelta(days=30)).isoformat()},
+            {"score": -5.0, "modified": (now - timedelta(days=60)).isoformat()},
+        ]
+
+        result = svc._apply_time_decay(items, half_life=30.0, limit=10)
+
+        # All scores should be positive
+        for item in result:
+            assert item["score"] > 0
+
+        # Scores should decrease with age
+        assert result[0]["score"] > result[1]["score"] > result[2]["score"]
+
+        # 30-day-old item should have roughly half the score of the fresh one
+        ratio = result[1]["score"] / result[0]["score"]
+        assert 0.45 <= ratio <= 0.55  # ~0.5 with half-life of 30 days
