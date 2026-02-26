@@ -16,6 +16,7 @@ from ztlctl.infrastructure.vault import VaultTransaction
 from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
@@ -28,6 +29,7 @@ class ReweaveService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def reweave(
         self,
         *,
@@ -149,6 +151,7 @@ class ReweaveService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def prune(
         self,
         *,
@@ -229,6 +232,7 @@ class ReweaveService(BaseService):
             },
         )
 
+    @traced
     def undo(self, *, reweave_id: int | None = None) -> ServiceResult:
         """Reverse a reweave operation via audit trail."""
         op = "undo"

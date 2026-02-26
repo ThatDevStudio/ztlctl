@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Generator
+from typing import Any
 
 import pytest
 
@@ -267,4 +268,50 @@ class TestGetCurrentSpan:
             assert get_current_span() is root
         finally:
             _current_span.reset(token)
+            disable_telemetry()
+
+
+# ── @traced on real services ────────────────────────────────────────
+
+
+class TestTracedOnRealService:
+    def test_create_note_with_telemetry(self, vault: Any) -> None:
+        from ztlctl.services.create import CreateService
+
+        enable_telemetry()
+        try:
+            result = CreateService(vault).create_note("Test Note")
+            assert result.ok
+            assert result.meta is not None
+            assert "telemetry" in result.meta
+            tel = result.meta["telemetry"]
+            assert "CreateService.create_note" in tel["name"]
+            assert tel["duration_ms"] >= 0
+        finally:
+            disable_telemetry()
+
+    def test_query_search_with_telemetry(self, vault: Any) -> None:
+        from ztlctl.services.create import CreateService
+        from ztlctl.services.query import QueryService
+
+        CreateService(vault).create_note("Alpha")
+        enable_telemetry()
+        try:
+            result = QueryService(vault).search("Alpha")
+            assert result.ok
+            assert result.meta is not None
+            assert "telemetry" in result.meta
+        finally:
+            disable_telemetry()
+
+    def test_init_vault_static_with_telemetry(self, tmp_path: Any) -> None:
+        from ztlctl.services.init import InitService
+
+        enable_telemetry()
+        try:
+            result = InitService.init_vault(tmp_path / "v", name="test", client="none")
+            assert result.ok
+            assert result.meta is not None
+            assert "telemetry" in result.meta
+        finally:
             disable_telemetry()

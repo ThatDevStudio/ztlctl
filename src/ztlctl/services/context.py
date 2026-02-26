@@ -17,6 +17,7 @@ from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services._helpers import estimate_tokens
 from ztlctl.services.result import ServiceResult
+from ztlctl.services.telemetry import traced
 
 
 class ContextAssembler:
@@ -34,6 +35,7 @@ class ContextAssembler:
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def assemble(
         self,
         session_row: Any,
@@ -150,6 +152,7 @@ class ContextAssembler:
             warnings=warnings,
         )
 
+    @traced
     def build_brief(
         self,
         session_row: Any | None,

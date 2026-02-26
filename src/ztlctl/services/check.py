@@ -19,6 +19,7 @@ from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
 from ztlctl.services._helpers import now_compact, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
@@ -51,6 +52,7 @@ class CheckService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def check(self) -> ServiceResult:
         """Report integrity issues without modifying anything."""
         issues: list[dict[str, Any]] = []
@@ -75,6 +77,7 @@ class CheckService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def fix(self, *, level: str = "safe") -> ServiceResult:
         """Automatically repair issues. Level: 'safe' or 'aggressive'."""
         self._backup_db()
@@ -97,6 +100,7 @@ class CheckService(BaseService):
             data={"fixes": fixes, "count": len(fixes)},
         )
 
+    @traced
     def rebuild(self) -> ServiceResult:
         """Full DB rebuild from filesystem (files are truth)."""
         self._backup_db()
@@ -202,6 +206,7 @@ class CheckService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def rollback(self) -> ServiceResult:
         """Restore DB from latest backup."""
         backup_dir = self._vault.root / ".ztlctl" / "backups"

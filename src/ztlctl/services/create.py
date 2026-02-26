@@ -20,6 +20,7 @@ from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
 
 
 class CreateService(BaseService):
@@ -29,6 +30,7 @@ class CreateService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def create_note(
         self,
         title: str,
@@ -50,6 +52,7 @@ class CreateService(BaseService):
             maturity=maturity,
         )
 
+    @traced
     def create_reference(
         self,
         title: str,
@@ -71,6 +74,7 @@ class CreateService(BaseService):
             url=url,
         )
 
+    @traced
     def create_task(
         self,
         title: str,
@@ -92,6 +96,7 @@ class CreateService(BaseService):
             effort=effort,
         )
 
+    @traced
     def create_batch(
         self,
         items: list[dict[str, object]],

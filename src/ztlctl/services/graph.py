@@ -16,6 +16,7 @@ import networkx as nx
 from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
 
 
 class GraphService(BaseService):
@@ -34,6 +35,7 @@ class GraphService(BaseService):
     # related — spreading activation (BFS with decay)
     # ------------------------------------------------------------------
 
+    @traced
     def related(
         self,
         content_id: str,
@@ -121,6 +123,7 @@ class GraphService(BaseService):
     # themes — community detection (Leiden → Louvain fallback)
     # ------------------------------------------------------------------
 
+    @traced
     def themes(self) -> ServiceResult:
         """Discover topic clusters via community detection.
 
@@ -205,6 +208,7 @@ class GraphService(BaseService):
     # rank — PageRank importance scoring
     # ------------------------------------------------------------------
 
+    @traced
     def rank(self, *, top: int = 20) -> ServiceResult:
         """Identify important nodes via PageRank.
 
@@ -243,6 +247,7 @@ class GraphService(BaseService):
     # path — shortest connection chain between two nodes
     # ------------------------------------------------------------------
 
+    @traced
     def path(self, source_id: str, target_id: str) -> ServiceResult:
         """Find shortest connection chain between two nodes.
 
@@ -304,6 +309,7 @@ class GraphService(BaseService):
     # gaps — structural holes via constraint
     # ------------------------------------------------------------------
 
+    @traced
     def gaps(self, *, top: int = 20) -> ServiceResult:
         """Find structural holes — nodes with high constraint.
 
@@ -353,6 +359,7 @@ class GraphService(BaseService):
     # bridges — betweenness centrality
     # ------------------------------------------------------------------
 
+    @traced
     def bridges(self, *, top: int = 20) -> ServiceResult:
         """Find bridge nodes via betweenness centrality.
 
@@ -396,6 +403,7 @@ class GraphService(BaseService):
     # materialize_metrics — persist graph metrics to the nodes table
     # ------------------------------------------------------------------
 
+    @traced
     def materialize_metrics(self) -> ServiceResult:
         """Compute and store graph metrics in the nodes table.
 

@@ -22,6 +22,7 @@ from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
 
 # Map content type to transition map
 _TRANSITION_MAPS: dict[str, dict[str, list[str]]] = {
@@ -38,6 +39,7 @@ class UpdateService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def update(self, content_id: str, *, changes: dict[str, Any]) -> ServiceResult:
         """Update a content item via the five-stage pipeline.
 
@@ -218,6 +220,7 @@ class UpdateService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def archive(self, content_id: str) -> ServiceResult:
         """Archive a content item (soft delete, preserves edges)."""
         today = today_iso()
@@ -269,6 +272,7 @@ class UpdateService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def supersede(self, old_id: str, new_id: str) -> ServiceResult:
         """Supersede a decision with a new one."""
         return self.update(

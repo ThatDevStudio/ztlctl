@@ -10,11 +10,11 @@ from __future__ import annotations
 import functools
 import logging
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ParamSpec, TypeVar
 
 from ztlctl.services.result import ServiceResult
 
@@ -135,14 +135,18 @@ def _log_span(span: Span, *, ok: bool) -> None:
         )
 
 
-def traced(func: Any) -> Any:
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def traced(func: Callable[_P, _R]) -> Callable[_P, _R]:  # noqa: UP047
     """Decorator: time a service method and inject span data into ServiceResult.meta.
 
     No-op when telemetry is disabled (~10ns overhead).
     """
 
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
         if not _verbose_enabled.get():
             return func(*args, **kwargs)
 
@@ -160,7 +164,7 @@ def traced(func: Any) -> Any:
         _current_span.reset(token)
 
         if isinstance(result, ServiceResult):
-            result = _inject_meta(result, span)
+            result = _inject_meta(result, span)  # type: ignore[assignment]
         _log_span(span, ok=True)
 
         return result

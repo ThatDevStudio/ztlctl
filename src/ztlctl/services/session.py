@@ -16,6 +16,7 @@ from ztlctl.infrastructure.database.schema import edges, nodes, session_logs
 from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
 
 
 class SessionService(BaseService):
@@ -39,6 +40,7 @@ class SessionService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def start(self, topic: str) -> ServiceResult:
         """Start a new session, returning the LOG-NNNN id."""
         op = "session_start"
@@ -94,6 +96,7 @@ class SessionService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def close(self, *, summary: str | None = None) -> ServiceResult:
         """Close the active session with enrichment pipeline.
 
@@ -197,6 +200,7 @@ class SessionService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def reopen(self, session_id: str) -> ServiceResult:
         """Reopen a previously closed session."""
         op = "session_reopen"
@@ -253,6 +257,7 @@ class SessionService(BaseService):
             },
         )
 
+    @traced
     def log_entry(
         self,
         message: str,
@@ -332,6 +337,7 @@ class SessionService(BaseService):
             },
         )
 
+    @traced
     def cost(self, *, report: int | None = None) -> ServiceResult:
         """Query or report accumulated token cost for the active session.
 
@@ -383,6 +389,7 @@ class SessionService(BaseService):
 
         return ServiceResult(ok=True, op=op, data=data)
 
+    @traced
     def context(
         self,
         *,
@@ -407,6 +414,7 @@ class SessionService(BaseService):
 
         return ContextAssembler(self._vault).assemble(active, topic=topic, budget=budget)
 
+    @traced
     def brief(self) -> ServiceResult:
         """Quick orientation (delegates to ContextAssembler)."""
         from sqlalchemy import func
@@ -426,6 +434,7 @@ class SessionService(BaseService):
 
         return ContextAssembler(self._vault).build_brief(active, vault_stats)
 
+    @traced
     def extract_decision(self, session_id: str, *, title: str | None = None) -> ServiceResult:
         """Extract a decision note from a session log's pinned/decision entries."""
         op = "extract_decision"
