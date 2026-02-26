@@ -454,6 +454,82 @@ def _render_session_close(
         _render_meta(console, result)
 
 
+def _render_cost(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
+    """Render session cost/budget results."""
+    _status_line(console, result)
+    d = result.data
+    _field(console, "session_id", d["session_id"])
+    _field(console, "total_cost", d["total_cost"])
+    _field(console, "entry_count", d["entry_count"])
+    if "budget" in d:
+        _field(console, "budget", d["budget"])
+        remaining = d["remaining"]
+        _field(console, "remaining", remaining)
+        over = d.get("over_budget", False)
+        if over:
+            console.print("  [ztl.error]OVER BUDGET[/ztl.error]")
+
+
+def _render_context(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
+    """Render agent context assembly results."""
+    _status_line(console, result)
+    d = result.data
+    _field(console, "total_tokens", d["total_tokens"])
+    _field(console, "budget", d["budget"])
+    _field(console, "remaining", d["remaining"])
+    _field(console, "pressure", d["pressure"])
+    if verbose:
+        layers = d.get("layers", {})
+        console.print()
+        console.print(Text("  layers:", style="dim"))
+        for layer_name, layer_data in layers.items():
+            if isinstance(layer_data, list):
+                console.print(f"    {layer_name}: {len(layer_data)} items")
+            elif isinstance(layer_data, dict):
+                console.print(f"    {layer_name}: dict")
+            elif layer_data is None:
+                console.print(f"    {layer_name}: (empty)")
+            else:
+                console.print(f"    {layer_name}: present")
+        _render_meta(console, result)
+
+
+def _render_brief(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
+    """Render agent brief orientation."""
+    _status_line(console, result)
+    d = result.data
+
+    # Session info
+    session_info = d.get("session")
+    if session_info:
+        _field(console, "session_id", session_info["session_id"])
+        _field(console, "topic", session_info["topic"])
+        _field(console, "status", session_info["status"])
+    else:
+        console.print("  [dim]No active session[/dim]")
+
+    # Vault stats
+    vault_stats = d.get("vault_stats", {})
+    if vault_stats:
+        console.print()
+        table = Table(show_header=True, show_lines=False, pad_edge=False, expand=False)
+        table.add_column("Type")
+        table.add_column("Count", justify="right")
+        for node_type, count in sorted(vault_stats.items()):
+            table.add_row(node_type, str(count))
+        console.print(table)
+
+    # Recent decisions
+    decisions = d.get("recent_decisions", [])
+    if decisions:
+        console.print(f"\n  {len(decisions)} recent decisions")
+
+    # Work queue
+    wq_count = d.get("work_queue_count", 0)
+    if wq_count:
+        console.print(f"  {wq_count} actionable tasks")
+
+
 # ── Reweave renderers ────────────────────────────────────────────────
 
 
@@ -610,6 +686,10 @@ _OP_RENDERERS: dict[str, Any] = {
     "session_start": _render_mutation,
     "session_close": _render_session_close,
     "session_reopen": _render_mutation,
+    "log_entry": _render_mutation,
+    "cost": _render_cost,
+    "context": _render_context,
+    "brief": _render_brief,
     # Reweave
     "reweave": _render_reweave,
     "prune": _render_reweave,

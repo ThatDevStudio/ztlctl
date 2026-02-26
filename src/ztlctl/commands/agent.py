@@ -15,6 +15,10 @@ _AGENT_EXAMPLES = """\
   ztlctl agent session start "refactor auth module"
   ztlctl agent session close --summary "Completed auth refactor"
   ztlctl agent session reopen LOG-0001
+  ztlctl agent session cost --report 10000
+  ztlctl agent session log "Found relevant pattern" --pin
+  ztlctl agent context --topic "auth" --budget 4000
+  ztlctl agent brief
   ztlctl agent regenerate"""
 
 
@@ -29,7 +33,10 @@ def agent(app: AppContext) -> None:
     examples="""\
   ztlctl agent session start "refactor auth module"
   ztlctl agent session close --summary "Done"
-  ztlctl agent session reopen LOG-0001""",
+  ztlctl agent session reopen LOG-0001
+  ztlctl agent session cost
+  ztlctl agent session cost --report 10000
+  ztlctl agent session log "Important finding" --pin""",
 )
 @click.pass_obj
 def session(app: AppContext) -> None:
@@ -77,6 +84,68 @@ def reopen(app: AppContext, session_id: str) -> None:
     from ztlctl.services.session import SessionService
 
     app.emit(SessionService(app.vault).reopen(session_id))
+
+
+@session.command(
+    examples="""\
+  ztlctl agent session cost
+  ztlctl agent session cost --report 10000
+  ztlctl --json agent session cost"""
+)
+@click.option("--report", type=int, default=None, help="Budget to report against.")
+@click.pass_obj
+def cost(app: AppContext, report: int | None) -> None:
+    """Show accumulated token cost for active session."""
+    from ztlctl.services.session import SessionService
+
+    app.emit(SessionService(app.vault).cost(report=report))
+
+
+@session.command(
+    name="log",
+    examples="""\
+  ztlctl agent session log "Found relevant pattern"
+  ztlctl agent session log "Key decision" --pin
+  ztlctl agent session log "API call" --cost 1500""",
+)
+@click.argument("message")
+@click.option("--pin", is_flag=True, help="Pin this entry.")
+@click.option("--cost", "token_cost", type=int, default=0, help="Token cost.")
+@click.pass_obj
+def log_entry(app: AppContext, message: str, pin: bool, token_cost: int) -> None:
+    """Append a log entry to the active session."""
+    from ztlctl.services.session import SessionService
+
+    app.emit(SessionService(app.vault).log_entry(message, pin=pin, cost=token_cost))
+
+
+@agent.command(
+    examples="""\
+  ztlctl agent context
+  ztlctl agent context --topic "auth" --budget 4000
+  ztlctl --json agent context"""
+)
+@click.option("--topic", default=None, help="Focus topic.")
+@click.option("--budget", type=int, default=8000, help="Token budget.")
+@click.pass_obj
+def context(app: AppContext, topic: str | None, budget: int) -> None:
+    """Build token-budgeted agent context payload."""
+    from ztlctl.services.session import SessionService
+
+    app.emit(SessionService(app.vault).context(topic=topic, budget=budget))
+
+
+@agent.command(
+    examples="""\
+  ztlctl agent brief
+  ztlctl --json agent brief"""
+)
+@click.pass_obj
+def brief(app: AppContext) -> None:
+    """Quick orientation summary."""
+    from ztlctl.services.session import SessionService
+
+    app.emit(SessionService(app.vault).brief())
 
 
 @agent.command(
