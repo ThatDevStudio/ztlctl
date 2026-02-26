@@ -636,6 +636,31 @@ def _render_export(result: ServiceResult, console: Console, *, verbose: bool = F
         _render_meta(console, result)
 
 
+# ── Upgrade renderers ────────────────────────────────────────────────
+
+
+def _render_upgrade(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
+    """Render upgrade/migration results."""
+    _status_line(console, result)
+    d = result.data
+    if "applied_count" in d:
+        _field(console, "applied_count", d["applied_count"])
+    if "pending_count" in d:
+        _field(console, "pending_count", d["pending_count"])
+    if "current" in d:
+        _field(console, "current", d["current"])
+    if "head" in d:
+        _field(console, "head", d["head"])
+    if "backup_path" in d:
+        _field(console, "backup_path", d["backup_path"])
+    if "message" in d:
+        _field(console, "message", d["message"])
+    if verbose and d.get("pending"):
+        console.print()
+        for p in d["pending"]:
+            console.print(f"  {p['revision']}: {p['description']}")
+
+
 # ── Generic fallback ──────────────────────────────────────────────────
 
 
@@ -703,4 +728,6 @@ _OP_RENDERERS: dict[str, Any] = {
     "export_markdown": _render_export,
     "export_indexes": _render_export,
     "export_graph": _render_export,
+    # Upgrade
+    "upgrade": _render_upgrade,
 }
