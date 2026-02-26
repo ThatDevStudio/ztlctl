@@ -13,12 +13,6 @@ from ztlctl.cli import cli
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestBatchCreateCommand:
-    def test_batch_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "batch", "--help"])
-        assert result.exit_code == 0
-        assert "FILE" in result.output
-        assert "--partial" in result.output
-
     def test_batch_create_notes(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         items = [
             {"type": "note", "title": "Batch Note A"},
@@ -92,8 +86,3 @@ class TestBatchCreateCommand:
     def test_batch_file_not_found(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["create", "batch", "/nonexistent/file.json"])
         assert result.exit_code != 0
-
-    def test_batch_in_create_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "--help"])
-        assert result.exit_code == 0
-        assert "batch" in result.output

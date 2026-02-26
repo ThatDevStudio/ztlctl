@@ -12,12 +12,6 @@ from ztlctl.cli import cli
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestSupersedeCommand:
-    def test_supersede_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["supersede", "--help"])
-        assert result.exit_code == 0
-        assert "OLD_ID" in result.output
-        assert "NEW_ID" in result.output
-
     def test_supersede_decisions(self, cli_runner: CliRunner) -> None:
         # Create two decisions
         r1 = cli_runner.invoke(

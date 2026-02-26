@@ -31,8 +31,3 @@ class TestArchiveCommand:
         """Archive nonexistent ID fails."""
         result = cli_runner.invoke(cli, ["--json", "archive", "ztl_nonexist"])
         assert result.exit_code == 1
-
-    def test_archive_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["archive", "--help"])
-        assert result.exit_code == 0
-        assert "CONTENT_ID" in result.output

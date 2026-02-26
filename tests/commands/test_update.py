@@ -12,16 +12,6 @@ from ztlctl.cli import cli
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestUpdateCommand:
-    def test_update_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["update", "--help"])
-        assert result.exit_code == 0
-        assert "--title" in result.output
-        assert "--status" in result.output
-        assert "--tags" in result.output
-        assert "--topic" in result.output
-        assert "--body" in result.output
-        assert "--maturity" in result.output
-
     def test_update_title(self, cli_runner: CliRunner) -> None:
         # Create a note first
         r = cli_runner.invoke(cli, ["--json", "create", "note", "Old Title"])

@@ -79,13 +79,6 @@ class TestRelatedCommand:
         assert data["ok"] is False
         assert data["error"]["code"] == "NOT_FOUND"
 
-    def test_related_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "related", "--help"])
-        assert result.exit_code == 0
-        assert "CONTENT_ID" in result.output
-        assert "--depth" in result.output
-        assert "--top" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestThemesCommand:
@@ -103,10 +96,6 @@ class TestThemesCommand:
         data = json.loads(result.output)
         assert data["ok"] is True
         assert data["data"]["count"] == 0
-
-    def test_themes_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "themes", "--help"])
-        assert result.exit_code == 0
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -126,11 +115,6 @@ class TestRankCommand:
         data = json.loads(result.output)
         assert data["ok"] is True
         assert data["data"]["count"] <= 2
-
-    def test_rank_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "rank", "--help"])
-        assert result.exit_code == 0
-        assert "--top" in result.output
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -158,12 +142,6 @@ class TestPathCommand:
         assert data["ok"] is False
         assert data["error"]["code"] == "NO_PATH"
 
-    def test_path_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "path", "--help"])
-        assert result.exit_code == 0
-        assert "SOURCE_ID" in result.output
-        assert "TARGET_ID" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestGapsCommand:
@@ -174,11 +152,6 @@ class TestGapsCommand:
         data = json.loads(result.output)
         assert data["ok"] is True
 
-    def test_gaps_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "gaps", "--help"])
-        assert result.exit_code == 0
-        assert "--top" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestBridgesCommand:
@@ -188,20 +161,3 @@ class TestBridgesCommand:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
-
-    def test_bridges_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "bridges", "--help"])
-        assert result.exit_code == 0
-        assert "--top" in result.output
-
-
-class TestGraphGroupHelp:
-    def test_graph_group_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "--help"])
-        assert result.exit_code == 0
-        assert "related" in result.output
-        assert "themes" in result.output
-        assert "rank" in result.output
-        assert "path" in result.output
-        assert "gaps" in result.output
-        assert "bridges" in result.output

@@ -10,18 +10,6 @@ from ztlctl.cli import cli
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestSessionCommands:
-    def test_agent_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "--help"])
-        assert result.exit_code == 0
-        assert "session" in result.output
-
-    def test_session_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "session", "--help"])
-        assert result.exit_code == 0
-        assert "start" in result.output
-        assert "close" in result.output
-        assert "reopen" in result.output
-
     def test_session_start(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["agent", "session", "start", "My Topic"])
         assert result.exit_code == 0

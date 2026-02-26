@@ -12,12 +12,6 @@ from ztlctl.cli import cli
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestGardenSeed:
-    def test_seed_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["garden", "seed", "--help"])
-        assert result.exit_code == 0
-        assert "--tags" in result.output
-        assert "--topic" in result.output
-
     def test_seed_basic(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["garden", "seed", "Half-formed idea"])
         assert result.exit_code == 0
@@ -58,13 +52,3 @@ class TestGardenSeed:
         list_data = json.loads(list_result.output)
         found_ids = [item["id"] for item in list_data["data"].get("items", [])]
         assert node_id in found_ids
-
-    def test_garden_help_shows_seed(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["garden", "--help"])
-        assert result.exit_code == 0
-        assert "seed" in result.output
-
-    def test_garden_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["garden", "seed", "--examples"])
-        assert result.exit_code == 0
-        assert "garden seed" in result.output

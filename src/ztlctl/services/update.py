@@ -6,9 +6,9 @@ Pipeline: VALIDATE → APPLY → PROPAGATE → INDEX → RESPOND
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from sqlalchemy import delete, insert, select, text
+from sqlalchemy import delete, select
 
 from ztlctl.domain.content import get_content_model
 from ztlctl.domain.lifecycle import (
@@ -18,16 +18,10 @@ from ztlctl.domain.lifecycle import (
     TASK_TRANSITIONS,
     compute_note_status,
 )
-from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.base import BaseService
-from ztlctl.services.create import CreateService, _resolve_wikilink
 from ztlctl.services.result import ServiceError, ServiceResult
-
-if TYPE_CHECKING:
-    from sqlalchemy import Connection
-
 
 # Map content type to transition map
 _TRANSITION_MAPS: dict[str, dict[str, list[str]]] = {
@@ -182,30 +176,22 @@ class UpdateService(BaseService):
 
             txn.conn.execute(nodes.update().where(nodes.c.id == content_id).values(**update_cols))
 
-            # FTS5: DELETE + INSERT
-            txn.conn.execute(
-                text("DELETE FROM nodes_fts WHERE id = :id"),
-                {"id": content_id},
-            )
-            txn.conn.execute(
-                text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
-                {
-                    "id": content_id,
-                    "title": str(fm.get("title", "")),
-                    "body": body,
-                },
-            )
+            # FTS5
+            txn.upsert_fts(content_id, str(fm.get("title", "")), body)
 
             # Re-sync tags if changed
             if "tags" in changes:
                 txn.conn.execute(delete(node_tags).where(node_tags.c.node_id == content_id))
                 new_tags = fm.get("tags", [])
                 if isinstance(new_tags, list):
-                    CreateService._index_tags(txn.conn, content_id, new_tags, today)
+                    txn.index_tags(content_id, new_tags, today)
 
             # Re-index edges if links changed
             if "links" in changes:
-                self._reindex_edges(txn.conn, content_id, fm, body, today)
+                txn.conn.execute(delete(edges).where(edges.c.source_id == content_id))
+                fm_links = fm.get("links", {})
+                if isinstance(fm_links, dict):
+                    txn.index_links(content_id, fm_links, body, today)
 
         # ── EVENT ────────────────────────────────────────────
         self._dispatch_event(
@@ -289,63 +275,6 @@ class UpdateService(BaseService):
             old_id,
             changes={"status": "superseded", "superseded_by": new_id},
         )
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _reindex_edges(
-        conn: Connection,
-        content_id: str,
-        fm: dict[str, Any],
-        body: str,
-        today: str,
-    ) -> None:
-        """Remove and re-create edges for a content item."""
-        conn.execute(delete(edges).where(edges.c.source_id == content_id))
-
-        # Frontmatter links
-        fm_links = fm.get("links", {})
-        if isinstance(fm_links, dict):
-            for link in extract_frontmatter_links(fm_links):
-                target = conn.execute(
-                    select(nodes.c.id).where(nodes.c.id == link.target_id)
-                ).first()
-                if target is not None:
-                    conn.execute(
-                        insert(edges).values(
-                            source_id=content_id,
-                            target_id=link.target_id,
-                            edge_type=link.edge_type,
-                            source_layer="frontmatter",
-                            weight=1.0,
-                            created=today,
-                        )
-                    )
-
-        # Body wikilinks
-        for wlink in extract_wikilinks(body):
-            resolved_id = _resolve_wikilink(conn, wlink.raw)
-            if resolved_id is not None and resolved_id != content_id:
-                existing = conn.execute(
-                    select(edges.c.source_id).where(
-                        edges.c.source_id == content_id,
-                        edges.c.target_id == resolved_id,
-                        edges.c.edge_type == "relates",
-                    )
-                ).first()
-                if existing is None:
-                    conn.execute(
-                        insert(edges).values(
-                            source_id=content_id,
-                            target_id=resolved_id,
-                            edge_type="relates",
-                            source_layer="body",
-                            weight=1.0,
-                            created=today,
-                        )
-                    )
 
 
 def _get_transition_map(content_type: str, subtype: str | None) -> dict[str, list[str]] | None:

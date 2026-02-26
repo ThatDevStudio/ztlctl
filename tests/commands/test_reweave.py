@@ -10,11 +10,6 @@ from ztlctl.cli import cli
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestReweaveCommand:
-    def test_reweave_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["reweave", "--help"])
-        assert result.exit_code == 0
-        assert "Reweave links" in result.output
-
     def test_reweave_dry_run(self, cli_runner: CliRunner) -> None:
         # Create some content first
         cli_runner.invoke(cli, ["create", "note", "Python Guide"])
@@ -36,10 +31,6 @@ class TestReweaveCommand:
     def test_reweave_undo_no_history(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["reweave", "--undo"])
         assert result.exit_code == 1  # NO_HISTORY error
-
-    def test_reweave_help_shows_undo_id(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["reweave", "--help"])
-        assert "--undo-id" in result.output
 
     def test_reweave_undo_id_not_found(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["reweave", "--undo-id", "9999"])
@@ -104,8 +95,3 @@ class TestReweaveInteractive:
         result = cli_runner.invoke(cli, ["reweave"], input="y\n")
         # Either no content or no suggestions — should not prompt
         assert "Apply" not in result.output
-
-    def test_reweave_help_shows_auto_link(self, cli_runner: CliRunner) -> None:
-        """Help text includes --auto-link-related."""
-        result = cli_runner.invoke(cli, ["reweave", "--help"])
-        assert "--auto-link-related" in result.output

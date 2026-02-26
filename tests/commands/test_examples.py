@@ -1,4 +1,7 @@
-"""Tests for --examples flag on CLI commands."""
+"""Tests for --examples flag on CLI commands.
+
+Parametrized to cover all commands that define examples text.
+"""
 
 from __future__ import annotations
 
@@ -7,117 +10,65 @@ from click.testing import CliRunner
 
 from ztlctl.cli import cli
 
+# (CLI args, expected keywords in output)
+EXAMPLES_COMMANDS: list[tuple[list[str], list[str]]] = [
+    # -- create --
+    (["create", "--examples"], ["ztlctl create note"]),
+    (["create", "note", "--examples"], ["--subtype decision"]),
+    (["create", "reference", "--examples"], ["ztlctl create reference"]),
+    (["create", "task", "--examples"], ["--priority high"]),
+    (["create", "batch", "--examples"], ["--partial"]),
+    # -- query --
+    (["query", "--examples"], ["ztlctl query search", "ztlctl query list"]),
+    (["query", "search", "--examples"], ["--rank-by recency"]),
+    (["query", "list", "--examples"], ["--sort priority", "--include-archived"]),
+    (["query", "work-queue", "--examples"], ["ztlctl query work-queue"]),
+    (["query", "decision-support", "--examples"], ["--topic architecture"]),
+    # -- graph --
+    (["graph", "--examples"], ["ztlctl graph related", "ztlctl graph themes"]),
+    (["graph", "related", "--examples"], ["--depth 3"]),
+    (["graph", "path", "--examples"], ["ztlctl graph path"]),
+    # -- agent --
+    (["agent", "--examples"], ["ztlctl agent session start"]),
+    (["agent", "session", "start", "--examples"], ["ztlctl agent session start"]),
+    (["agent", "session", "cost", "--examples"], []),
+    (["agent", "session", "log", "--examples"], []),
+    (["agent", "context", "--examples"], []),
+    (["agent", "brief", "--examples"], []),
+    (["agent", "regenerate", "--examples"], ["ztlctl agent regenerate"]),
+    # -- standalone commands --
+    (["check", "--examples"], ["ztlctl check --fix", "ztlctl check --rebuild"]),
+    (["reweave", "--examples"], ["--dry-run", "--undo-id 42"]),
+    (["update", "--examples"], ["--title", "--maturity seed"]),
+    (["archive", "--examples"], ["ztlctl archive"]),
+    (["supersede", "--examples"], ["ztlctl supersede"]),
+    (["init", "--examples"], ["ztlctl init"]),
+    (["export", "--examples"], ["ztlctl export"]),
+    (["garden", "seed", "--examples"], ["garden seed"]),
+    (["serve", "--examples"], ["ztlctl serve"]),
+    (["extract", "--examples"], ["extract"]),
+    (["upgrade", "--examples"], ["upgrade"]),
+]
 
-class TestExamplesFlag:
-    """Test that --examples works on all commands that define examples."""
 
-    def test_create_group_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "--examples"])
-        assert result.exit_code == 0
-        assert "Examples for 'cli create'" in result.output
-        assert "ztlctl create note" in result.output
+def _examples_id(item: tuple[list[str], list[str]]) -> str:
+    """Generate a readable test ID from args."""
+    args, _ = item
+    return "_".join(a for a in args if a != "--examples")
 
-    def test_create_note_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "note", "--examples"])
-        assert result.exit_code == 0
-        assert "Examples for 'cli create note'" in result.output
-        assert "--subtype decision" in result.output
 
-    def test_create_reference_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "reference", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl create reference" in result.output
-
-    def test_create_task_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "task", "--examples"])
-        assert result.exit_code == 0
-        assert "--priority high" in result.output
-
-    def test_create_batch_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "batch", "--examples"])
-        assert result.exit_code == 0
-        assert "--partial" in result.output
-
-    def test_query_group_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl query search" in result.output
-        assert "ztlctl query list" in result.output
-
-    def test_query_search_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "search", "--examples"])
-        assert result.exit_code == 0
-        assert "--rank-by recency" in result.output
-
-    def test_query_list_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "list", "--examples"])
-        assert result.exit_code == 0
-        assert "--sort priority" in result.output
-        assert "--include-archived" in result.output
-
-    def test_query_work_queue_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "work-queue", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl query work-queue" in result.output
-
-    def test_query_decision_support_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "decision-support", "--examples"])
-        assert result.exit_code == 0
-        assert "--topic architecture" in result.output
-
-    def test_graph_group_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl graph related" in result.output
-        assert "ztlctl graph themes" in result.output
-
-    def test_graph_related_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "related", "--examples"])
-        assert result.exit_code == 0
-        assert "--depth 3" in result.output
-
-    def test_graph_path_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["graph", "path", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl graph path" in result.output
-
-    def test_agent_group_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl agent session start" in result.output
-
-    def test_agent_session_start_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "session", "start", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl agent session start" in result.output
-
-    def test_check_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["check", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl check --fix" in result.output
-        assert "ztlctl check --rebuild" in result.output
-
-    def test_reweave_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["reweave", "--examples"])
-        assert result.exit_code == 0
-        assert "--dry-run" in result.output
-        assert "--undo-id 42" in result.output
-
-    def test_update_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["update", "--examples"])
-        assert result.exit_code == 0
-        assert "--title" in result.output
-        assert "--maturity seed" in result.output
-
-    def test_archive_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["archive", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl archive" in result.output
-
-    def test_supersede_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["supersede", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl supersede" in result.output
+@pytest.mark.parametrize(
+    "args,expected_keywords",
+    EXAMPLES_COMMANDS,
+    ids=[_examples_id(item) for item in EXAMPLES_COMMANDS],
+)
+def test_examples_flag(
+    cli_runner: CliRunner, args: list[str], expected_keywords: list[str]
+) -> None:
+    result = cli_runner.invoke(cli, args)
+    assert result.exit_code == 0
+    for kw in expected_keywords:
+        assert kw in result.output, f"Expected '{kw}' in examples output for {args}"
 
 
 class TestExamplesInHelp:

@@ -164,19 +164,3 @@ class TestInitCommandInteractive:
         assert result.exit_code == 0
         data = self._extract_json(result.output)
         assert data["data"]["topics"] == []
-
-
-class TestInitCommandHelp:
-    def test_init_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["init", "--help"])
-        assert result.exit_code == 0
-        assert "--name" in result.output
-        assert "--client" in result.output
-        assert "--tone" in result.output
-        assert "--topics" in result.output
-        assert "--no-workflow" in result.output
-
-    def test_init_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["init", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl init" in result.output

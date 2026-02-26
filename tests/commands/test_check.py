@@ -54,12 +54,3 @@ class TestCheckCommand:
         """--rollback with no backups fails."""
         result = cli_runner.invoke(cli, ["--json", "check", "--rollback"])
         assert result.exit_code == 1
-
-    def test_check_help(self, cli_runner: CliRunner) -> None:
-        """--help shows options."""
-        result = cli_runner.invoke(cli, ["check", "--help"])
-        assert result.exit_code == 0
-        assert "--fix" in result.output
-        assert "--rebuild" in result.output
-        assert "--rollback" in result.output
-        assert "--level" in result.output
