@@ -16,8 +16,9 @@ from sqlalchemy import delete, insert, select, text
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.domain.ids import ID_PATTERNS
 from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
+from ztlctl.domain.tags import parse_tag_parts
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
-from ztlctl.services._helpers import now_compact, parse_tag_parts, today_iso
+from ztlctl.services._helpers import now_compact, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.create import _resolve_wikilink
 from ztlctl.services.result import ServiceError, ServiceResult

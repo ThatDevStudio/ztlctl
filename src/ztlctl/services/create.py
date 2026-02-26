@@ -16,9 +16,10 @@ if TYPE_CHECKING:
 from ztlctl.domain.content import get_content_model
 from ztlctl.domain.ids import TYPE_PREFIXES, generate_content_hash
 from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
+from ztlctl.domain.tags import parse_tag_parts
 from ztlctl.infrastructure.database.counters import next_sequential_id
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
-from ztlctl.services._helpers import parse_tag_parts, today_iso
+from ztlctl.services._helpers import today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 

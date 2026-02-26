@@ -28,22 +28,3 @@ def estimate_tokens(text: str) -> int:
     budget enforcement in context assembly.
     """
     return max(1, len(text) // 4)
-
-
-def parse_tag_parts(tag: str) -> tuple[str, str]:
-    """Split 'domain/scope' tag into (domain, scope).
-
-    Unscoped tags get domain='unscoped'.
-
-    Examples:
-        >>> parse_tag_parts("math/algebra")
-        ('math', 'algebra')
-        >>> parse_tag_parts("general")
-        ('unscoped', 'general')
-        >>> parse_tag_parts("a/b/c")
-        ('a', 'b/c')
-    """
-    parts = tag.split("/", 1)
-    if len(parts) == 2:
-        return parts[0], parts[1]
-    return "unscoped", parts[0]

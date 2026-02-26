@@ -20,8 +20,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import insert, select, text
+
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
+from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
+from ztlctl.domain.tags import parse_tag_parts
 from ztlctl.infrastructure.database.engine import init_database
+from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
 from ztlctl.infrastructure.filesystem import find_content_files, resolve_content_path
 from ztlctl.infrastructure.graph.engine import GraphEngine
 
@@ -113,6 +118,174 @@ class VaultTransaction:
     ) -> Path:
         """Resolve the vault path for a content item."""
         return resolve_content_path(self._vault.root, content_type, content_id, topic=topic)
+
+    # ------------------------------------------------------------------
+    # Indexing helpers — consolidated data-access patterns
+    # ------------------------------------------------------------------
+
+    def upsert_fts(self, node_id: str, title: str, body: str) -> None:
+        """Insert or replace FTS5 index entry (DELETE + INSERT pattern).
+
+        FTS5 virtual tables don't support UPDATE, so we delete any
+        existing row first, then insert the new one.
+        """
+        self.conn.execute(
+            text("DELETE FROM nodes_fts WHERE id = :id"),
+            {"id": node_id},
+        )
+        self.conn.execute(
+            text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
+            {"id": node_id, "title": title, "body": body},
+        )
+
+    def delete_fts(self, node_id: str) -> None:
+        """Remove FTS5 index entry for a node."""
+        self.conn.execute(
+            text("DELETE FROM nodes_fts WHERE id = :id"),
+            {"id": node_id},
+        )
+
+    def clear_fts(self) -> None:
+        """Remove all FTS5 entries (for rebuild)."""
+        self.conn.execute(text("DELETE FROM nodes_fts"))
+
+    def index_tags(self, node_id: str, tag_list: list[str], today: str) -> int:
+        """Register tags and link them to a node. Returns count indexed."""
+        count = 0
+        for tag in tag_list:
+            domain, scope = parse_tag_parts(tag)
+
+            existing = self.conn.execute(
+                select(tags_registry.c.tag).where(tags_registry.c.tag == tag)
+            ).first()
+            if existing is None:
+                self.conn.execute(
+                    insert(tags_registry).values(
+                        tag=tag,
+                        domain=domain,
+                        scope=scope,
+                        created=today,
+                    )
+                )
+
+            self.conn.execute(insert(node_tags).values(node_id=node_id, tag=tag))
+            count += 1
+        return count
+
+    def insert_edge(
+        self,
+        source_id: str,
+        target_id: str,
+        edge_type: str,
+        source_layer: str,
+        today: str,
+        *,
+        weight: float = 1.0,
+        check_duplicate: bool = False,
+        check_target_exists: bool = False,
+    ) -> bool:
+        """Insert an edge, optionally checking duplicates/target existence.
+
+        Returns True if the edge was inserted, False if skipped.
+        """
+        if check_target_exists:
+            target = self.conn.execute(select(nodes.c.id).where(nodes.c.id == target_id)).first()
+            if target is None:
+                return False
+
+        if check_duplicate:
+            existing = self.conn.execute(
+                select(edges.c.source_id).where(
+                    edges.c.source_id == source_id,
+                    edges.c.target_id == target_id,
+                    edges.c.edge_type == edge_type,
+                )
+            ).first()
+            if existing is not None:
+                return False
+
+        self.conn.execute(
+            insert(edges).values(
+                source_id=source_id,
+                target_id=target_id,
+                edge_type=edge_type,
+                source_layer=source_layer,
+                weight=weight,
+                created=today,
+            )
+        )
+        return True
+
+    def resolve_wikilink(self, raw: str) -> str | None:
+        """Resolve a wikilink target to a node ID.
+
+        Resolution order (DESIGN.md Section 3):
+        1. Exact title match
+        2. Alias match (JSON array in nodes.aliases via json_each)
+        3. Direct ID match
+        """
+        # 1. Title match
+        row = self.conn.execute(select(nodes.c.id).where(nodes.c.title == raw)).first()
+        if row is not None:
+            return str(row.id)
+
+        # 2. Alias match (JSON array in nodes.aliases)
+        alias_row = self.conn.execute(
+            text(
+                "SELECT nodes.id FROM nodes, json_each(nodes.aliases) WHERE json_each.value = :raw"
+            ),
+            {"raw": raw},
+        ).first()
+        if alias_row is not None:
+            return str(alias_row.id)
+
+        # 3. Direct ID match (covers [[ztl_abc12345]] style)
+        row = self.conn.execute(select(nodes.c.id).where(nodes.c.id == raw)).first()
+        if row is not None:
+            return str(row.id)
+
+        return None
+
+    def index_links(
+        self,
+        source_id: str,
+        fm_links: dict[str, list[str]],
+        body: str,
+        today: str,
+    ) -> int:
+        """Index frontmatter links + body wikilinks for a node.
+
+        Returns total edge count created.
+        """
+        count = 0
+
+        # Frontmatter typed links
+        for link in extract_frontmatter_links(fm_links):
+            if self.insert_edge(
+                source_id,
+                link.target_id,
+                link.edge_type,
+                "frontmatter",
+                today,
+                check_target_exists=True,
+            ):
+                count += 1
+
+        # Body wikilinks
+        for wlink in extract_wikilinks(body):
+            resolved_id = self.resolve_wikilink(wlink.raw)
+            if resolved_id is not None:
+                if self.insert_edge(
+                    source_id,
+                    resolved_id,
+                    "relates",
+                    "body",
+                    today,
+                    check_duplicate=True,
+                ):
+                    count += 1
+
+        return count
 
 
 # ---------------------------------------------------------------------------
