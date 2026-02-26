@@ -34,15 +34,15 @@ nodes = Table(
     Column("path", Text, nullable=False, unique=True),
     Column("aliases", Text),  # JSON array
     Column("session", Text),  # LOG-NNNN
-    Column("archived", Integer, default=0),
+    Column("archived", Integer, default=0, server_default="0"),
     Column("created", Text, nullable=False),
     Column("modified", Text, nullable=False),
     # Materialized graph metrics (recomputed by graph service)
-    Column("degree_in", Integer, default=0),
-    Column("degree_out", Integer, default=0),
-    Column("pagerank", REAL, default=0.0),
+    Column("degree_in", Integer, default=0, server_default="0"),
+    Column("degree_out", Integer, default=0, server_default="0"),
+    Column("pagerank", REAL, default=0.0, server_default="0.0"),
     Column("cluster_id", Integer),
-    Column("betweenness", REAL, default=0.0),
+    Column("betweenness", REAL, default=0.0, server_default="0.0"),
 )
 
 edges = Table(
@@ -50,9 +50,9 @@ edges = Table(
     metadata,
     Column("source_id", Text, ForeignKey("nodes.id"), nullable=False),
     Column("target_id", Text, ForeignKey("nodes.id"), nullable=False),
-    Column("edge_type", Text, default="relates"),
+    Column("edge_type", Text, default="relates", server_default="relates"),
     Column("source_layer", Text),  # frontmatter | body
-    Column("weight", REAL, default=1.0),
+    Column("weight", REAL, default=1.0, server_default="1.0"),
     Column("bidirectional", Integer),  # Reserved — not yet maintained by services
     Column("created", Text, nullable=False),
     UniqueConstraint("source_id", "target_id", "edge_type"),
@@ -92,7 +92,7 @@ id_counters = Table(
     "id_counters",
     metadata,
     Column("type_prefix", Text, primary_key=True),
-    Column("next_value", Integer, nullable=False, default=1),
+    Column("next_value", Integer, nullable=False, default=1, server_default="1"),
 )
 
 reweave_log = Table(
@@ -104,7 +104,7 @@ reweave_log = Table(
     Column("action", Text, nullable=False),
     Column("direction", Text),
     Column("timestamp", Text, nullable=False),
-    Column("undone", Integer, default=0),
+    Column("undone", Integer, default=0, server_default="0"),
 )
 
 event_wal = Table(
@@ -115,7 +115,7 @@ event_wal = Table(
     Column("payload", Text, nullable=False),  # JSON
     Column("status", Text, nullable=False),
     Column("error", Text),
-    Column("retries", Integer, default=0),
+    Column("retries", Integer, default=0, server_default="0"),
     Column("session_id", Text),
     Column("created", Text, nullable=False),
     Column("completed", Text),
@@ -131,8 +131,8 @@ session_logs = Table(
     Column("subtype", Text),
     Column("summary", Text, nullable=False),
     Column("detail", Text),
-    Column("cost", Integer, default=0),
-    Column("pinned", Integer, default=0),
+    Column("cost", Integer, default=0, server_default="0"),
+    Column("pinned", Integer, default=0, server_default="0"),
     Column("references", Text),  # JSON array
     Column("metadata", Text),  # JSON object
 )
