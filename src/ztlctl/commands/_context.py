@@ -31,6 +31,17 @@ class AppContext:
         self.settings = settings
         self._vault: Vault | None = None
 
+        # Configure structured logging
+        from ztlctl.config.logging import configure_logging
+
+        configure_logging(verbose=settings.verbose, log_json=settings.log_json)
+
+        # Enable telemetry context var when verbose
+        if settings.verbose:
+            from ztlctl.services.telemetry import enable_telemetry
+
+            enable_telemetry()
+
     @property
     def vault(self) -> Vault:
         """The vault instance (created lazily on first access)."""
