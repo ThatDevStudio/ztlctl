@@ -106,6 +106,13 @@ class TestAgentContext:
         data = json.loads(result.output)
         assert data["data"]["budget"] == 4000
 
+    def test_context_ignore_checkpoints(self, cli_runner: CliRunner) -> None:
+        cli_runner.invoke(cli, ["agent", "session", "start", "Checkpoint Test"])
+        result = cli_runner.invoke(cli, ["--json", "agent", "context", "--ignore-checkpoints"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestAgentBrief:

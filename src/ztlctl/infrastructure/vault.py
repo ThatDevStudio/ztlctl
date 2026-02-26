@@ -336,10 +336,12 @@ class Vault:
         """Initialize the plugin event bus.
 
         Creates a PluginManager, discovers entry-point plugins,
-        registers the built-in GitPlugin, and wires up the EventBus.
+        registers the built-in GitPlugin and ReweavePlugin, and
+        wires up the EventBus.
         Called by AppContext when the vault is first accessed.
         """
         from ztlctl.plugins.builtins.git import GitPlugin
+        from ztlctl.plugins.builtins.reweave_plugin import ReweavePlugin
         from ztlctl.plugins.event_bus import EventBus
         from ztlctl.plugins.manager import PluginManager
 
@@ -350,6 +352,10 @@ class Vault:
         git_config = self._settings.git
         git_plugin = GitPlugin(config=git_config, vault_root=self.root)
         pm.register_plugin(git_plugin, name="git-builtin")
+
+        # Register built-in reweave plugin for post-create graph densification
+        reweave_plugin = ReweavePlugin(vault=self)
+        pm.register_plugin(reweave_plugin, name="reweave-builtin")
 
         self._event_bus = EventBus(self._engine, pm, sync=sync)
 

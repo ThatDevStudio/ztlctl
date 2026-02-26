@@ -42,6 +42,7 @@ class ContextAssembler:
         *,
         topic: str | None = None,
         budget: int = 8000,
+        ignore_checkpoints: bool = False,
     ) -> ServiceResult:
         """Full 5-layer assembly → ServiceResult(op="context").
 
@@ -102,9 +103,12 @@ class ContextAssembler:
             for t in layers["work_queue"]:
                 layer_1_tokens += estimate_tokens(json.dumps(t))
 
-            # Session log entries (from latest checkpoint)
+            # Session log entries (from latest checkpoint, unless overridden)
             layers["log_entries"] = self._log_entries(
-                session_id, budget - token_count - layer_1_tokens, warnings
+                session_id,
+                budget - token_count - layer_1_tokens,
+                warnings,
+                ignore_checkpoints=ignore_checkpoints,
             )
             for e in layers["log_entries"]:
                 layer_1_tokens += estimate_tokens(json.dumps(e))
@@ -258,27 +262,31 @@ class ContextAssembler:
         session_id: str,
         remaining_budget: int,
         warnings: list[str],
+        *,
+        ignore_checkpoints: bool = False,
     ) -> list[dict[str, Any]]:
         """Load session log entries from latest checkpoint, with budget reduction."""
         from ztlctl.infrastructure.database.schema import session_logs
 
         try:
             with self._vault.engine.connect() as conn:
-                # Find latest checkpoint
-                checkpoint = conn.execute(
-                    select(session_logs)
-                    .where(
-                        session_logs.c.session_id == session_id,
-                        session_logs.c.subtype == "checkpoint",
-                    )
-                    .order_by(session_logs.c.timestamp.desc())
-                    .limit(1)
-                ).first()
-
-                # Load entries from checkpoint (or all if no checkpoint)
+                # Load entries from checkpoint (or all if no checkpoint / overridden)
                 query = select(session_logs).where(session_logs.c.session_id == session_id)
-                if checkpoint:
-                    query = query.where(session_logs.c.timestamp >= str(checkpoint.timestamp))
+
+                if not ignore_checkpoints:
+                    # Find latest checkpoint
+                    checkpoint = conn.execute(
+                        select(session_logs)
+                        .where(
+                            session_logs.c.session_id == session_id,
+                            session_logs.c.subtype == "checkpoint",
+                        )
+                        .order_by(session_logs.c.timestamp.desc())
+                        .limit(1)
+                    ).first()
+
+                    if checkpoint:
+                        query = query.where(session_logs.c.timestamp >= str(checkpoint.timestamp))
                 query = query.order_by(session_logs.c.timestamp.asc())
                 rows = conn.execute(query).fetchall()
 

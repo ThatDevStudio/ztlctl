@@ -123,16 +123,26 @@ def log_entry(app: AppContext, message: str, pin: bool, token_cost: int) -> None
     examples="""\
   ztlctl agent context
   ztlctl agent context --topic "auth" --budget 4000
+  ztlctl agent context --ignore-checkpoints
   ztlctl --json agent context"""
 )
 @click.option("--topic", default=None, help="Focus topic.")
 @click.option("--budget", type=int, default=8000, help="Token budget.")
+@click.option(
+    "--ignore-checkpoints",
+    is_flag=True,
+    help="Read full session history instead of from latest checkpoint.",
+)
 @click.pass_obj
-def context(app: AppContext, topic: str | None, budget: int) -> None:
+def context(app: AppContext, topic: str | None, budget: int, ignore_checkpoints: bool) -> None:
     """Build token-budgeted agent context payload."""
     from ztlctl.services.session import SessionService
 
-    app.emit(SessionService(app.vault).context(topic=topic, budget=budget))
+    app.emit(
+        SessionService(app.vault).context(
+            topic=topic, budget=budget, ignore_checkpoints=ignore_checkpoints
+        )
+    )
 
 
 @agent.command(
