@@ -47,7 +47,7 @@ def query(app: AppContext) -> None:
 )
 @click.option(
     "--rank-by",
-    type=click.Choice(["relevance", "recency"]),
+    type=click.Choice(["relevance", "recency", "graph"]),
     default="relevance",
     help="Ranking mode.",
 )

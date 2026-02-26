@@ -711,3 +711,39 @@ class TestSearchTimeDecay:
         # 30-day-old item should have roughly half the score of the fresh one
         ratio = result[1]["score"] / result[0]["score"]
         assert 0.45 <= ratio <= 0.55  # ~0.5 with half-life of 30 days
+
+
+# ---------------------------------------------------------------------------
+# search — graph ranking
+# ---------------------------------------------------------------------------
+
+
+class TestSearchGraphRank:
+    """Tests for BM25 x PageRank graph ranking."""
+
+    def test_graph_rank_with_materialized_metrics(self, vault: Vault) -> None:
+        """Search with rank_by=graph uses PageRank after materialization."""
+        from ztlctl.services.graph import GraphService
+
+        _seed_notes(vault)
+
+        # Materialize graph metrics
+        mat_result = GraphService(vault).materialize_metrics()
+        assert mat_result.ok
+
+        svc = QueryService(vault)
+        result = svc.search("Note", rank_by="graph")
+        assert result.ok
+        assert result.data["count"] >= 1
+        # Scores should be positive (abs(bm25) * pagerank)
+        for item in result.data["items"]:
+            assert item["score"] >= 0
+
+    def test_graph_rank_without_metrics_warns(self, vault: Vault) -> None:
+        """Search without materializing falls back to BM25 with warning."""
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.search("Note", rank_by="graph")
+        assert result.ok
+        assert result.warnings
+        assert any("materialize" in w for w in result.warnings)
