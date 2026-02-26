@@ -141,12 +141,15 @@ def search_impl(
     *,
     content_type: str | None = None,
     tag: str | None = None,
+    space: str | None = None,
     limit: int = 20,
 ) -> dict[str, Any]:
     """Full-text search."""
     from ztlctl.services.query import QueryService
 
-    result = QueryService(vault).search(query, content_type=content_type, tag=tag, limit=limit)
+    result = QueryService(vault).search(
+        query, content_type=content_type, tag=tag, space=space, limit=limit
+    )
     return _to_mcp_response(result)
 
 
@@ -303,10 +306,13 @@ def register_tools(server: Any, vault: Any) -> None:
         query: str,
         content_type: str | None = None,
         tag: str | None = None,
+        space: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
         """Full-text search across the vault."""
-        return search_impl(vault, query, content_type=content_type, tag=tag, limit=limit)
+        return search_impl(
+            vault, query, content_type=content_type, tag=tag, space=space, limit=limit
+        )
 
     @server.tool()  # type: ignore[untyped-decorator]
     def get_document(content_id: str) -> dict[str, Any]:

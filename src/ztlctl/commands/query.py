@@ -14,10 +14,11 @@ if TYPE_CHECKING:
 
 _QUERY_EXAMPLES = """\
   ztlctl query search "python design patterns"
+  ztlctl query search "auth" --space notes
   ztlctl query get ztl_abc12345
   ztlctl query list --type note --sort recency
-  ztlctl query list --sort priority --limit 10
-  ztlctl query work-queue
+  ztlctl query list --space ops --sort priority --limit 10
+  ztlctl query work-queue --space ops
   ztlctl query decision-support --topic architecture"""
 
 
@@ -32,11 +33,18 @@ def query(app: AppContext) -> None:
   ztlctl query search "python"
   ztlctl query search "design patterns" --type note
   ztlctl query search "auth" --tag security/web --rank-by recency
+  ztlctl query search "auth" --space notes
   ztlctl --json query search "API" --limit 5"""
 )
 @click.argument("query_text")
 @click.option("--type", "content_type", default=None, help="Filter by content type.")
 @click.option("--tag", default=None, help="Filter by tag.")
+@click.option(
+    "--space",
+    type=click.Choice(["notes", "ops", "self"]),
+    default=None,
+    help="Filter by vault space.",
+)
 @click.option(
     "--rank-by",
     type=click.Choice(["relevance", "recency"]),
@@ -50,6 +58,7 @@ def search(
     query_text: str,
     content_type: str | None,
     tag: str | None,
+    space: str | None,
     rank_by: str,
     limit: int,
 ) -> None:
@@ -59,6 +68,7 @@ def search(
         query_text,
         content_type=content_type,
         tag=tag,
+        space=space,
         rank_by=rank_by,
         limit=limit,
     )
@@ -85,6 +95,7 @@ def get(app: AppContext, content_id: str) -> None:
   ztlctl query list --tag ai/ml --sort title
   ztlctl query list --subtype decision --topic architecture
   ztlctl query list --maturity seed
+  ztlctl query list --space notes
   ztlctl query list --since 2026-01-01 --include-archived
   ztlctl query list --sort priority --limit 10""",
 )
@@ -98,6 +109,12 @@ def get(app: AppContext, content_id: str) -> None:
     type=click.Choice(["seed", "budding", "evergreen"]),
     default=None,
     help="Filter by garden maturity.",
+)
+@click.option(
+    "--space",
+    type=click.Choice(["notes", "ops", "self"]),
+    default=None,
+    help="Filter by vault space.",
 )
 @click.option("--since", default=None, help="Modified on or after ISO date (YYYY-MM-DD).")
 @click.option("--include-archived", is_flag=True, default=False, help="Include archived items.")
@@ -117,6 +134,7 @@ def list_cmd(
     topic: str | None,
     subtype: str | None,
     maturity: str | None,
+    space: str | None,
     since: str | None,
     include_archived: bool,
     sort: str,
@@ -131,6 +149,7 @@ def list_cmd(
         topic=topic,
         subtype=subtype,
         maturity=maturity,
+        space=space,
         since=since,
         include_archived=include_archived,
         sort=sort,
@@ -143,12 +162,19 @@ def list_cmd(
     name="work-queue",
     examples="""\
   ztlctl query work-queue
+  ztlctl query work-queue --space ops
   ztlctl --json query work-queue""",
 )
+@click.option(
+    "--space",
+    type=click.Choice(["notes", "ops", "self"]),
+    default=None,
+    help="Filter by vault space.",
+)
 @click.pass_obj
-def work_queue(app: AppContext) -> None:
+def work_queue(app: AppContext, space: str | None) -> None:
     """Show prioritized task queue."""
-    app.emit(QueryService(app.vault).work_queue())
+    app.emit(QueryService(app.vault).work_queue(space=space))
 
 
 @query.command(
@@ -156,10 +182,17 @@ def work_queue(app: AppContext) -> None:
     examples="""\
   ztlctl query decision-support
   ztlctl query decision-support --topic architecture
+  ztlctl query decision-support --space notes
   ztlctl --json query decision-support --topic security""",
 )
 @click.option("--topic", default=None, help="Filter by topic.")
+@click.option(
+    "--space",
+    type=click.Choice(["notes", "ops", "self"]),
+    default=None,
+    help="Filter by vault space.",
+)
 @click.pass_obj
-def decision_support(app: AppContext, topic: str | None) -> None:
+def decision_support(app: AppContext, topic: str | None, space: str | None) -> None:
     """Aggregate context for decision-making."""
-    app.emit(QueryService(app.vault).decision_support(topic=topic))
+    app.emit(QueryService(app.vault).decision_support(topic=topic, space=space))
