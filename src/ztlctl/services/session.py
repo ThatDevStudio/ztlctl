@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy import insert, select, text
+from sqlalchemy import insert, select
 
 from ztlctl.infrastructure.database.counters import next_sequential_id
 from ztlctl.infrastructure.database.schema import edges, nodes, session_logs
@@ -62,10 +62,7 @@ class SessionService(BaseService):
             )
 
             # FTS5 entry
-            txn.conn.execute(
-                text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
-                {"id": session_id, "title": f"Session: {topic}", "body": topic},
-            )
+            txn.upsert_fts(session_id, f"Session: {topic}", topic)
 
         # Dispatch event
         warnings: list[str] = []
@@ -660,27 +657,15 @@ class SessionService(BaseService):
         write_content_file(note_path, fm, extracted_body)
 
         # Update FTS5 body and link decision to session (single transaction)
-        from sqlalchemy import text as sa_text
-
         note_id = create_result.data["id"]
         with self._vault.transaction() as txn:
-            txn.conn.execute(
-                sa_text("DELETE FROM nodes_fts WHERE id = :id"),
-                {"id": note_id},
-            )
-            txn.conn.execute(
-                sa_text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
-                {"id": note_id, "title": decision_title, "body": extracted_body},
-            )
-            txn.conn.execute(
-                insert(edges).values(
-                    source_id=note_id,
-                    target_id=session_id,
-                    edge_type="derived_from",
-                    source_layer="extract",
-                    weight=1.0,
-                    created=today_iso(),
-                )
+            txn.upsert_fts(note_id, decision_title, extracted_body)
+            txn.insert_edge(
+                note_id,
+                session_id,
+                "derived_from",
+                "extract",
+                today_iso(),
             )
 
         self._dispatch_event(

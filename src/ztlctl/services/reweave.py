@@ -12,6 +12,7 @@ import networkx as nx
 from sqlalchemy import delete, insert, select, text
 
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, reweave_log
+from ztlctl.infrastructure.vault import VaultTransaction
 from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
@@ -541,24 +542,14 @@ class ReweaveService(BaseService):
                             body = wikilink
 
                 # Insert edge
-                existing = txn.conn.execute(
-                    select(edges.c.source_id).where(
-                        edges.c.source_id == target_id,
-                        edges.c.target_id == sugg_id,
-                        edges.c.edge_type == "relates",
-                    )
-                ).first()
-                if existing is None:
-                    txn.conn.execute(
-                        insert(edges).values(
-                            source_id=target_id,
-                            target_id=sugg_id,
-                            edge_type="relates",
-                            source_layer="frontmatter",
-                            weight=1.0,
-                            created=today,
-                        )
-                    )
+                txn.insert_edge(
+                    target_id,
+                    sugg_id,
+                    "relates",
+                    "frontmatter",
+                    today,
+                    check_duplicate=True,
+                )
 
                 # Log entry
                 txn.conn.execute(
@@ -580,15 +571,8 @@ class ReweaveService(BaseService):
             fm["modified"] = today
             txn.write_content(file_path, fm, body)
 
-            # Update FTS5 if body changed
-            txn.conn.execute(
-                text("DELETE FROM nodes_fts WHERE id = :id"),
-                {"id": target_id},
-            )
-            txn.conn.execute(
-                text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
-                {"id": target_id, "title": str(fm.get("title", "")), "body": body},
-            )
+            # Update FTS5
+            txn.upsert_fts(target_id, str(fm.get("title", "")), body)
 
             # Update modified in nodes
             txn.conn.execute(nodes.update().where(nodes.c.id == target_id).values(modified=today))
@@ -666,14 +650,7 @@ class ReweaveService(BaseService):
             txn.write_content(file_path, fm, body)
 
             # Update FTS5
-            txn.conn.execute(
-                text("DELETE FROM nodes_fts WHERE id = :id"),
-                {"id": source_id},
-            )
-            txn.conn.execute(
-                text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
-                {"id": source_id, "title": str(fm.get("title", "")), "body": body},
-            )
+            txn.upsert_fts(source_id, str(fm.get("title", "")), body)
 
             txn.conn.execute(nodes.update().where(nodes.c.id == source_id).values(modified=today))
 
@@ -720,7 +697,12 @@ class ReweaveService(BaseService):
         return undone_results
 
     @staticmethod
-    def _undo_add(txn: Any, source_id: str, target_id: str, today: str) -> None:
+    def _undo_add(
+        txn: VaultTransaction,
+        source_id: str,
+        target_id: str,
+        today: str,
+    ) -> None:
         """Undo an 'add' action: remove the link."""
         # Remove edge
         txn.conn.execute(
@@ -732,11 +714,7 @@ class ReweaveService(BaseService):
         )
 
         # Remove from frontmatter
-        from ztlctl.infrastructure.database.schema import nodes as nodes_table
-
-        node_row = txn.conn.execute(
-            select(nodes_table.c.path).where(nodes_table.c.id == source_id)
-        ).first()
+        node_row = txn.conn.execute(select(nodes.c.path).where(nodes.c.id == source_id)).first()
         if node_row is not None:
             file_path = txn._vault.root / node_row.path
             if file_path.exists():
@@ -752,34 +730,25 @@ class ReweaveService(BaseService):
                         txn.write_content(file_path, fm, body)
 
     @staticmethod
-    def _undo_remove(txn: Any, source_id: str, target_id: str, today: str) -> None:
+    def _undo_remove(
+        txn: VaultTransaction,
+        source_id: str,
+        target_id: str,
+        today: str,
+    ) -> None:
         """Undo a 'remove' action: re-add the link."""
         # Re-insert edge
-        existing = txn.conn.execute(
-            select(edges.c.source_id).where(
-                edges.c.source_id == source_id,
-                edges.c.target_id == target_id,
-                edges.c.edge_type == "relates",
-            )
-        ).first()
-        if existing is None:
-            txn.conn.execute(
-                insert(edges).values(
-                    source_id=source_id,
-                    target_id=target_id,
-                    edge_type="relates",
-                    source_layer="frontmatter",
-                    weight=1.0,
-                    created=today,
-                )
-            )
+        txn.insert_edge(
+            source_id,
+            target_id,
+            "relates",
+            "frontmatter",
+            today,
+            check_duplicate=True,
+        )
 
         # Re-add to frontmatter
-        from ztlctl.infrastructure.database.schema import nodes as nodes_table
-
-        node_row = txn.conn.execute(
-            select(nodes_table.c.path).where(nodes_table.c.id == source_id)
-        ).first()
+        node_row = txn.conn.execute(select(nodes.c.path).where(nodes.c.id == source_id)).first()
         if node_row is not None:
             file_path = txn._vault.root / node_row.path
             if file_path.exists():

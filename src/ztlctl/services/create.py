@@ -8,17 +8,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import insert, select, text
+from sqlalchemy import insert, select
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
 
 from ztlctl.domain.content import get_content_model
 from ztlctl.domain.ids import TYPE_PREFIXES, generate_content_hash
-from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
-from ztlctl.domain.tags import parse_tag_parts
 from ztlctl.infrastructure.database.counters import next_sequential_id
-from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
+from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
@@ -267,18 +265,15 @@ class CreateService(BaseService):
             txn.conn.execute(insert(nodes).values(**node_row))
 
             # FTS5 index
-            txn.conn.execute(
-                text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
-                {"id": content_id, "title": title, "body": body},
-            )
+            txn.upsert_fts(content_id, title, body)
 
             # Tags
-            self._index_tags(txn.conn, content_id, tags, today)
+            txn.index_tags(content_id, tags, today)
 
             # Links (frontmatter + body wikilinks)
             fm_links = fm.get("links", {})
             if isinstance(fm_links, dict):
-                self._index_links(txn.conn, content_id, fm_links, body, today)
+                txn.index_links(content_id, fm_links, body, today)
 
         # ── EVENT ─────────────────────────────────────────────────
         self._dispatch_event(
@@ -335,98 +330,3 @@ class CreateService(BaseService):
         if content_type in ("log", "task"):
             return next_sequential_id(conn, prefix)
         return generate_content_hash(title, prefix)
-
-    @staticmethod
-    def _index_tags(conn: Connection, content_id: str, tags: list[str], today: str) -> None:
-        """Register tags and link them to the content node."""
-        for tag in tags:
-            domain, scope = parse_tag_parts(tag)
-
-            # Upsert tag into registry (ignore if already exists)
-            existing_tag = conn.execute(
-                select(tags_registry.c.tag).where(tags_registry.c.tag == tag)
-            ).first()
-            if existing_tag is None:
-                conn.execute(
-                    insert(tags_registry).values(tag=tag, domain=domain, scope=scope, created=today)
-                )
-
-            conn.execute(insert(node_tags).values(node_id=content_id, tag=tag))
-
-    @staticmethod
-    def _index_links(
-        conn: Connection,
-        source_id: str,
-        fm_links: dict[str, list[str]],
-        body: str,
-        today: str,
-    ) -> None:
-        """Extract and index links from frontmatter and body wikilinks."""
-        # Frontmatter typed links
-        for link in extract_frontmatter_links(fm_links):
-            # Only index if target exists
-            target = conn.execute(select(nodes.c.id).where(nodes.c.id == link.target_id)).first()
-            if target is not None:
-                conn.execute(
-                    insert(edges).values(
-                        source_id=source_id,
-                        target_id=link.target_id,
-                        edge_type=link.edge_type,
-                        source_layer="frontmatter",
-                        weight=1.0,
-                        created=today,
-                    )
-                )
-
-        # Body wikilinks
-        for wlink in extract_wikilinks(body):
-            resolved_id = _resolve_wikilink(conn, wlink.raw)
-            if resolved_id is not None:
-                # Avoid duplicate edges
-                exists = conn.execute(
-                    select(edges.c.source_id).where(
-                        edges.c.source_id == source_id,
-                        edges.c.target_id == resolved_id,
-                        edges.c.edge_type == "relates",
-                    )
-                ).first()
-                if exists is None:
-                    conn.execute(
-                        insert(edges).values(
-                            source_id=source_id,
-                            target_id=resolved_id,
-                            edge_type="relates",
-                            source_layer="body",
-                            weight=1.0,
-                            created=today,
-                        )
-                    )
-
-
-def _resolve_wikilink(conn: Connection, raw: str) -> str | None:
-    """Resolve a wikilink target to a node ID.
-
-    Resolution order (DESIGN.md Section 3):
-    1. Exact title match
-    2. Alias match (JSON array in nodes.aliases via json_each)
-    3. Direct ID match
-    """
-    # 1. Title match
-    row = conn.execute(select(nodes.c.id).where(nodes.c.title == raw)).first()
-    if row is not None:
-        return str(row.id)
-
-    # 2. Alias match (JSON array in nodes.aliases)
-    alias_row = conn.execute(
-        text("SELECT nodes.id FROM nodes, json_each(nodes.aliases) WHERE json_each.value = :raw"),
-        {"raw": raw},
-    ).first()
-    if alias_row is not None:
-        return str(alias_row.id)
-
-    # 3. Direct ID match (covers [[ztl_abc12345]] style)
-    row = conn.execute(select(nodes.c.id).where(nodes.c.id == raw)).first()
-    if row is not None:
-        return str(row.id)
-
-    return None

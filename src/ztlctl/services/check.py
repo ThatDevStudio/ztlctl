@@ -15,12 +15,9 @@ from sqlalchemy import delete, insert, select, text
 
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.domain.ids import ID_PATTERNS
-from ztlctl.domain.links import extract_frontmatter_links, extract_wikilinks
-from ztlctl.domain.tags import parse_tag_parts
-from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
+from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
 from ztlctl.services._helpers import now_compact, today_iso
 from ztlctl.services.base import BaseService
-from ztlctl.services.create import _resolve_wikilink
 from ztlctl.services.result import ServiceError, ServiceResult
 
 if TYPE_CHECKING:
@@ -85,13 +82,13 @@ class CheckService(BaseService):
         today = today_iso()
 
         with self._vault.transaction() as txn:
-            fixes.extend(self._fix_orphan_db_rows(txn.conn))
+            fixes.extend(self._fix_orphan_db_rows(txn))
             fixes.extend(self._fix_dangling_edges(txn.conn))
-            fixes.extend(self._fix_missing_fts(txn.conn))
+            fixes.extend(self._fix_missing_fts(txn))
             fixes.extend(self._fix_resync_from_files(txn.conn, today))
 
             if level == "aggressive":
-                fixes.extend(self._fix_reindex_edges(txn.conn, today))
+                fixes.extend(self._fix_reindex_edges(txn, today))
                 fixes.extend(self._fix_reorder_frontmatter(txn))
 
         return ServiceResult(
@@ -107,12 +104,11 @@ class CheckService(BaseService):
         today = today_iso()
 
         with self._vault.transaction() as txn:
-            conn = txn.conn
             # Clear derived tables (preserve id_counters and tags_registry)
-            conn.execute(text("DELETE FROM nodes_fts"))
-            conn.execute(delete(node_tags))
-            conn.execute(delete(edges))
-            conn.execute(delete(nodes))
+            txn.clear_fts()
+            txn.conn.execute(delete(node_tags))
+            txn.conn.execute(delete(edges))
+            txn.conn.execute(delete(nodes))
 
             content_files = self._vault.find_content()
             nodes_indexed = 0
@@ -158,36 +154,16 @@ class CheckService(BaseService):
 
                     node_row["aliases"] = json.dumps(aliases)
 
-                conn.execute(insert(nodes).values(**node_row))
+                txn.conn.execute(insert(nodes).values(**node_row))
                 nodes_indexed += 1
 
                 # FTS5 index
-                conn.execute(
-                    text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
-                    {"id": content_id, "title": title, "body": body},
-                )
+                txn.upsert_fts(content_id, title, body)
 
                 # Tags
                 file_tags = fm.get("tags", [])
                 if isinstance(file_tags, list):
-                    for tag in file_tags:
-                        tag = str(tag)
-                        domain, scope = parse_tag_parts(tag)
-
-                        existing = conn.execute(
-                            select(tags_registry.c.tag).where(tags_registry.c.tag == tag)
-                        ).first()
-                        if existing is None:
-                            conn.execute(
-                                insert(tags_registry).values(
-                                    tag=tag,
-                                    domain=domain,
-                                    scope=scope,
-                                    created=today,
-                                )
-                            )
-                        conn.execute(insert(node_tags).values(node_id=content_id, tag=tag))
-                        tags_found += 1
+                    tags_found += txn.index_tags(content_id, [str(t) for t in file_tags], today)
 
             # Second pass: index edges (all nodes must exist first)
             for file_path in content_files:
@@ -200,50 +176,9 @@ class CheckService(BaseService):
                 if not content_id:
                     continue
 
-                # Frontmatter links
                 fm_links = fm.get("links", {})
                 if isinstance(fm_links, dict):
-                    for link in extract_frontmatter_links(fm_links):
-                        target = conn.execute(
-                            select(nodes.c.id).where(nodes.c.id == link.target_id)
-                        ).first()
-                        if target is not None:
-                            conn.execute(
-                                insert(edges).values(
-                                    source_id=content_id,
-                                    target_id=link.target_id,
-                                    edge_type=link.edge_type,
-                                    source_layer="frontmatter",
-                                    weight=1.0,
-                                    created=today,
-                                )
-                            )
-                            edges_created += 1
-
-                # Body wikilinks
-                for wlink in extract_wikilinks(body):
-                    resolved_id = _resolve_wikilink(conn, wlink.raw)
-                    if resolved_id is not None and resolved_id != content_id:
-                        # Avoid duplicates
-                        existing = conn.execute(
-                            select(edges.c.source_id).where(
-                                edges.c.source_id == content_id,
-                                edges.c.target_id == resolved_id,
-                                edges.c.edge_type == "relates",
-                            )
-                        ).first()
-                        if existing is None:
-                            conn.execute(
-                                insert(edges).values(
-                                    source_id=content_id,
-                                    target_id=resolved_id,
-                                    edge_type="relates",
-                                    source_layer="body",
-                                    weight=1.0,
-                                    created=today,
-                                )
-                            )
-                            edges_created += 1
+                    edges_created += txn.index_links(content_id, fm_links, body, today)
 
         # Materialize graph metrics after rebuild
         from ztlctl.services.graph import GraphService
@@ -623,25 +558,22 @@ class CheckService(BaseService):
     # Fix helpers
     # ------------------------------------------------------------------
 
-    def _fix_orphan_db_rows(self, conn: Connection) -> list[str]:
+    def _fix_orphan_db_rows(self, txn: VaultTransaction) -> list[str]:
         """Remove DB rows whose files no longer exist."""
         fixes: list[str] = []
-        all_nodes = conn.execute(select(nodes.c.id, nodes.c.path)).fetchall()
+        all_nodes = txn.conn.execute(select(nodes.c.id, nodes.c.path)).fetchall()
 
         for row in all_nodes:
             file_path = self._vault.root / row.path
             if not file_path.exists():
-                conn.execute(delete(node_tags).where(node_tags.c.node_id == row.id))
-                conn.execute(
+                txn.conn.execute(delete(node_tags).where(node_tags.c.node_id == row.id))
+                txn.conn.execute(
                     delete(edges).where(
                         (edges.c.source_id == row.id) | (edges.c.target_id == row.id)
                     )
                 )
-                conn.execute(
-                    text("DELETE FROM nodes_fts WHERE id = :id"),
-                    {"id": row.id},
-                )
-                conn.execute(delete(nodes).where(nodes.c.id == row.id))
+                txn.delete_fts(row.id)
+                txn.conn.execute(delete(nodes).where(nodes.c.id == row.id))
                 fixes.append(f"Removed orphan DB row: {row.id}")
 
         return fixes
@@ -670,16 +602,16 @@ class CheckService(BaseService):
 
         return fixes
 
-    def _fix_missing_fts(self, conn: Connection) -> list[str]:
+    def _fix_missing_fts(self, txn: VaultTransaction) -> list[str]:
         """Re-insert missing FTS5 rows."""
         fixes: list[str] = []
-        node_ids = {row.id for row in conn.execute(select(nodes.c.id)).fetchall()}
-        fts_ids = {row[0] for row in conn.execute(text("SELECT id FROM nodes_fts")).fetchall()}
+        node_ids = {row.id for row in txn.conn.execute(select(nodes.c.id)).fetchall()}
+        fts_ids = {row[0] for row in txn.conn.execute(text("SELECT id FROM nodes_fts")).fetchall()}
 
         for nid in node_ids:
             if nid not in fts_ids:
                 # Read from file
-                row = conn.execute(
+                row = txn.conn.execute(
                     select(nodes.c.path, nodes.c.title).where(nodes.c.id == nid)
                 ).first()
                 if row is None:
@@ -688,10 +620,7 @@ class CheckService(BaseService):
                 if not file_path.exists():
                     continue
                 _, body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
-                conn.execute(
-                    text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
-                    {"id": nid, "title": row.title, "body": body},
-                )
+                txn.upsert_fts(nid, row.title, body)
                 fixes.append(f"Re-inserted FTS5 row for: {nid}")
 
         return fixes
@@ -735,15 +664,15 @@ class CheckService(BaseService):
 
         return fixes
 
-    def _fix_reindex_edges(self, conn: Connection, today: str) -> list[str]:
+    def _fix_reindex_edges(self, txn: VaultTransaction, today: str) -> list[str]:
         """Aggressive: re-index all edges from files."""
         fixes: list[str] = []
 
         # Clear all edges and rebuild
-        conn.execute(delete(edges))
+        txn.conn.execute(delete(edges))
         fixes.append("Cleared all edges for re-indexing")
 
-        all_nodes = conn.execute(select(nodes.c.id, nodes.c.path)).fetchall()
+        all_nodes = txn.conn.execute(select(nodes.c.id, nodes.c.path)).fetchall()
 
         for row in all_nodes:
             file_path = self._vault.root / row.path
@@ -755,47 +684,9 @@ class CheckService(BaseService):
             except Exception:
                 continue
 
-            # Frontmatter links
             fm_links = fm.get("links", {})
             if isinstance(fm_links, dict):
-                for link in extract_frontmatter_links(fm_links):
-                    target = conn.execute(
-                        select(nodes.c.id).where(nodes.c.id == link.target_id)
-                    ).first()
-                    if target is not None:
-                        conn.execute(
-                            insert(edges).values(
-                                source_id=row.id,
-                                target_id=link.target_id,
-                                edge_type=link.edge_type,
-                                source_layer="frontmatter",
-                                weight=1.0,
-                                created=today,
-                            )
-                        )
-
-            # Body wikilinks
-            for wlink in extract_wikilinks(body):
-                resolved = _resolve_wikilink(conn, wlink.raw)
-                if resolved is not None and resolved != row.id:
-                    existing = conn.execute(
-                        select(edges.c.source_id).where(
-                            edges.c.source_id == row.id,
-                            edges.c.target_id == resolved,
-                            edges.c.edge_type == "relates",
-                        )
-                    ).first()
-                    if existing is None:
-                        conn.execute(
-                            insert(edges).values(
-                                source_id=row.id,
-                                target_id=resolved,
-                                edge_type="relates",
-                                source_layer="body",
-                                weight=1.0,
-                                created=today,
-                            )
-                        )
+                txn.index_links(row.id, fm_links, body, today)
 
         fixes.append("Re-indexed all edges from files")
         return fixes
