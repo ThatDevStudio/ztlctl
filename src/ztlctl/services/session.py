@@ -652,7 +652,7 @@ class SessionService(BaseService):
         fm, _template_body = read_content_file(note_path)
         write_content_file(note_path, fm, extracted_body)
 
-        # Update FTS5 body to match
+        # Update FTS5 body and link decision to session (single transaction)
         from sqlalchemy import text as sa_text
 
         note_id = create_result.data["id"]
@@ -665,11 +665,6 @@ class SessionService(BaseService):
                 sa_text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
                 {"id": note_id, "title": decision_title, "body": extracted_body},
             )
-
-        # Link decision to session
-        from ztlctl.services._helpers import today_iso
-
-        with self._vault.transaction() as txn:
             txn.conn.execute(
                 insert(edges).values(
                     source_id=note_id,
