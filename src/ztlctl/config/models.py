@@ -77,6 +77,7 @@ class SearchConfig(BaseModel):
     semantic_enabled: bool = False
     embedding_model: str = "local"
     embedding_dim: int = 384
+    half_life_days: float = 30.0
 
 
 class SessionConfig(BaseModel):

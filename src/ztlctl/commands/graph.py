@@ -18,7 +18,8 @@ _GRAPH_EXAMPLES = """\
   ztlctl graph rank --top 10
   ztlctl graph path ztl_abc12345 ztl_def67890
   ztlctl graph gaps
-  ztlctl graph bridges --top 5"""
+  ztlctl graph bridges --top 5
+  ztlctl graph materialize"""
 
 
 @click.group(cls=ZtlGroup, examples=_GRAPH_EXAMPLES)
@@ -101,3 +102,15 @@ def gaps(app: AppContext, top: int) -> None:
 def bridges(app: AppContext, top: int) -> None:
     """Find bridge nodes via betweenness centrality."""
     app.emit(GraphService(app.vault).bridges(top=top))
+
+
+@graph.command(
+    name="materialize",
+    examples="""\
+  ztlctl graph materialize
+  ztlctl --json graph materialize""",
+)
+@click.pass_obj
+def materialize_metrics(app: AppContext) -> None:
+    """Compute and store graph metrics (PageRank, degree, betweenness)."""
+    app.emit(GraphService(app.vault).materialize_metrics())
