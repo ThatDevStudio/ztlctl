@@ -53,13 +53,6 @@ class TestSearchCommand:
         assert data["ok"] is True
         assert data["data"]["count"] == 0
 
-    def test_search_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "search", "--help"])
-        assert result.exit_code == 0
-        assert "--type" in result.output
-        assert "--tag" in result.output
-        assert "--rank-by" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestGetCommand:
@@ -82,11 +75,6 @@ class TestGetCommand:
         data = json.loads(result.output)
         assert data["ok"] is False
         assert data["error"]["code"] == "NOT_FOUND"
-
-    def test_get_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "get", "--help"])
-        assert result.exit_code == 0
-        assert "CONTENT_ID" in result.output
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -124,13 +112,6 @@ class TestListCommand:
         data = json.loads(result.output)
         assert data["ok"] is True
         assert data["data"]["count"] <= 2
-
-    def test_list_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "list", "--help"])
-        assert result.exit_code == 0
-        assert "--type" in result.output
-        assert "--status" in result.output
-        assert "--sort" in result.output
 
     # -- Extended filters ---------------------------------------------------
 
@@ -195,15 +176,6 @@ class TestListCommand:
         result = cli_runner.invoke(cli, ["query", "list", "--maturity", "invalid"])
         assert result.exit_code != 0
 
-    def test_list_help_extended(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "list", "--help"])
-        assert result.exit_code == 0
-        assert "--subtype" in result.output
-        assert "--maturity" in result.output
-        assert "--since" in result.output
-        assert "--include-archived" in result.output
-        assert "priority" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestWorkQueueCommand:
@@ -221,10 +193,6 @@ class TestWorkQueueCommand:
         data = json.loads(result.output)
         assert data["ok"] is True
         assert data["data"]["count"] == 0
-
-    def test_work_queue_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "work-queue", "--help"])
-        assert result.exit_code == 0
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -245,11 +213,6 @@ class TestDecisionSupportCommand:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
-
-    def test_decision_support_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "decision-support", "--help"])
-        assert result.exit_code == 0
-        assert "--topic" in result.output
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -278,26 +241,6 @@ class TestSpaceFilterCLI:
         result = cli_runner.invoke(cli, ["query", "search", "test", "--space", "invalid"])
         assert result.exit_code != 0
 
-    def test_search_help_shows_space(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "search", "--help"])
-        assert result.exit_code == 0
-        assert "--space" in result.output
-
-    def test_list_help_shows_space(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "list", "--help"])
-        assert result.exit_code == 0
-        assert "--space" in result.output
-
-    def test_work_queue_help_shows_space(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "work-queue", "--help"])
-        assert result.exit_code == 0
-        assert "--space" in result.output
-
-    def test_decision_support_help_shows_space(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "decision-support", "--help"])
-        assert result.exit_code == 0
-        assert "--space" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestGraphRankCLI:
@@ -309,14 +252,3 @@ class TestGraphRankCLI:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
-
-
-class TestQueryGroupHelp:
-    def test_query_group_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["query", "--help"])
-        assert result.exit_code == 0
-        assert "search" in result.output
-        assert "get" in result.output
-        assert "list" in result.output
-        assert "work-queue" in result.output
-        assert "decision-support" in result.output

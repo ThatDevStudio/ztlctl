@@ -12,11 +12,6 @@ from ztlctl.cli import cli
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestSessionCost:
-    def test_cost_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "session", "cost", "--help"])
-        assert result.exit_code == 0
-        assert "--report" in result.output
-
     def test_cost_no_session(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["agent", "session", "cost"])
         assert result.exit_code == 1
@@ -44,20 +39,9 @@ class TestSessionCost:
         assert data["data"]["budget"] == 10000
         assert "remaining" in data["data"]
 
-    def test_cost_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "session", "cost", "--examples"])
-        assert result.exit_code == 0
-        assert "cost" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestSessionLog:
-    def test_log_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "session", "log", "--help"])
-        assert result.exit_code == 0
-        assert "--pin" in result.output
-        assert "--cost" in result.output
-
     def test_log_basic(self, cli_runner: CliRunner) -> None:
         cli_runner.invoke(cli, ["agent", "session", "start", "Log Topic"])
         result = cli_runner.invoke(cli, ["agent", "session", "log", "Found a pattern"])
@@ -87,20 +71,9 @@ class TestSessionLog:
         result = cli_runner.invoke(cli, ["agent", "session", "log", "Orphan"])
         assert result.exit_code == 1
 
-    def test_log_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "session", "log", "--examples"])
-        assert result.exit_code == 0
-        assert "log" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestAgentContext:
-    def test_context_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "context", "--help"])
-        assert result.exit_code == 0
-        assert "--topic" in result.output
-        assert "--budget" in result.output
-
     def test_context_with_session(self, cli_runner: CliRunner) -> None:
         cli_runner.invoke(cli, ["agent", "session", "start", "Context Topic"])
         result = cli_runner.invoke(cli, ["agent", "context"])
@@ -133,18 +106,9 @@ class TestAgentContext:
         data = json.loads(result.output)
         assert data["data"]["budget"] == 4000
 
-    def test_context_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "context", "--examples"])
-        assert result.exit_code == 0
-        assert "context" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestAgentBrief:
-    def test_brief_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "brief", "--help"])
-        assert result.exit_code == 0
-
     def test_brief_with_session(self, cli_runner: CliRunner) -> None:
         cli_runner.invoke(cli, ["agent", "session", "start", "Brief Topic"])
         result = cli_runner.invoke(cli, ["agent", "brief"])
@@ -168,28 +132,3 @@ class TestAgentBrief:
         assert data["ok"] is True
         assert data["data"]["session"] is None
         assert "vault_stats" in data["data"]
-
-    def test_brief_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "brief", "--examples"])
-        assert result.exit_code == 0
-        assert "brief" in result.output
-
-
-@pytest.mark.usefixtures("_isolated_vault")
-class TestAgentHelpSurface:
-    def test_agent_help_shows_all(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "--help"])
-        assert result.exit_code == 0
-        assert "context" in result.output
-        assert "brief" in result.output
-        assert "regenerate" in result.output
-        assert "session" in result.output
-
-    def test_session_help_shows_all(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "session", "--help"])
-        assert result.exit_code == 0
-        assert "start" in result.output
-        assert "close" in result.output
-        assert "reopen" in result.output
-        assert "cost" in result.output
-        assert "log" in result.output

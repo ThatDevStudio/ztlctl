@@ -1,47 +1,39 @@
-"""Tests for domain type enums."""
+"""Tests for domain type enums — parametrized."""
+
+import pytest
 
 from ztlctl.domain.types import ContentType, NoteSubtype, RefSubtype, Space
 
-
-class TestContentType:
-    def test_members(self) -> None:
-        assert set(ContentType) == {
-            ContentType.NOTE,
-            ContentType.REFERENCE,
-            ContentType.LOG,
-            ContentType.TASK,
-        }
-
-    def test_values(self) -> None:
-        assert ContentType.NOTE.value == "note"
-        assert ContentType.REFERENCE.value == "reference"
-        assert ContentType.LOG.value == "log"
-        assert ContentType.TASK.value == "task"
-
-    def test_str_enum(self) -> None:
-        assert ContentType.NOTE == "note"
-        assert isinstance(ContentType.NOTE, str)
-
-
-class TestNoteSubtype:
-    def test_members(self) -> None:
-        assert set(NoteSubtype) == {NoteSubtype.DECISION, NoteSubtype.KNOWLEDGE}
-
-    def test_values(self) -> None:
-        assert NoteSubtype.DECISION.value == "decision"
-        assert NoteSubtype.KNOWLEDGE.value == "knowledge"
+ENUM_CASES = [
+    (
+        ContentType,
+        {"note", "reference", "log", "task"},
+    ),
+    (
+        NoteSubtype,
+        {"decision", "knowledge"},
+    ),
+    (
+        RefSubtype,
+        {"article", "tool", "spec"},
+    ),
+    (
+        Space,
+        {"self", "notes", "ops"},
+    ),
+]
 
 
-class TestRefSubtype:
-    def test_members(self) -> None:
-        assert set(RefSubtype) == {RefSubtype.ARTICLE, RefSubtype.TOOL, RefSubtype.SPEC}
-
-
-class TestSpace:
-    def test_members(self) -> None:
-        assert set(Space) == {Space.SELF, Space.NOTES, Space.OPS}
-
-    def test_values(self) -> None:
-        assert Space.SELF.value == "self"
-        assert Space.NOTES.value == "notes"
-        assert Space.OPS.value == "ops"
+@pytest.mark.parametrize(
+    "enum_cls,expected_values",
+    ENUM_CASES,
+    ids=[cls.__name__ for cls, _ in ENUM_CASES],
+)
+def test_enum_members_and_values(enum_cls: type, expected_values: set[str]) -> None:
+    """Each StrEnum has the expected members with matching string values."""
+    actual_values = {e.value for e in enum_cls}
+    assert actual_values == expected_values
+    # StrEnum members compare equal to their string value
+    for member in enum_cls:
+        assert member == member.value
+        assert isinstance(member, str)

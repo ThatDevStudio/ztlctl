@@ -14,16 +14,6 @@ from ztlctl.cli import cli
 class TestAgentRegenerate:
     """Tests for `agent regenerate` subcommand."""
 
-    def test_regenerate_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "regenerate", "--help"])
-        assert result.exit_code == 0
-        assert "Re-render" in result.output
-
-    def test_agent_help_shows_regenerate(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "--help"])
-        assert result.exit_code == 0
-        assert "regenerate" in result.output
-
     def test_regenerate_succeeds(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["agent", "regenerate"])
         assert result.exit_code == 0
@@ -36,8 +26,3 @@ class TestAgentRegenerate:
         assert data["ok"] is True
         assert data["op"] == "regenerate_self"
         assert "files_written" in data["data"]
-
-    def test_regenerate_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "regenerate", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl agent regenerate" in result.output

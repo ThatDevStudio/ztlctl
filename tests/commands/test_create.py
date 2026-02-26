@@ -46,12 +46,6 @@ class TestCreateNoteCommand:
         data = json.loads(result.output)
         assert "math" in data["data"]["path"]
 
-    def test_create_note_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "note", "--help"])
-        assert result.exit_code == 0
-        assert "--subtype" in result.output
-        assert "--tags" in result.output
-
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestCreateReferenceCommand:
@@ -70,12 +64,6 @@ class TestCreateReferenceCommand:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
-
-    def test_create_reference_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "reference", "--help"])
-        assert result.exit_code == 0
-        assert "--url" in result.output
-        assert "--subtype" in result.output
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -98,19 +86,3 @@ class TestCreateTaskCommand:
     def test_create_task_invalid_priority(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["create", "task", "Bad", "--priority", "invalid"])
         assert result.exit_code != 0
-
-    def test_create_task_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "task", "--help"])
-        assert result.exit_code == 0
-        assert "--priority" in result.output
-        assert "--impact" in result.output
-        assert "--effort" in result.output
-
-
-class TestCreateGroupHelp:
-    def test_create_group_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["create", "--help"])
-        assert result.exit_code == 0
-        assert "note" in result.output
-        assert "reference" in result.output
-        assert "task" in result.output

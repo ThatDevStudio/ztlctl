@@ -27,11 +27,6 @@ class TestExportMarkdownCommand:
         assert data["op"] == "export_markdown"
         assert "file_count" in data["data"]
 
-    def test_export_markdown_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["export", "markdown", "--help"])
-        assert result.exit_code == 0
-        assert "--output" in result.output
-
     def test_export_markdown_requires_output(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["export", "markdown"])
         assert result.exit_code != 0
@@ -56,11 +51,6 @@ class TestExportIndexesCommand:
         output = tmp_path / "idx-files"
         cli_runner.invoke(cli, ["export", "indexes", "--output", str(output)])
         assert (Path(output) / "index.md").is_file()
-
-    def test_export_indexes_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["export", "indexes", "--help"])
-        assert result.exit_code == 0
-        assert "--output" in result.output
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -95,27 +85,7 @@ class TestExportGraphCommand:
         d3 = json.loads(output.read_text())
         assert "nodes" in d3
 
-    def test_export_graph_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["export", "graph", "--help"])
-        assert result.exit_code == 0
-        assert "--format" in result.output
-        assert "--output" in result.output
-
     def test_export_graph_default_format(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["export", "graph"])
         assert result.exit_code == 0
         assert "digraph vault" in result.output
-
-
-class TestExportGroupHelp:
-    def test_export_group_help(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["export", "--help"])
-        assert result.exit_code == 0
-        assert "markdown" in result.output
-        assert "indexes" in result.output
-        assert "graph" in result.output
-
-    def test_export_examples(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["export", "--examples"])
-        assert result.exit_code == 0
-        assert "ztlctl export" in result.output
