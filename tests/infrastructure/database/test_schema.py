@@ -84,6 +84,36 @@ class TestNodesTable:
         assert required.issubset(columns)
 
 
+class TestServerDefaults:
+    """schema.py columns with default= must also have server_default for DDL parity."""
+
+    def test_nodes_server_defaults(self) -> None:
+        engine = _in_memory_engine()
+        cols = {c["name"]: c for c in inspect(engine).get_columns("nodes")}
+        assert cols["archived"]["default"] is not None
+        assert cols["degree_in"]["default"] is not None
+        assert cols["degree_out"]["default"] is not None
+        assert cols["pagerank"]["default"] is not None
+        assert cols["betweenness"]["default"] is not None
+
+    def test_edges_server_defaults(self) -> None:
+        engine = _in_memory_engine()
+        cols = {c["name"]: c for c in inspect(engine).get_columns("edges")}
+        assert cols["edge_type"]["default"] is not None
+        assert cols["weight"]["default"] is not None
+
+    def test_id_counters_server_default(self) -> None:
+        engine = _in_memory_engine()
+        cols = {c["name"]: c for c in inspect(engine).get_columns("id_counters")}
+        assert cols["next_value"]["default"] is not None
+
+    def test_session_logs_server_defaults(self) -> None:
+        engine = _in_memory_engine()
+        cols = {c["name"]: c for c in inspect(engine).get_columns("session_logs")}
+        assert cols["cost"]["default"] is not None
+        assert cols["pinned"]["default"] is not None
+
+
 class TestEdgesTable:
     def test_unique_constraint(self) -> None:
         engine = _in_memory_engine()

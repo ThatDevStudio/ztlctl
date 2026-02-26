@@ -311,6 +311,16 @@ class TestLogEntry:
             assert row is not None
             assert row.type == "decision_made"
 
+    def test_log_entry_jsonl_reflects_entry_type(self, vault: Vault) -> None:
+        """JSONL entry type must match the entry_type parameter."""
+        data = start_session(vault, "Type Sync Test")
+        SessionService(vault).log_entry("Made a call", entry_type="decision_made")
+
+        path = vault.root / data["path"]
+        lines = path.read_text(encoding="utf-8").strip().split("\n")
+        entry = json.loads(lines[1])  # index 0 is session_start
+        assert entry["type"] == "decision_made"
+
     def test_log_entry_checkpoint_subtype(self, vault: Vault) -> None:
         start_session(vault, "Checkpoint Test")
         result = SessionService(vault).log_entry(
@@ -728,3 +738,16 @@ class TestExtractDecision:
                 )
             ).first()
             assert edge is not None
+
+    def test_extract_decision_matches_on_type(self, vault: Vault) -> None:
+        """extract_decision finds entries by type='decision_made' in JSONL."""
+        data = start_session(vault, "Type Match")
+        svc = SessionService(vault)
+        svc.log_entry("Decision via type", entry_type="decision_made")
+        svc.log_entry("Regular note")
+        svc.close()
+
+        result = svc.extract_decision(data["id"])
+        assert result.ok
+        # Should pick up only the decision_made entry (not regular, not start/close)
+        assert result.data["entries_extracted"] == 1

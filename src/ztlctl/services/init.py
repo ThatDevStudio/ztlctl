@@ -122,6 +122,7 @@ class InitService:
             )
 
         files_created: list[str] = []
+        warnings: list[str] = []
 
         # 2. CREATE STRUCTURE
         dirs = [
@@ -152,8 +153,8 @@ class InitService:
             from ztlctl.infrastructure.database.migrations import stamp_head
 
             stamp_head(vault_path)
-        except Exception:
-            pass  # Non-fatal; ztlctl upgrade will handle
+        except Exception as exc:
+            warnings.append(f"Alembic stamp failed ({exc}); run 'ztlctl upgrade' to fix")
 
         # 5. RENDER SELF
         created = today_iso()
@@ -193,6 +194,7 @@ class InitService:
                 "topics": topics,
                 "files_created": files_created,
             },
+            warnings=warnings,
         )
 
     @staticmethod
