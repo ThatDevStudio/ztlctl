@@ -1,19 +1,21 @@
 """GraphService — graph traversal and analysis algorithms.
 
-Six read-only algorithms via NetworkX computed on the lazy-built DiGraph.
+Six read-only algorithms via NetworkX computed on the lazy-built DiGraph,
+plus ``unlink()`` for removing specific links between nodes.
 Uses ``self._vault.graph.graph`` to access the graph (triggers lazy build).
-(DESIGN.md Section 3)
+(DESIGN.md Section 3, 5)
 """
 
 from __future__ import annotations
 
 import math
+import re
 from collections import deque
 from typing import Any
 
 import networkx as nx
 
-from ztlctl.infrastructure.database.schema import nodes
+from ztlctl.infrastructure.database.schema import edges, nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import trace_span, traced
@@ -406,6 +408,153 @@ class GraphService(BaseService):
 
     # ------------------------------------------------------------------
     # materialize_metrics — persist graph metrics to the nodes table
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # unlink — remove specific links (DESIGN.md Section 5)
+    # ------------------------------------------------------------------
+
+    @traced
+    def unlink(self, source_id: str, target_id: str) -> ServiceResult:
+        """Remove all links between *source_id* and *target_id*.
+
+        Removes edges from DB, frontmatter link entries, and body
+        wikilinks. Respects garden note protection (maturity set →
+        body not modified). Re-indexes FTS5 if body was changed.
+        """
+        op = "unlink"
+        warnings: list[str] = []
+
+        with self._vault.transaction() as txn:
+            # Verify both nodes exist
+            source = txn.conn.execute(nodes.select().where(nodes.c.id == source_id)).first()
+            if source is None:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NOT_FOUND",
+                        message=f"Source node not found: {source_id}",
+                    ),
+                )
+
+            target = txn.conn.execute(nodes.select().where(nodes.c.id == target_id)).first()
+            if target is None:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NOT_FOUND",
+                        message=f"Target node not found: {target_id}",
+                    ),
+                )
+
+            # -- Remove DB edges (both directions) --
+            with trace_span("remove_edges") as span:
+                result = txn.conn.execute(
+                    edges.delete().where(
+                        edges.c.source_id == source_id,
+                        edges.c.target_id == target_id,
+                    )
+                )
+                removed = result.rowcount
+
+                # Also remove reverse direction
+                result_rev = txn.conn.execute(
+                    edges.delete().where(
+                        edges.c.source_id == target_id,
+                        edges.c.target_id == source_id,
+                    )
+                )
+                removed += result_rev.rowcount
+
+                if span:
+                    span.annotate("edges_removed", removed)
+
+            if removed == 0:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NO_LINK",
+                        message=f"No link found between {source_id} and {target_id}",
+                    ),
+                )
+
+            # -- Update source file (frontmatter + body) --
+            with trace_span("update_source_file"):
+                self._remove_link_from_file(txn, source, target_id, str(target.title), warnings)
+
+            # -- Update target file (reverse frontmatter + body) --
+            with trace_span("update_target_file"):
+                self._remove_link_from_file(txn, target, source_id, str(source.title), warnings)
+
+        return ServiceResult(
+            ok=True,
+            op=op,
+            data={
+                "source_id": source_id,
+                "target_id": target_id,
+                "edges_removed": removed,
+            },
+            warnings=warnings,
+        )
+
+    def _remove_link_from_file(
+        self,
+        txn: Any,
+        node_row: Any,
+        other_id: str,
+        other_title: str,
+        warnings: list[str],
+    ) -> None:
+        """Remove references to *other_id* from a node's file content."""
+        file_path = self._vault.root / node_row.path
+        if not file_path.exists():
+            return
+
+        fm, body = txn.read_content(file_path)
+        changed = False
+
+        # Remove from frontmatter links
+        links: dict[str, list[str]] = fm.get("links", {})
+        for edge_type in list(links.keys()):
+            targets = links[edge_type]
+            if other_id in targets:
+                targets.remove(other_id)
+                changed = True
+            if not targets:
+                del links[edge_type]
+        if links:
+            fm["links"] = links
+        elif "links" in fm:
+            del fm["links"]
+
+        # Remove body wikilinks (unless garden note)
+        maturity = fm.get("maturity")
+        if maturity is not None:
+            warnings.append(
+                f"Body wikilinks preserved for garden note {node_row.id} (maturity={maturity})"
+            )
+        else:
+            # Remove [[other_id]], [[other_id|display]], [[other_title]],
+            # [[other_title|display]]
+            targets_to_remove = {other_id, other_title}
+            pattern = re.compile(
+                r"\[\[(" + "|".join(re.escape(t) for t in targets_to_remove) + r")(?:\|[^\]]+)?\]\]"
+            )
+            new_body = pattern.sub("", body)
+            if new_body != body:
+                body = new_body
+                changed = True
+
+        if changed:
+            txn.write_content(file_path, fm, body)
+            # Re-index FTS5
+            txn.upsert_fts(str(node_row.id), str(node_row.title), body)
+
+    # ------------------------------------------------------------------
+    # materialize_metrics — compute and store graph metrics
     # ------------------------------------------------------------------
 
     @traced

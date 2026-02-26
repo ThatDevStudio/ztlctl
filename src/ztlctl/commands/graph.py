@@ -19,6 +19,7 @@ _GRAPH_EXAMPLES = """\
   ztlctl graph path ztl_abc12345 ztl_def67890
   ztlctl graph gaps
   ztlctl graph bridges --top 5
+  ztlctl graph unlink ztl_abc12345 ztl_def67890
   ztlctl graph materialize"""
 
 
@@ -102,6 +103,19 @@ def gaps(app: AppContext, top: int) -> None:
 def bridges(app: AppContext, top: int) -> None:
     """Find bridge nodes via betweenness centrality."""
     app.emit(GraphService(app.vault).bridges(top=top))
+
+
+@graph.command(
+    examples="""\
+  ztlctl graph unlink ztl_abc12345 ztl_def67890
+  ztlctl --json graph unlink TASK-0001 ref_abc12345"""
+)
+@click.argument("source_id")
+@click.argument("target_id")
+@click.pass_obj
+def unlink(app: AppContext, source_id: str, target_id: str) -> None:
+    """Remove links between two nodes."""
+    app.emit(GraphService(app.vault).unlink(source_id, target_id))
 
 
 @graph.command(
