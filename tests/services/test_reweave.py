@@ -247,6 +247,21 @@ class TestFilter:
         max_links = vault.settings.reweave.max_links_per_note
         assert result.data["count"] <= max_links
 
+    def test_min_score_override(self, vault: Vault) -> None:
+        """min_score_override lowers the filter threshold."""
+        data_a = create_note(vault, "Override Threshold Test")
+        create_note(vault, "Slightly Related Content", tags=["testing"])
+
+        svc = ReweaveService(vault)
+        # With default threshold, run dry
+        default_result = svc.reweave(content_id=data_a["id"], dry_run=True)
+        assert default_result.ok
+
+        # With very low threshold (0.0), should get at least as many suggestions
+        low_result = svc.reweave(content_id=data_a["id"], dry_run=True, min_score_override=0.0)
+        assert low_result.ok
+        assert low_result.data["count"] >= default_result.data["count"]
+
     def test_already_at_max_links(self, vault: Vault) -> None:
         """Returns empty suggestions if node is already at max links."""
         data = create_note(vault, "Full Node")

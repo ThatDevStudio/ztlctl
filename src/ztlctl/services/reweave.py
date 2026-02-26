@@ -35,6 +35,7 @@ class ReweaveService(BaseService):
         *,
         content_id: str | None = None,
         dry_run: bool = False,
+        min_score_override: float | None = None,
     ) -> ServiceResult:
         """Run reweave on a specific item or the latest creation.
 
@@ -99,7 +100,11 @@ class ReweaveService(BaseService):
 
             # -- FILTER --
             with trace_span("filter") as span:
-                threshold = cfg.min_score_threshold
+                threshold = (
+                    min_score_override
+                    if min_score_override is not None
+                    else cfg.min_score_threshold
+                )
                 max_new = cfg.max_links_per_note - len(existing_targets)
                 if max_new <= 0:
                     return ServiceResult(

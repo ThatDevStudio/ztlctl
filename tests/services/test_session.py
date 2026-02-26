@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from sqlalchemy import select
 
 from tests.conftest import create_note, create_task, start_session
 from ztlctl.infrastructure.database.schema import nodes, session_logs
 from ztlctl.infrastructure.vault import Vault
+from ztlctl.services.result import ServiceResult
 from ztlctl.services.session import SessionService
 
 # ---------------------------------------------------------------------------
@@ -164,6 +166,27 @@ class TestSessionCloseDisabled:
         assert result.ok
         assert result.data["reweave_count"] == 0
         assert result.data["orphan_count"] == 0
+
+    def test_orphan_sweep_uses_lower_threshold(self, vault: Vault) -> None:
+        """Orphan sweep passes orphan_reweave_threshold to ReweaveService."""
+        start_session(vault, "Orphan Threshold Test")
+        # Create an orphan note (no links to anything)
+        create_note(vault, "Lonely Note")
+
+        expected_threshold = vault.settings.session.orphan_reweave_threshold
+
+        with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
+            mock_cls.return_value.reweave.return_value = ServiceResult(
+                ok=True, op="reweave", data={"count": 0, "suggestions": []}
+            )
+            SessionService(vault).close()
+
+            # Verify orphan sweep called reweave with the lower threshold
+            calls = mock_cls.return_value.reweave.call_args_list
+            orphan_calls = [c for c in calls if c.kwargs.get("min_score_override") is not None]
+            assert len(orphan_calls) > 0
+            for call in orphan_calls:
+                assert call.kwargs["min_score_override"] == expected_threshold
 
 
 # ---------------------------------------------------------------------------

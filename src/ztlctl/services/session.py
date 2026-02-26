@@ -598,6 +598,8 @@ class SessionService(BaseService):
         from ztlctl.services.reweave import ReweaveService
 
         count = 0
+        orphan_threshold = self._vault.settings.session.orphan_reweave_threshold
+
         with self._vault.engine.connect() as conn:
             # Find notes with 0 outgoing edges
             all_notes = conn.execute(
@@ -617,7 +619,7 @@ class SessionService(BaseService):
 
         svc = ReweaveService(self._vault)
         for orphan_id in orphans:
-            result = svc.reweave(content_id=orphan_id)
+            result = svc.reweave(content_id=orphan_id, min_score_override=orphan_threshold)
             if result.ok:
                 count += result.data.get("count", 0)
             else:
