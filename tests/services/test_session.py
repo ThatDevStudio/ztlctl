@@ -560,3 +560,54 @@ class TestContext:
         entries = result.data["layers"]["log_entries"]
         pinned = [e for e in entries if e.get("pinned")]
         assert len(pinned) >= 1
+
+
+# ---------------------------------------------------------------------------
+# brief()
+# ---------------------------------------------------------------------------
+
+
+class TestBrief:
+    def test_brief_no_session(self, vault: Vault) -> None:
+        """Brief returns ok=True even without an active session."""
+        result = SessionService(vault).brief()
+        assert result.ok
+        assert result.op == "brief"
+        assert result.data["session"] is None
+        assert "vault_stats" in result.data
+
+    def test_brief_with_session(self, vault: Vault) -> None:
+        data = start_session(vault, "Brief Test")
+        result = SessionService(vault).brief()
+        assert result.ok
+        assert result.data["session"] is not None
+        assert result.data["session"]["session_id"] == data["id"]
+        assert result.data["session"]["topic"] == "Brief Test"
+
+    def test_brief_vault_stats(self, vault: Vault) -> None:
+        """Vault stats reflect created content types."""
+        create_note(vault, "Note One")
+        create_note(vault, "Note Two")
+        create_task(vault, "Task One")
+
+        result = SessionService(vault).brief()
+        assert result.ok
+        stats = result.data["vault_stats"]
+        assert stats.get("note") == 2
+        assert stats.get("task") == 1
+
+    def test_brief_recent_decisions(self, vault: Vault) -> None:
+        create_note(vault, "Use Postgres", subtype="decision")
+        create_note(vault, "Use Redis", subtype="decision")
+
+        result = SessionService(vault).brief()
+        assert result.ok
+        decisions = result.data["recent_decisions"]
+        assert len(decisions) == 2
+
+    def test_brief_work_queue_count(self, vault: Vault) -> None:
+        create_task(vault, "Do something", priority="high")
+
+        result = SessionService(vault).brief()
+        assert result.ok
+        assert result.data["work_queue_count"] >= 1

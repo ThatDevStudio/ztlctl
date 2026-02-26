@@ -520,6 +520,56 @@ class SessionService(BaseService):
             warnings=warnings,
         )
 
+    def brief(self) -> ServiceResult:
+        """Quick orientation: active session, vault stats, recent decisions, work queue."""
+        op = "brief"
+        warnings: list[str] = []
+
+        # Active session (optional — brief works without one)
+        session_data: dict[str, Any] | None = None
+        with self._vault.engine.connect() as conn:
+            active = conn.execute(
+                select(nodes)
+                .where(nodes.c.type == "log", nodes.c.status == "open")
+                .order_by(nodes.c.created.desc())
+                .limit(1)
+            ).first()
+            if active is not None:
+                session_data = {
+                    "session_id": str(active.id),
+                    "topic": str(active.topic or ""),
+                    "status": str(active.status),
+                    "started": str(active.created),
+                }
+
+            # Vault stats: type counts for non-archived nodes
+            from sqlalchemy import func
+
+            type_rows = conn.execute(
+                select(nodes.c.type, func.count(nodes.c.id).label("cnt"))
+                .where(nodes.c.archived == 0)
+                .group_by(nodes.c.type)
+            ).fetchall()
+            vault_stats = {str(r.type): int(r.cnt) for r in type_rows}
+
+        # Recent decisions
+        decisions = self._context_recent_decisions(warnings)
+
+        # Work queue count
+        work_items = self._context_work_queue(warnings)
+
+        return ServiceResult(
+            ok=True,
+            op=op,
+            data={
+                "session": session_data,
+                "vault_stats": vault_stats,
+                "recent_decisions": decisions,
+                "work_queue_count": len(work_items),
+            },
+            warnings=warnings,
+        )
+
     # ------------------------------------------------------------------
     # Context assembly helpers
     # ------------------------------------------------------------------
