@@ -147,6 +147,14 @@ class InitService:
         init_database(vault_path)
         files_created.append(".ztlctl/ztlctl.db")
 
+        # 4b. STAMP ALEMBIC VERSION
+        try:
+            from ztlctl.infrastructure.database.migrations import stamp_head
+
+            stamp_head(vault_path)
+        except Exception:
+            pass  # Non-fatal; ztlctl upgrade will handle
+
         # 5. RENDER SELF
         created = today_iso()
         rendered = _render_self_files(
