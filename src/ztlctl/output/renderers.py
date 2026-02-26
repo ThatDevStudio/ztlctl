@@ -690,6 +690,7 @@ _OP_RENDERERS: dict[str, Any] = {
     "cost": _render_cost,
     "context": _render_context,
     "brief": _render_brief,
+    "extract_decision": _render_mutation,
     # Reweave
     "reweave": _render_reweave,
     "prune": _render_reweave,

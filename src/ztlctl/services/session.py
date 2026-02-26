@@ -570,6 +570,141 @@ class SessionService(BaseService):
             warnings=warnings,
         )
 
+    def extract_decision(self, session_id: str, *, title: str | None = None) -> ServiceResult:
+        """Extract a decision note from a session log's pinned/decision entries."""
+        op = "extract_decision"
+        warnings: list[str] = []
+
+        # Find the session node
+        with self._vault.engine.connect() as conn:
+            session_row = conn.execute(
+                select(nodes).where(nodes.c.id == session_id, nodes.c.type == "log")
+            ).first()
+
+        if session_row is None:
+            return ServiceResult(
+                ok=False,
+                op=op,
+                error=ServiceError(
+                    code="NOT_FOUND",
+                    message=f"No session found with ID: {session_id}",
+                ),
+            )
+
+        # Read the JSONL file and collect entries
+        file_path = self._vault.root / session_row.path
+        if not file_path.exists():
+            return ServiceResult(
+                ok=False,
+                op=op,
+                error=ServiceError(
+                    code="FILE_NOT_FOUND",
+                    message=f"Session log file not found: {session_row.path}",
+                ),
+            )
+
+        raw_lines = file_path.read_text(encoding="utf-8").strip().split("\n")
+        all_entries: list[dict[str, Any]] = []
+        for line in raw_lines:
+            if line.strip():
+                all_entries.append(json.loads(line))
+
+        # Collect pinned and decision-type entries
+        pinned = [
+            e
+            for e in all_entries
+            if e.get("pinned") or e.get("type") in ("decision_made", "decision")
+        ]
+        entries = pinned if pinned else all_entries
+
+        # Build decision body from entries
+        session_topic = str(session_row.topic or "unknown")
+        decision_title = title or f"Decision: {session_topic}"
+
+        body_lines = [f"## Extracted from {session_id}\n"]
+        for entry in entries:
+            ts = entry.get("timestamp", "")
+            msg = entry.get("message") or entry.get("summary") or entry.get("topic", "")
+            entry_type = entry.get("type", "")
+            if msg:
+                body_lines.append(f"- **[{ts}]** ({entry_type}) {msg}")
+        body_lines.append("")
+        extracted_body = "\n".join(body_lines)
+
+        # Create the decision note via pipeline (gets ID, indexing, frontmatter)
+        from ztlctl.services.create import CreateService
+
+        create_result = CreateService(self._vault).create_note(
+            decision_title, subtype="decision", topic=session_topic
+        )
+        if not create_result.ok:
+            return ServiceResult(
+                ok=False,
+                op=op,
+                error=create_result.error,
+                warnings=warnings,
+            )
+
+        # Overwrite the template body with extracted content
+        note_path = self._vault.root / create_result.data["path"]
+        from ztlctl.infrastructure.filesystem import read_content_file, write_content_file
+
+        fm, _template_body = read_content_file(note_path)
+        write_content_file(note_path, fm, extracted_body)
+
+        # Update FTS5 body to match
+        from sqlalchemy import text as sa_text
+
+        note_id = create_result.data["id"]
+        with self._vault.transaction() as txn:
+            txn.conn.execute(
+                sa_text("DELETE FROM nodes_fts WHERE id = :id"),
+                {"id": note_id},
+            )
+            txn.conn.execute(
+                sa_text("INSERT INTO nodes_fts(id, title, body) VALUES (:id, :title, :body)"),
+                {"id": note_id, "title": decision_title, "body": extracted_body},
+            )
+
+        # Link decision to session
+        from ztlctl.services._helpers import today_iso
+
+        with self._vault.transaction() as txn:
+            txn.conn.execute(
+                insert(edges).values(
+                    source_id=note_id,
+                    target_id=session_id,
+                    edge_type="derived_from",
+                    source_layer="extract",
+                    weight=1.0,
+                    created=today_iso(),
+                )
+            )
+
+        self._dispatch_event(
+            "post_extract_decision",
+            {
+                "decision_id": note_id,
+                "session_id": session_id,
+                "entries_used": len(entries),
+            },
+            warnings,
+        )
+
+        return ServiceResult(
+            ok=True,
+            op=op,
+            data={
+                "id": note_id,
+                "path": create_result.data["path"],
+                "title": decision_title,
+                "type": "note",
+                "session_id": session_id,
+                "entries_extracted": len(entries),
+            },
+            warnings=warnings,
+        )
+
     # ------------------------------------------------------------------
     # Context assembly helpers
     # ------------------------------------------------------------------

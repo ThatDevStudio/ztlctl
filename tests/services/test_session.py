@@ -611,3 +611,120 @@ class TestBrief:
         result = SessionService(vault).brief()
         assert result.ok
         assert result.data["work_queue_count"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# extract_decision()
+# ---------------------------------------------------------------------------
+
+
+class TestExtractDecision:
+    def test_extract_basic(self, vault: Vault) -> None:
+        """Extract creates a decision note from session log entries."""
+        data = start_session(vault, "Design Review")
+        svc = SessionService(vault)
+        svc.log_entry("Considered option A", pin=True)
+        svc.log_entry("Considered option B", pin=True)
+        svc.log_entry("Minor note")
+        svc.close()
+
+        result = svc.extract_decision(data["id"])
+        assert result.ok
+        assert result.op == "extract_decision"
+        assert result.data["id"].startswith("ztl_")
+        assert result.data["session_id"] == data["id"]
+        assert result.data["entries_extracted"] == 2  # only pinned
+
+    def test_extract_auto_title(self, vault: Vault) -> None:
+        """Title auto-derived from session topic."""
+        data = start_session(vault, "Auth Architecture")
+        svc = SessionService(vault)
+        svc.log_entry("Key finding", pin=True)
+        svc.close()
+
+        result = svc.extract_decision(data["id"])
+        assert result.ok
+        assert result.data["title"] == "Decision: Auth Architecture"
+
+    def test_extract_custom_title(self, vault: Vault) -> None:
+        data = start_session(vault, "DB Choice")
+        svc = SessionService(vault)
+        svc.log_entry("Use Postgres", pin=True)
+        svc.close()
+
+        result = svc.extract_decision(data["id"], title="Use Postgres for persistence")
+        assert result.ok
+        assert result.data["title"] == "Use Postgres for persistence"
+
+    def test_extract_pinned_entries_only(self, vault: Vault) -> None:
+        """Only pinned entries appear in the body when pins exist."""
+        data = start_session(vault, "Pin Filter")
+        svc = SessionService(vault)
+        svc.log_entry("Pinned entry", pin=True)
+        svc.log_entry("Unpinned entry")
+        svc.close()
+
+        result = svc.extract_decision(data["id"])
+        assert result.ok
+
+        # Read the created note body
+        note_path = vault.root / result.data["path"]
+        body = note_path.read_text(encoding="utf-8")
+        assert "Pinned entry" in body
+        assert "Unpinned entry" not in body
+
+    def test_extract_all_entries_when_no_pins(self, vault: Vault) -> None:
+        """All entries included when no pinned entries exist."""
+        data = start_session(vault, "No Pins")
+        svc = SessionService(vault)
+        svc.log_entry("Entry one")
+        svc.log_entry("Entry two")
+        svc.close()
+
+        result = svc.extract_decision(data["id"])
+        assert result.ok
+        # All entries used (start + 2 log + close = 4)
+        assert result.data["entries_extracted"] == 4
+
+    def test_extract_session_not_found(self, vault: Vault) -> None:
+        result = SessionService(vault).extract_decision("LOG-9999")
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "NOT_FOUND"
+
+    def test_extract_creates_decision_subtype(self, vault: Vault) -> None:
+        """Created note has subtype=decision in the DB."""
+        data = start_session(vault, "Subtype Check")
+        svc = SessionService(vault)
+        svc.log_entry("Decision content", pin=True)
+        svc.close()
+
+        result = svc.extract_decision(data["id"])
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes).where(nodes.c.id == result.data["id"])).first()
+            assert row is not None
+            assert row.subtype == "decision"
+
+    def test_extract_creates_edge_to_session(self, vault: Vault) -> None:
+        """Decision note links to the session via derived_from edge."""
+        data = start_session(vault, "Edge Check")
+        svc = SessionService(vault)
+        svc.log_entry("Content", pin=True)
+        svc.close()
+
+        result = svc.extract_decision(data["id"])
+        assert result.ok
+
+        from ztlctl.infrastructure.database.schema import edges
+
+        with vault.engine.connect() as conn:
+            edge = conn.execute(
+                select(edges).where(
+                    edges.c.source_id == result.data["id"],
+                    edges.c.target_id == data["id"],
+                    edges.c.edge_type == "derived_from",
+                )
+            ).first()
+            assert edge is not None
