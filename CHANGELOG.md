@@ -4,3 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## v1.0.0 (2026-02-26)
+
+### Feat
+
+- ztlctl v0.1.0 — initial release with full CLI, services, and MCP adapter (#49)
+
+## v0.1.0 (2026-02-24)
+
+### Feat
+
+- Project skeleton
+- init commit
