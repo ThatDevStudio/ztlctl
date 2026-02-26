@@ -389,7 +389,7 @@ def should_modify_body(note) -> bool:
 - `--undo` reverses via audit trail (`reweave_log` table)
 - `--no-reweave` skips on any creation command
 
-> **Implementation note (Phase 3+4):** ReweaveService implements `reweave()`, `prune()`, and `undo()`. All four scoring signals are implemented with configurable weights from `ReweaveConfig`. Garden note protection is enforced — body wikilinks are never added to notes with `maturity` set, but frontmatter `links.relates` entries are still added. The `reweave_log` table tracks all add/remove actions with timestamps for undo support. Undo can target a specific reweave ID (`--undo-id N`) or the most recent batch (`--undo`). CLI flags `--dry-run`, `--prune`, `--undo`, `--undo-id`, and `--id` are all implemented. Interactive confirmation is deferred to Phase 5 (Lifecycle).
+> **Implementation note (Phase 3+4):** ReweaveService implements `reweave()`, `prune()`, and `undo()`. All four scoring signals are implemented with configurable weights from `ReweaveConfig`. Garden note protection is enforced — body wikilinks are never added to notes with `maturity` set, but frontmatter `links.relates` entries are still added. The `reweave_log` table tracks all add/remove actions with timestamps for undo support. Undo can target a specific reweave ID (`--undo-id N`) or the most recent batch (`--undo`). CLI flags `--dry-run`, `--prune`, `--undo`, `--undo-id`, and `--id` are all implemented. Interactive confirmation implemented (Phase 5): preview → display table → `click.confirm()` → apply.
 
 ---
 
@@ -534,7 +534,7 @@ Shared across all content-returning commands:
 --sort relevance|recency|graph|priority
 ```
 
-> **Implementation note (Phase 4):** The `list` command implements all core filters: `--type`, `--status`, `--tag`, `--topic`, `--subtype`, `--maturity`, `--since`, `--include-archived`, `--sort` (recency|title|type|priority), and `--limit`. Priority sort scores tasks using the existing weighted formula (priority×2 + impact×1.5 + (4−effort)), sorts in Python after DB fetch, and applies limit post-sort. The `search` command implements `--type`, `--tag`, `--rank-by` (relevance|recency), and `--limit`. Remaining: `--space` filter and `graph` sort mode (BM25 × PageRank) are deferred to Phase 5 when materialized graph metrics are available.
+> **Implementation note (Phase 4+5):** The `list` command implements all core filters: `--type`, `--status`, `--tag`, `--topic`, `--subtype`, `--maturity`, `--since`, `--include-archived`, `--space`, `--sort` (recency|title|type|priority), and `--limit`. Priority sort scores tasks using the existing weighted formula (priority×2 + impact×1.5 + (4−effort)), sorts in Python after DB fetch, and applies limit post-sort. The `search` command implements `--type`, `--tag`, `--space`, `--rank-by` (relevance|recency|graph), and `--limit`. The `--space` filter is shared across search, list, work-queue, and decision-support (Phase 5). The `graph` ranking mode multiplies BM25 scores by materialized PageRank values (Phase 5). The `recency` ranking uses BM25 × exponential time-decay with configurable `half_life_days` (Phase 5).
 
 ### Agent Context Protocol
 
@@ -595,7 +595,7 @@ The `--ignore-checkpoints` flag reads full history when needed.
   - `recency`: BM25 × time decay
 - **Semantic search:** Optional, feature-flagged (`[search] semantic_enabled = false`)
 
-> **Implementation note (Phase 3):** Search supports `--rank-by relevance|recency`. The `relevance` mode uses raw BM25 ordering. The `recency` mode orders by `modified DESC`. The `graph` ranking mode (BM25 × PageRank) is deferred to Phase 5 when materialized graph metrics are computed. Time-decay weighting for recency is also a Phase 5 enhancement.
+> **Implementation note (Phase 3+5):** Search supports `--rank-by relevance|recency|graph`. The `relevance` mode uses raw BM25 ordering. The `recency` mode applies BM25 × exponential time-decay (`exp(-age_days * ln2 / half_life_days)`) with configurable `half_life_days` in SearchConfig (Phase 5). The `graph` mode multiplies BM25 by materialized PageRank values from the nodes table (Phase 5). `GraphService.materialize_metrics()` computes and persists PageRank, degree centrality, and betweenness to the nodes table. `ztlctl graph materialize` triggers on demand; `ztlctl check --rebuild` also refreshes metrics.
 
 ---
 
@@ -1382,11 +1382,11 @@ Decisions made during the design process (CONV-0017):
 |----|---------|----------|--------|-------|
 | BL-0019 | Content Model (F1) | high | **done** | Types, spaces, IDs, lifecycle, ContentModel hierarchy, validation, registry |
 | BL-0020 | Graph Architecture (F2) | high | **done** | 6 algorithms (related, themes, rank, path, gaps, bridges), CLI subcommands, node attribute loading |
-| BL-0021 | Create Pipeline (F3) | high | **done** | 5-stage pipeline (notes, references, tasks), tag/link indexing, batch (service + CLI). Alias resolution complete (Phase 3). Batch CLI subcommand added (Phase 4). Deferred: event bus dispatch |
-| BL-0022 | Reweave (F4) | high | **done** | 4-signal scoring (BM25, Jaccard, graph proximity, topic), prune, undo with audit trail. CLI: `--dry-run`, `--prune`, `--undo`, `--undo-id`, `--id` all implemented (Phase 4). Deferred: interactive confirmation |
+| BL-0021 | Create Pipeline (F3) | high | **done** | 5-stage pipeline (notes, references, tasks), tag/link indexing, batch (service + CLI). Alias resolution complete (Phase 3). Batch CLI subcommand added (Phase 4). Event bus dispatch (Phase 6) |
+| BL-0022 | Reweave (F4) | high | **done** | 4-signal scoring (BM25, Jaccard, graph proximity, topic), prune, undo with audit trail. CLI: `--dry-run`, `--prune`, `--undo`, `--undo-id`, `--id` all implemented (Phase 4). Interactive confirmation (Phase 5) |
 | BL-0023 | Update & Close (F5) | high | **done** | 5-stage update pipeline, archive, supersede — all with CLI commands (Phase 4). Session close with enrichment (Phase 3). Event WAL drain (Phase 6). Session stubs (log_entry, cost, context, brief) fully implemented (Phase 7) |
 | BL-0024 | ID System (F6) | high | **done** | Hashing, counters, validation |
-| BL-0025 | Query Surface (F7) | high | **done** | 5 methods (search, get, list, work-queue, decision-support), CLI subcommands. Extended filters: `--subtype`, `--maturity`, `--since`, `--include-archived`, `--sort priority` (Phase 4). Deferred: `--space` filter, graph sort mode, BM25×time-decay ranking |
+| BL-0025 | Query Surface (F7) | high | **done** | 5 methods (search, get, list, work-queue, decision-support), CLI subcommands. Extended filters: `--subtype`, `--maturity`, `--since`, `--include-archived`, `--sort priority` (Phase 4). `--space` filter across search/list/work-queue/decision-support, `--rank-by` graph sort mode, BM25×time-decay recency ranking (Phase 7) |
 | BL-0026 | Progressive Disclosure (F8) | medium | **done** | Rich output with 3 verbosity modes (quiet/default/verbose), `--examples` flag on all implemented commands, ZtlCommand/ZtlGroup base classes. Sparse TOML config unchanged |
 | BL-0027 | Database Layer (F9) | high | **done** | SQLite, NetworkX, Alembic, upgrade. Indexes on nodes (type, status, archived, topic), edges (source, target), node_tags (tag) |
 | BL-0028 | Export (F10) | low | **done** | Markdown, indexes, graph export. 3 export subcommands with format options |
