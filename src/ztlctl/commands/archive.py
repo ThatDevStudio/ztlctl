@@ -20,9 +20,12 @@ if TYPE_CHECKING:
   ztlctl --json archive ref_abc12345""",
 )
 @click.argument("content_id")
+@click.option("--cost", "token_cost", type=int, default=0, help="Token cost for this action.")
 @click.pass_obj
-def archive(app: AppContext, content_id: str) -> None:
+def archive(app: AppContext, content_id: str, token_cost: int) -> None:
     """Archive a content item by ID (sets archived flag, preserves edges)."""
     from ztlctl.services.update import UpdateService
 
-    app.emit(UpdateService(app.vault).archive(content_id))
+    result = UpdateService(app.vault).archive(content_id)
+    app.emit(result)
+    app.log_action_cost(result, token_cost)

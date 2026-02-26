@@ -39,6 +39,7 @@ def create(app: AppContext) -> None:
 @click.option("--tags", multiple=True, help="Tags (repeatable, e.g. --tags domain/scope).")
 @click.option("--topic", default=None, help="Topic subdirectory.")
 @click.option("--session", default=None, help="Session ID (LOG-NNNN).")
+@click.option("--cost", "token_cost", type=int, default=0, help="Token cost for this action.")
 @click.pass_obj
 def note(
     app: AppContext,
@@ -47,6 +48,7 @@ def note(
     tags: tuple[str, ...],
     topic: str | None,
     session: str | None,
+    token_cost: int,
 ) -> None:
     """Create a new note."""
     svc = CreateService(app.vault)
@@ -58,6 +60,7 @@ def note(
         session=session,
     )
     app.emit(result)
+    app.log_action_cost(result, token_cost)
 
 
 @create.command(
@@ -74,6 +77,7 @@ def note(
 @click.option("--tags", multiple=True, help="Tags (repeatable).")
 @click.option("--topic", default=None, help="Topic subdirectory.")
 @click.option("--session", default=None, help="Session ID (LOG-NNNN).")
+@click.option("--cost", "token_cost", type=int, default=0, help="Token cost for this action.")
 @click.pass_obj
 def reference(
     app: AppContext,
@@ -83,6 +87,7 @@ def reference(
     tags: tuple[str, ...],
     topic: str | None,
     session: str | None,
+    token_cost: int,
 ) -> None:
     """Create a new reference."""
     svc = CreateService(app.vault)
@@ -95,6 +100,7 @@ def reference(
         session=session,
     )
     app.emit(result)
+    app.log_action_cost(result, token_cost)
 
 
 @create.command(
@@ -124,6 +130,7 @@ def reference(
 )
 @click.option("--tags", multiple=True, help="Tags (repeatable).")
 @click.option("--session", default=None, help="Session ID (LOG-NNNN).")
+@click.option("--cost", "token_cost", type=int, default=0, help="Token cost for this action.")
 @click.pass_obj
 def task(
     app: AppContext,
@@ -133,6 +140,7 @@ def task(
     effort: str,
     tags: tuple[str, ...],
     session: str | None,
+    token_cost: int,
 ) -> None:
     """Create a new task."""
     svc = CreateService(app.vault)
@@ -145,6 +153,7 @@ def task(
         session=session,
     )
     app.emit(result)
+    app.log_action_cost(result, token_cost)
 
 
 @create.command(
