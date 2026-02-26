@@ -285,7 +285,7 @@ class SessionService(BaseService):
             file_path = self._vault.root / active.path
             jsonl_entry = json.dumps(
                 {
-                    "type": "log_entry",
+                    "type": entry_type,
                     "session_id": session_id,
                     "message": message,
                     "pinned": pin,
