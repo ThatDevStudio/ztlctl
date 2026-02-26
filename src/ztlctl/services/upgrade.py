@@ -15,6 +15,7 @@ from alembic.script import ScriptDirectory
 from ztlctl.infrastructure.database.migrations import build_config
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class UpgradeService(BaseService):
         insp = inspect(self._vault.engine)
         return "nodes" in insp.get_table_names()
 
+    @traced
     def check_pending(self) -> ServiceResult:
         """List pending migrations without applying."""
         op = "upgrade"
@@ -82,6 +84,7 @@ class UpgradeService(BaseService):
                 ),
             )
 
+    @traced
     def apply(self) -> ServiceResult:
         """BACKUP → MIGRATE → VALIDATE → REPORT pipeline."""
         op = "upgrade"
@@ -163,6 +166,7 @@ class UpgradeService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def stamp_current(self) -> ServiceResult:
         """Stamp DB as at current head (for freshly created DBs)."""
         op = "upgrade"

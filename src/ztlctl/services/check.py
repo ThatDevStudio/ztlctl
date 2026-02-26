@@ -19,6 +19,7 @@ from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
 from ztlctl.services._helpers import now_compact, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import trace_span, traced
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
@@ -51,14 +52,19 @@ class CheckService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def check(self) -> ServiceResult:
         """Report integrity issues without modifying anything."""
         issues: list[dict[str, Any]] = []
         with self._vault.engine.connect() as conn:
-            issues.extend(self._check_db_file_consistency(conn))
-            issues.extend(self._check_schema_integrity(conn))
-            issues.extend(self._check_graph_health(conn))
-            issues.extend(self._check_structural_validation(conn))
+            with trace_span("db_file_consistency"):
+                issues.extend(self._check_db_file_consistency(conn))
+            with trace_span("schema_integrity"):
+                issues.extend(self._check_schema_integrity(conn))
+            with trace_span("graph_health"):
+                issues.extend(self._check_graph_health(conn))
+            with trace_span("structural_validation"):
+                issues.extend(self._check_structural_validation(conn))
 
         warnings: list[str] = []
         issues_fixed = sum(1 for i in issues if i.get("fix_action") is not None)
@@ -75,6 +81,7 @@ class CheckService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def fix(self, *, level: str = "safe") -> ServiceResult:
         """Automatically repair issues. Level: 'safe' or 'aggressive'."""
         self._backup_db()
@@ -97,6 +104,7 @@ class CheckService(BaseService):
             data={"fixes": fixes, "count": len(fixes)},
         )
 
+    @traced
     def rebuild(self) -> ServiceResult:
         """Full DB rebuild from filesystem (files are truth)."""
         self._backup_db()
@@ -202,6 +210,7 @@ class CheckService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def rollback(self) -> ServiceResult:
         """Restore DB from latest backup."""
         backup_dir = self._vault.root / ".ztlctl" / "backups"

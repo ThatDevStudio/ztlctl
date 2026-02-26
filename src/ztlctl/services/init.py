@@ -15,6 +15,7 @@ from jinja2 import Environment, PackageLoader
 
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
 
 if TYPE_CHECKING:
     from ztlctl.infrastructure.vault import Vault
@@ -84,6 +85,7 @@ class InitService:
     """Vault initialization and self-generation (all static methods)."""
 
     @staticmethod
+    @traced
     def init_vault(
         path: Path,
         *,
@@ -198,6 +200,7 @@ class InitService:
         )
 
     @staticmethod
+    @traced
     def regenerate_self(vault: Vault) -> ServiceResult:
         """Re-render self/ files from current vault settings.
 
@@ -237,6 +240,7 @@ class InitService:
         )
 
     @staticmethod
+    @traced
     def check_staleness(vault: Vault) -> ServiceResult:
         """Compare ztlctl.toml mtime vs self/*.md mtimes.
 

@@ -16,6 +16,7 @@ from ztlctl.infrastructure.vault import VaultTransaction
 from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import trace_span, traced
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
@@ -28,6 +29,7 @@ class ReweaveService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def reweave(
         self,
         *,
@@ -51,64 +53,71 @@ class ReweaveService(BaseService):
 
         with self._vault.engine.connect() as conn:
             # -- DISCOVER --
-            target = self._discover_target(conn, content_id)
-            if target is None:
-                return ServiceResult(
-                    ok=False,
-                    op=op,
-                    error=ServiceError(
-                        code="NOT_FOUND",
-                        message=f"No target found for reweave (id={content_id})",
-                    ),
-                )
+            with trace_span("discover"):
+                target = self._discover_target(conn, content_id)
+                if target is None:
+                    return ServiceResult(
+                        ok=False,
+                        op=op,
+                        error=ServiceError(
+                            code="NOT_FOUND",
+                            message=f"No target found for reweave (id={content_id})",
+                        ),
+                    )
 
-            target_id = str(target.id)
+                target_id = str(target.id)
 
-            # Get existing neighbors (already linked)
-            existing_targets = self._get_existing_targets(conn, target_id)
+                # Get existing neighbors (already linked)
+                existing_targets = self._get_existing_targets(conn, target_id)
 
-            # Get candidates (non-archived, not self, not already linked)
-            candidates = self._get_candidates(conn, target_id, existing_targets)
-            if not candidates:
-                return ServiceResult(
-                    ok=True,
-                    op=op,
-                    data={"target_id": target_id, "suggestions": [], "count": 0},
-                )
+                # Get candidates (non-archived, not self, not already linked)
+                candidates = self._get_candidates(conn, target_id, existing_targets)
+                if not candidates:
+                    return ServiceResult(
+                        ok=True,
+                        op=op,
+                        data={"target_id": target_id, "suggestions": [], "count": 0},
+                    )
 
             # -- SCORE --
-            target_tags = self._get_node_tags(conn, target_id)
-            target_topic = target.topic
-            target_title = str(target.title)
+            with trace_span("score") as span:
+                target_tags = self._get_node_tags(conn, target_id)
+                target_topic = target.topic
+                target_title = str(target.title)
 
-            scored = self._score_candidates(
-                conn,
-                target_id=target_id,
-                target_title=target_title,
-                target_tags=target_tags,
-                target_topic=target_topic,
-                candidates=candidates,
-                cfg=cfg,
-            )
+                scored = self._score_candidates(
+                    conn,
+                    target_id=target_id,
+                    target_title=target_title,
+                    target_tags=target_tags,
+                    target_topic=target_topic,
+                    candidates=candidates,
+                    cfg=cfg,
+                )
+                if span:
+                    span.annotate("candidates", len(candidates))
 
             # -- FILTER --
-            threshold = cfg.min_score_threshold
-            max_new = cfg.max_links_per_note - len(existing_targets)
-            if max_new <= 0:
-                return ServiceResult(
-                    ok=True,
-                    op=op,
-                    data={
-                        "target_id": target_id,
-                        "suggestions": [],
-                        "count": 0,
-                    },
-                    warnings=["Node already at max_links_per_note"],
-                )
+            with trace_span("filter") as span:
+                threshold = cfg.min_score_threshold
+                max_new = cfg.max_links_per_note - len(existing_targets)
+                if max_new <= 0:
+                    return ServiceResult(
+                        ok=True,
+                        op=op,
+                        data={
+                            "target_id": target_id,
+                            "suggestions": [],
+                            "count": 0,
+                        },
+                        warnings=["Node already at max_links_per_note"],
+                    )
 
-            suggestions = [s for s in scored if s["score"] >= threshold]
-            suggestions.sort(key=lambda s: s["score"], reverse=True)
-            suggestions = suggestions[:max_new]
+                suggestions = [s for s in scored if s["score"] >= threshold]
+                suggestions.sort(key=lambda s: s["score"], reverse=True)
+                suggestions = suggestions[:max_new]
+                if span:
+                    span.annotate("above_threshold", len(suggestions))
 
         # -- PRESENT (dry_run) / CONNECT --
         if dry_run:
@@ -124,7 +133,8 @@ class ReweaveService(BaseService):
             )
 
         # CONNECT — modify files and DB
-        connected = self._connect(target_id, suggestions)
+        with trace_span("connect"):
+            connected = self._connect(target_id, suggestions)
 
         # Dispatch event
         warnings: list[str] = []
@@ -149,6 +159,7 @@ class ReweaveService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def prune(
         self,
         *,
@@ -229,6 +240,7 @@ class ReweaveService(BaseService):
             },
         )
 
+    @traced
     def undo(self, *, reweave_id: int | None = None) -> ServiceResult:
         """Reverse a reweave operation via audit trail."""
         op = "undo"

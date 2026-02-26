@@ -20,6 +20,7 @@ from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import trace_span, traced
 
 
 class CreateService(BaseService):
@@ -29,6 +30,7 @@ class CreateService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def create_note(
         self,
         title: str,
@@ -50,6 +52,7 @@ class CreateService(BaseService):
             maturity=maturity,
         )
 
+    @traced
     def create_reference(
         self,
         title: str,
@@ -71,6 +74,7 @@ class CreateService(BaseService):
             url=url,
         )
 
+    @traced
     def create_task(
         self,
         title: str,
@@ -92,6 +96,7 @@ class CreateService(BaseService):
             effort=effort,
         )
 
+    @traced
     def create_batch(
         self,
         items: list[dict[str, object]],
@@ -157,136 +162,145 @@ class CreateService(BaseService):
         today = today_iso()
 
         # ── VALIDATE ──────────────────────────────────────────────
-        try:
-            model_cls = get_content_model(content_type, subtype)
-        except KeyError:
-            return ServiceResult(
-                ok=False,
-                op=op,
-                error=ServiceError(
-                    code="UNKNOWN_TYPE",
-                    message=f"Unknown content type: {content_type!r} / subtype: {subtype!r}",
-                ),
-            )
-
-        initial_status = self._initial_status(content_type, subtype)
-        validate_data: dict[str, Any] = {
-            "title": title,
-            "status": initial_status,
-            "tags": tags,
-            **extra,
-        }
-        vr = model_cls.validate_create(validate_data)
-        if not vr.valid:
-            return ServiceResult(
-                ok=False,
-                op=op,
-                error=ServiceError(code="VALIDATION_FAILED", message="; ".join(vr.errors)),
-            )
-        warnings.extend(vr.warnings)
-
-        # Warn on tags missing domain/scope format
-        for tag in tags:
-            if "/" not in tag:
-                warnings.append(f"Tag '{tag}' missing domain/scope format (e.g. 'domain/scope')")
-
-        # ── GENERATE → PERSIST → INDEX (inside transaction) ───────
-        with self._vault.transaction() as txn:
-            # GENERATE
-            content_id = self._generate_id(txn.conn, content_type, title)
-            if content_id is None:
+        with trace_span("validate"):
+            try:
+                model_cls = get_content_model(content_type, subtype)
+            except KeyError:
                 return ServiceResult(
                     ok=False,
                     op=op,
                     error=ServiceError(
                         code="UNKNOWN_TYPE",
-                        message=f"No ID prefix for content type: {content_type!r}",
+                        message=f"Unknown content type: {content_type!r} / subtype: {subtype!r}",
                     ),
                 )
 
-            # Check for ID collision
-            existing = txn.conn.execute(select(nodes.c.id).where(nodes.c.id == content_id)).first()
-            if existing is not None:
+            initial_status = self._initial_status(content_type, subtype)
+            validate_data: dict[str, Any] = {
+                "title": title,
+                "status": initial_status,
+                "tags": tags,
+                **extra,
+            }
+            vr = model_cls.validate_create(validate_data)
+            if not vr.valid:
                 return ServiceResult(
                     ok=False,
                     op=op,
-                    error=ServiceError(
-                        code="ID_COLLISION",
-                        message=f"Content with ID '{content_id}' already exists",
-                    ),
+                    error=ServiceError(code="VALIDATION_FAILED", message="; ".join(vr.errors)),
                 )
+            warnings.extend(vr.warnings)
 
-            # Build model attributes
-            model_data: dict[str, Any] = {
-                "id": content_id,
-                "type": content_type,
-                "status": initial_status,
-                "title": title,
-                "created": today,
-                "modified": today,
-            }
-            if subtype:
-                model_data["subtype"] = subtype
-            if tags:
-                model_data["tags"] = tags
-            if topic:
-                model_data["topic"] = topic
-            if session:
-                model_data["session"] = session
-            model_data.update(extra)
+            # Warn on tags missing domain/scope format
+            for tag in tags:
+                if "/" not in tag:
+                    warnings.append(
+                        f"Tag '{tag}' missing domain/scope format (e.g. 'domain/scope')"
+                    )
 
-            model = model_cls.model_validate(model_data)
-            body = model.write_body(**extra)
-            fm = model.to_frontmatter()
+        # ── GENERATE → PERSIST → INDEX (inside transaction) ───────
+        with self._vault.transaction() as txn:
+            # GENERATE
+            with trace_span("generate"):
+                content_id = self._generate_id(txn.conn, content_type, title)
+                if content_id is None:
+                    return ServiceResult(
+                        ok=False,
+                        op=op,
+                        error=ServiceError(
+                            code="UNKNOWN_TYPE",
+                            message=f"No ID prefix for content type: {content_type!r}",
+                        ),
+                    )
 
-            # PERSIST
-            path = txn.resolve_path(content_type, content_id, topic=topic)
-            txn.write_content(path, fm, body)
+                # Check for ID collision
+                existing = txn.conn.execute(
+                    select(nodes.c.id).where(nodes.c.id == content_id)
+                ).first()
+                if existing is not None:
+                    return ServiceResult(
+                        ok=False,
+                        op=op,
+                        error=ServiceError(
+                            code="ID_COLLISION",
+                            message=f"Content with ID '{content_id}' already exists",
+                        ),
+                    )
+
+            with trace_span("persist"):
+                # Build model attributes
+                model_data: dict[str, Any] = {
+                    "id": content_id,
+                    "type": content_type,
+                    "status": initial_status,
+                    "title": title,
+                    "created": today,
+                    "modified": today,
+                }
+                if subtype:
+                    model_data["subtype"] = subtype
+                if tags:
+                    model_data["tags"] = tags
+                if topic:
+                    model_data["topic"] = topic
+                if session:
+                    model_data["session"] = session
+                model_data.update(extra)
+
+                model = model_cls.model_validate(model_data)
+                body = model.write_body(**extra)
+                fm = model.to_frontmatter()
+
+                # PERSIST
+                path = txn.resolve_path(content_type, content_id, topic=topic)
+                txn.write_content(path, fm, body)
 
             # INDEX
-            rel_path = str(path.relative_to(self._vault.root))
-            node_row: dict[str, Any] = {
-                "id": content_id,
-                "title": title,
-                "type": content_type,
-                "subtype": subtype,
-                "status": initial_status,
-                "path": rel_path,
-                "created": today,
-                "modified": today,
-            }
-            if topic:
-                node_row["topic"] = topic
-            if session:
-                node_row["session"] = session
-            maturity = extra.get("maturity")
-            if maturity:
-                node_row["maturity"] = maturity
-            txn.conn.execute(insert(nodes).values(**node_row))
+            with trace_span("index"):
+                rel_path = str(path.relative_to(self._vault.root))
+                node_row: dict[str, Any] = {
+                    "id": content_id,
+                    "title": title,
+                    "type": content_type,
+                    "subtype": subtype,
+                    "status": initial_status,
+                    "path": rel_path,
+                    "created": today,
+                    "modified": today,
+                }
+                if topic:
+                    node_row["topic"] = topic
+                if session:
+                    node_row["session"] = session
+                maturity = extra.get("maturity")
+                if maturity:
+                    node_row["maturity"] = maturity
+                txn.conn.execute(insert(nodes).values(**node_row))
 
-            # FTS5 index
-            txn.upsert_fts(content_id, title, body)
+                # FTS5 index
+                txn.upsert_fts(content_id, title, body)
 
-            # Tags
-            txn.index_tags(content_id, tags, today)
+                # Tags
+                txn.index_tags(content_id, tags, today)
 
-            # Links (frontmatter + body wikilinks)
-            fm_links = fm.get("links", {})
-            if isinstance(fm_links, dict):
-                txn.index_links(content_id, fm_links, body, today)
+                # Links (frontmatter + body wikilinks)
+                fm_links = fm.get("links", {})
+                if isinstance(fm_links, dict):
+                    txn.index_links(content_id, fm_links, body, today)
 
         # ── EVENT ─────────────────────────────────────────────────
-        self._dispatch_event(
-            "post_create",
-            {
-                "content_type": content_type,
-                "content_id": content_id,
-                "title": title,
-                "path": rel_path,
-                "tags": tags,
-            },
-            warnings,
-        )
+        with trace_span("dispatch_event"):
+            self._dispatch_event(
+                "post_create",
+                {
+                    "content_type": content_type,
+                    "content_id": content_id,
+                    "title": title,
+                    "path": rel_path,
+                    "tags": tags,
+                },
+                warnings,
+            )
 
         # ── RESPOND ───────────────────────────────────────────────
         return ServiceResult(

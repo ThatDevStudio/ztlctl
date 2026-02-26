@@ -14,11 +14,13 @@ from sqlalchemy import func, select
 from ztlctl.infrastructure.database.schema import node_tags, nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceResult
+from ztlctl.services.telemetry import traced
 
 
 class ExportService(BaseService):
     """Export vault content in various portable formats."""
 
+    @traced
     def export_markdown(self, output_dir: Path) -> ServiceResult:
         """Copy all content files to *output_dir*, preserving relative paths.
 
@@ -49,6 +51,7 @@ class ExportService(BaseService):
             },
         )
 
+    @traced
     def export_indexes(self, output_dir: Path) -> ServiceResult:
         """Generate index files grouped by type and topic.
 
@@ -158,6 +161,7 @@ class ExportService(BaseService):
             },
         )
 
+    @traced
     def export_graph(self, *, fmt: str = "dot") -> ServiceResult:
         """Export the vault's knowledge graph.
 

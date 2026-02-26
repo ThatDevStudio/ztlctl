@@ -22,6 +22,7 @@ from ztlctl.domain.content import parse_frontmatter
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
 
 # Priority/impact/effort scoring weights for work_queue
 _PRIORITY_SCORES: dict[str, float] = {
@@ -41,6 +42,7 @@ class QueryService(BaseService):
     # search — FTS5 full-text search
     # ------------------------------------------------------------------
 
+    @traced
     def search(
         self,
         query: str,
@@ -215,6 +217,7 @@ class QueryService(BaseService):
     # get — single item retrieval
     # ------------------------------------------------------------------
 
+    @traced
     def get(self, content_id: str) -> ServiceResult:
         """Retrieve a single content item by ID.
 
@@ -281,6 +284,7 @@ class QueryService(BaseService):
     # list_items — filtered listing
     # ------------------------------------------------------------------
 
+    @traced
     def list_items(
         self,
         *,
@@ -428,6 +432,7 @@ class QueryService(BaseService):
     # work_queue — scored task prioritization
     # ------------------------------------------------------------------
 
+    @traced
     def work_queue(self, *, space: str | None = None) -> ServiceResult:
         """Return prioritized task list using scoring formula.
 
@@ -508,6 +513,7 @@ class QueryService(BaseService):
     # decision_support — aggregated decision context
     # ------------------------------------------------------------------
 
+    @traced
     def decision_support(
         self, *, topic: str | None = None, space: str | None = None
     ) -> ServiceResult:
