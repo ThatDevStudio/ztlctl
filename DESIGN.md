@@ -431,7 +431,7 @@ ztlctl create note "New approach" --subtype decision --supersedes ztl_old123
 # New decision: supersedes → old ID
 ```
 
-> **Implementation note (Phase 3+4):** UpdateService implements the full 5-stage pipeline with `update()`, `archive()`, and `supersede()`. All three have CLI commands: `ztlctl update` (with `--title`, `--status`, `--tags`, `--topic`, `--body`, `--maturity`), `ztlctl archive`, and `ztlctl supersede`. Status transitions are validated against lifecycle transition maps. Note status is automatically recomputed from outgoing edge count after any update (PROPAGATE stage). Garden note protection rejects body changes when `maturity` is set (warning instead of error). Decision immutability prevents body changes after `status=accepted`. FTS5 updates use DELETE + INSERT (virtual tables don't support UPDATE). Edge re-indexing re-extracts both frontmatter links and body wikilinks. SessionService implements start/close/reopen with close enrichment pipeline (cross-session reweave → orphan sweep → integrity check). Session lookup and close happen inside the same `VaultTransaction` to prevent TOCTOU races. Stub methods (`log_entry`, `cost`, `context`) return `ServiceResult(ok=False)` with `NOT_IMPLEMENTED` error codes. Event WAL drain is deferred to Phase 6 when the pluggy event system is implemented.
+> **Implementation note (Phase 3+4):** UpdateService implements the full 5-stage pipeline with `update()`, `archive()`, and `supersede()`. All three have CLI commands: `ztlctl update` (with `--title`, `--status`, `--tags`, `--topic`, `--body`, `--maturity`), `ztlctl archive`, and `ztlctl supersede`. Status transitions are validated against lifecycle transition maps. Note status is automatically recomputed from outgoing edge count after any update (PROPAGATE stage). Garden note protection rejects body changes when `maturity` is set (warning instead of error). Decision immutability prevents body changes after `status=accepted`. FTS5 updates use DELETE + INSERT (virtual tables don't support UPDATE). Edge re-indexing re-extracts both frontmatter links and body wikilinks. SessionService implements start/close/reopen with close enrichment pipeline (cross-session reweave → orphan sweep → integrity check). Session lookup and close happen inside the same `VaultTransaction` to prevent TOCTOU races. SessionService methods `log_entry()`, `cost()`, and `context()` are fully implemented (Phase 7). `extract_decision()` extracts decision notes from session JSONL logs (Phase 7). `brief()` returns vault orientation without requiring an active session (Phase 7). Event WAL drain is implemented in Phase 6 via `EventBus.drain()`.
 
 ---
 
@@ -747,6 +747,8 @@ ztlctl upgrade --check      # Show pending without applying
 
 DB stored at `{vault_root}/.ztlctl/ztlctl.db`. Tracked in git (clone gives working tool). Backups in `.ztlctl/backups/` (gitignored).
 
+> **Implementation note (Phase 7):** Alembic migration infrastructure is fully implemented. Programmatic `build_config(db_url)` constructs Alembic `Config` without an `alembic.ini` file — `script_location` points to the bundled `infrastructure/database/migrations/` package. Baseline migration (`001_baseline.py`) creates all 8 tables matching `schema.py`. `UpgradeService` implements `check_pending()`, `apply()` (BACKUP → MIGRATE → VALIDATE → REPORT), and `stamp_current()`. Pre-Alembic vault detection: if tables exist but no `alembic_version`, stamp at head instead of running CREATE TABLE migrations. `stamp_head()` is called during `ztlctl init` to mark fresh databases at the current migration head.
+
 ---
 
 ## 10. CLI Interface
@@ -953,7 +955,7 @@ The `research-partner` tone includes the full behavioral framework proven in the
 
 `ztlctl agent regenerate` re-derives self/ from current config. Staleness detection via timestamp comparison.
 
-> **Implementation note (Phase 5):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--client/--tone/--topics`) modes. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, and optionally scaffolds `.obsidian/` for Obsidian clients. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Copier workflow templates (`ztlctl workflow init/update`) are deferred — the init command covers the core vault bootstrapping need.
+> **Implementation note (Phase 5+7):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--client/--tone/--topics`) modes. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, stamps the Alembic migration head (Phase 7), generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, and optionally scaffolds `.obsidian/` for Obsidian clients. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Copier workflow templates (`ztlctl workflow init/update`) are deferred — the init command covers the core vault bootstrapping need.
 
 ### Vault Structure
 
@@ -1345,7 +1347,7 @@ Decisions made during the design process (CONV-0017):
 | — | CheckService two-pass rebuild | Nodes inserted first, then edges; ensures referential integrity during full rebuild from files |
 | — | CheckService backup before destructive ops | Timestamped `ztlctl-{YYYYMMDDTHHmmss}.db` copies; configurable retention via `check.backup_max_count` |
 | — | SessionService TOCTOU fix: read+write in one transaction | Session lookup and status update inside same `VaultTransaction` block; prevents race where session state changes between read and write |
-| — | Stub service methods return `ServiceResult`, not `NotImplementedError` | Maintains no-exceptions-cross-service-boundary contract; `NOT_IMPLEMENTED` error code for graceful CLI/MCP handling |
+| — | Stub service methods return `ServiceResult`, not `NotImplementedError` | Maintains no-exceptions-cross-service-boundary contract; `NOT_IMPLEMENTED` error code for graceful CLI/MCP handling. All stubs replaced with implementations in Phase 7 |
 | — | Database indexes on high-cardinality columns | 7 indexes across nodes, edges, node_tags; improves query performance for filtered listing and edge traversal |
 | — | Path traversal guard in `resolve_content_path()` | `path.resolve().is_relative_to(vault_root.resolve())` prevents crafted topic/content_id from escaping vault |
 | — | Human-readable output: Rich styled tables and text | Phase 4 replaced `OK:` prefix format with Rich Console rendering; quiet mode retains one-line prefix format; JSON mode unchanged |
@@ -1360,6 +1362,11 @@ Decisions made during the design process (CONV-0017):
 | — | Two timestamp formats: `now_iso()` vs `now_compact()` | Standard ISO for audit trails/session logs; compact (no colons) for backup filenames; makes distinction explicit after fixing silent format divergence |
 | — | All command errors route through `app.emit(ServiceResult)` | Ensures `--json` mode outputs structured error payloads; replaces `raise SystemExit(1)` bypass in update and batch commands |
 | — | Priority sort: Python-side scoring with post-sort limit | No SQL `ORDER BY` for priority; fetch all matching rows, score in Python using frontmatter fields, sort, then apply limit; same pattern as `work_queue()` |
+| — | Programmatic Alembic config (no alembic.ini) | `build_config(db_url)` sets `script_location` and `sqlalchemy.url` on `Config()` object; works for embedded CLI tool without config file management |
+| — | Pre-Alembic vault detection via `_tables_exist()` | Stamp at head instead of running CREATE TABLE migrations when tables exist but no `alembic_version`; handles upgrade path for existing users |
+| — | `extract_decision` pipeline: create + overwrite + FTS5 | Uses CreateService pipeline for ID/indexing/frontmatter, then overwrites body with extracted JSONL content, updates FTS5, creates `derived_from` edge |
+| — | `brief()` works without active session | Returns ok=True with session=null and vault stats; orientation is useful even outside a session |
+| — | `garden seed` reuses create pipeline with maturity="seed" | No new service method; passes maturity through existing `create_note()` → `_create_content()` path |
 
 ---
 
@@ -1371,7 +1378,7 @@ Decisions made during the design process (CONV-0017):
 | BL-0020 | Graph Architecture (F2) | high | **done** | 6 algorithms (related, themes, rank, path, gaps, bridges), CLI subcommands, node attribute loading |
 | BL-0021 | Create Pipeline (F3) | high | **done** | 5-stage pipeline (notes, references, tasks), tag/link indexing, batch (service + CLI). Alias resolution complete (Phase 3). Batch CLI subcommand added (Phase 4). Deferred: event bus dispatch |
 | BL-0022 | Reweave (F4) | high | **done** | 4-signal scoring (BM25, Jaccard, graph proximity, topic), prune, undo with audit trail. CLI: `--dry-run`, `--prune`, `--undo`, `--undo-id`, `--id` all implemented (Phase 4). Deferred: interactive confirmation |
-| BL-0023 | Update & Close (F5) | high | **done** | 5-stage update pipeline, archive, supersede — all with CLI commands (Phase 4). Session close with enrichment. Deferred: event WAL drain, log_entry, cost, context stubs |
+| BL-0023 | Update & Close (F5) | high | **done** | 5-stage update pipeline, archive, supersede — all with CLI commands (Phase 4). Session close with enrichment (Phase 3). Event WAL drain (Phase 6). Session stubs (log_entry, cost, context, brief) fully implemented (Phase 7) |
 | BL-0024 | ID System (F6) | high | **done** | Hashing, counters, validation |
 | BL-0025 | Query Surface (F7) | high | **done** | 5 methods (search, get, list, work-queue, decision-support), CLI subcommands. Extended filters: `--subtype`, `--maturity`, `--since`, `--include-archived`, `--sort priority` (Phase 4). Deferred: `--space` filter, graph sort mode, BM25×time-decay ranking |
 | BL-0026 | Progressive Disclosure (F8) | medium | **done** | Rich output with 3 verbosity modes (quiet/default/verbose), `--examples` flag on all implemented commands, ZtlCommand/ZtlGroup base classes. Sparse TOML config unchanged |
@@ -1473,7 +1480,6 @@ Phase 3 — Enrichment (complete):
     - SessionService: start/close/reopen with JSONL append-only event streams
     - Close enrichment pipeline: cross-session reweave → orphan sweep → integrity check → report
     - TOCTOU fix: session lookup + update inside same VaultTransaction
-    - Stub methods (log_entry, cost, context) return ServiceResult errors, not NotImplementedError
   F11 Integrity:
     - 4-category check: DB-file consistency, schema integrity, graph health, structural validation
     - Safe fix: remove orphan DB rows, remove dangling edges, re-insert missing FTS5, re-sync from files
@@ -1570,6 +1576,30 @@ Phase 6 — Extension (complete):
     - Deferred: tool proliferation guard (discover_tools meta-tool), streamable HTTP transport
 
   882 tests, mypy strict, ruff clean.
+
+Phase 7 — Stub Command Completion (complete):
+  Agent CLI Commands:
+    - `agent session cost` — accumulated token cost with optional --report budget mode
+    - `agent session log` — append JSONL log entries with --pin and --cost flags
+    - `agent context` — token-budgeted 5-layer context payload with --topic and --budget
+    - `agent brief` — vault orientation (works without active session): stats, decisions, work queue
+  Garden Seed:
+    - `garden seed` — quick capture via CreateService.create_note with maturity="seed"
+    - Maturity parameter threaded through create pipeline (_create_content node_row)
+  Extract Decision:
+    - `extract` — JSONL log parsing, pinned entry filtering, decision note creation
+    - Creates note via CreateService pipeline, overwrites body, updates FTS5
+    - Adds derived_from edge linking decision to source session
+  Upgrade Command:
+    - Alembic migration infrastructure: programmatic Config, env.py, baseline migration
+    - UpgradeService: check_pending(), apply() (BACKUP → MIGRATE → VALIDATE → REPORT), stamp_current()
+    - Pre-Alembic vault detection: stamp instead of migrate when tables exist without version tracking
+    - stamp_head() integrated into init flow for fresh databases
+  Renderers:
+    - 4 new Rich renderers: _render_cost, _render_context, _render_brief, _render_upgrade
+    - 2 existing renderers reused: log_entry → _render_mutation, extract_decision → _render_mutation
+
+  1007 tests, mypy strict, ruff clean.
 ```
 
 When implementing a feature, read its section in this document completely before writing code. Cross-reference the schema in Section 9 for all DB table definitions, and the `ServiceResult` contract in Section 10 for all return types.
