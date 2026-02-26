@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 @click.option("--undo", is_flag=True, help="Reverse last reweave via audit trail.")
 @click.option("--undo-id", type=int, default=None, help="Undo a specific reweave log entry by ID.")
 @click.option("--id", "content_id", default=None, help="Target a specific content ID.")
+@click.option("--cost", "token_cost", type=int, default=0, help="Token cost for this action.")
 @click.pass_obj
 def reweave(
     app: AppContext,
@@ -42,6 +43,7 @@ def reweave(
     undo: bool,
     undo_id: int | None,
     content_id: str | None,
+    token_cost: int,
 ) -> None:
     """Reweave links to densify the knowledge graph."""
     from ztlctl.services.reweave import ReweaveService
@@ -49,9 +51,13 @@ def reweave(
     svc = ReweaveService(app.vault)
 
     if undo or undo_id is not None:
-        app.emit(svc.undo(reweave_id=undo_id))
+        result = svc.undo(reweave_id=undo_id)
+        app.emit(result)
+        app.log_action_cost(result, token_cost)
     elif prune:
-        app.emit(svc.prune(content_id=content_id, dry_run=dry_run))
+        result = svc.prune(content_id=content_id, dry_run=dry_run)
+        app.emit(result)
+        app.log_action_cost(result, token_cost)
     else:
         interactive = not dry_run and not auto_link_related and not app.settings.no_interact
 
@@ -72,6 +78,10 @@ def reweave(
                 return
 
             # Phase 4: Connect
-            app.emit(svc.reweave(content_id=content_id, dry_run=False))
+            result = svc.reweave(content_id=content_id, dry_run=False)
+            app.emit(result)
+            app.log_action_cost(result, token_cost)
         else:
-            app.emit(svc.reweave(content_id=content_id, dry_run=dry_run))
+            result = svc.reweave(content_id=content_id, dry_run=dry_run)
+            app.emit(result)
+            app.log_action_cost(result, token_cost)
