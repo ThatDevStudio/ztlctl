@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
+
 from ztlctl.services.init import InitService
 
 if TYPE_CHECKING:
@@ -140,6 +142,21 @@ class TestInitVault:
         identity = (tmp_path / "self" / "identity.md").read_text()
         assert "generated: true" in identity
         assert 'vault: "fm-vault"' in identity
+
+    def test_stamp_failure_produces_warning(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Failed Alembic stamp is reported as a warning, not silenced."""
+
+        def _bad_stamp(vault_root: Path) -> None:
+            msg = "stamp failed"
+            raise RuntimeError(msg)
+
+        monkeypatch.setattr("ztlctl.infrastructure.database.migrations.stamp_head", _bad_stamp)
+
+        result = InitService.init_vault(tmp_path, name="stamp-fail")
+        assert result.ok  # init still succeeds
+        assert any("stamp" in w.lower() for w in result.warnings)
 
 
 class TestRegenerateSelf:
