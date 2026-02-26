@@ -34,6 +34,25 @@ uv run cz check --message "feat: msg"   # validate a commit message
 
 ## Git Workflow
 
+### Roles
+
+**Claude (you):**
+- Create `feature/*` or `fix/*` branches from `develop`
+- Write code and commit with conventional commit messages
+- Push branches and create PRs targeting `develop`
+- PR titles MUST use conventional commit format (see below)
+- Address review feedback on open PRs
+
+**User (human):**
+- Reviews PRs, approves, and merges (squash-merge)
+- Creates PRs from `develop` to `main` when ready to release
+- Merges release PRs to `main`
+
+**Automation (CI/CD):**
+- Runs lint, test, typecheck, security, commit-lint on every PR
+- On merge to `main`: bumps version, updates changelog, creates tag + GitHub Release
+- On GitHub Release: builds and publishes to PyPI
+
 ### Branching Model
 
 | Branch | Purpose | Merges to |
@@ -46,7 +65,7 @@ uv run cz check --message "feat: msg"   # validate a commit message
 
 ### Conventional Commits
 
-All commit messages MUST follow the conventional commits format:
+All commit messages AND PR titles MUST follow the conventional commits format:
 
 ```
 <type>(<optional scope>): <description>
@@ -55,6 +74,8 @@ All commit messages MUST follow the conventional commits format:
 
 [optional footer(s)]
 ```
+
+**PR titles must also use this format** because squash-merges use the PR title as the commit message. Example: `feat(notes): add zettel linking command`
 
 **Types and version effects:**
 
@@ -73,12 +94,43 @@ All commit messages MUST follow the conventional commits format:
 
 ### Feature Development Workflow
 
-1. Branch from develop: `git checkout -b feature/<name> develop`
-2. Commit with conventional format: `git commit -m "feat(scope): description"`
-3. Push and create PR to develop: `gh pr create --base develop`
-4. After CI passes, squash-merge to develop
-5. When ready to release: PR from `develop` to `main`
-6. Automation handles: version bump, changelog, tag, GitHub Release, PyPI publish
+1. **Pull latest develop** — if diverged, reset to match origin:
+   ```bash
+   git checkout develop && git pull origin develop
+   ```
+2. **Create feature/fix branch:**
+   ```bash
+   git checkout -b feature/<name>
+   ```
+3. **Work in small, frequent commits** using conventional messages
+4. **Run full validation before PR:**
+   ```bash
+   uv run ruff check . && uv run ruff format --check . && uv run pytest && uv run mypy src/
+   ```
+   Fix any issues and commit fixes.
+5. **Push and create PR to develop:**
+   ```bash
+   git push -u origin feature/<name>
+   gh pr create --base develop --title "feat(scope): description"
+   ```
+   Provide the PR link for the user to review.
+6. **Address review feedback** — push additional commits to the same branch
+7. Wait for user to review, approve, and squash-merge
+
+**Do NOT use git worktrees** — work directly on feature/fix branches in the main repo checkout.
+
+### Post-Release Sync
+
+After a release (merge to `main`), the release workflow pushes a version bump commit to `main`. This means `develop` falls behind. Before starting new work:
+
+```bash
+git checkout develop
+git pull origin develop
+git merge origin/main
+git push origin develop
+```
+
+If the user has already synced `develop`, just `git pull origin develop`.
 
 ### Hotfix Workflow
 
@@ -89,12 +141,16 @@ All commit messages MUST follow the conventional commits format:
 
 ### What NOT to Do
 
-- **Don't commit directly to `main` or `develop`** — always use PRs
+- **Don't commit directly to `main` or `develop`** — always use feature/fix branches with PRs
 - **Don't use non-conventional commit messages** — pre-commit hook and CI will reject them
+- **Don't use non-conventional PR titles** — squash-merge uses the PR title as the commit message
 - **Don't manually edit version numbers** — `cz bump` manages `pyproject.toml` and `src/ztlctl/__init__.py`
 - **Don't manually edit CHANGELOG.md** — `cz bump --changelog` generates it
 - **Don't create git tags manually** — the release workflow creates annotated tags
 - **Don't push to `main` directly** — merge via PR from `develop` or `hotfix/*`
+- **Don't merge PRs** — the user reviews and merges; Claude only creates PRs and addresses feedback
+- **Don't use git worktrees** — work directly on feature/fix branches
+- **Don't use `uv pip install`** — always use `uv add` (or `uv add --group <group>` for dev deps)
 
 ## CI/CD Pipeline
 
@@ -106,5 +162,14 @@ All commit messages MUST follow the conventional commits format:
 
 ## Architecture
 
-- Click-based CLI with entry point: `ztlctl`
-- Project is in early scaffolding phase
+- **Entry point**: `ztlctl` (Click CLI)
+- **6-layer package structure** under `src/ztlctl/`:
+  - `domain/` — types, enums, lifecycle rules, ID patterns (no external deps beyond pydantic)
+  - `infrastructure/` — SQLite/SQLAlchemy Core, NetworkX graph engine, filesystem ops
+  - `config/` — Pydantic config models, TOML discovery/loading
+  - `services/` — business logic (imports domain, infrastructure, config)
+  - `output/` — Rich/JSON formatters (imports services)
+  - `commands/` — Click command groups/commands (imports services, output, config)
+  - `plugins/` — pluggy hook specs and built-in plugins
+  - `mcp/` — optional MCP adapter (guarded imports)
+  - `templates/` — Jinja2 templates for content creation

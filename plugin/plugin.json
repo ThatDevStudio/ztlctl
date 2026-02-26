@@ -1,0 +1,9 @@
+{
+  "name": "ztlctl",
+  "version": "0.1.0",
+  "description": "Claude Code plugin for ztlctl — Zettelkasten knowledge management",
+  "skills": "skills",
+  "hooks": "hooks",
+  "commands": "commands",
+  "agents": "agents"
+}

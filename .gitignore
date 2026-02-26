@@ -38,3 +38,10 @@ Thumbs.db
 .env.local
 *.pem
 *.key
+
+# Vault data (created by ztlctl init or tests)
+.ztlctl/
+
+# Worktrees
+.worktrees/
+.firecrawl/
