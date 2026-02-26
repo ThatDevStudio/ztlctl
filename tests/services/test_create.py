@@ -311,3 +311,32 @@ class TestCreateBatch:
         assert not result.ok  # has errors
         assert len(result.data["created"]) == 1
         assert len(result.data["errors"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Maturity support
+# ---------------------------------------------------------------------------
+
+
+class TestCreateNoteMaturity:
+    def test_create_note_with_maturity(self, vault: Vault) -> None:
+        """Maturity parameter persists to the DB node row."""
+        result = CreateService(vault).create_note("Seed Idea", maturity="seed")
+        assert result.ok
+        with vault.engine.connect() as conn:
+            row = conn.execute(
+                select(nodes.c.maturity).where(nodes.c.id == result.data["id"])
+            ).first()
+            assert row is not None
+            assert row.maturity == "seed"
+
+    def test_create_note_without_maturity(self, vault: Vault) -> None:
+        """Maturity is None by default."""
+        result = CreateService(vault).create_note("Normal Note")
+        assert result.ok
+        with vault.engine.connect() as conn:
+            row = conn.execute(
+                select(nodes.c.maturity).where(nodes.c.id == result.data["id"])
+            ).first()
+            assert row is not None
+            assert row.maturity is None

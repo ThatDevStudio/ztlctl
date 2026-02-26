@@ -38,6 +38,7 @@ class CreateService(BaseService):
         tags: list[str] | None = None,
         topic: str | None = None,
         session: str | None = None,
+        maturity: str | None = None,
     ) -> ServiceResult:
         """Create a new note (plain, knowledge, or decision subtype)."""
         return self._create_content(
@@ -47,6 +48,7 @@ class CreateService(BaseService):
             tags=tags,
             topic=topic,
             session=session,
+            maturity=maturity,
         )
 
     def create_reference(
@@ -258,6 +260,9 @@ class CreateService(BaseService):
                 node_row["topic"] = topic
             if session:
                 node_row["session"] = session
+            maturity = extra.get("maturity")
+            if maturity:
+                node_row["maturity"] = maturity
             txn.conn.execute(insert(nodes).values(**node_row))
 
             # FTS5 index
