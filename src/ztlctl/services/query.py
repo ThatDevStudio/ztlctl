@@ -12,6 +12,8 @@ Five read-only surfaces using engine.connect() (no transaction overhead):
 
 from __future__ import annotations
 
+import math
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select, text
@@ -66,8 +68,12 @@ class QueryService(BaseService):
                 error=ServiceError(code="EMPTY_QUERY", message="Search query cannot be empty"),
             )
 
-        # BM25 returns negative scores (more negative = more relevant)
-        order_clause = "bm25(nodes_fts)" if rank_by == "relevance" else "n.modified DESC"
+        # Recency mode: fetch more candidates for Python-side re-ranking
+        use_time_decay = rank_by == "recency"
+        fetch_limit = min(limit * 3, 1000) if use_time_decay else limit
+
+        # Always order by BM25 for the SQL fetch
+        order_clause = "bm25(nodes_fts)"
 
         sql = """
             SELECT n.id, n.title, n.type, n.subtype, n.status, n.path,
@@ -78,7 +84,7 @@ class QueryService(BaseService):
               AND n.archived = 0
         """
 
-        params: dict[str, Any] = {"query": query, "limit": limit}
+        params: dict[str, Any] = {"query": query, "limit": fetch_limit}
 
         if content_type:
             sql += " AND n.type = :content_type"
@@ -107,16 +113,58 @@ class QueryService(BaseService):
                 "path": r.path,
                 "created": r.created,
                 "modified": r.modified,
-                "score": round(float(r.score), 4),
+                "score": float(r.score),
             }
             for r in rows
         ]
+
+        if use_time_decay:
+            half_life = self._vault.settings.search.half_life_days
+            items = self._apply_time_decay(items, half_life=half_life, limit=limit)
+
+        # Round scores for final output
+        for item in items:
+            item["score"] = round(item["score"], 4)
 
         return ServiceResult(
             ok=True,
             op="search",
             data={"query": query, "count": len(items), "items": items},
         )
+
+    def _apply_time_decay(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        half_life: float,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Re-rank search results by BM25 x time-decay.
+
+        Combined score = abs(bm25) * exp(-age_days * ln(2) / half_life).
+        BM25 scores are negative in FTS5 (more negative = more relevant),
+        so we negate them to get positive relevance before applying decay.
+        """
+        now = datetime.now(UTC)
+        decay_constant = math.log(2) / half_life
+
+        for item in items:
+            # Parse modified timestamp to compute age in days
+            modified_str = item["modified"]
+            try:
+                modified_dt = datetime.fromisoformat(modified_str)
+                if modified_dt.tzinfo is None:
+                    modified_dt = modified_dt.replace(tzinfo=UTC)
+                age_days = max((now - modified_dt).total_seconds() / 86400, 0.0)
+            except (ValueError, TypeError):
+                age_days = 0.0
+
+            bm25_positive = abs(item["score"])
+            decay_factor = math.exp(-age_days * decay_constant)
+            item["score"] = round(bm25_positive * decay_factor, 4)
+
+        items.sort(key=lambda x: x["score"], reverse=True)
+        return items[:limit]
 
     # ------------------------------------------------------------------
     # get — single item retrieval
