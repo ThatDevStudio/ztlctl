@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,29 @@ from sqlalchemy.engine import Engine
 from ztlctl.config.settings import ZtlSettings
 from ztlctl.infrastructure.database.engine import init_database
 from ztlctl.infrastructure.vault import Vault
+
+
+@pytest.fixture(autouse=True)
+def _reset_yaml_singleton() -> Generator[None]:
+    """Reset the ruamel.yaml singleton after each test.
+
+    The module-level ``_yaml = YAML()`` in ``domain/content.py`` can be
+    corrupted if a YAML dump/load fails mid-stream (e.g. during auto-reweave
+    on freshly-created test vault files).  Once corrupted, every subsequent
+    YAML operation in the process raises ``EmitterError``.
+
+    This autouse fixture recreates the singleton after every test so that
+    corruption in one test cannot cascade.
+    """
+    yield
+    from ruamel.yaml import YAML
+
+    import ztlctl.domain.content as _content
+
+    fresh = YAML()
+    fresh.preserve_quotes = True
+    fresh.default_flow_style = False
+    _content._yaml = fresh
 
 
 @pytest.fixture
