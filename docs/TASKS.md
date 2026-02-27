@@ -294,9 +294,9 @@ DESIGN.md Section 2: "User-provided templates supported in future versions." Cur
 
 ---
 
-### T-014: Custom Subtypes (Plugin-Registered Content Models)
+### T-014: Custom Subtypes (Plugin-Registered Content Models) ✅
 
-**Effort:** L | **Impact:** Low
+**Effort:** L | **Impact:** Low | **Status:** Done (this PR)
 
 DESIGN.md Section 2: "No custom subtypes in v1 — shipped subtypes use the same extensibility mechanism, allowing us to tune before opening to users."
 
@@ -528,7 +528,7 @@ Currently only `agent session log --cost N` accepts a cost argument. Other comma
 | T-011 | MCP tool proliferation guard | M | Low | Deferred | ✅ Done |
 | T-012 | MCP streamable HTTP transport | L | Medium | Deferred | ✅ Done |
 | T-013 | User-provided Jinja2 templates | M | Low | Deferred | ✅ Done |
-| T-014 | Custom subtypes (plugin-registered) | L | Low | Deferred | |
+| T-014 | Custom subtypes (plugin-registered) | L | Low | Deferred | ✅ Done |
 | T-015 | Semantic search | XL | High | Deferred | ✅ Done |
 | T-016 | `extract` command naming | S | Low | CLI | ✅ Done |
 | T-017 | `--examples` flag coverage audit | S | Low | CLI | ✅ Done |

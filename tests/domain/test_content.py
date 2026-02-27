@@ -16,6 +16,7 @@ from ztlctl.domain.content import (
     ValidationResult,
     get_content_model,
     parse_frontmatter,
+    register_content_model,
     render_frontmatter,
 )
 
@@ -697,6 +698,33 @@ class TestContentRegistry:
     def test_unknown_subtype_falls_back_to_type(self) -> None:
         cls = get_content_model("note", "custom")
         assert cls is NoteModel
+
+    def test_register_custom_subtype(self) -> None:
+        original_registry = CONTENT_REGISTRY.copy()
+
+        class FlashcardModel(NoteModel):
+            _subtype_name = "flashcard"
+
+        try:
+            register_content_model("flashcard", FlashcardModel)
+            assert get_content_model("note", "flashcard") is FlashcardModel
+        finally:
+            CONTENT_REGISTRY.clear()
+            CONTENT_REGISTRY.update(original_registry)
+
+    def test_register_rejects_builtin_name_collision(self) -> None:
+        class PluginDecisionModel(NoteModel):
+            _subtype_name = "decision"
+
+        with pytest.raises(ValueError, match="built-in"):
+            register_content_model("decision", PluginDecisionModel)
+
+    def test_register_requires_concrete_content_type(self) -> None:
+        class InvalidModel(ContentModel):
+            _subtype_name = "invalid"
+
+        with pytest.raises(ValueError, match="_content_type"):
+            register_content_model("invalid", InvalidModel)
 
 
 # ---------------------------------------------------------------------------

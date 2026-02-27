@@ -206,6 +206,60 @@ def get_content_model(
     raise KeyError(msg)
 
 
+def register_content_model(name: str, model_cls: type[ContentModel]) -> None:
+    """Register a custom content subtype model.
+
+    The model must extend :class:`ContentModel`, resolve to a concrete base
+    content type, and expose the standard validation/status APIs. Built-in
+    names are reserved and cannot be overridden by plugins.
+    """
+
+    normalized_name = name.strip()
+    if not normalized_name:
+        msg = "Content model name must not be empty"
+        raise ValueError(msg)
+
+    if not issubclass(model_cls, ContentModel):
+        msg = f"Content model {normalized_name!r} must extend ContentModel"
+        raise TypeError(msg)
+
+    if normalized_name in _builtin_model_map():
+        msg = f"Content model {normalized_name!r} conflicts with a built-in registration"
+        raise ValueError(msg)
+
+    if model_cls._subtype_name is None:
+        model_cls._subtype_name = normalized_name
+    elif model_cls._subtype_name != normalized_name:
+        msg = (
+            f"Content model {normalized_name!r} declares subtype "
+            f"{model_cls._subtype_name!r}; these must match"
+        )
+        raise ValueError(msg)
+
+    if not model_cls._content_type:
+        msg = f"Content model {normalized_name!r} must declare a concrete _content_type"
+        raise ValueError(msg)
+
+    required_api = (
+        "validate_create",
+        "validate_update",
+        "required_sections",
+        "status_transitions",
+    )
+    for attr_name in required_api:
+        attr = getattr(model_cls, attr_name, None)
+        if not callable(attr):
+            msg = f"Content model {normalized_name!r} is missing required API: {attr_name}"
+            raise TypeError(msg)
+
+    existing = CONTENT_REGISTRY.get(normalized_name)
+    if existing is not None and existing is not model_cls:
+        msg = f"Content model {normalized_name!r} is already registered"
+        raise ValueError(msg)
+
+    CONTENT_REGISTRY[normalized_name] = model_cls
+
+
 # ---------------------------------------------------------------------------
 # Base content model
 # ---------------------------------------------------------------------------
@@ -467,13 +521,20 @@ class TaskModel(ContentModel):
 # ---------------------------------------------------------------------------
 
 
+def _builtin_model_map() -> dict[str, type[ContentModel]]:
+    """Return the built-in content model registry."""
+    return {
+        "note": NoteModel,
+        "knowledge": KnowledgeModel,
+        "decision": DecisionModel,
+        "reference": ReferenceModel,
+        "task": TaskModel,
+    }
+
+
 def _register_models() -> None:
     """Populate :data:`CONTENT_REGISTRY` with built-in content models."""
-    CONTENT_REGISTRY["note"] = NoteModel
-    CONTENT_REGISTRY["knowledge"] = KnowledgeModel
-    CONTENT_REGISTRY["decision"] = DecisionModel
-    CONTENT_REGISTRY["reference"] = ReferenceModel
-    CONTENT_REGISTRY["task"] = TaskModel
+    CONTENT_REGISTRY.update(_builtin_model_map())
 
 
 _register_models()

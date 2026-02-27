@@ -5,6 +5,7 @@ from __future__ import annotations
 import pluggy
 import pytest
 
+from ztlctl.domain.content import CONTENT_REGISTRY, NoteModel, get_content_model
 from ztlctl.plugins.manager import PluginManager
 
 hookimpl = pluggy.HookimplMarker("ztlctl")
@@ -16,6 +17,22 @@ class _DummyPlugin:
     @hookimpl
     def post_check(self, issues_found: int, issues_fixed: int) -> None:
         pass
+
+
+class _CustomSubtypeModel(NoteModel):
+    _subtype_name = "plugin_note"
+
+
+class _ContentModelPlugin:
+    @hookimpl
+    def register_content_models(self) -> dict[str, type[NoteModel]]:
+        return {"plugin_note": _CustomSubtypeModel}
+
+
+class _ConflictingContentModelPlugin:
+    @hookimpl
+    def register_content_models(self) -> dict[str, type[NoteModel]]:
+        return {"decision": _CustomSubtypeModel}
 
 
 class TestPluginManager:
@@ -75,9 +92,50 @@ class TestPluginManager:
             "post_session_close",
             "post_check",
             "post_init",
+            "register_content_models",
         ],
     )
     def test_all_hookspecs_registered(self, hook_name: str):
-        """All 8 hookspecs should be available on the hook relay."""
+        """All lifecycle and setup hookspecs should be available on the hook relay."""
         pm = PluginManager()
         assert hasattr(pm.hook, hook_name)
+
+    def test_discover_registers_plugin_content_models(self) -> None:
+        pm = PluginManager()
+        original_registry = CONTENT_REGISTRY.copy()
+        pm.register_plugin(_ContentModelPlugin(), name="content-models")
+
+        try:
+            pm.discover_and_load(local_dir=None)
+            assert get_content_model("note", "plugin_note") is _CustomSubtypeModel
+        finally:
+            CONTENT_REGISTRY.clear()
+            CONTENT_REGISTRY.update(original_registry)
+
+    def test_conflicting_plugin_content_models_warn_and_skip(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        pm = PluginManager()
+        original_registry = CONTENT_REGISTRY.copy()
+        pm.register_plugin(_ConflictingContentModelPlugin(), name="conflicting-models")
+
+        try:
+            with caplog.at_level("WARNING"):
+                pm.discover_and_load(local_dir=None)
+            assert get_content_model("note", "decision").__name__ == "DecisionModel"
+            assert "Skipping content model registration" in caplog.text
+        finally:
+            CONTENT_REGISTRY.clear()
+            CONTENT_REGISTRY.update(original_registry)
+
+    def test_register_plugin_after_load_registers_content_models(self) -> None:
+        pm = PluginManager()
+        original_registry = CONTENT_REGISTRY.copy()
+
+        try:
+            pm.discover_and_load(local_dir=None)
+            pm.register_plugin(_ContentModelPlugin(), name="runtime-content-models")
+            assert get_content_model("note", "plugin_note") is _CustomSubtypeModel
+        finally:
+            CONTENT_REGISTRY.clear()
+            CONTENT_REGISTRY.update(original_registry)

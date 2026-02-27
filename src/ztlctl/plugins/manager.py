@@ -42,6 +42,7 @@ class PluginManager:
         self._pm.load_setuptools_entrypoints("ztlctl.plugins")
         if local_dir is not None:
             self._discover_local(local_dir)
+        self._register_content_models()
         self._loaded = True
         return self.list_plugin_names()
 
@@ -49,6 +50,8 @@ class PluginManager:
         """Register a plugin instance directly (e.g. built-in plugins)."""
         resolved_name = name or plugin.__class__.__name__
         self._pm.register(plugin, name=resolved_name)
+        if self._loaded:
+            self._register_plugin_content_models(plugin, resolved_name)
         logger.debug("Registered plugin: %s", resolved_name)
 
     def unregister(self, plugin: object) -> None:
@@ -129,6 +132,51 @@ class PluginManager:
                         py_file,
                         exc_info=True,
                     )
+
+    def _register_content_models(self) -> None:
+        """Load plugin-provided content subtype models into the domain registry."""
+        for plugin in self._pm.get_plugins():
+            plugin_name = self._pm.get_name(plugin) or plugin.__class__.__name__
+            self._register_plugin_content_models(plugin, plugin_name)
+
+    @staticmethod
+    def _register_plugin_content_models(plugin: object, plugin_name: str) -> None:
+        """Register content models exposed by a single plugin instance."""
+        from ztlctl.domain.content import register_content_model
+
+        hook = getattr(plugin, "register_content_models", None)
+        if hook is None:
+            return
+
+        try:
+            model_map = hook()
+        except Exception:
+            logger.warning(
+                "Failed to collect content models from plugin %s",
+                plugin_name,
+                exc_info=True,
+            )
+            return
+
+        if model_map is None:
+            return
+        if not isinstance(model_map, dict):
+            logger.warning(
+                "Plugin %s returned non-dict content model registrations",
+                plugin_name,
+            )
+            return
+
+        for subtype_name, model_cls in model_map.items():
+            try:
+                register_content_model(subtype_name, model_cls)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "Skipping content model registration %r from plugin %s",
+                    subtype_name,
+                    plugin_name,
+                    exc_info=True,
+                )
 
     @staticmethod
     def _has_hook_impls(cls: type) -> bool:
