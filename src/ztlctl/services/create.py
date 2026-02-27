@@ -1,6 +1,6 @@
-"""CreateService — six-stage content creation pipeline.
+"""CreateService — content creation pipeline.
 
-Pipeline: VALIDATE → GENERATE → PERSIST → INDEX → REWEAVE → RESPOND
+Pipeline: VALIDATE → GENERATE → PERSIST → INDEX → EVENT → REWEAVE → VECTOR INDEX → RESPOND
 (DESIGN.md Section 4)
 """
 
@@ -155,7 +155,10 @@ class CreateService(BaseService):
         session: str | None = None,
         **extra: Any,
     ) -> ServiceResult:
-        """Shared pipeline: VALIDATE → GENERATE → PERSIST → INDEX → REWEAVE → RESPOND."""
+        """Shared creation pipeline.
+
+        VALIDATE → GENERATE → PERSIST → INDEX → EVENT → REWEAVE → VECTOR INDEX → RESPOND
+        """
         op = f"create_{content_type}"
         warnings: list[str] = []
         tags = tags or []
@@ -319,6 +322,19 @@ class CreateService(BaseService):
                     else:
                         msg = rw.error.message if rw.error else "unknown"
                         warnings.append(f"Auto-reweave skipped: {msg}")
+
+        # ── VECTOR INDEX ─────────────────────────────────────────
+        if self._vault.settings.search.semantic_enabled:
+            with trace_span("vector_index"):
+                try:
+                    from ztlctl.services.vector import VectorService
+
+                    vec_svc = VectorService(self._vault)
+                    if vec_svc.is_available():
+                        vec_svc.ensure_table()
+                        vec_svc.index_node(content_id, f"{title} {body}")
+                except Exception as exc:
+                    warnings.append(f"Vector indexing skipped: {exc}")
 
         # ── RESPOND ───────────────────────────────────────────────
         return ServiceResult(
