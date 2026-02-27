@@ -115,8 +115,8 @@ class TestLocalDiscovery:
         import sys
 
         mod = sys.modules["ztlctl_local_plugin_initplugin"]
-        assert len(mod.calls) == 1  # type: ignore[attr-defined]
-        assert mod.calls[0]["vault_name"] == "testvault"  # type: ignore[attr-defined]
+        assert len(mod.calls) == 1
+        assert mod.calls[0]["vault_name"] == "testvault"
 
     def test_skips_underscore_prefixed_files(self, tmp_path: Path) -> None:
         """Files starting with _ are not loaded."""
