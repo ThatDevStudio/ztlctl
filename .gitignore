@@ -41,6 +41,8 @@ Thumbs.db
 
 # Vault data (created by ztlctl init or tests)
 .ztlctl/
+!src/ztlctl/templates/workflow/.ztlctl/
+!src/ztlctl/templates/workflow/.ztlctl/**
 notes/
 ops/
 
