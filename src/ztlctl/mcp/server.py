@@ -7,6 +7,7 @@ Transport: stdio default (sub-ms latency), streamable HTTP optional.
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,8 @@ mcp_available = False
 _FastMCP: Any = None
 
 try:
-    from mcp.server.fastmcp import FastMCP as _FastMCP  # type: ignore[import-not-found,no-redef]
+    fastmcp_module = importlib.import_module("mcp.server.fastmcp")
+    _FastMCP = getattr(fastmcp_module, "FastMCP")
 
     mcp_available = True
 except ImportError:

@@ -114,10 +114,12 @@ def discover_tools_impl(_vault: Any, *, category: str | None = None) -> dict[str
             }
         )
 
-    categories = [
-        {"name": cat, "tools": sorted(tools, key=lambda item: item["name"])}
-        for cat, tools in sorted(grouped.items())
-    ]
+    grouped_items: list[tuple[str, list[dict[str, str]]]] = sorted(
+        grouped.items(), key=lambda item: item[0]
+    )
+    categories: list[dict[str, Any]] = []
+    for cat, tools in grouped_items:
+        categories.append({"name": cat, "tools": sorted(tools, key=_tool_name_key)})
     return {
         "ok": True,
         "op": "discover_tools",
@@ -127,6 +129,11 @@ def discover_tools_impl(_vault: Any, *, category: str | None = None) -> dict[str
             "categories": categories,
         },
     }
+
+
+def _tool_name_key(tool: dict[str, str]) -> str:
+    """Sort MCP catalog entries by tool name."""
+    return tool["name"]
 
 
 # ---------------------------------------------------------------------------
