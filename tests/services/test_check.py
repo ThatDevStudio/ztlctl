@@ -195,6 +195,185 @@ class TestCheckGraphHealth:
         assert isolated[0]["severity"] == "warning"
 
 
+class TestCheckGardenHealth:
+    def test_aging_seed_detected(self, vault: Vault) -> None:
+        """Seed note older than seed_age_warning_days → warning."""
+        data = create_note(vault, "Old Seed")
+        # Set maturity to seed and backdate the created field
+        with vault.engine.begin() as conn:
+            conn.execute(
+                nodes.update()
+                .where(nodes.c.id == data["id"])
+                .values(maturity="seed", created="2025-01-01")
+            )
+
+        result = CheckService(vault).check()
+        issues = result.data["issues"]
+        aging = [i for i in issues if "Aging seed" in i["message"]]
+        assert len(aging) == 1
+        assert aging[0]["category"] == "garden_health"
+        assert aging[0]["severity"] == "warning"
+
+    def test_fresh_seed_not_reported(self, vault: Vault) -> None:
+        """Seed created today → no aging warning."""
+        from datetime import UTC, datetime
+
+        data = create_note(vault, "Fresh Seed")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        with vault.engine.begin() as conn:
+            conn.execute(
+                nodes.update()
+                .where(nodes.c.id == data["id"])
+                .values(maturity="seed", created=today)
+            )
+
+        result = CheckService(vault).check()
+        issues = result.data["issues"]
+        aging = [i for i in issues if "Aging seed" in i["message"]]
+        assert len(aging) == 0
+
+    def test_evergreen_ready_candidate_reported(self, vault: Vault) -> None:
+        """Budding note meeting both thresholds → advisory warning."""
+        data_a = create_note(vault, "Candidate Note")
+        # Create enough bidirectional links (default threshold = 3)
+        targets = []
+        for i in range(3):
+            td = create_note(vault, f"Linked Note {i}")
+            targets.append(td)
+        # Set maturity and create bidirectional edges
+        with vault.engine.begin() as conn:
+            conn.execute(
+                nodes.update().where(nodes.c.id == data_a["id"]).values(maturity="budding")
+            )
+            for td in targets:
+                conn.execute(
+                    insert(edges).values(
+                        source_id=data_a["id"],
+                        target_id=td["id"],
+                        edge_type="relates",
+                        source_layer="body",
+                        weight=1.0,
+                        created="2025-01-01",
+                    )
+                )
+                conn.execute(
+                    insert(edges).values(
+                        source_id=td["id"],
+                        target_id=data_a["id"],
+                        edge_type="relates",
+                        source_layer="body",
+                        weight=1.0,
+                        created="2025-01-01",
+                    )
+                )
+        # Add enough key_points to frontmatter (default threshold = 5)
+        file_path = vault.root / data_a["path"]
+        fm, body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+        fm["key_points"] = ["point1", "point2", "point3", "point4", "point5"]
+        file_path.write_text(render_frontmatter(fm, body), encoding="utf-8")
+
+        result = CheckService(vault).check()
+        issues = result.data["issues"]
+        evergreen = [i for i in issues if "Evergreen candidate" in i["message"]]
+        assert len(evergreen) == 1
+        assert evergreen[0]["category"] == "garden_health"
+
+    def test_insufficient_key_points_not_reported(self, vault: Vault) -> None:
+        """Enough links but too few key_points → no advisory."""
+        data_a = create_note(vault, "Few Points Note")
+        targets = []
+        for i in range(3):
+            td = create_note(vault, f"Link Target {i}")
+            targets.append(td)
+        with vault.engine.begin() as conn:
+            conn.execute(
+                nodes.update().where(nodes.c.id == data_a["id"]).values(maturity="budding")
+            )
+            for td in targets:
+                conn.execute(
+                    insert(edges).values(
+                        source_id=data_a["id"],
+                        target_id=td["id"],
+                        edge_type="relates",
+                        source_layer="body",
+                        weight=1.0,
+                        created="2025-01-01",
+                    )
+                )
+                conn.execute(
+                    insert(edges).values(
+                        source_id=td["id"],
+                        target_id=data_a["id"],
+                        edge_type="relates",
+                        source_layer="body",
+                        weight=1.0,
+                        created="2025-01-01",
+                    )
+                )
+        # Only 2 key_points (threshold is 5)
+        file_path = vault.root / data_a["path"]
+        fm, body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+        fm["key_points"] = ["point1", "point2"]
+        file_path.write_text(render_frontmatter(fm, body), encoding="utf-8")
+
+        result = CheckService(vault).check()
+        issues = result.data["issues"]
+        evergreen = [i for i in issues if "Evergreen candidate" in i["message"]]
+        assert len(evergreen) == 0
+
+    def test_insufficient_links_not_reported(self, vault: Vault) -> None:
+        """Enough key_points but too few bidirectional links → no advisory."""
+        data_a = create_note(vault, "Few Links Note")
+        # Only 1 bidirectional link (threshold is 3)
+        td = create_note(vault, "Single Link Target")
+        with vault.engine.begin() as conn:
+            conn.execute(nodes.update().where(nodes.c.id == data_a["id"]).values(maturity="seed"))
+            conn.execute(
+                insert(edges).values(
+                    source_id=data_a["id"],
+                    target_id=td["id"],
+                    edge_type="relates",
+                    source_layer="body",
+                    weight=1.0,
+                    created="2025-01-01",
+                )
+            )
+            conn.execute(
+                insert(edges).values(
+                    source_id=td["id"],
+                    target_id=data_a["id"],
+                    edge_type="relates",
+                    source_layer="body",
+                    weight=1.0,
+                    created="2025-01-01",
+                )
+            )
+        file_path = vault.root / data_a["path"]
+        fm, body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+        fm["key_points"] = ["p1", "p2", "p3", "p4", "p5"]
+        file_path.write_text(render_frontmatter(fm, body), encoding="utf-8")
+
+        result = CheckService(vault).check()
+        issues = result.data["issues"]
+        evergreen = [i for i in issues if "Evergreen candidate" in i["message"]]
+        assert len(evergreen) == 0
+
+    def test_archived_note_excluded(self, vault: Vault) -> None:
+        """Archived seed → no aging warning."""
+        data = create_note(vault, "Archived Seed")
+        with vault.engine.begin() as conn:
+            conn.execute(
+                nodes.update()
+                .where(nodes.c.id == data["id"])
+                .values(maturity="seed", created="2025-01-01", archived=1)
+            )
+
+        result = CheckService(vault).check()
+        issues = result.data["issues"]
+        aging = [i for i in issues if "Aging seed" in i["message"] and i["node_id"] == data["id"]]
+        assert len(aging) == 0
+
+
 class TestCheckStructuralValidation:
     def test_invalid_id_pattern_detected(self, vault: Vault) -> None:
         """ID that doesn't match expected pattern → error."""

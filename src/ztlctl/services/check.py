@@ -38,6 +38,7 @@ CAT_DB_FILE = "db_file_consistency"
 CAT_SCHEMA = "schema_integrity"
 CAT_GRAPH = "graph_health"
 CAT_STRUCTURAL = "structural_validation"
+CAT_GARDEN = "garden_health"
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +66,8 @@ class CheckService(BaseService):
                 issues.extend(self._check_graph_health(conn))
             with trace_span("structural_validation"):
                 issues.extend(self._check_structural_validation(conn))
+            with trace_span("garden_health"):
+                issues.extend(self._check_garden_health(conn))
 
         warnings: list[str] = []
         issues_fixed = sum(1 for i in issues if i.get("fix_action") is not None)
@@ -560,6 +563,98 @@ class CheckService(BaseService):
                         "fix_action": None,
                     }
                 )
+
+        return issues
+
+    def _check_garden_health(self, conn: Connection) -> list[dict[str, Any]]:
+        """Category 5: garden advisory — aging seeds and evergreen readiness."""
+        from datetime import UTC, datetime, timedelta
+
+        issues: list[dict[str, Any]] = []
+        garden = self._vault.settings.garden
+
+        # --- Aging seeds ---
+        cutoff = (datetime.now(UTC) - timedelta(days=garden.seed_age_warning_days)).strftime(
+            "%Y-%m-%d"
+        )
+        aging_seeds = conn.execute(
+            select(nodes.c.id, nodes.c.title, nodes.c.created).where(
+                nodes.c.maturity == "seed",
+                nodes.c.type == "note",
+                nodes.c.archived == 0,
+                nodes.c.created < cutoff,
+            )
+        ).fetchall()
+        for row in aging_seeds:
+            issues.append(
+                {
+                    "category": CAT_GARDEN,
+                    "severity": SEVERITY_WARNING,
+                    "node_id": row.id,
+                    "message": (
+                        f"Aging seed: '{row.title}' created {row.created}, "
+                        f"older than {garden.seed_age_warning_days} days"
+                    ),
+                    "fix_action": None,
+                }
+            )
+
+        # --- Evergreen readiness ---
+        min_bidir = garden.evergreen_min_bidirectional_links
+        min_kp = garden.evergreen_min_key_points
+        candidates = conn.execute(
+            select(nodes.c.id, nodes.c.title, nodes.c.path).where(
+                nodes.c.maturity.in_(["seed", "budding"]),
+                nodes.c.type == "note",
+                nodes.c.archived == 0,
+            )
+        ).fetchall()
+        for row in candidates:
+            # Count bidirectional links for this node
+            bidir_count = (
+                conn.execute(
+                    text(
+                        "SELECT COUNT(*) FROM edges e1"
+                        " WHERE e1.source_id = :nid"
+                        "   AND EXISTS ("
+                        "     SELECT 1 FROM edges e2"
+                        "     WHERE e2.source_id = e1.target_id"
+                        "       AND e2.target_id = e1.source_id"
+                        "   )"
+                    ),
+                    {"nid": row.id},
+                ).scalar()
+                or 0
+            )
+            if bidir_count < min_bidir:
+                continue
+
+            # Check key_points count from frontmatter
+            file_path = self._vault.root / row.path
+            if not file_path.exists():
+                continue
+            try:
+                fm, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            key_points = fm.get("key_points", [])
+            if not isinstance(key_points, list) or len(key_points) < min_kp:
+                continue
+
+            issues.append(
+                {
+                    "category": CAT_GARDEN,
+                    "severity": SEVERITY_WARNING,
+                    "node_id": row.id,
+                    "message": (
+                        f"Evergreen candidate: '{row.title}' has "
+                        f"{bidir_count} bidirectional links and "
+                        f"{len(key_points)} key points — "
+                        f"consider promoting to evergreen"
+                    ),
+                    "fix_action": None,
+                }
+            )
 
         return issues
 
