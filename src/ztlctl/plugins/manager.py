@@ -1,12 +1,17 @@
 """Plugin discovery and loading.
 
-Discovery: entry_points (pip-installed) via pluggy setuptools entrypoints.
+Discovery: entry_points (pip-installed) via pluggy setuptools entrypoints,
+plus local directory discovery from ``.ztlctl/plugins/``.
 Capabilities: lifecycle hooks, CLI commands, MCP tools/resources.
 """
 
 from __future__ import annotations
 
+import importlib.util
+import inspect
 import logging
+import sys
+from pathlib import Path
 
 import pluggy
 
@@ -25,13 +30,18 @@ class PluginManager:
         self._pm.add_hookspecs(ZtlctlHookSpec)
         self._loaded: bool = False
 
-    def discover_and_load(self) -> list[str]:
-        """Discover plugins from entry points.
+    def discover_and_load(self, *, local_dir: Path | None = None) -> list[str]:
+        """Discover plugins from entry points and an optional local directory.
 
         Uses pluggy's native setuptools entry_point discovery for the
-        ``ztlctl.plugins`` group. Returns a list of loaded plugin names.
+        ``ztlctl.plugins`` group, then scans *local_dir* (typically
+        ``.ztlctl/plugins/``) for single-file Python plugins.
+
+        Returns a list of loaded plugin names.
         """
         self._pm.load_setuptools_entrypoints("ztlctl.plugins")
+        if local_dir is not None:
+            self._discover_local(local_dir)
         self._loaded = True
         return self.list_plugin_names()
 
@@ -62,3 +72,75 @@ class PluginManager:
     def list_plugin_names(self) -> list[str]:
         """Return names of all registered plugins."""
         return [self._pm.get_name(p) or p.__class__.__name__ for p in self._pm.get_plugins()]
+
+    # ------------------------------------------------------------------
+    # Local directory discovery
+    # ------------------------------------------------------------------
+
+    def _discover_local(self, local_dir: Path) -> None:
+        """Scan *local_dir* for single-file Python plugins.
+
+        Each ``*.py`` file (excluding ``_``-prefixed names) is loaded as a
+        module. Classes inside the module that carry pluggy hookimpl-decorated
+        methods are instantiated and registered.
+
+        Errors are logged as warnings but never raised — a broken local plugin
+        must not prevent the rest of the system from starting.
+        """
+        if not local_dir.is_dir():
+            return
+
+        for py_file in sorted(local_dir.glob("*.py")):
+            if py_file.name.startswith("_"):
+                continue
+            module_name = f"ztlctl_local_plugin_{py_file.stem}"
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, py_file)
+                if spec is None or spec.loader is None:
+                    logger.warning("Could not create module spec for %s", py_file)
+                    continue
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+            except Exception:
+                logger.warning("Failed to load local plugin %s", py_file, exc_info=True)
+                # Clean up partial module registration
+                sys.modules.pop(module_name, None)
+                continue
+
+            # Scan module for classes that have hookimpl-decorated methods
+            for _attr_name, obj in inspect.getmembers(module, inspect.isclass):
+                if obj.__module__ != module_name:
+                    continue  # skip imported classes
+                if not self._has_hook_impls(obj):
+                    continue
+                try:
+                    instance = obj()
+                    self.register_plugin(instance, name=module_name)
+                    logger.debug(
+                        "Loaded local plugin %s from %s",
+                        obj.__name__,
+                        py_file,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to instantiate plugin class %s from %s",
+                        obj.__name__,
+                        py_file,
+                        exc_info=True,
+                    )
+
+    @staticmethod
+    def _has_hook_impls(cls: type) -> bool:
+        """Check whether *cls* has any methods decorated with ``@hookimpl``.
+
+        Pluggy's ``HookimplMarker("ztlctl")`` sets a ``ztlctl_impl``
+        attribute on decorated methods.
+        """
+        for name in dir(cls):
+            if name.startswith("_"):
+                continue
+            method = getattr(cls, name, None)
+            if callable(method) and getattr(method, "ztlctl_impl", None):
+                return True
+        return False
