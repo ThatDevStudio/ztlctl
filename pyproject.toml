@@ -30,7 +30,7 @@ ztlctl = "ztlctl.cli:cli"
 [project.optional-dependencies]
 mcp = ["mcp>=1.0", "anyio>=4.0"]
 community = ["leidenalg"]
-semantic = ["sqlite-vec"]
+semantic = ["sqlite-vec", "sentence-transformers"]
 
 [project.entry-points."ztlctl.plugins"]
 git = "ztlctl.plugins.builtins.git:GitPlugin"

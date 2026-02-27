@@ -213,6 +213,21 @@ class UpdateService(BaseService):
             warnings,
         )
 
+        # ── VECTOR RE-INDEX ──────────────────────────────────────
+        if self._vault.settings.search.semantic_enabled and (
+            "title" in fields_changed or "body" in fields_changed
+        ):
+            with trace_span("vector_reindex"):
+                try:
+                    from ztlctl.services.vector import VectorService
+
+                    vec_svc = VectorService(self._vault)
+                    if vec_svc.is_available():
+                        new_title = str(fm.get("title", ""))
+                        vec_svc.index_node(content_id, f"{new_title} {body}")
+                except Exception as exc:
+                    warnings.append(f"Vector re-indexing skipped: {exc}")
+
         # ── RESPOND ──────────────────────────────────────────
         return ServiceResult(
             ok=True,
