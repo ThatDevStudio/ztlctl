@@ -96,9 +96,9 @@ DESIGN.md Section 8 specifies: "The `--ignore-checkpoints` flag reads full histo
 
 ---
 
-### T-005: Garden Advisory Features
+### T-005: Garden Advisory Features ✅
 
-**Effort:** L | **Impact:** Medium
+**Effort:** L | **Impact:** Medium | **Status:** Done
 
 `GardenConfig` defines three criteria that are never used:
 
@@ -122,9 +122,9 @@ DESIGN.md Section 8 specifies: "The `--ignore-checkpoints` flag reads full histo
 
 ---
 
-### T-006: Interactive Create Prompts
+### T-006: Interactive Create Prompts ✅
 
-**Effort:** M | **Impact:** Medium
+**Effort:** M | **Impact:** Medium | **Status:** Done
 
 DESIGN.md Section 4 mentions three interaction profiles: Interactive (prompts for missing fields), Auto, and Non-interactive. Currently `create` commands accept flags only — no interactive prompting. The `init` command has interactive prompts, but `create` does not.
 
@@ -144,9 +144,9 @@ DESIGN.md Section 4 mentions three interaction profiles: Interactive (prompts fo
 
 ---
 
-### T-007: Bidirectional Edge Materialization
+### T-007: Bidirectional Edge Materialization ✅
 
-**Effort:** M | **Impact:** Low
+**Effort:** M | **Impact:** Low | **Status:** Done
 
 The `edges.bidirectional` column exists in the schema (reserved since Phase 1) but is never written. DESIGN.md notes it as reserved for future use.
 
@@ -545,9 +545,9 @@ Currently only `agent session log --cost N` accepts a cost argument. Other comma
 | T-002 | `graph unlink` command | M | Medium | Feature gap | ✅ Done |
 | T-003 | `--ignore-checkpoints` flag | S | Medium | Feature gap | ✅ Done |
 | T-004 | `orphan_reweave_threshold` usage | S | Low | Feature gap | ✅ Done |
-| T-005 | Garden advisory features | L | Medium | Feature gap | |
-| T-006 | Interactive create prompts | M | Medium | Feature gap | |
-| T-007 | Bidirectional edge materialization | M | Low | Feature gap | |
+| T-005 | Garden advisory features | L | Medium | Feature gap | ✅ Done |
+| T-006 | Interactive create prompts | M | Medium | Feature gap | ✅ Done |
+| T-007 | Bidirectional edge materialization | M | Low | Feature gap | ✅ Done |
 | T-008 | `cluster_id` materialization | S | Low | Feature gap | ✅ Done |
 | T-009 | Local directory plugin discovery | M | Medium | Deferred | |
 | T-010 | Copier workflow templates | XL | Medium | Deferred | |
