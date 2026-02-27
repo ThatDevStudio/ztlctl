@@ -390,6 +390,7 @@ Every command supports these flags:
 | `--json` | Structured JSON output (for scripting and agents) |
 | `-q, --quiet` | Minimal output |
 | `-v, --verbose` | Detailed output with debug info |
+| `--log-json` | Structured JSON log output to stderr |
 | `--no-interact` | Non-interactive mode (no prompts) |
 | `--no-reweave` | Skip automatic reweave on creation |
 | `-c, --config TEXT` | Override config file path |
@@ -417,6 +418,7 @@ Most commands also support `--examples` to show usage examples.
 | `graph path SRC DST` | Shortest path between nodes |
 | `graph gaps` | Find structural holes |
 | `graph bridges` | Find bridge nodes |
+| `graph unlink SRC DST` | Remove link between two nodes |
 | `graph materialize` | Compute and store graph metrics |
 | `agent session start TOPIC` | Start a session |
 | `agent session close` | Close with enrichment pipeline |
@@ -438,6 +440,10 @@ Most commands also support `--examples` to show usage examples.
 | `garden seed TITLE` | Quick-capture seed note |
 | `serve` | Start MCP server |
 | `upgrade` | Run database migrations |
+| `vector status` | Check semantic search availability |
+| `vector reindex` | Rebuild the vector index |
+| `workflow init` | Initialize workflow scaffolding |
+| `workflow update` | Update workflow scaffolding |
 
 ### Search Ranking Modes
 
