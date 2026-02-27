@@ -310,7 +310,7 @@ ztlctl create reference "Title" --url "https://..." --tags "domain/topic"
 ztlctl create task "Title" --priority high --impact high --effort low
 ztlctl garden seed "Half-formed idea"      # cultivation persona
 ztlctl agent session start "Research topic" # session management
-ztlctl extract decision LOG-0042            # JSONL → markdown
+ztlctl extract LOG-0042                     # JSONL → markdown
 ```
 
 ### Three Interaction Profiles

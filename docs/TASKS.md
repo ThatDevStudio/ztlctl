@@ -12,9 +12,9 @@
 
 ## 1. Feature Gaps (Designed but Not Implemented)
 
-### T-001: Post-Create Automatic Reweave
+### T-001: Post-Create Automatic Reweave ✅
 
-**Effort:** M | **Impact:** High
+**Effort:** M | **Impact:** High | **Status:** Done (PR #53)
 
 DESIGN.md Section 4 states: "Reweave runs unless `--no-reweave` is passed." Currently, reweave is only triggered manually via `ztlctl reweave` or automatically at session close. The `--no-reweave` global CLI flag is parsed into `ZtlSettings.no_reweave` but never consulted by any code.
 
@@ -56,9 +56,9 @@ DESIGN.md Section 5 specifies: "`ztlctl graph unlink ztl_source ztl_target` remo
 
 ---
 
-### T-003: `--ignore-checkpoints` Flag on `agent context`
+### T-003: `--ignore-checkpoints` Flag on `agent context` ✅
 
-**Effort:** S | **Impact:** Medium
+**Effort:** S | **Impact:** Medium | **Status:** Done — CLI → SessionService → ContextAssembler fully wired
 
 DESIGN.md Section 8 specifies: "The `--ignore-checkpoints` flag reads full history when needed." The checkpoint-based retrieval is implemented, but the override flag is missing.
 
@@ -78,9 +78,9 @@ DESIGN.md Section 8 specifies: "The `--ignore-checkpoints` flag reads full histo
 
 ---
 
-### T-004: `orphan_reweave_threshold` Config Usage
+### T-004: `orphan_reweave_threshold` Config Usage ✅
 
-**Effort:** S | **Impact:** Low
+**Effort:** S | **Impact:** Low | **Status:** Done — used in `_orphan_sweep()` via `min_score_override`
 
 `SessionConfig.orphan_reweave_threshold = 0.2` is defined in `config/models.py:91` but never referenced. The orphan sweep in `SessionService.close()` should use this as a lowered threshold when re-attempting reweave on orphan notes (notes with zero links).
 
@@ -164,9 +164,9 @@ The `edges.bidirectional` column exists in the schema (reserved since Phase 1) b
 
 ---
 
-### T-008: `cluster_id` Materialization
+### T-008: `cluster_id` Materialization ✅
 
-**Effort:** S | **Impact:** Low
+**Effort:** S | **Impact:** Low | **Status:** Done — computed in `materialize_metrics()` via Leiden→Louvain
 
 The `nodes.cluster_id` column exists in the schema but is never written. `GraphService.materialize_metrics()` computes degree, pagerank, and betweenness — but not cluster assignments from community detection.
 
@@ -346,9 +346,9 @@ DESIGN.md Section 8 and config reference: `SearchConfig` has `semantic_enabled`,
 
 ## 3. CLI Completeness
 
-### T-016: `extract` Command Naming
+### T-016: `extract` Command Naming ✅
 
-**Effort:** S | **Impact:** Low
+**Effort:** S | **Impact:** Low | **Status:** Done — accepted current naming, DESIGN.md updated
 
 DESIGN.md shows `ztlctl extract decision LOG-0042` as the invocation. The current CLI is `ztlctl extract LOG-0042` — a standalone command, not a subcommand of an `extract` group. While functional, the naming diverges from design.
 
@@ -364,9 +364,9 @@ DESIGN.md shows `ztlctl extract decision LOG-0042` as the invocation. The curren
 
 ---
 
-### T-017: `--examples` Flag Coverage Audit
+### T-017: `--examples` Flag Coverage Audit ✅
 
-**Effort:** S | **Impact:** Low
+**Effort:** S | **Impact:** Low | **Status:** Done — all commands/groups now have `examples=`
 
 DESIGN.md Section 12 states `--examples` should be on every command. All commands use `ZtlCommand`/`ZtlGroup` base classes which support `examples=`, but not all commands may have examples defined.
 
@@ -384,9 +384,9 @@ DESIGN.md Section 12 states `--examples` should be on every command. All command
 
 ## 4. Code Quality and Technical Debt
 
-### T-018: Stale Plan Documents
+### T-018: Stale Plan Documents ✅
 
-**Effort:** S | **Impact:** Low
+**Effort:** S | **Impact:** Low | **Status:** Done — moved to `docs/plans/archive/`
 
 Three plan documents in `docs/plans/` reference completed work:
 
@@ -445,9 +445,9 @@ DESIGN.md contains implementation notes from Phase 1–7 that reference line num
 
 ---
 
-### T-021: `docs/` Directory in Git Status
+### T-021: `docs/` Directory in Git Status ✅
 
-**Effort:** S | **Impact:** Low
+**Effort:** S | **Impact:** Low | **Status:** Done — `docs/` tracked in git
 
 `git status` shows `docs/` as untracked. The `docs/plans/` subdirectory contains plan documents that should be tracked.
 
@@ -460,9 +460,9 @@ DESIGN.md contains implementation notes from Phase 1–7 that reference line num
 
 ## 5. Robustness and Polish
 
-### T-022: `--no-reweave` Flag Wiring (Prerequisite for T-001)
+### T-022: `--no-reweave` Flag Wiring (Prerequisite for T-001) ✅
 
-**Effort:** S | **Impact:** Medium
+**Effort:** S | **Impact:** Medium | **Status:** Done (PR #53, wired with T-001)
 
 Even if T-001 (post-create reweave) is not immediately implemented, the `--no-reweave` flag should at minimum be documented as a no-op or removed from the CLI to avoid user confusion.
 
@@ -477,9 +477,9 @@ Even if T-001 (post-create reweave) is not immediately implemented, the `--no-re
 
 ---
 
-### T-023: Session Close Event WAL Drain Verification
+### T-023: Session Close Event WAL Drain Verification ✅
 
-**Effort:** S | **Impact:** Medium
+**Effort:** S | **Impact:** Medium | **Status:** Done — `bus.drain()` called in `session.py:192`
 
 DESIGN.md Section 6 specifies session close drains the event WAL as the final step: "Drain event WAL: Sync barrier for async workflow events (wait for in-flight, retry failures, report)." Verify this is correctly implemented and add integration test if missing.
 
@@ -516,9 +516,9 @@ The upgrade pipeline (BACKUP → MIGRATE → VALIDATE → REPORT) is implemented
 
 ---
 
-### T-025: `--cost` Flag on All Actions
+### T-025: `--cost` Flag on All Actions ✅
 
-**Effort:** M | **Impact:** Low
+**Effort:** M | **Impact:** Low | **Status:** Done (PR #52)
 
 DESIGN.md Section 8: "All actions accept a `--cost` argument. Token cost is pre-computed per log entry and stored in the DB."
 
@@ -539,30 +539,30 @@ Currently only `agent session log --cost N` accepts a cost argument. Other comma
 
 ## Summary Table
 
-| ID | Task | Effort | Impact | Category |
-|----|------|--------|--------|----------|
-| T-001 | Post-create automatic reweave | M | High | Feature gap |
-| T-002 | `graph unlink` command | M | Medium | Feature gap |
-| T-003 | `--ignore-checkpoints` flag | S | Medium | Feature gap |
-| T-004 | `orphan_reweave_threshold` usage | S | Low | Feature gap |
-| T-005 | Garden advisory features | L | Medium | Feature gap |
-| T-006 | Interactive create prompts | M | Medium | Feature gap |
-| T-007 | Bidirectional edge materialization | M | Low | Feature gap |
-| T-008 | `cluster_id` materialization | S | Low | Feature gap |
-| T-009 | Local directory plugin discovery | M | Medium | Deferred |
-| T-010 | Copier workflow templates | XL | Medium | Deferred |
-| T-011 | MCP tool proliferation guard | M | Low | Deferred |
-| T-012 | MCP streamable HTTP transport | L | Medium | Deferred |
-| T-013 | User-provided Jinja2 templates | M | Low | Deferred |
-| T-014 | Custom subtypes (plugin-registered) | L | Low | Deferred |
-| T-015 | Semantic search | XL | High | Deferred |
-| T-016 | `extract` command naming | S | Low | CLI |
-| T-017 | `--examples` flag coverage audit | S | Low | CLI |
-| T-018 | Stale plan documents | S | Low | Code quality |
-| T-019 | `type: ignore` comment audit | S | Low | Code quality |
-| T-020 | DESIGN.md Phase 8 update | M | Low | Code quality |
-| T-021 | `docs/` directory git tracking | S | Low | Code quality |
-| T-022 | `--no-reweave` flag wiring | S | Medium | Robustness |
-| T-023 | Session close WAL drain verification | S | Medium | Robustness |
-| T-024 | Alembic migration testing | M | Medium | Robustness |
-| T-025 | `--cost` flag on all actions | M | Low | Robustness |
+| ID | Task | Effort | Impact | Category | Status |
+|----|------|--------|--------|----------|--------|
+| T-001 | Post-create automatic reweave | M | High | Feature gap | ✅ Done |
+| T-002 | `graph unlink` command | M | Medium | Feature gap | |
+| T-003 | `--ignore-checkpoints` flag | S | Medium | Feature gap | ✅ Done |
+| T-004 | `orphan_reweave_threshold` usage | S | Low | Feature gap | ✅ Done |
+| T-005 | Garden advisory features | L | Medium | Feature gap | |
+| T-006 | Interactive create prompts | M | Medium | Feature gap | |
+| T-007 | Bidirectional edge materialization | M | Low | Feature gap | |
+| T-008 | `cluster_id` materialization | S | Low | Feature gap | ✅ Done |
+| T-009 | Local directory plugin discovery | M | Medium | Deferred | |
+| T-010 | Copier workflow templates | XL | Medium | Deferred | |
+| T-011 | MCP tool proliferation guard | M | Low | Deferred | |
+| T-012 | MCP streamable HTTP transport | L | Medium | Deferred | |
+| T-013 | User-provided Jinja2 templates | M | Low | Deferred | |
+| T-014 | Custom subtypes (plugin-registered) | L | Low | Deferred | |
+| T-015 | Semantic search | XL | High | Deferred | |
+| T-016 | `extract` command naming | S | Low | CLI | ✅ Done |
+| T-017 | `--examples` flag coverage audit | S | Low | CLI | ✅ Done |
+| T-018 | Stale plan documents | S | Low | Code quality | ✅ Done |
+| T-019 | `type: ignore` comment audit | S | Low | Code quality | |
+| T-020 | DESIGN.md Phase 8 update | M | Low | Code quality | |
+| T-021 | `docs/` directory git tracking | S | Low | Code quality | ✅ Done |
+| T-022 | `--no-reweave` flag wiring | S | Medium | Robustness | ✅ Done |
+| T-023 | Session close WAL drain verification | S | Medium | Robustness | ✅ Done |
+| T-024 | Alembic migration testing | M | Medium | Robustness | |
+| T-025 | `--cost` flag on all actions | M | Low | Robustness | ✅ Done |
