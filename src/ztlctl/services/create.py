@@ -1,6 +1,6 @@
-"""CreateService — five-stage content creation pipeline.
+"""CreateService — six-stage content creation pipeline.
 
-Pipeline: VALIDATE → GENERATE → PERSIST → INDEX → RESPOND
+Pipeline: VALIDATE → GENERATE → PERSIST → INDEX → REWEAVE → RESPOND
 (DESIGN.md Section 4)
 """
 
@@ -141,7 +141,7 @@ class CreateService(BaseService):
         )
 
     # ------------------------------------------------------------------
-    # Five-stage pipeline (private)
+    # Six-stage pipeline (private)
     # ------------------------------------------------------------------
 
     def _create_content(
@@ -155,7 +155,7 @@ class CreateService(BaseService):
         session: str | None = None,
         **extra: Any,
     ) -> ServiceResult:
-        """Shared pipeline: VALIDATE → GENERATE → PERSIST → INDEX → RESPOND."""
+        """Shared pipeline: VALIDATE → GENERATE → PERSIST → INDEX → REWEAVE → RESPOND."""
         op = f"create_{content_type}"
         warnings: list[str] = []
         tags = tags or []
@@ -301,6 +301,20 @@ class CreateService(BaseService):
                 },
                 warnings,
             )
+
+        # ── REWEAVE ──────────────────────────────────────────────
+        if not self._vault.settings.no_reweave and content_type in ("note", "reference"):
+            with trace_span("post_create_reweave"):
+                from ztlctl.services.reweave import ReweaveService
+
+                rw = ReweaveService(self._vault).reweave(content_id=content_id)
+                if rw.ok:
+                    count = rw.data.get("count", 0)
+                    if count > 0:
+                        warnings.append(f"Auto-reweave: {count} link(s) added")
+                else:
+                    msg = rw.error.message if rw.error else "unknown"
+                    warnings.append(f"Auto-reweave skipped: {msg}")
 
         # ── RESPOND ───────────────────────────────────────────────
         return ServiceResult(
