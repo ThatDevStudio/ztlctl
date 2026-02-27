@@ -27,6 +27,13 @@ class TestCheckPending:
         assert result.data["pending_count"] == 0
         assert result.data["current"] == result.data["head"]
 
+    def test_check_pending_unstamped_db(self, vault: Vault) -> None:
+        """Unstamped vault (tables exist, no alembic_version) shows pending migrations."""
+        result = UpgradeService(vault).check_pending()
+        assert result.ok
+        assert result.data["current"] is None
+        assert result.data["pending_count"] > 0
+
     def test_check_pending_reports_head_revision(self, vault: Vault) -> None:
         """check_pending() always reports the head revision."""
         result = UpgradeService(vault).check_pending()
@@ -63,8 +70,8 @@ class TestApply:
         svc = UpgradeService(vault)
         result = svc.apply()
         assert result.ok
-        if "backup_path" in result.data:
-            assert Path(result.data["backup_path"]).exists()
+        assert "backup_path" in result.data
+        assert Path(result.data["backup_path"]).exists()
 
 
 # ---------------------------------------------------------------------------
