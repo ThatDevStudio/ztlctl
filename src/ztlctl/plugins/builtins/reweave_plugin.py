@@ -13,9 +13,12 @@ import logging
 from typing import TYPE_CHECKING
 
 import pluggy
+from sqlalchemy import select
 
 if TYPE_CHECKING:
     from ztlctl.infrastructure.vault import Vault
+
+from ztlctl.infrastructure.database.schema import nodes
 
 hookimpl = pluggy.HookimplMarker("ztlctl")
 
@@ -50,6 +53,24 @@ class ReweavePlugin:
         if content_type not in ("note", "reference"):
             logger.debug("Skipping post-create reweave for type=%s", content_type)
             return
+
+        # Decision notes have a stricter lifecycle and should not be
+        # auto-mutated by asynchronous post-create reweave.
+        if content_type == "note":
+            try:
+                with self._vault.engine.connect() as conn:
+                    subtype = conn.execute(
+                        select(nodes.c.subtype).where(nodes.c.id == content_id)
+                    ).scalar_one_or_none()
+                if subtype == "decision":
+                    logger.debug("Skipping post-create reweave for decision note %s", content_id)
+                    return
+            except Exception:
+                logger.debug(
+                    "Subtype lookup failed for %s; continuing with reweave",
+                    content_id,
+                    exc_info=True,
+                )
 
         if settings.no_reweave:
             logger.debug("Skipping post-create reweave (--no-reweave)")

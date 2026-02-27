@@ -6,9 +6,11 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import insert
 
 from ztlctl.config.models import ReweaveConfig
 from ztlctl.config.settings import ZtlSettings
+from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.plugins.builtins.reweave_plugin import ReweavePlugin
 from ztlctl.services.result import ServiceError, ServiceResult
@@ -97,6 +99,33 @@ class TestReweavePluginUnit:
                 content_id="TASK-0001",
                 title="Task",
                 path="ops/tasks/TASK-0001.md",
+                tags=[],
+            )
+            mock_cls.assert_not_called()
+
+    def test_skips_decision_note_subtype(self, vault: Vault) -> None:
+        """Decision notes are excluded from post-create reweave."""
+        with vault.engine.begin() as conn:
+            conn.execute(
+                insert(nodes).values(
+                    id="ztl_decision1",
+                    title="Decision Note",
+                    type="note",
+                    subtype="decision",
+                    status="proposed",
+                    path="notes/ztl_decision1.md",
+                    created="2026-01-01",
+                    modified="2026-01-01",
+                )
+            )
+
+        plugin = ReweavePlugin(vault=vault)
+        with patch(_PATCH_TARGET) as mock_cls:
+            plugin.post_create(
+                content_type="note",
+                content_id="ztl_decision1",
+                title="Decision Note",
+                path="notes/ztl_decision1.md",
                 tags=[],
             )
             mock_cls.assert_not_called()

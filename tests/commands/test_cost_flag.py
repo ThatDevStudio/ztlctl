@@ -90,13 +90,15 @@ class TestCostFlagSupersede:
         )
         old_id = json.loads(r1.output)["data"]["id"]
         # Transition old decision to accepted (required before supersede)
-        cli_runner.invoke(cli, ["update", old_id, "--status", "accepted"])
+        update_result = cli_runner.invoke(cli, ["update", old_id, "--status", "accepted"])
+        assert update_result.exit_code == 0
         r2 = cli_runner.invoke(
             cli,
             ["--json", "create", "note", "New Decision", "--subtype", "decision"],
         )
         new_id = json.loads(r2.output)["data"]["id"]
-        cli_runner.invoke(cli, ["supersede", old_id, new_id, "--cost", "400"])
+        supersede_result = cli_runner.invoke(cli, ["supersede", old_id, new_id, "--cost", "400"])
+        assert supersede_result.exit_code == 0
         assert _get_total_cost(cli_runner) == 400
 
 
