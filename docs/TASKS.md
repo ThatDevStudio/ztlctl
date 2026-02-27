@@ -231,9 +231,9 @@ The `workflow` command group exists but is empty (no subcommands). This feature 
 
 ---
 
-### T-011: MCP Tool Proliferation Guard
+### T-011: MCP Tool Proliferation Guard ✅
 
-**Effort:** M | **Impact:** Low
+**Effort:** M | **Impact:** Low | **Status:** Done (PR #65)
 
 DESIGN.md Section 16: "At 15+ tools (from plugin registration), activate `discover_tools` meta-tool for progressive discovery by category."
 
@@ -273,9 +273,9 @@ DESIGN.md Section 16: "stdio default. Streamable HTTP optional for remote access
 
 ---
 
-### T-013: User-Provided Jinja2 Templates
+### T-013: User-Provided Jinja2 Templates ✅
 
-**Effort:** M | **Impact:** Low
+**Effort:** M | **Impact:** Low | **Status:** Done (this PR)
 
 DESIGN.md Section 2: "User-provided templates supported in future versions." Currently only bundled templates in `src/ztlctl/templates/` are used.
 
@@ -525,9 +525,9 @@ Currently only `agent session log --cost N` accepts a cost argument. Other comma
 | T-008 | `cluster_id` materialization | S | Low | Feature gap | ✅ Done |
 | T-009 | Local directory plugin discovery | M | Medium | Deferred | ✅ Done |
 | T-010 | Copier workflow templates | XL | Medium | Deferred | |
-| T-011 | MCP tool proliferation guard | M | Low | Deferred | |
+| T-011 | MCP tool proliferation guard | M | Low | Deferred | ✅ Done |
 | T-012 | MCP streamable HTTP transport | L | Medium | Deferred | ✅ Done |
-| T-013 | User-provided Jinja2 templates | M | Low | Deferred | |
+| T-013 | User-provided Jinja2 templates | M | Low | Deferred | ✅ Done |
 | T-014 | Custom subtypes (plugin-registered) | L | Low | Deferred | |
 | T-015 | Semantic search | XL | High | Deferred | ✅ Done |
 | T-016 | `extract` command naming | S | Low | CLI | ✅ Done |

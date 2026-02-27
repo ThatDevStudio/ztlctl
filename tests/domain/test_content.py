@@ -143,6 +143,35 @@ class TestWriteBody:
         body = model.write_body(body="Hello world")
         assert "Hello world" in body
 
+    def test_note_body_uses_user_template_override(self, tmp_path: Path) -> None:
+        model = NoteModel(
+            id="ztl_abc12345",
+            type="note",
+            status="draft",
+            title="Test",
+            created=date(2025, 1, 15),
+        )
+        template_dir = tmp_path / ".ztlctl" / "templates" / "content"
+        template_dir.mkdir(parents=True)
+        (template_dir / "note.md.j2").write_text("override body: {{ body }}\n", encoding="utf-8")
+
+        body = model.write_body(body="Hello world", template_root=tmp_path)
+
+        assert body == "override body: Hello world\n"
+
+    def test_note_body_falls_back_to_bundled_template(self, tmp_path: Path) -> None:
+        model = NoteModel(
+            id="ztl_abc12345",
+            type="note",
+            status="draft",
+            title="Test",
+            created=date(2025, 1, 15),
+        )
+
+        body = model.write_body(body="Hello world", template_root=tmp_path)
+
+        assert "Hello world" in body
+
     def test_note_empty_body(self) -> None:
         model = NoteModel(
             id="ztl_abc12345",
