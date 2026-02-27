@@ -1,6 +1,6 @@
-"""MCP tool definitions — 12 tools across 4 categories.
+"""MCP tool definitions — 13 tools across 5 categories.
 
-Categories: Creation (4), Lifecycle (3), Query (4), Session (1).
+Categories: Discovery (1), Creation (4), Lifecycle (3), Query (4), Session (1).
 Each tool has a ``_<name>_impl`` function testable without the mcp package.
 ``register_tools()`` wraps them with FastMCP decorators.
 (DESIGN.md Section 16)
@@ -16,6 +16,58 @@ from ztlctl.services.contracts import (
     dump_validated,
 )
 from ztlctl.services.result import ServiceResult
+
+_TOOL_CATALOG: tuple[dict[str, str], ...] = (
+    {
+        "name": "discover_tools",
+        "category": "discovery",
+        "description": "List available MCP tools grouped by category.",
+    },
+    {"name": "create_note", "category": "creation", "description": "Create a new note."},
+    {
+        "name": "create_reference",
+        "category": "creation",
+        "description": "Create a new reference.",
+    },
+    {"name": "create_task", "category": "creation", "description": "Create a new task."},
+    {"name": "create_log", "category": "creation", "description": "Start a new session."},
+    {
+        "name": "update_content",
+        "category": "lifecycle",
+        "description": "Update a content item.",
+    },
+    {
+        "name": "close_content",
+        "category": "lifecycle",
+        "description": "Archive/close a content item.",
+    },
+    {
+        "name": "reweave",
+        "category": "lifecycle",
+        "description": "Run reweave on content.",
+    },
+    {"name": "search", "category": "query", "description": "Full-text search."},
+    {
+        "name": "get_document",
+        "category": "query",
+        "description": "Get a document by ID.",
+    },
+    {
+        "name": "get_related",
+        "category": "query",
+        "description": "Get related content via graph traversal.",
+    },
+    {
+        "name": "agent_context",
+        "category": "query",
+        "description": "Build agent context from vault state.",
+    },
+    {
+        "name": "session_close",
+        "category": "session",
+        "description": "Close the active session.",
+    },
+)
 
 
 def _to_mcp_response(result: ServiceResult) -> dict[str, Any]:
@@ -33,6 +85,48 @@ def _to_mcp_response(result: ServiceResult) -> dict[str, Any]:
             "message": result.error.message,
         }
     return response
+
+
+# ---------------------------------------------------------------------------
+# Discovery tools (1)
+# ---------------------------------------------------------------------------
+
+
+def discover_tools_impl(_vault: Any, *, category: str | None = None) -> dict[str, Any]:
+    """List available MCP tools grouped by category.
+
+    If *category* is provided, only tools in that category are returned.
+    """
+    selected_category = category.lower().strip() if category else None
+
+    selected = [
+        tool
+        for tool in _TOOL_CATALOG
+        if selected_category is None or tool["category"] == selected_category
+    ]
+
+    grouped: dict[str, list[dict[str, str]]] = {}
+    for tool in selected:
+        grouped.setdefault(tool["category"], []).append(
+            {
+                "name": tool["name"],
+                "description": tool["description"],
+            }
+        )
+
+    categories = [
+        {"name": cat, "tools": sorted(tools, key=lambda item: item["name"])}
+        for cat, tools in sorted(grouped.items())
+    ]
+    return {
+        "ok": True,
+        "op": "discover_tools",
+        "data": {
+            "count": len(selected),
+            "total_count": len(_TOOL_CATALOG),
+            "categories": categories,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +345,12 @@ def session_close_impl(vault: Any, *, summary: str | None = None) -> dict[str, A
 
 
 def register_tools(server: Any, vault: Any) -> None:
-    """Register all 12 MCP tools on the FastMCP server."""
+    """Register all MCP tools on the FastMCP server."""
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def discover_tools(category: str | None = None) -> dict[str, Any]:
+        """List available MCP tools grouped by category."""
+        return discover_tools_impl(vault, category=category)
 
     @server.tool()  # type: ignore[untyped-decorator]
     def create_note(

@@ -15,8 +15,10 @@ from ztlctl.mcp.tools import (
     create_note_impl,
     create_reference_impl,
     create_task_impl,
+    discover_tools_impl,
     get_document_impl,
     get_related_impl,
+    register_tools,
     reweave_impl,
     search_impl,
     session_close_impl,
@@ -82,6 +84,52 @@ class TestCreateTools:
     def test_create_note_with_topic(self, vault: Vault):
         resp = create_note_impl(vault, "Topic Note", topic="math")
         assert resp["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# Tests — Discovery tools
+# ---------------------------------------------------------------------------
+
+
+class TestDiscoveryTools:
+    """Tests for discovery _impl and registration."""
+
+    def test_discover_tools_returns_grouped_catalog(self, vault: Vault):
+        resp = discover_tools_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "discover_tools"
+        assert resp["data"]["count"] >= 13
+        categories = {entry["name"] for entry in resp["data"]["categories"]}
+        assert "discovery" in categories
+        assert "creation" in categories
+        assert "query" in categories
+
+    def test_discover_tools_filters_by_category(self, vault: Vault):
+        resp = discover_tools_impl(vault, category="creation")
+        assert resp["ok"] is True
+        assert resp["data"]["count"] == 4
+        categories = resp["data"]["categories"]
+        assert len(categories) == 1
+        assert categories[0]["name"] == "creation"
+        names = {tool["name"] for tool in categories[0]["tools"]}
+        assert "create_note" in names
+        assert "create_reference" in names
+
+    def test_register_tools_includes_discover_tools(self, vault: Vault):
+        class DummyServer:
+            def __init__(self) -> None:
+                self.tools: list[str] = []
+
+            def tool(self):
+                def decorator(fn):
+                    self.tools.append(fn.__name__)
+                    return fn
+
+                return decorator
+
+        server = DummyServer()
+        register_tools(server, vault)
+        assert "discover_tools" in server.tools
 
 
 # ---------------------------------------------------------------------------
