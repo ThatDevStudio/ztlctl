@@ -41,6 +41,8 @@ Thumbs.db
 
 # Vault data (created by ztlctl init or tests)
 .ztlctl/
+notes/
+ops/
 
 # Worktrees
 .worktrees/
