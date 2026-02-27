@@ -427,3 +427,16 @@ class TestPostCreateReweave:
 
         assert result.ok  # create still succeeds
         assert any("Auto-reweave skipped" in w for w in result.warnings)
+
+    def test_reweave_exception_still_creates(self, vault: Vault) -> None:
+        """If reweave raises an exception, create still succeeds with a warning."""
+        from unittest.mock import patch
+
+        svc = CreateService(vault)
+
+        with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
+            mock_cls.return_value.reweave.side_effect = RuntimeError("boom")
+            result = svc.create_note("Exception Note")
+
+        assert result.ok
+        assert any("Auto-reweave skipped: boom" in w for w in result.warnings)

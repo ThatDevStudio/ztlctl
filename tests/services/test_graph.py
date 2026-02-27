@@ -1,11 +1,11 @@
-"""Tests for GraphService — six graph algorithms."""
+"""Tests for GraphService — graph algorithms and unlink."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from ztlctl.infrastructure.database.schema import edges, nodes
 from ztlctl.infrastructure.vault import Vault
@@ -534,3 +534,187 @@ class TestMaterializeMetrics:
             row_b = conn.execute(select(nodes.c.degree_out).where(nodes.c.id == "B")).first()
         assert row_b is not None
         assert row_b.degree_out == 1
+
+    def test_materialize_populates_cluster_id(self, vault: Vault) -> None:
+        """Materialize should assign cluster_id from community detection."""
+        _build_star(vault, "HUB", ["S1", "S2", "S3"])
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            hub = conn.execute(select(nodes.c.cluster_id).where(nodes.c.id == "HUB")).first()
+        assert hub is not None
+        assert hub.cluster_id is not None
+
+    def test_materialize_cluster_id_none_for_isolated(self, vault: Vault) -> None:
+        """Isolated nodes (no edges) get cluster_id=None."""
+        _insert_node(vault, "LONE")
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes.c.cluster_id).where(nodes.c.id == "LONE")).first()
+        assert row is not None
+        assert row.cluster_id is None
+
+
+# ---------------------------------------------------------------------------
+# unlink — remove specific links
+# ---------------------------------------------------------------------------
+
+
+class TestUnlink:
+    def test_unlink_removes_edge(self, vault: Vault) -> None:
+        """Unlink removes the edge from the database."""
+        _build_chain(vault, ["A", "B"])
+        # Create actual files so unlink can read them
+        for nid in ("A", "B"):
+            path = vault.root / f"notes/{nid}.md"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"---\nid: {nid}\ntitle: {nid}\n---\n", encoding="utf-8")
+
+        svc = GraphService(vault)
+        result = svc.unlink("A", "B")
+        assert result.ok
+        assert result.data["edges_removed"] >= 1
+
+        with vault.engine.connect() as conn:
+            remaining = conn.execute(
+                select(edges).where(
+                    edges.c.source_id == "A",
+                    edges.c.target_id == "B",
+                )
+            ).fetchall()
+        assert len(remaining) == 0
+
+    def test_unlink_bidirectional(self, vault: Vault) -> None:
+        """Unlink removes edges in both directions."""
+        _insert_node(vault, "X", title="X")
+        _insert_node(vault, "Y", title="Y")
+        _insert_edge(vault, "X", "Y")
+        _insert_edge(vault, "Y", "X")
+        for nid in ("X", "Y"):
+            path = vault.root / f"notes/{nid}.md"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"---\nid: {nid}\ntitle: {nid}\n---\n", encoding="utf-8")
+
+        svc = GraphService(vault)
+        result = svc.unlink("X", "Y")
+        assert result.ok
+        assert result.data["edges_removed"] == 2
+
+    def test_unlink_source_not_found(self, vault: Vault) -> None:
+        """Unlink fails if source node doesn't exist."""
+        _insert_node(vault, "B")
+        svc = GraphService(vault)
+        result = svc.unlink("MISSING", "B")
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "NOT_FOUND"
+
+    def test_unlink_target_not_found(self, vault: Vault) -> None:
+        """Unlink fails if target node doesn't exist."""
+        _insert_node(vault, "A")
+        svc = GraphService(vault)
+        result = svc.unlink("A", "MISSING")
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "NOT_FOUND"
+
+    def test_unlink_no_link(self, vault: Vault) -> None:
+        """Unlink fails if no link exists between nodes."""
+        _insert_node(vault, "A")
+        _insert_node(vault, "B")
+        for nid in ("A", "B"):
+            path = vault.root / f"notes/{nid}.md"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"---\nid: {nid}\ntitle: {nid}\n---\n", encoding="utf-8")
+
+        svc = GraphService(vault)
+        result = svc.unlink("A", "B")
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "NO_LINK"
+
+    def test_unlink_removes_frontmatter_link(self, vault: Vault) -> None:
+        """Unlink removes target from frontmatter links."""
+        _insert_node(vault, "S", title="Source")
+        _insert_node(vault, "T", title="Target")
+        _insert_edge(vault, "S", "T", edge_type="relates", source_layer="frontmatter")
+
+        source_path = vault.root / "notes/S.md"
+        source_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path.write_text(
+            "---\nid: S\ntitle: Source\nlinks:\n  relates:\n  - T\n---\nBody text.\n",
+            encoding="utf-8",
+        )
+        target_path = vault.root / "notes/T.md"
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(
+            "---\nid: T\ntitle: Target\n---\nBody text.\n",
+            encoding="utf-8",
+        )
+
+        svc = GraphService(vault)
+        result = svc.unlink("S", "T")
+        assert result.ok
+
+        # Verify frontmatter link was removed
+        content = source_path.read_text(encoding="utf-8")
+        assert "T" not in content or "relates" not in content
+
+    def test_unlink_removes_body_wikilink(self, vault: Vault) -> None:
+        """Unlink removes body wikilinks referencing the target."""
+        _insert_node(vault, "S", title="Source")
+        _insert_node(vault, "T", title="Target Note")
+        _insert_edge(vault, "S", "T", source_layer="body")
+
+        source_path = vault.root / "notes/S.md"
+        source_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path.write_text(
+            "---\nid: S\ntitle: Source\n---\nSee [[T]] for more details.\n",
+            encoding="utf-8",
+        )
+        target_path = vault.root / "notes/T.md"
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(
+            "---\nid: T\ntitle: Target Note\n---\nBody text.\n",
+            encoding="utf-8",
+        )
+
+        svc = GraphService(vault)
+        result = svc.unlink("S", "T")
+        assert result.ok
+
+        content = source_path.read_text(encoding="utf-8")
+        assert "[[T]]" not in content
+
+    def test_unlink_preserves_garden_note_body(self, vault: Vault) -> None:
+        """Unlink does not modify body of garden notes (maturity set)."""
+        _insert_node(vault, "G", title="Garden")
+        _insert_node(vault, "T", title="Target")
+        _insert_edge(vault, "G", "T", source_layer="body")
+
+        garden_path = vault.root / "notes/G.md"
+        garden_path.parent.mkdir(parents=True, exist_ok=True)
+        garden_path.write_text(
+            "---\nid: G\ntitle: Garden\nmaturity: evergreen\n---\nSee [[T]] for reference.\n",
+            encoding="utf-8",
+        )
+        target_path = vault.root / "notes/T.md"
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(
+            "---\nid: T\ntitle: Target\n---\nBody.\n",
+            encoding="utf-8",
+        )
+
+        svc = GraphService(vault)
+        result = svc.unlink("G", "T")
+        assert result.ok
+
+        # Body wikilink should be preserved (garden protection)
+        content = garden_path.read_text(encoding="utf-8")
+        assert "[[T]]" in content
+        assert any("preserved" in w for w in result.warnings)

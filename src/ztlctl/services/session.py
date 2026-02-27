@@ -403,6 +403,7 @@ class SessionService(BaseService):
         *,
         topic: str | None = None,
         budget: int = 8000,
+        ignore_checkpoints: bool = False,
     ) -> ServiceResult:
         """Build token-budgeted agent context payload (delegates to ContextAssembler)."""
         from ztlctl.services.context import ContextAssembler
@@ -420,7 +421,9 @@ class SessionService(BaseService):
                 ),
             )
 
-        return ContextAssembler(self._vault).assemble(active, topic=topic, budget=budget)
+        return ContextAssembler(self._vault).assemble(
+            active, topic=topic, budget=budget, ignore_checkpoints=ignore_checkpoints
+        )
 
     @traced
     def brief(self) -> ServiceResult:
@@ -595,6 +598,8 @@ class SessionService(BaseService):
         from ztlctl.services.reweave import ReweaveService
 
         count = 0
+        orphan_threshold = self._vault.settings.session.orphan_reweave_threshold
+
         with self._vault.engine.connect() as conn:
             # Find notes with 0 outgoing edges
             all_notes = conn.execute(
@@ -614,7 +619,7 @@ class SessionService(BaseService):
 
         svc = ReweaveService(self._vault)
         for orphan_id in orphans:
-            result = svc.reweave(content_id=orphan_id)
+            result = svc.reweave(content_id=orphan_id, min_score_override=orphan_threshold)
             if result.ok:
                 count += result.data.get("count", 0)
             else:

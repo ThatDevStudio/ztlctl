@@ -307,14 +307,18 @@ class CreateService(BaseService):
             with trace_span("post_create_reweave"):
                 from ztlctl.services.reweave import ReweaveService
 
-                rw = ReweaveService(self._vault).reweave(content_id=content_id)
-                if rw.ok:
-                    count = rw.data.get("count", 0)
-                    if count > 0:
-                        warnings.append(f"Auto-reweave: {count} link(s) added")
+                try:
+                    rw = ReweaveService(self._vault).reweave(content_id=content_id)
+                except Exception as exc:
+                    warnings.append(f"Auto-reweave skipped: {exc}")
                 else:
-                    msg = rw.error.message if rw.error else "unknown"
-                    warnings.append(f"Auto-reweave skipped: {msg}")
+                    if rw.ok:
+                        count = rw.data.get("count", 0)
+                        if count > 0:
+                            warnings.append(f"Auto-reweave: {count} link(s) added")
+                    else:
+                        msg = rw.error.message if rw.error else "unknown"
+                        warnings.append(f"Auto-reweave skipped: {msg}")
 
         # ── RESPOND ───────────────────────────────────────────────
         return ServiceResult(
