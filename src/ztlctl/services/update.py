@@ -248,6 +248,7 @@ class UpdateService(BaseService):
     def archive(self, content_id: str) -> ServiceResult:
         """Archive a content item (soft delete, preserves edges)."""
         today = today_iso()
+        now = now_iso()
 
         with self._vault.transaction() as txn:
             node_row = txn.conn.execute(
@@ -275,7 +276,7 @@ class UpdateService(BaseService):
             txn.conn.execute(
                 nodes.update()
                 .where(nodes.c.id == content_id)
-                .values(archived=1, modified=today, modified_at=now_iso())
+                .values(archived=1, modified=today, modified_at=now)
             )
 
         # Dispatch post_close event
