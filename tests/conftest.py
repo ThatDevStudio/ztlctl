@@ -46,7 +46,7 @@ def vault(vault_root: Path) -> Vault:
     Creates the vault directory structure, initializes the database,
     and returns a ready-to-use Vault instance.
     """
-    settings = ZtlSettings.from_cli(vault_root=vault_root)
+    settings = ZtlSettings.from_cli(vault_root=vault_root, no_reweave=True)
     return Vault(settings)
 
 

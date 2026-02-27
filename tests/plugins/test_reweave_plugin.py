@@ -62,8 +62,9 @@ class TestReweavePluginUnit:
             )
             mock.assert_not_called()
 
-    def test_calls_reweave_service(self, vault: Vault) -> None:
+    def test_calls_reweave_service(self, vault_root: Any) -> None:
         """Plugin calls ReweaveService.reweave() with the content_id."""
+        vault = Vault(ZtlSettings.from_cli(vault_root=vault_root))
         plugin = ReweavePlugin(vault=vault)
 
         mock_result = ServiceResult(
@@ -181,14 +182,16 @@ class TestReweavePluginIntegration:
             log_rows = conn.execute(select(reweave_log)).fetchall()
         assert len(log_rows) == 0
 
-    def test_reweave_creates_edges_for_related_content(self, vault_with_bus: Vault) -> None:
+    def test_reweave_creates_edges_for_related_content(self, vault_root: Any) -> None:
         """When content is strongly related, reweave creates link edges."""
         from sqlalchemy import select
 
         from ztlctl.infrastructure.database.schema import reweave_log
         from ztlctl.services.create import CreateService
 
-        cs = CreateService(vault_with_bus)
+        v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        v.init_event_bus(sync=True)
+        cs = CreateService(v)
 
         # Create several notes on the same topic for stronger signal
         for i in range(3):
@@ -210,7 +213,7 @@ class TestReweavePluginIntegration:
         # Verify the reweave plugin ran by checking for reweave_log entries.
         # The 4th note has strong signal overlap (same tags + topic) with
         # the first 3, so reweave should have found and linked some.
-        with vault_with_bus.engine.connect() as conn:
+        with v.engine.connect() as conn:
             log_rows = conn.execute(select(reweave_log)).fetchall()
 
         assert len(log_rows) > 0, "Expected reweave to create links for related content"
