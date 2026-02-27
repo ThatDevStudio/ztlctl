@@ -42,6 +42,12 @@ class QueryService(BaseService):
     # search — FTS5 full-text search
     # ------------------------------------------------------------------
 
+    def _get_vector_service(self) -> Any:
+        """Lazy-create VectorService for semantic search."""
+        from ztlctl.services.vector import VectorService
+
+        return VectorService(self._vault)
+
     @traced
     def search(
         self,
@@ -61,7 +67,8 @@ class QueryService(BaseService):
             tag: Filter to items with this tag.
             space: Filter by vault space (notes, ops, self).
             rank_by: Sort mode — "relevance" (BM25), "recency" (BM25*decay),
-                or "graph" (BM25*PageRank).
+                "graph" (BM25*PageRank), "semantic" (vector cosine similarity),
+                or "hybrid" (BM25 + cosine weighted merge).
             limit: Maximum results to return.
         """
         if not query.strip():
@@ -71,12 +78,66 @@ class QueryService(BaseService):
                 error=ServiceError(code="EMPTY_QUERY", message="Search query cannot be empty"),
             )
 
-        # Recency/graph modes: fetch more candidates for Python-side re-ranking
+        # Recency/graph/hybrid modes: fetch more candidates for Python-side re-ranking
         use_time_decay = rank_by == "recency"
         use_graph_rank = rank_by == "graph"
-        needs_rerank = use_time_decay or use_graph_rank
+        use_semantic = rank_by == "semantic"
+        use_hybrid = rank_by == "hybrid"
+        needs_rerank = use_time_decay or use_graph_rank or use_hybrid
         fetch_limit = min(limit * 3, 1000) if needs_rerank else limit
 
+        warnings: list[str] = []
+
+        # --- Pure semantic: skip FTS5, use vector search only ---
+        if use_semantic:
+            vec_svc = self._get_vector_service()
+            if not vec_svc.is_available():
+                warnings.append("Semantic search unavailable — falling back to FTS5")
+                # Fall through: run FTS5 below
+            else:
+                vec_results: list[dict[str, Any]] = vec_svc.search_similar(query, limit=limit)
+                items: list[dict[str, Any]] = []
+                if vec_results:
+                    node_ids = [r["node_id"] for r in vec_results]
+                    placeholders = ",".join([f":id_{i}" for i in range(len(node_ids))])
+                    meta_sql = f"""
+                        SELECT id, title, type, subtype, status, path, created, modified
+                        FROM nodes WHERE id IN ({placeholders}) AND archived = 0
+                    """
+                    meta_params: dict[str, Any] = {f"id_{i}": nid for i, nid in enumerate(node_ids)}
+                    with self._vault.engine.connect() as conn:
+                        meta_rows = conn.execute(text(meta_sql), meta_params).fetchall()
+                    meta_map = {r.id: r for r in meta_rows}
+
+                    for vr in vec_results:
+                        nid = vr["node_id"]
+                        if nid in meta_map:
+                            r = meta_map[nid]
+                            similarity = 1.0 - vr["distance"] / 2.0
+                            items.append(
+                                {
+                                    "id": r.id,
+                                    "title": r.title,
+                                    "type": r.type,
+                                    "subtype": r.subtype,
+                                    "status": r.status,
+                                    "path": r.path,
+                                    "created": r.created,
+                                    "modified": r.modified,
+                                    "score": round(similarity, 4),
+                                }
+                            )
+
+                result_kwargs: dict[str, Any] = {
+                    "ok": True,
+                    "op": "search",
+                    "data": {"query": query, "count": len(items), "items": items},
+                }
+                if warnings:
+                    result_kwargs["warnings"] = warnings
+                return ServiceResult(**result_kwargs)
+
+        # --- FTS5 query (used by relevance, recency, graph, hybrid, and fallback) ---
         # Always order by BM25 for the SQL fetch
         order_clause = "bm25(nodes_fts)"
 
@@ -124,20 +185,27 @@ class QueryService(BaseService):
             for r in rows
         ]
 
-        warnings: list[str] = []
-
         if use_time_decay:
             half_life = self._vault.settings.search.half_life_days
             items = self._apply_time_decay(items, half_life=half_life, limit=limit)
         elif use_graph_rank:
             items, warnings = self._apply_graph_rank(items, limit=limit)
+        elif use_hybrid:
+            vec_svc = self._get_vector_service()
+            if not vec_svc.is_available():
+                warnings.append("Semantic search unavailable — using FTS5 only")
+            else:
+                vec_results = vec_svc.search_similar(query, limit=fetch_limit)
+                if vec_results:
+                    w = self._vault.settings.search.semantic_weight
+                    items = self._merge_hybrid_scores(items, vec_results, w, limit)
 
         # Round scores for final output and strip pagerank from response
         for item in items:
             item["score"] = round(item["score"], 4)
             item.pop("pagerank", None)
 
-        result_kwargs: dict[str, Any] = {
+        result_kwargs = {
             "ok": True,
             "op": "search",
             "data": {"query": query, "count": len(items), "items": items},
@@ -145,6 +213,57 @@ class QueryService(BaseService):
         if warnings:
             result_kwargs["warnings"] = warnings
         return ServiceResult(**result_kwargs)
+
+    @staticmethod
+    def _merge_hybrid_scores(
+        fts_items: list[dict[str, Any]],
+        vec_results: list[dict[str, Any]],
+        semantic_weight: float,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Merge FTS5 BM25 and vector cosine scores with min-max normalization."""
+        # Convert BM25 scores to positive (FTS5 BM25 is negative)
+        bm25_scores = {item["id"]: abs(item["score"]) for item in fts_items}
+
+        # Convert cosine distances to similarities
+        vec_scores = {r["node_id"]: 1.0 - r["distance"] / 2.0 for r in vec_results}
+
+        # Min-max normalize BM25 scores
+        bm25_vals = list(bm25_scores.values())
+        bm25_min = min(bm25_vals) if bm25_vals else 0.0
+        bm25_max = max(bm25_vals) if bm25_vals else 1.0
+        bm25_range = bm25_max - bm25_min or 1.0
+
+        # Min-max normalize vector scores
+        vec_vals = list(vec_scores.values())
+        vec_min = min(vec_vals) if vec_vals else 0.0
+        vec_max = max(vec_vals) if vec_vals else 1.0
+        vec_range = vec_max - vec_min or 1.0
+
+        # Merge: all IDs from both sets
+        all_ids = set(bm25_scores.keys()) | set(vec_scores.keys())
+        merged: dict[str, float] = {}
+        for nid in all_ids:
+            bm25_norm = (
+                (bm25_scores.get(nid, 0.0) - bm25_min) / bm25_range if nid in bm25_scores else 0.0
+            )
+            vec_norm = (
+                (vec_scores.get(nid, 0.0) - vec_min) / vec_range if nid in vec_scores else 0.0
+            )
+            merged[nid] = (1.0 - semantic_weight) * bm25_norm + semantic_weight * vec_norm
+
+        # Re-rank FTS items by merged score, adding any vector-only results
+        fts_map = {item["id"]: item for item in fts_items}
+        result: list[dict[str, Any]] = []
+        for nid, score in sorted(merged.items(), key=lambda x: x[1], reverse=True):
+            if nid in fts_map:
+                item = fts_map[nid].copy()
+                item["score"] = score
+                result.append(item)
+            # Vector-only results need metadata — skip them for now
+            # (they'd need a DB join like semantic mode does)
+
+        return result[:limit]
 
     def _apply_time_decay(
         self,
