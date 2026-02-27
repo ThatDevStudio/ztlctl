@@ -51,6 +51,15 @@ def note(
     token_cost: int,
 ) -> None:
     """Create a new note."""
+    interactive = not app.settings.no_interact and not app.settings.json_output
+    if interactive and not tags:
+        raw = click.prompt("Tags (comma-separated, empty for none)", default="")
+        if raw.strip():
+            tags = tuple(t.strip() for t in raw.split(",") if t.strip())
+    if interactive and topic is None:
+        raw = click.prompt("Topic (optional)", default="")
+        topic = raw.strip() or None
+
     svc = CreateService(app.vault)
     result = svc.create_note(
         title,
@@ -90,6 +99,15 @@ def reference(
     token_cost: int,
 ) -> None:
     """Create a new reference."""
+    interactive = not app.settings.no_interact and not app.settings.json_output
+    if interactive and url is None:
+        raw = click.prompt("URL (optional)", default="")
+        url = raw.strip() or None
+    if interactive and not tags:
+        raw = click.prompt("Tags (comma-separated, empty for none)", default="")
+        if raw.strip():
+            tags = tuple(t.strip() for t in raw.split(",") if t.strip())
+
     svc = CreateService(app.vault)
     result = svc.create_reference(
         title,
@@ -113,19 +131,19 @@ def reference(
 @click.option(
     "--priority",
     type=click.Choice(["low", "medium", "high", "critical"]),
-    default="medium",
+    default=None,
     help="Priority level.",
 )
 @click.option(
     "--impact",
     type=click.Choice(["low", "medium", "high"]),
-    default="medium",
+    default=None,
     help="Impact level.",
 )
 @click.option(
     "--effort",
     type=click.Choice(["low", "medium", "high"]),
-    default="medium",
+    default=None,
     help="Effort level.",
 )
 @click.option("--tags", multiple=True, help="Tags (repeatable).")
@@ -135,14 +153,39 @@ def reference(
 def task(
     app: AppContext,
     title: str,
-    priority: str,
-    impact: str,
-    effort: str,
+    priority: str | None,
+    impact: str | None,
+    effort: str | None,
     tags: tuple[str, ...],
     session: str | None,
     token_cost: int,
 ) -> None:
     """Create a new task."""
+    interactive = not app.settings.no_interact and not app.settings.json_output
+    if interactive:
+        if priority is None:
+            priority = click.prompt(
+                "Priority",
+                type=click.Choice(["low", "medium", "high", "critical"]),
+                default="medium",
+            )
+        if impact is None:
+            impact = click.prompt(
+                "Impact",
+                type=click.Choice(["low", "medium", "high"]),
+                default="medium",
+            )
+        if effort is None:
+            effort = click.prompt(
+                "Effort",
+                type=click.Choice(["low", "medium", "high"]),
+                default="medium",
+            )
+    else:
+        priority = priority or "medium"
+        impact = impact or "medium"
+        effort = effort or "medium"
+
     svc = CreateService(app.vault)
     result = svc.create_task(
         title,
