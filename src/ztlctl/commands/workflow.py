@@ -142,6 +142,11 @@ def workflow_init(
 ) -> None:
     """Initialize workflow scaffolding for a vault."""
     vault_root = Path(path).resolve()
+    validation_error = WorkflowService.validate_init_target(vault_root)
+    if validation_error is not None:
+        app.emit(validation_error)
+        return
+
     defaults = WorkflowService.read_answers(vault_root)
     choices = _resolve_workflow_choices(
         app,
@@ -196,6 +201,11 @@ def workflow_update(
 ) -> None:
     """Update workflow scaffolding for a vault."""
     vault_root = Path(path).resolve()
+    validation_error = WorkflowService.validate_update_target(vault_root)
+    if validation_error is not None:
+        app.emit(validation_error)
+        return
+
     current = WorkflowService.read_answers(vault_root)
     choices = None
     if any(option is not None for option in (source_control, viewer, workflow_name, skill_set)):

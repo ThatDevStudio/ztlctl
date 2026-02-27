@@ -100,4 +100,26 @@ class TestWorkflowCommands:
         result = cli_runner.invoke(cli, ["workflow", "update", str(tmp_path)])
 
         assert result.exit_code == 1
+        assert "Source control" not in result.output
         assert "Workflow scaffolding has not been initialized" in result.output
+
+    def test_workflow_init_invalid_target_fails_before_prompting(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        result = cli_runner.invoke(cli, ["workflow", "init", str(tmp_path)], input="git\n")
+
+        assert result.exit_code == 1
+        assert "Source control" not in result.output
+        assert "No ztlctl vault found" in result.output
+
+    def test_workflow_init_duplicate_fails_before_prompting(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        self._init_vault(cli_runner, tmp_path)
+        cli_runner.invoke(cli, ["--no-interact", "workflow", "init", str(tmp_path)])
+
+        result = cli_runner.invoke(cli, ["workflow", "init", str(tmp_path)], input="none\n")
+
+        assert result.exit_code == 1
+        assert "Source control" not in result.output
+        assert "Workflow scaffolding already exists" in result.output
