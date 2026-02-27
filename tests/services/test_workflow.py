@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 from ztlctl.services.init import InitService
 from ztlctl.services.workflow import WorkflowChoices, WorkflowService
@@ -75,3 +78,28 @@ class TestWorkflowService:
         assert answers.viewer == "vanilla"
         assert answers.workflow == "agent-generic"
         assert answers.skill_set == "engineering"
+
+    def test_read_answers_returns_none_for_invalid_yaml(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
+        answers_path = tmp_path / ".ztlctl" / "workflow-answers.yml"
+        answers_path.write_text("source_control: [\n", encoding="utf-8")
+
+        assert WorkflowService.read_answers(tmp_path) is None
+
+    def test_read_answers_returns_none_for_read_errors(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
+        answers_path = tmp_path / ".ztlctl" / "workflow-answers.yml"
+        answers_path.write_text("source_control: git\n", encoding="utf-8")
+
+        original_read_text = Path.read_text
+
+        def _raise_permission_error(path: Path, *args: Any, **kwargs: Any) -> str:
+            if path == answers_path:
+                raise PermissionError("denied")
+            return original_read_text(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", _raise_permission_error)
+
+        assert WorkflowService.read_answers(tmp_path) is None

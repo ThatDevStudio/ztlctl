@@ -11,6 +11,7 @@ from typing import Literal, cast
 from copier import run_copy, run_recopy, run_update
 from copier.errors import CopierError
 from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
 
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
@@ -74,7 +75,10 @@ class WorkflowService:
         if not answers_path.exists():
             return None
 
-        data = YAML(typ="safe").load(answers_path.read_text(encoding="utf-8"))
+        try:
+            data = YAML(typ="safe").load(answers_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, YAMLError):
+            return None
         if not isinstance(data, dict):
             return None
 
