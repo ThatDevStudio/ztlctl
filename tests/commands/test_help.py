@@ -55,6 +55,10 @@ HELP_COMMANDS: list[tuple[list[str], list[str]]] = [
     # -- garden --
     (["garden", "--help"], ["seed"]),
     (["garden", "seed", "--help"], ["--tags", "--topic"]),
+    # -- vector group --
+    (["vector", "--help"], ["status", "reindex"]),
+    (["vector", "status", "--help"], []),
+    (["vector", "reindex", "--help"], []),
     # -- serve --
     (["serve", "--help"], ["MCP server"]),
     # -- extract --

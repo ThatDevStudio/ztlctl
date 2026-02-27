@@ -33,10 +33,15 @@ class TestVectorCommandGroup:
 
     def test_vector_reindex_unavailable(self, cli_runner: CliRunner) -> None:
         """vector reindex fails gracefully when sqlite-vec is not installed."""
-        result = cli_runner.invoke(cli, ["vector", "reindex"])
-        # sqlite-vec not installed in test env, should fail with exit code 1
-        # OR succeed if it is installed — both are acceptable
+        result = cli_runner.invoke(cli, ["--json", "vector", "reindex"])
         assert result.exit_code in (0, 1)
+        data = json.loads(result.output)
+        if result.exit_code == 1:
+            # Graceful error — not a crash (SystemExit from app.emit is expected)
+            assert data["ok"] is False
+            assert data["error"]["code"] == "SEMANTIC_UNAVAILABLE"
+        else:
+            assert data["ok"] is True
 
     def test_search_help_shows_semantic_choices(self, cli_runner: CliRunner) -> None:
         """search --help shows semantic and hybrid rank-by options."""
