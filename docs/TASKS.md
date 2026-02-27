@@ -184,9 +184,9 @@ The `nodes.cluster_id` column exists in the schema but is never written. `GraphS
 
 ## 2. Deferred Features (Explicitly Deferred in DESIGN.md)
 
-### T-009: Local Directory Plugin Discovery
+### T-009: Local Directory Plugin Discovery ✅
 
-**Effort:** M | **Impact:** Medium
+**Effort:** M | **Impact:** Medium | **Status:** Done (PR #56)
 
 DESIGN.md Section 15: "Discovery: entry_points (pip-installed) + `.ztlctl/plugins/` (local)." Currently only entry-point discovery is implemented. Local plugins would enable per-vault customization without packaging.
 
@@ -252,9 +252,9 @@ Currently all 12 tools are registered unconditionally. Plugin-contributed tools 
 
 ---
 
-### T-012: MCP Streamable HTTP Transport
+### T-012: MCP Streamable HTTP Transport ✅
 
-**Effort:** L | **Impact:** Medium
+**Effort:** L | **Impact:** Medium | **Status:** Done (PR #56)
 
 DESIGN.md Section 16: "stdio default. Streamable HTTP optional for remote access." Currently `ztlctl serve --transport` only accepts `stdio`.
 
@@ -318,9 +318,9 @@ DESIGN.md Section 2: "No custom subtypes in v1 — shipped subtypes use the same
 
 ---
 
-### T-015: Semantic Search
+### T-015: Semantic Search ✅
 
-**Effort:** XL | **Impact:** High
+**Effort:** XL | **Impact:** High | **Status:** Done (PR #57)
 
 DESIGN.md Section 8 and config reference: `SearchConfig` has `semantic_enabled`, `embedding_model`, `embedding_dim` fields — all defined but unused. The optional `[semantic]` extra lists `sqlite-vec`.
 
@@ -409,39 +409,26 @@ Three plan documents in `docs/plans/` reference completed work:
 
 ---
 
-### T-019: `type: ignore` Comment Audit
+### T-019: `type: ignore` Comment Audit ✅
 
-**Effort:** S | **Impact:** Low
+**Effort:** S | **Impact:** Low | **Status:** Done (PRs #56, #57)
 
-22 `# type: ignore` comments across the codebase. Most are justified (MCP untyped decorators, optional imports, test type narrowing), but should be periodically reviewed as dependencies update.
+28 `# type: ignore` comments across the codebase. 23 are FastMCP stubs (unactionable until FastMCP adds type stubs), 5 are justified optional imports.
 
-- 17 in `src/ztlctl/mcp/` — FastMCP decorator typing
+- 23 in `src/ztlctl/mcp/` — FastMCP decorator typing (unactionable)
 - 2 in `src/ztlctl/services/graph.py` — optional `igraph`/`leidenalg` imports
 - 1 in `src/ztlctl/mcp/server.py` — conditional MCP import
 - 2 in `src/ztlctl/services/telemetry.py` — assignment narrowing
 
-**What to do:**
-
-- No action needed now. Revisit when FastMCP adds type stubs (would eliminate 17 ignores).
-- Track as technical debt; check on dependency updates.
+**Resolution:** Audited during PRs #56 and #57. All ignores are justified — 23/28 are FastMCP stubs (no type stubs available), 5 are optional import guards. No action needed until FastMCP ships type stubs.
 
 ---
 
-### T-020: DESIGN.md Implementation Notes Refresh
+### T-020: DESIGN.md Implementation Notes Refresh ✅
 
-**Effort:** M | **Impact:** Low
+**Effort:** M | **Impact:** Low | **Status:** Done (this PR)
 
-DESIGN.md contains implementation notes from Phase 1–7 that reference line numbers, which may have drifted. The Phase 8 (verbose telemetry) addition is not yet documented in DESIGN.md.
-
-**What to do:**
-
-- Add Phase 8 implementation notes (telemetry, structlog, `@traced`, `trace_span`, `--log-json`, `--verbose` span tree rendering).
-- Remove stale line number references or convert to section references.
-- Update the backlog table (Section 20) with Phase 8 entry and test count.
-
-**Files:**
-
-- Modify: `DESIGN.md` (Sections 10, 17, 20)
+DESIGN.md updated with Phase 8 (verbose telemetry) and Phase 9 (quick wins + semantic search) documentation. Architecture diagram, search section, configuration, plugins, MCP, dependencies, and backlog all updated.
 
 ---
 
@@ -495,24 +482,11 @@ DESIGN.md Section 6 specifies session close drains the event WAL as the final st
 
 ---
 
-### T-024: Alembic Migration Testing
+### T-024: Alembic Migration Testing ✅
 
-**Effort:** M | **Impact:** Medium
+**Effort:** M | **Impact:** Medium | **Status:** Done (PR #56)
 
-The upgrade pipeline (BACKUP → MIGRATE → VALIDATE → REPORT) is implemented, but migration testing could be more robust. Consider adding tests that:
-
-- Create a vault with an older schema version, run upgrade, verify schema matches current.
-- Test the pre-Alembic detection path (tables exist but no `alembic_version`).
-- Test backup + rollback across a migration.
-
-**What to do:**
-
-- Add integration tests for the migration path.
-- Test forward migration and rollback scenarios.
-
-**Files:**
-
-- Test: `tests/integration/test_upgrade.py` or `tests/services/test_upgrade.py`
+Integration tests added for the Alembic migration pipeline: forward migration, pre-Alembic vault detection, stamp_current, and schema validation after upgrade.
 
 ---
 
@@ -549,20 +523,20 @@ Currently only `agent session log --cost N` accepts a cost argument. Other comma
 | T-006 | Interactive create prompts | M | Medium | Feature gap | ✅ Done |
 | T-007 | Bidirectional edge materialization | M | Low | Feature gap | ✅ Done |
 | T-008 | `cluster_id` materialization | S | Low | Feature gap | ✅ Done |
-| T-009 | Local directory plugin discovery | M | Medium | Deferred | |
+| T-009 | Local directory plugin discovery | M | Medium | Deferred | ✅ Done |
 | T-010 | Copier workflow templates | XL | Medium | Deferred | |
 | T-011 | MCP tool proliferation guard | M | Low | Deferred | |
-| T-012 | MCP streamable HTTP transport | L | Medium | Deferred | |
+| T-012 | MCP streamable HTTP transport | L | Medium | Deferred | ✅ Done |
 | T-013 | User-provided Jinja2 templates | M | Low | Deferred | |
 | T-014 | Custom subtypes (plugin-registered) | L | Low | Deferred | |
-| T-015 | Semantic search | XL | High | Deferred | |
+| T-015 | Semantic search | XL | High | Deferred | ✅ Done |
 | T-016 | `extract` command naming | S | Low | CLI | ✅ Done |
 | T-017 | `--examples` flag coverage audit | S | Low | CLI | ✅ Done |
 | T-018 | Stale plan documents | S | Low | Code quality | ✅ Done |
-| T-019 | `type: ignore` comment audit | S | Low | Code quality | |
-| T-020 | DESIGN.md Phase 8 update | M | Low | Code quality | |
+| T-019 | `type: ignore` comment audit | S | Low | Code quality | ✅ Done |
+| T-020 | DESIGN.md Phase 8–9 update | M | Low | Code quality | ✅ Done |
 | T-021 | `docs/` directory git tracking | S | Low | Code quality | ✅ Done |
 | T-022 | `--no-reweave` flag wiring | S | Medium | Robustness | ✅ Done |
 | T-023 | Session close WAL drain verification | S | Medium | Robustness | ✅ Done |
-| T-024 | Alembic migration testing | M | Medium | Robustness | |
+| T-024 | Alembic migration testing | M | Medium | Robustness | ✅ Done |
 | T-025 | `--cost` flag on all actions | M | Low | Robustness | ✅ Done |
