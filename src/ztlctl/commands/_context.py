@@ -97,3 +97,9 @@ class AppContext:
             )
         except Exception:
             pass  # Cost logging never blocks
+
+    def close(self) -> None:
+        """Release held resources after command execution."""
+        if self._vault is not None:
+            # Keep command teardown non-blocking for async plugin dispatch.
+            self._vault.close(wait_for_events=False)

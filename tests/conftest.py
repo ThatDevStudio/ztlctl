@@ -23,7 +23,11 @@ def cli_runner() -> CliRunner:
 @pytest.fixture
 def db_engine(tmp_path: Path) -> Engine:
     """Initialized SQLite engine with all tables created."""
-    return init_database(tmp_path)
+    engine = init_database(tmp_path)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture
@@ -47,7 +51,11 @@ def vault(vault_root: Path) -> Vault:
     and returns a ready-to-use Vault instance.
     """
     settings = ZtlSettings.from_cli(vault_root=vault_root, no_reweave=True)
-    return Vault(settings)
+    v = Vault(settings)
+    try:
+        yield v
+    finally:
+        v.close()
 
 
 @pytest.fixture

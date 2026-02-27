@@ -332,6 +332,25 @@ class Vault:
         """The plugin event bus (None if not initialized)."""
         return self._event_bus
 
+    def close(self, *, wait_for_events: bool = True) -> None:
+        """Release background workers and DB resources.
+
+        Safe to call multiple times.
+        """
+        if self._event_bus is not None:
+            try:
+                self._event_bus.shutdown(
+                    wait=wait_for_events,
+                    cancel_futures=not wait_for_events,
+                )
+            except Exception:
+                logger.debug("Event bus shutdown failed", exc_info=True)
+            finally:
+                self._event_bus = None
+
+        self._graph.invalidate()
+        self._engine.dispose()
+
     def init_event_bus(self, *, sync: bool = False) -> None:
         """Initialize the plugin event bus.
 
