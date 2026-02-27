@@ -46,7 +46,7 @@ def vault(vault_root: Path) -> Vault:
     Creates the vault directory structure, initializes the database,
     and returns a ready-to-use Vault instance.
     """
-    settings = ZtlSettings.from_cli(vault_root=vault_root)
+    settings = ZtlSettings.from_cli(vault_root=vault_root, no_reweave=True)
     return Vault(settings)
 
 
@@ -57,8 +57,12 @@ def _isolated_vault(vault_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     Use via ``@pytest.mark.usefixtures("_isolated_vault")`` on command test
     classes. Tests that need the path can also request ``tmp_path`` directly
     (pytest deduplicates — it's the same directory).
+
+    Auto-reweave is disabled to prevent the module-level ruamel.yaml
+    singleton from being corrupted by reweave failures in test vaults.
     """
     monkeypatch.chdir(vault_root)
+    monkeypatch.setenv("ZTLCTL_NO_REWEAVE", "true")
 
 
 # ---------------------------------------------------------------------------
