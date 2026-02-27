@@ -352,43 +352,31 @@ class TestCreateNoteMaturity:
 
 
 class TestPostCreateReweave:
-    def test_no_reweave_flag_skips_reweave(self, vault_root: Path) -> None:
-        """When no_reweave=True, reweave does not run after create."""
-        from unittest.mock import patch
-
-        settings = ZtlSettings.from_cli(vault_root=vault_root, no_reweave=True)
-        v = Vault(settings)
-        svc = CreateService(v)
-
-        with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
-            result = svc.create_note("Skip Reweave Note")
-
-        assert result.ok
-        mock_cls.assert_not_called()
-
-    def test_task_creation_skips_reweave(self, vault_root: Path) -> None:
-        """Tasks don't participate in the knowledge graph — no reweave."""
+    def test_create_service_does_not_call_reweave_directly(self, vault_root: Path) -> None:
+        """CreateService delegates post-create reweave to plugins via event bus."""
         from unittest.mock import patch
 
         v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
         svc = CreateService(v)
+
         with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
-            result = svc.create_task("Some Task")
+            result = svc.create_note("No Event Bus")
 
         assert result.ok
         mock_cls.assert_not_called()
 
-    def test_reweave_runs_on_note_creation(self, vault_root: Path) -> None:
-        """Reweave is called with the new content_id after note creation."""
+    def test_reweave_runs_via_post_create_plugin(self, vault_root: Path) -> None:
+        """When event bus is active, post_create plugin triggers reweave exactly once."""
         from unittest.mock import patch
 
         mock_result = ServiceResult(ok=True, op="reweave", data={"count": 2, "suggestions": []})
         v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        v.init_event_bus(sync=True)
         svc = CreateService(v)
 
         with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
             mock_cls.return_value.reweave.return_value = mock_result
-            result = svc.create_note("Reweave Me")
+            result = svc.create_note("Plugin Reweave")
 
         assert result.ok
         mock_cls.assert_called_once_with(v)
@@ -396,52 +384,16 @@ class TestPostCreateReweave:
         call_kwargs = mock_cls.return_value.reweave.call_args.kwargs
         assert call_kwargs["content_id"] == result.data["id"]
 
-    def test_reweave_count_in_warnings(self, vault_root: Path) -> None:
-        """When reweave adds links, a warning is included in the result."""
+    def test_task_creation_skips_plugin_reweave(self, vault_root: Path) -> None:
+        """Tasks don't participate in post-create reweave."""
         from unittest.mock import patch
 
-        mock_result = ServiceResult(ok=True, op="reweave", data={"count": 3, "suggestions": []})
         v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        v.init_event_bus(sync=True)
         svc = CreateService(v)
 
         with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
-            mock_cls.return_value.reweave.return_value = mock_result
-            result = svc.create_note("Links Added")
+            result = svc.create_task("Some Task")
 
         assert result.ok
-        assert any("Auto-reweave: 3 link(s) added" in w for w in result.warnings)
-
-    def test_reweave_failure_still_creates(self, vault_root: Path) -> None:
-        """If reweave fails, create still succeeds with a warning."""
-        from unittest.mock import patch
-
-        from ztlctl.services.result import ServiceError
-
-        mock_result = ServiceResult(
-            ok=False,
-            op="reweave",
-            error=ServiceError(code="NOT_FOUND", message="No candidates"),
-        )
-        v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
-        svc = CreateService(v)
-
-        with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
-            mock_cls.return_value.reweave.return_value = mock_result
-            result = svc.create_note("Reweave Fails")
-
-        assert result.ok  # create still succeeds
-        assert any("Auto-reweave skipped" in w for w in result.warnings)
-
-    def test_reweave_exception_still_creates(self, vault_root: Path) -> None:
-        """If reweave raises an exception, create still succeeds with a warning."""
-        from unittest.mock import patch
-
-        v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
-        svc = CreateService(v)
-
-        with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
-            mock_cls.return_value.reweave.side_effect = RuntimeError("boom")
-            result = svc.create_note("Exception Note")
-
-        assert result.ok
-        assert any("Auto-reweave skipped: boom" in w for w in result.warnings)
+        mock_cls.assert_not_called()

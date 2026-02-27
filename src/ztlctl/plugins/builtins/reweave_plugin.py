@@ -47,6 +47,10 @@ class ReweavePlugin:
         """Run reweave on newly created content."""
         settings = self._vault.settings
 
+        if content_type not in ("note", "reference"):
+            logger.debug("Skipping post-create reweave for type=%s", content_type)
+            return
+
         if settings.no_reweave:
             logger.debug("Skipping post-create reweave (--no-reweave)")
             return
@@ -57,7 +61,12 @@ class ReweavePlugin:
 
         from ztlctl.services.reweave import ReweaveService
 
-        result = ReweaveService(self._vault).reweave(content_id=content_id)
+        try:
+            result = ReweaveService(self._vault).reweave(content_id=content_id)
+        except Exception:
+            logger.debug("Post-create reweave raised for %s", content_id, exc_info=True)
+            return
+
         if result.ok:
             count = result.data.get("count", 0)
             if count > 0:

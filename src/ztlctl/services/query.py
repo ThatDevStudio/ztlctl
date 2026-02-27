@@ -16,7 +16,7 @@ import math
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from ztlctl.domain.content import parse_frontmatter
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
@@ -37,6 +37,22 @@ _EFFORT_SCORES: dict[str, float] = {"high": 3.0, "medium": 2.0, "low": 1.0}
 
 class QueryService(BaseService):
     """Handles search, retrieval, and agent context queries."""
+
+    # ------------------------------------------------------------------
+    # count_items — total items in index
+    # ------------------------------------------------------------------
+
+    @traced
+    def count_items(self, *, include_archived: bool = False) -> ServiceResult:
+        """Return total indexed item count."""
+        stmt = select(func.count(nodes.c.id))
+        if not include_archived:
+            stmt = stmt.where(nodes.c.archived == 0)
+
+        with self._vault.engine.connect() as conn:
+            count = int(conn.execute(stmt).scalar_one() or 0)
+
+        return ServiceResult(ok=True, op="count_items", data={"count": count})
 
     # ------------------------------------------------------------------
     # search — FTS5 full-text search

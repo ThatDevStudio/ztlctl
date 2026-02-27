@@ -202,9 +202,9 @@ def agent_context_impl(
     context: dict[str, Any] = {}
 
     # Overview: counts by type
-    list_result = svc.list_items(limit=0)
-    if list_result.ok:
-        context["total_items"] = list_result.data.get("count", 0)
+    count_result = svc.count_items()
+    if count_result.ok:
+        context["total_items"] = count_result.data.get("count", 0)
 
     # Recent items
     recent = svc.list_items(sort="recency", limit=limit)
@@ -215,7 +215,7 @@ def agent_context_impl(
     if query:
         search_result = svc.search(query, limit=limit)
         if search_result.ok:
-            context["search_results"] = search_result.data.get("results", [])
+            context["search_results"] = search_result.data.get("items", [])
 
     # Work queue
     work_result = svc.work_queue()
