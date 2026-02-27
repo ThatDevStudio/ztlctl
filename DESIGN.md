@@ -149,7 +149,7 @@ CONTENT_REGISTRY: dict[str, type[ContentModel]] = {
 }
 ```
 
-Lookup via `get_content_model(content_type, subtype)` — subtype takes priority, falls back to type. Models ship with bundled Jinja2 body-only templates. User-provided templates supported in future versions. No custom subtypes in v1 — shipped subtypes use the same extensibility mechanism, allowing us to tune before opening to users.
+Lookup via `get_content_model(content_type, subtype)` — subtype takes priority, falls back to type. Models ship with bundled Jinja2 body-only templates, with per-vault overrides loaded from `.ztlctl/templates/` before package defaults. No custom subtypes in v1 — shipped subtypes use the same extensibility mechanism, allowing us to tune before opening to users.
 
 Machine-layer subtypes are **strict** (validation blocks creation if rules violated). Garden-layer content is **flexible** (advisory warnings, never blocking).
 
@@ -982,7 +982,7 @@ $ ztlctl init
 
 ### Self/ Generation
 
-Jinja2 templates bundled with the package. Config values flow into templates:
+Jinja2 templates are bundled with the package, with per-vault overrides loaded from `.ztlctl/templates/` before package defaults. Config values flow into templates:
 
 - `self/identity.md` — role, critique protocol, contextual graduation, anti-patterns
 - `self/methodology.md` — core principles, tool configuration, content types
@@ -991,7 +991,7 @@ The `research-partner` tone includes the full behavioral framework proven in the
 
 `ztlctl agent regenerate` re-derives self/ from current config. Staleness detection via timestamp comparison.
 
-> **Implementation note (Phase 5+7):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--client/--tone/--topics`) modes. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, stamps the Alembic migration head (Phase 7), generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, and optionally scaffolds `.obsidian/` for Obsidian clients. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Copier workflow templates (`ztlctl workflow init/update`) are deferred — the init command covers the core vault bootstrapping need.
+> **Implementation note (Phase 5+7, follow-up):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--client/--tone/--topics`) modes. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, stamps the Alembic migration head (Phase 7), generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, and optionally scaffolds `.obsidian/` for Obsidian clients. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Both self/ and content templates now honor per-vault overrides from `.ztlctl/templates/` before falling back to bundled package templates. Copier workflow templates (`ztlctl workflow init/update`) are deferred — the init command covers the core vault bootstrapping need.
 
 ### Vault Structure
 

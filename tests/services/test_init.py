@@ -46,6 +46,18 @@ class TestInitVault:
         assert "research-partner" in identity
         assert "self-test" in methodology
 
+    def test_uses_user_self_template_override(self, tmp_path: Path) -> None:
+        template_dir = tmp_path / ".ztlctl" / "templates"
+        template_dir.mkdir(parents=True)
+        (template_dir / "identity.md.j2").write_text("custom identity for {{ vault_name }}\n")
+
+        InitService.init_vault(tmp_path, name="override-vault")
+
+        identity = (tmp_path / "self" / "identity.md").read_text()
+        methodology = (tmp_path / "self" / "methodology.md").read_text()
+        assert identity == "custom identity for override-vault\n"
+        assert "override-vault" in methodology
+
     def test_identity_tone_research_partner(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="rp-vault", tone="research-partner")
         identity = (tmp_path / "self" / "identity.md").read_text()
@@ -204,6 +216,17 @@ class TestRegenerateSelf:
         result = InitService.regenerate_self(vault)
         assert result.ok
         assert (tmp_path / "self" / "identity.md").is_file()
+
+    def test_regenerate_uses_user_template_override(self, tmp_path: Path) -> None:
+        vault = self._make_vault(tmp_path, name="custom-regen")
+        template_dir = tmp_path / ".ztlctl" / "templates" / "self"
+        template_dir.mkdir(parents=True)
+        (template_dir / "identity.md.j2").write_text("regen override {{ vault_name }}\n")
+
+        result = InitService.regenerate_self(vault)
+
+        assert result.ok
+        assert (tmp_path / "self" / "identity.md").read_text() == "regen override custom-regen\n"
 
 
 class TestCheckStaleness:

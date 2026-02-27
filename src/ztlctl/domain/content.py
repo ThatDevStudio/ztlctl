@@ -27,7 +27,6 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, ClassVar, Self
 
-from jinja2 import Environment, PackageLoader
 from pydantic import BaseModel, Field
 from ruamel.yaml import YAML
 
@@ -37,6 +36,7 @@ from ztlctl.domain.lifecycle import (
     REFERENCE_TRANSITIONS,
     TASK_TRANSITIONS,
 )
+from ztlctl.infrastructure.templates import build_template_environment
 
 # ---------------------------------------------------------------------------
 # YAML parser (round-trip preserves comments and quote styles)
@@ -55,15 +55,6 @@ def _new_yaml() -> YAML:
     y.default_flow_style = False
     return y
 
-
-# ---------------------------------------------------------------------------
-# Jinja2 environment for body-only templates
-# ---------------------------------------------------------------------------
-
-_jinja_env = Environment(
-    loader=PackageLoader("ztlctl", "templates/content"),
-    keep_trailing_newline=True,
-)
 
 # ---------------------------------------------------------------------------
 # Canonical frontmatter key ordering (DESIGN.md Section 2)
@@ -252,7 +243,7 @@ class ContentModel(BaseModel):
         fm = self.model_dump(mode="json", exclude_none=True)
         return order_frontmatter(fm)
 
-    def write_body(self, **kwargs: Any) -> str:
+    def write_body(self, *, template_root: Path | None = None, **kwargs: Any) -> str:
         """Render the body-only Jinja2 template.
 
         All keyword arguments are passed to the Jinja2 template. Common
@@ -262,7 +253,8 @@ class ContentModel(BaseModel):
         """
         if not self._template_name:
             return str(kwargs.get("body", ""))
-        template = _jinja_env.get_template(self._template_name)
+        env = build_template_environment("content", vault_root=template_root)
+        template = env.get_template(self._template_name)
         return template.render(**kwargs)
 
     @staticmethod

@@ -858,6 +858,15 @@ src/ztlctl/
 
 Dependencies flow downward: commands → output → services → config/infrastructure → domain.
 
+### Template Overrides
+
+Vault-specific Jinja2 overrides can live under `.ztlctl/templates/`.
+
+- Self-document templates: `.ztlctl/templates/self/identity.md.j2` or `.ztlctl/templates/identity.md.j2`
+- Content body templates: `.ztlctl/templates/content/note.md.j2` or `.ztlctl/templates/note.md.j2`
+
+ztlctl checks those override paths first and falls back to the bundled package templates when no user template exists.
+
 ## Contributing
 
 This project uses [conventional commits](https://www.conventionalcommits.org/). All commit messages and PR titles must follow the format:

@@ -264,7 +264,7 @@ class CreateService(BaseService):
                 model_data.update(extra)
 
                 model = model_cls.model_validate(model_data)
-                body = model.write_body(**extra)
+                body = model.write_body(template_root=self._vault.root, **extra)
                 fm = model.to_frontmatter()
 
                 # PERSIST

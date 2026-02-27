@@ -11,8 +11,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from jinja2 import Environment, PackageLoader
-
+from ztlctl.infrastructure.templates import build_template_environment
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
@@ -48,15 +47,13 @@ def _render_self_files(
     client: str,
     topics: list[str],
     created: str,
+    vault_root: Path | None = None,
 ) -> dict[str, str]:
     """Render identity.md and methodology.md from Jinja2 templates.
 
     Returns a dict mapping filename -> rendered content.
     """
-    env = Environment(
-        loader=PackageLoader("ztlctl", "templates/self"),
-        keep_trailing_newline=True,
-    )
+    env = build_template_environment("self", vault_root=vault_root)
     context = {
         "vault_name": vault_name,
         "tone": tone,
@@ -166,6 +163,7 @@ class InitService:
             client=client,
             topics=topics,
             created=created,
+            vault_root=vault_path,
         )
         self_dir = vault_path / "self"
         for filename, content in rendered.items():
@@ -217,6 +215,7 @@ class InitService:
             client=settings.vault.client,
             topics=[],  # topics are directory-based, not in config
             created=today_iso(),
+            vault_root=vault.root,
         )
 
         files_written: list[str] = []
