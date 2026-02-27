@@ -223,6 +223,7 @@ class UpdateService(BaseService):
 
                     vec_svc = VectorService(self._vault)
                     if vec_svc.is_available():
+                        vec_svc.ensure_table()
                         new_title = str(fm.get("title", ""))
                         vec_svc.index_node(content_id, f"{new_title} {body}")
                 except Exception as exc:

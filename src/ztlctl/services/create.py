@@ -331,6 +331,7 @@ class CreateService(BaseService):
 
                     vec_svc = VectorService(self._vault)
                     if vec_svc.is_available():
+                        vec_svc.ensure_table()
                         vec_svc.index_node(content_id, f"{title} {body}")
                 except Exception as exc:
                     warnings.append(f"Vector indexing skipped: {exc}")
