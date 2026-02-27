@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from typing import TYPE_CHECKING
 
 import click
@@ -12,6 +13,15 @@ from ztlctl.services.create import CreateService
 
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
+
+
+def _is_interactive(app: AppContext) -> bool:
+    """Return True when interactive prompts should fire.
+
+    Prompts require: no ``--no-interact``, no ``--json``, and stdin is a TTY.
+    """
+    return not app.settings.no_interact and not app.settings.json_output and sys.stdin.isatty()
+
 
 _CREATE_EXAMPLES = """\
   ztlctl create note "Python Design Patterns"
@@ -51,7 +61,7 @@ def note(
     token_cost: int,
 ) -> None:
     """Create a new note."""
-    interactive = not app.settings.no_interact and not app.settings.json_output
+    interactive = _is_interactive(app)
     if interactive and not tags:
         raw = click.prompt("Tags (comma-separated, empty for none)", default="")
         if raw.strip():
@@ -99,7 +109,7 @@ def reference(
     token_cost: int,
 ) -> None:
     """Create a new reference."""
-    interactive = not app.settings.no_interact and not app.settings.json_output
+    interactive = _is_interactive(app)
     if interactive and url is None:
         raw = click.prompt("URL (optional)", default="")
         url = raw.strip() or None
@@ -161,7 +171,7 @@ def task(
     token_cost: int,
 ) -> None:
     """Create a new task."""
-    interactive = not app.settings.no_interact and not app.settings.json_output
+    interactive = _is_interactive(app)
     if interactive:
         if priority is None:
             priority = click.prompt(
