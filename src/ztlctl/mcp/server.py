@@ -14,7 +14,7 @@ mcp_available = False
 _FastMCP: Any = None
 
 try:
-    from mcp.server.fastmcp import FastMCP as _FastMCP  # type: ignore[no-redef,import-not-found]
+    from mcp.server.fastmcp import FastMCP as _FastMCP  # type: ignore[import-not-found,no-redef]
 
     mcp_available = True
 except ImportError:
