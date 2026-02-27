@@ -44,7 +44,9 @@ def cli(
         no_reweave=no_reweave,
         sync=sync,
     )
-    ctx.obj = AppContext(settings)
+    app = AppContext(settings)
+    ctx.obj = app
+    ctx.call_on_close(app.close)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 

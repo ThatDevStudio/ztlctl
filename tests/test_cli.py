@@ -104,3 +104,18 @@ def test_all_commands_in_help(cli_runner: CliRunner) -> None:
     result = cli_runner.invoke(cli, ["--help"])
     for name in EXPECTED_GROUPS + EXPECTED_COMMANDS:
         assert name in result.output, f"{name} missing from --help"
+
+
+def test_app_context_closed_on_command_end(
+    cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    closed = {"count": 0}
+
+    def _fake_close(self: object) -> None:
+        closed["count"] += 1
+
+    monkeypatch.setattr("ztlctl.commands._context.AppContext.close", _fake_close)
+
+    result = cli_runner.invoke(cli, [])
+    assert result.exit_code == 0
+    assert closed["count"] == 1
