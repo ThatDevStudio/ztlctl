@@ -34,9 +34,9 @@ DESIGN.md Section 4 states: "Reweave runs unless `--no-reweave` is passed." Curr
 
 ---
 
-### T-002: `graph unlink` Command
+### T-002: `graph unlink` Command ✅
 
-**Effort:** M | **Impact:** Medium
+**Effort:** M | **Impact:** Medium | **Status:** Done (PR #51)
 
 DESIGN.md Section 5 specifies: "`ztlctl graph unlink ztl_source ztl_target` removes specific links." This command does not exist. Currently the only way to remove links is via `reweave --prune`.
 
@@ -542,7 +542,7 @@ Currently only `agent session log --cost N` accepts a cost argument. Other comma
 | ID | Task | Effort | Impact | Category | Status |
 |----|------|--------|--------|----------|--------|
 | T-001 | Post-create automatic reweave | M | High | Feature gap | ✅ Done |
-| T-002 | `graph unlink` command | M | Medium | Feature gap | |
+| T-002 | `graph unlink` command | M | Medium | Feature gap | ✅ Done |
 | T-003 | `--ignore-checkpoints` flag | S | Medium | Feature gap | ✅ Done |
 | T-004 | `orphan_reweave_threshold` usage | S | Low | Feature gap | ✅ Done |
 | T-005 | Garden advisory features | L | Medium | Feature gap | |
