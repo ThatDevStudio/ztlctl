@@ -149,7 +149,7 @@ CONTENT_REGISTRY: dict[str, type[ContentModel]] = {
 }
 ```
 
-Lookup via `get_content_model(content_type, subtype)` — subtype takes priority, falls back to type. Models ship with bundled Jinja2 body-only templates, with per-vault overrides loaded from `.ztlctl/templates/` before package defaults. No custom subtypes in v1 — shipped subtypes use the same extensibility mechanism, allowing us to tune before opening to users.
+Lookup via `get_content_model(content_type, subtype)` — subtype takes priority, falls back to type. Models ship with bundled Jinja2 body-only templates, with per-vault overrides loaded from `.ztlctl/templates/` before package defaults. Plugin-registered custom subtypes extend the same `CONTENT_REGISTRY` through a setup-time pluggy hook, with built-in names reserved.
 
 Machine-layer subtypes are **strict** (validation blocks creation if rules violated). Garden-layer content is **flexible** (advisory warnings, never blocking).
 
@@ -1144,7 +1144,7 @@ pip install ztlctl[mcp]       # Adds MCP adapter
 
 Claude Code plugin ships as a separate artifact (plugin.json + skills/ + hooks/) with an independent release cycle.
 
-> **Implementation note (Phase 6+9):** EventBus is implemented with WAL-backed async dispatch (`ThreadPoolExecutor`, configurable `max_workers=2`). Events persist to `event_wal` table before dispatch, retry on failure (configurable `max_retries=3`), and transition to `dead_letter` status after exhausting retries. `--sync` flag forces synchronous dispatch for deterministic testing. `drain()` retries all pending/failed events synchronously — called as a sync barrier at session close. PluginManager uses `pluggy.load_setuptools_entrypoints("ztlctl.plugins")` for discovery; built-in GitPlugin is registered explicitly via `register_plugin()` in `Vault.init_event_bus()`. GitPlugin implements all 8 hooks with subprocess-based git operations; all calls are wrapped in `try/except (OSError, CalledProcessError)` so a missing git binary silently degrades. `BaseService._dispatch_event()` is the fire-and-forget helper — plugin failures are captured as warnings in the ServiceResult, never propagated. Local directory plugin discovery (Phase 9, PR #56): `PluginManager.discover_and_load(local_dir=...)` scans `.ztlctl/plugins/*.py` for classes with `@hookimpl`-decorated methods; files are loaded via `importlib.util.spec_from_file_location()` with module name `ztlctl_local_plugin_{stem}`. Underscore-prefixed files are excluded. Load errors are warnings, not failures. Copier workflow templates remain deferred.
+> **Implementation note (Phase 6+9, follow-up):** EventBus is implemented with WAL-backed async dispatch (`ThreadPoolExecutor`, configurable `max_workers=2`). Events persist to `event_wal` table before dispatch, retry on failure (configurable `max_retries=3`), and transition to `dead_letter` status after exhausting retries. `--sync` flag forces synchronous dispatch for deterministic testing. `drain()` retries all pending/failed events synchronously — called as a sync barrier at session close. PluginManager uses `pluggy.load_setuptools_entrypoints("ztlctl.plugins")` for discovery; built-in GitPlugin is registered explicitly via `register_plugin()` in `Vault.init_event_bus()`. GitPlugin implements all 8 lifecycle hooks with subprocess-based git operations; all calls are wrapped in `try/except (OSError, CalledProcessError)` so a missing git binary silently degrades. `BaseService._dispatch_event()` is the fire-and-forget helper — plugin failures are captured as warnings in the ServiceResult, never propagated. Local directory plugin discovery (Phase 9, PR #56): `PluginManager.discover_and_load(local_dir=...)` scans `.ztlctl/plugins/*.py` for classes with `@hookimpl`-decorated methods; files are loaded via `importlib.util.spec_from_file_location()` with module name `ztlctl_local_plugin_{stem}`. Underscore-prefixed files are excluded. Load errors are warnings, not failures. Plugin setup-time hook `register_content_models()` can extend `CONTENT_REGISTRY` with custom subtypes; conflicts with built-in names are warnings, not startup failures. Copier workflow templates remain deferred.
 
 ---
 
@@ -1437,7 +1437,7 @@ Decisions made during the design process (CONV-0017):
 | BL-0029 | Integrity (F11) | high | **done** | 4-category check (DB-file, schema, graph, structural), safe/aggressive fix, full rebuild, rollback. Uses VaultTransaction for atomicity |
 | BL-0030 | CLI Interface (F12) | high | **done** | Rich rendering (tables, styled text, icons), 3 verbosity modes, structured JSON errors, ZtlCommand/ZtlGroup base classes, all service operations have CLI commands. Consolidated `_helpers.py` for shared service utilities |
 | BL-0031 | Init & Self-Generation (F13) | high | **done** | Init flow, Jinja2 templates, Obsidian scaffolding, agent regenerate. Deferred: Copier workflow templates |
-| BL-0032 | Event System & Plugins (F14) | high | **done** | WAL-backed EventBus, pluggy hookspecs, PluginManager with entry-point + local directory discovery, Git plugin (all 8 hooks). Deferred: Copier workflow templates |
+| BL-0032 | Event System & Plugins (F14) | high | **done** | WAL-backed EventBus, pluggy hookspecs, PluginManager with entry-point + local directory discovery, Git plugin (all 8 lifecycle hooks), plugin-registered custom content models. Deferred: Copier workflow templates |
 | BL-0033 | MCP Adapter (F15) | high | **done** | 12 tools, 6 resources, 4 prompts, `ztlctl serve` with stdio/sse/streamable-http transports. Deferred: tool proliferation guard |
 | BL-0034 | Verbose Telemetry (F16) | medium | **done** | structlog dual-output, `@traced` decorator, `trace_span()` context manager, `--verbose`/`--log-json` CLI flags |
 | BL-0035 | Semantic Search (F17) | high | **done** | EmbeddingProvider, VectorService, sqlite-vec vec0 table, hybrid BM25+cosine ranking, `vector` CLI group |
@@ -1454,7 +1454,7 @@ Phase 0 — CLI Structural Foundation (complete):
   Domain: StrEnum types, lifecycle transitions, ID system
   Services: ServiceResult/ServiceError (Pydantic), 6 service stubs
   Infrastructure: SQLite engine (WAL mode), GraphEngine (lazy NetworkX)
-  Plugins: 8 hookspecs, manager scaffold, Git plugin stub
+  Plugins: 9 hookspecs, manager scaffold, Git plugin stub
   MCP: Import-guarded server scaffold
   Templates: Content + self Jinja2 templates
   Output: ServiceResult formatter with --json support
@@ -1609,7 +1609,7 @@ Phase 6 — Extension (complete):
     - Drain barrier: session close flushes pending events synchronously
     - PluginManager: entry-point discovery via pluggy load_setuptools_entrypoints
     - register_plugin/unregister for runtime plugin management
-    - Git plugin (built-in): all 8 hookspecs implemented
+    - Git plugin (built-in): all 8 lifecycle hooks implemented
       - post_create/update/close: git add + optional immediate commit
       - post_session_close: batch commit of all staged changes, optional auto-push
       - post_init: .gitignore generation, git init, initial commit
