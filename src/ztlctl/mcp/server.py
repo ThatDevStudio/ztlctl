@@ -23,11 +23,19 @@ except ImportError:
 __all__ = ["create_server", "mcp_available"]
 
 
-def create_server(*, vault_root: Path | None = None) -> Any:
+def create_server(
+    *,
+    vault_root: Path | None = None,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+) -> Any:
     """Create and configure the MCP server.
 
     Creates a Vault from *vault_root* (or CWD) and registers all tools,
     resources, and prompts. Returns the FastMCP instance.
+
+    *host* and *port* configure the bind address for HTTP transports
+    (sse, streamable-http). They are ignored when using stdio.
 
     Raises RuntimeError if the mcp extra is not installed.
     """
@@ -44,7 +52,7 @@ def create_server(*, vault_root: Path | None = None) -> Any:
     settings = ZtlSettings.from_cli(vault_root=vault_root)
     vault = Vault(settings)
 
-    server = _FastMCP("ztlctl")
+    server = _FastMCP("ztlctl", host=host, port=port)
 
     register_tools(server, vault)
     register_resources(server, vault)
