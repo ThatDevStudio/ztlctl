@@ -303,7 +303,7 @@ VALIDATE → GENERATE → PERSIST → INDEX → RESPOND
 
 Single write path. No fallback mechanism. If the pipeline fails, it fails with a clear error. Post-create, the event bus (→ Section 15) dispatches `post_create` asynchronously. Reweave (→ Section 5) runs unless `--no-reweave` is passed.
 
-> **Implementation note (Phase 3):** The five-stage pipeline is complete for notes, references, and tasks. The RESPOND stage returns `{id, path, title, type}` plus warnings, rendered as human-readable key-value pairs or JSON. Post-create reweave invocation is available via ReweaveService. Event bus dispatch is deferred to Phase 6 (Extension) when the pluggy event system is implemented.
+> **Implementation note (Phase 3+9):** The five-stage pipeline is complete for notes, references, and tasks. The RESPOND stage returns `{id, path, title, type}` plus warnings, rendered as human-readable key-value pairs or JSON. Post-create reweave runs automatically for notes and references (inline in CreateService) unless `--no-reweave` is passed (Phase 9). Event bus dispatch (pluggy-based, WAL-backed async via EventBus) is integrated into all service modules (Phase 6).
 
 ### Command Surface
 
@@ -752,7 +752,7 @@ Performance indexes on high-cardinality columns, created via `metadata.create_al
 | `ix_edges_target` | `target_id` | `edges` |
 | `ix_node_tags_tag` | `tag` | `node_tags` |
 
-> **Note:** The `edges.bidirectional` column is reserved but not yet maintained by services. It exists in the schema for future bidirectional edge materialization.
+> **Note:** The `edges.bidirectional` column is maintained by `GraphService.materialize_metrics()` (Phase 9), which sets `bidirectional = 1` when a reverse edge exists. Used in garden health checks for evergreen readiness criteria.
 >
 > **Note:** All columns with `default=` also have `server_default=` to ensure `metadata.create_all()` and Alembic migrations produce identical DDL with `DEFAULT` clauses.
 
