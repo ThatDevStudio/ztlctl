@@ -79,6 +79,10 @@ mypy_path = "src"
 packages = ["ztlctl"]
 plugins = ["pydantic.mypy"]
 
+[[tool.mypy.overrides]]
+module = "ztlctl.mcp.*"
+warn_unused_ignores = false
+
 [tool.coverage.run]
 source = ["ztlctl"]
 branch = true

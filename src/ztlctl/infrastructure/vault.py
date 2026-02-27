@@ -346,7 +346,8 @@ class Vault:
         from ztlctl.plugins.manager import PluginManager
 
         pm = PluginManager()
-        pm.discover_and_load()
+        local_plugins = self.root / ".ztlctl" / "plugins"
+        pm.discover_and_load(local_dir=local_plugins)
 
         # Register built-in git plugin with vault context
         git_config = self._settings.git
