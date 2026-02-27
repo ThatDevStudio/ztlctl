@@ -42,9 +42,19 @@ from ztlctl.domain.lifecycle import (
 # YAML parser (round-trip preserves comments and quote styles)
 # ---------------------------------------------------------------------------
 
-_yaml = YAML()
-_yaml.preserve_quotes = True
-_yaml.default_flow_style = False
+
+def _new_yaml() -> YAML:
+    """Create a fresh round-trip YAML parser.
+
+    A new instance per call avoids corrupted internal emitter state from
+    propagating across operations (ruamel.yaml's YAML object is stateful
+    and a failed dump can leave the singleton in a broken state).
+    """
+    y = YAML()
+    y.preserve_quotes = True
+    y.default_flow_style = False
+    return y
+
 
 # ---------------------------------------------------------------------------
 # Jinja2 environment for body-only templates
@@ -137,7 +147,7 @@ def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     if body.startswith("\n"):
         body = body[1:]
 
-    fm: dict[str, Any] = _yaml.load(yaml_block) or {}
+    fm: dict[str, Any] = _new_yaml().load(yaml_block) or {}
     return fm, body
 
 
@@ -168,7 +178,7 @@ def render_frontmatter(frontmatter: dict[str, Any], body: str) -> str:
     """
     ordered = order_frontmatter(frontmatter)
     buf = StringIO()
-    _yaml.dump(ordered, buf)
+    _new_yaml().dump(ordered, buf)
     yaml_text = buf.getvalue()
 
     parts = [_FRONTMATTER_DELIMITER, "\n", yaml_text, _FRONTMATTER_DELIMITER, "\n"]

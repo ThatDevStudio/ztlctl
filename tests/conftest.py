@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
@@ -13,29 +12,6 @@ from sqlalchemy.engine import Engine
 from ztlctl.config.settings import ZtlSettings
 from ztlctl.infrastructure.database.engine import init_database
 from ztlctl.infrastructure.vault import Vault
-
-
-@pytest.fixture(autouse=True)
-def _reset_yaml_singleton() -> Generator[None]:
-    """Reset the ruamel.yaml singleton after each test.
-
-    The module-level ``_yaml = YAML()`` in ``domain/content.py`` can be
-    corrupted if a YAML dump/load fails mid-stream (e.g. during auto-reweave
-    on freshly-created test vault files).  Once corrupted, every subsequent
-    YAML operation in the process raises ``EmitterError``.
-
-    This autouse fixture recreates the singleton after every test so that
-    corruption in one test cannot cascade.
-    """
-    yield
-    from ruamel.yaml import YAML
-
-    import ztlctl.domain.content as _content
-
-    fresh = YAML()
-    fresh.preserve_quotes = True
-    fresh.default_flow_style = False
-    _content._yaml = fresh
 
 
 @pytest.fixture
@@ -81,12 +57,8 @@ def _isolated_vault(vault_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     Use via ``@pytest.mark.usefixtures("_isolated_vault")`` on command test
     classes. Tests that need the path can also request ``tmp_path`` directly
     (pytest deduplicates — it's the same directory).
-
-    Auto-reweave is disabled to prevent the module-level ruamel.yaml
-    singleton from being corrupted by reweave failures in test vaults.
     """
     monkeypatch.chdir(vault_root)
-    monkeypatch.setenv("ZTLCTL_NO_REWEAVE", "true")
 
 
 # ---------------------------------------------------------------------------
