@@ -205,9 +205,9 @@ DESIGN.md Section 15: "Discovery: entry_points (pip-installed) + `.ztlctl/plugin
 
 ---
 
-### T-010: Copier Workflow Templates
+### T-010: Copier Workflow Templates ✅
 
-**Effort:** XL | **Impact:** Medium
+**Effort:** XL | **Impact:** Medium | **Status:** Done (this PR)
 
 DESIGN.md Section 15: "`ztlctl workflow init` — interactive, CRA-style: source control, viewer, workflow, skill set. Powered by Copier."
 
@@ -524,7 +524,7 @@ Currently only `agent session log --cost N` accepts a cost argument. Other comma
 | T-007 | Bidirectional edge materialization | M | Low | Feature gap | ✅ Done |
 | T-008 | `cluster_id` materialization | S | Low | Feature gap | ✅ Done |
 | T-009 | Local directory plugin discovery | M | Medium | Deferred | ✅ Done |
-| T-010 | Copier workflow templates | XL | Medium | Deferred | |
+| T-010 | Copier workflow templates | XL | Medium | Deferred | ✅ Done |
 | T-011 | MCP tool proliferation guard | M | Low | Deferred | ✅ Done |
 | T-012 | MCP streamable HTTP transport | L | Medium | Deferred | ✅ Done |
 | T-013 | User-provided Jinja2 templates | M | Low | Deferred | ✅ Done |

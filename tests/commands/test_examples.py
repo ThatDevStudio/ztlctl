@@ -28,6 +28,10 @@ EXAMPLES_COMMANDS: list[tuple[list[str], list[str]]] = [
     (["graph", "--examples"], ["ztlctl graph related", "ztlctl graph themes"]),
     (["graph", "related", "--examples"], ["--depth 3"]),
     (["graph", "path", "--examples"], ["ztlctl graph path"]),
+    # -- workflow --
+    (["workflow", "--examples"], ["ztlctl workflow init", "ztlctl workflow update"]),
+    (["workflow", "init", "--examples"], ["--viewer obsidian"]),
+    (["workflow", "update", "--examples"], ["--skill-set minimal"]),
     # -- agent --
     (["agent", "--examples"], ["ztlctl agent session start"]),
     (["agent", "session", "start", "--examples"], ["ztlctl agent session start"]),
@@ -83,6 +87,9 @@ class TestExamplesInHelp:
             ["query", "list", "--help"],
             ["graph", "--help"],
             ["graph", "related", "--help"],
+            ["workflow", "--help"],
+            ["workflow", "init", "--help"],
+            ["workflow", "update", "--help"],
             ["check", "--help"],
             ["reweave", "--help"],
             ["update", "--help"],

@@ -867,6 +867,16 @@ Vault-specific Jinja2 overrides can live under `.ztlctl/templates/`.
 
 ztlctl checks those override paths first and falls back to the bundled package templates when no user template exists.
 
+### Workflow Templates
+
+`ztlctl workflow init` and `ztlctl workflow update` scaffold vault workflow guidance using a packaged Copier template.
+
+- choices: source control (`git|none`), viewer (`obsidian|vanilla`), workflow (`claude-driven|agent-generic|manual`), skill set (`research|engineering|minimal`)
+- answers file: `.ztlctl/workflow-answers.yml`
+- generated guidance: `.ztlctl/workflow/`
+
+`ztlctl init` applies the default workflow scaffold automatically unless `--no-workflow` is passed.
+
 ## Contributing
 
 This project uses [conventional commits](https://www.conventionalcommits.org/). All commit messages and PR titles must follow the format:

@@ -40,6 +40,13 @@ HELP_COMMANDS: list[tuple[list[str], list[str]]] = [
     (["export", "markdown", "--help"], ["--output"]),
     (["export", "indexes", "--help"], ["--output"]),
     (["export", "graph", "--help"], ["--format", "--output"]),
+    # -- workflow group --
+    (["workflow", "--help"], ["init", "update"]),
+    (["workflow", "init", "--help"], ["--source-control", "--viewer", "--workflow", "--skill-set"]),
+    (
+        ["workflow", "update", "--help"],
+        ["--source-control", "--viewer", "--workflow", "--skill-set"],
+    ),
     # -- check --
     (["check", "--help"], ["--fix", "--rebuild", "--rollback", "--level"]),
     # -- reweave --

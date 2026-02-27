@@ -104,7 +104,13 @@ class TestInitVault:
         InitService.init_vault(tmp_path, name="wf-vault")
         wf = tmp_path / ".ztlctl" / "workflow-answers.yml"
         assert wf.is_file()
-        assert "workflow" in wf.read_text()
+        assert "claude-driven" in wf.read_text()
+
+    def test_workflow_scaffold_created_by_default(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault")
+        readme = tmp_path / ".ztlctl" / "workflow" / "README.md"
+        assert readme.is_file()
+        assert "Workflow Scaffold" in readme.read_text()
 
     def test_no_workflow_flag(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="nowf-vault", no_workflow=True)
@@ -119,6 +125,7 @@ class TestInitVault:
         assert "self/methodology.md" in files
         assert ".obsidian/snippets/ztlctl.css" in files
         assert ".ztlctl/workflow-answers.yml" in files
+        assert ".ztlctl/workflow/README.md" in files
 
     def test_result_data_fields(self, tmp_path: Path) -> None:
         result = InitService.init_vault(
