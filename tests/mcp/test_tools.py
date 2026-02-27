@@ -163,6 +163,24 @@ class TestQueryTools:
         resp = agent_context_impl(vault, query="Context")
         assert resp["ok"] is True
 
+    def test_agent_context_fallback_total_items(self, vault: Vault):
+        create_note_impl(vault, "Fallback Count")
+        create_task_impl(vault, "Fallback Task")
+
+        resp = agent_context_impl(vault)
+        assert resp["ok"] is True
+        assert resp["data"]["total_items"] >= 2
+
+    def test_agent_context_fallback_search_results(self, vault: Vault):
+        created = create_note_impl(vault, "Fallback Search Item")
+
+        resp = agent_context_impl(vault, query="Fallback")
+        assert resp["ok"] is True
+        items = resp["data"].get("search_results", [])
+        assert items
+        ids = {item["id"] for item in items}
+        assert created["data"]["id"] in ids
+
 
 # ---------------------------------------------------------------------------
 # Tests — Session tools

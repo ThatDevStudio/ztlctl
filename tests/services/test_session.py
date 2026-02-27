@@ -521,13 +521,17 @@ class TestContext:
     def test_context_layer2_topic_content(self, vault: Vault) -> None:
         """Layer 2 includes topic-scoped notes."""
         start_session(vault, "Topic Content")
-        create_note(vault, "Python Basics", topic="python")
+        target = create_note(vault, "Python Basics", topic="python")
         create_note(vault, "Python Advanced", topic="python")
 
         result = SessionService(vault).context(topic="python")
         assert result.ok
         layers = result.data["layers"]
         assert "topic_content" in layers
+        topic_items = layers["topic_content"]
+        assert topic_items, "Expected topic_content to include search results"
+        ids = {item["id"] for item in topic_items}
+        assert target["id"] in ids
 
     def test_context_layer3_graph_adjacent(self, vault: Vault) -> None:
         """Layer 3 includes graph neighbors of Layer 2 content."""

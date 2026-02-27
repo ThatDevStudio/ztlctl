@@ -342,7 +342,7 @@ class ContextAssembler:
 
             items: list[dict[str, Any]] = []
             tokens_used = 0
-            for item in result.data.get("results", []):
+            for item in result.data.get("items", []):
                 item_tokens = estimate_tokens(json.dumps(item))
                 if tokens_used + item_tokens > remaining_budget:
                     break

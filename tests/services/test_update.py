@@ -246,6 +246,26 @@ class TestEdgeReindex:
             ).first()
             assert edge is not None
 
+    def test_edges_reindexed_on_body_wikilink_change(self, vault: Vault) -> None:
+        data_a = create_note(vault, "Body Link Source")
+        data_b = create_note(vault, "Body Link Target")
+
+        # Body contains only a wikilink — no frontmatter links.
+        result = UpdateService(vault).update(
+            data_a["id"],
+            changes={"body": f"Connected to [[{data_b['id']}]]"},
+        )
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            edge = conn.execute(
+                select(edges.c.target_id).where(
+                    edges.c.source_id == data_a["id"],
+                    edges.c.target_id == data_b["id"],
+                )
+            ).first()
+            assert edge is not None
+
 
 # ---------------------------------------------------------------------------
 # archive()

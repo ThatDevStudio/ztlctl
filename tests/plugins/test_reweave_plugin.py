@@ -86,6 +86,21 @@ class TestReweavePluginUnit:
                 content_id="ztl_12345678",
             )
 
+    def test_skips_non_graph_content_types(self, vault_root: Any) -> None:
+        """Plugin skips tasks/logs; only notes and references reweave."""
+        vault = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        plugin = ReweavePlugin(vault=vault)
+
+        with patch(_PATCH_TARGET) as mock_cls:
+            plugin.post_create(
+                content_type="task",
+                content_id="TASK-0001",
+                title="Task",
+                path="ops/tasks/TASK-0001.md",
+                tags=[],
+            )
+            mock_cls.assert_not_called()
+
     def test_handles_reweave_failure_gracefully(self, vault: Vault) -> None:
         """Plugin does not raise on reweave failure (per plugin invariant)."""
         plugin = ReweavePlugin(vault=vault)

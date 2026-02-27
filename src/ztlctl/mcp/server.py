@@ -51,6 +51,7 @@ def create_server(
 
     settings = ZtlSettings.from_cli(vault_root=vault_root)
     vault = Vault(settings)
+    vault.init_event_bus(sync=settings.sync)
 
     server = _FastMCP("ztlctl", host=host, port=port)
 

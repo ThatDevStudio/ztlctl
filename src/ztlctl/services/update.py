@@ -194,12 +194,13 @@ class UpdateService(BaseService):
                     if isinstance(new_tags, list):
                         txn.index_tags(content_id, new_tags, today)
 
-                # Re-index edges if links changed
-                if "links" in changes:
+                # Re-index edges if explicit links changed or body wikilinks changed
+                if "links" in changes or "body" in fields_changed:
                     txn.conn.execute(delete(edges).where(edges.c.source_id == content_id))
                     fm_links = fm.get("links", {})
-                    if isinstance(fm_links, dict):
-                        txn.index_links(content_id, fm_links, body, today)
+                    if not isinstance(fm_links, dict):
+                        fm_links = {}
+                    txn.index_links(content_id, fm_links, body, today)
 
         # ── EVENT ────────────────────────────────────────────
         self._dispatch_event(
