@@ -14,6 +14,7 @@ from collections import deque
 from typing import Any
 
 import networkx as nx
+from sqlalchemy import text
 
 from ztlctl.infrastructure.database.schema import edges, nodes
 from ztlctl.services.base import BaseService
@@ -561,9 +562,9 @@ class GraphService(BaseService):
     def materialize_metrics(self) -> ServiceResult:
         """Compute and store graph metrics in the nodes table.
 
-        Computes PageRank, degree_in, degree_out, and betweenness centrality
-        via NetworkX and writes the results to the materialized columns
-        in the nodes table.
+        Computes PageRank, degree_in, degree_out, betweenness centrality,
+        and cluster_id via NetworkX, then flags bidirectional edges in
+        the edges table (``bidirectional = 1`` when the reverse edge exists).
         """
         g = self._vault.graph.graph
 
@@ -612,9 +613,28 @@ class GraphService(BaseService):
                 )
                 updated += 1
 
+            # Flag bidirectional edges
+            with trace_span("bidirectional_edges"):
+                conn.execute(
+                    text(
+                        "UPDATE edges SET bidirectional = ("
+                        "  SELECT COUNT(*) FROM edges AS r"
+                        "  WHERE r.source_id = edges.target_id"
+                        "    AND r.target_id = edges.source_id"
+                        "    AND r.edge_type = edges.edge_type"
+                        ") > 0"
+                    )
+                )
+                bidir_count = (
+                    conn.execute(
+                        text("SELECT COUNT(*) FROM edges WHERE bidirectional = 1")
+                    ).scalar()
+                    or 0
+                )
+
         return ServiceResult(
             ok=True,
             op="materialize_metrics",
-            data={"nodes_updated": updated},
+            data={"nodes_updated": updated, "edges_bidirectional": bidir_count},
             warnings=warnings,
         )

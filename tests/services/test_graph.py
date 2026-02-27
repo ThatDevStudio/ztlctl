@@ -559,6 +559,67 @@ class TestMaterializeMetrics:
         assert row is not None
         assert row.cluster_id is None
 
+    def test_bidirectional_flagged_when_reverse_exists(self, vault: Vault) -> None:
+        """A↔B edges both get bidirectional=1."""
+        _insert_node(vault, "A")
+        _insert_node(vault, "B")
+        _insert_edge(vault, "A", "B")
+        _insert_edge(vault, "B", "A")
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            rows = conn.execute(
+                select(edges.c.source_id, edges.c.target_id, edges.c.bidirectional)
+            ).fetchall()
+        for row in rows:
+            assert row.bidirectional == 1
+
+    def test_unidirectional_flagged_zero(self, vault: Vault) -> None:
+        """A→B only gets bidirectional=0."""
+        _insert_node(vault, "A")
+        _insert_node(vault, "B")
+        _insert_edge(vault, "A", "B")
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(
+                select(edges.c.bidirectional).where(
+                    edges.c.source_id == "A", edges.c.target_id == "B"
+                )
+            ).first()
+        assert row is not None
+        assert row.bidirectional == 0
+
+    def test_mixed_edges_star_unidirectional(self, vault: Vault) -> None:
+        """Star graph (hub→spokes) all get bidirectional=0."""
+        _build_star(vault, "HUB", ["S1", "S2", "S3"])
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            rows = conn.execute(select(edges.c.bidirectional)).fetchall()
+        for row in rows:
+            assert row.bidirectional == 0
+
+    def test_bidirectional_count_in_result(self, vault: Vault) -> None:
+        """result.data['edges_bidirectional'] matches expected count."""
+        _insert_node(vault, "A")
+        _insert_node(vault, "B")
+        _insert_node(vault, "C")
+        _insert_edge(vault, "A", "B")
+        _insert_edge(vault, "B", "A")
+        _insert_edge(vault, "A", "C")  # unidirectional
+        svc = GraphService(vault)
+        result = svc.materialize_metrics()
+        assert result.ok
+        # A↔B = 2 bidirectional edges, A→C = 0
+        assert result.data["edges_bidirectional"] == 2
+
 
 # ---------------------------------------------------------------------------
 # unlink — remove specific links
