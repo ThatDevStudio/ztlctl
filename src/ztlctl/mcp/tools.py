@@ -10,6 +10,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from ztlctl.services.contracts import (
+    AgentContextFallbackData,
+    AgentContextResultData,
+    dump_validated,
+)
 from ztlctl.services.result import ServiceResult
 
 
@@ -192,7 +197,8 @@ def agent_context_impl(
     # Try session-based context first
     result = SessionService(vault).context(topic=query)
     if result.ok:
-        return {"ok": True, "op": "agent_context", "data": result.data}
+        payload = dump_validated(AgentContextResultData, result.data)
+        return {"ok": True, "op": "agent_context", "data": payload}
 
     # Fallback: no active session — use QueryService directly
     from ztlctl.services.query import QueryService
@@ -222,7 +228,8 @@ def agent_context_impl(
     if work_result.ok:
         context["work_queue"] = work_result.data.get("items", [])
 
-    return {"ok": True, "op": "agent_context", "data": context}
+    payload = dump_validated(AgentContextFallbackData, context)
+    return {"ok": True, "op": "agent_context", "data": payload}
 
 
 # ---------------------------------------------------------------------------

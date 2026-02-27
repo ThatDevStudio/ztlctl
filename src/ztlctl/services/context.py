@@ -16,6 +16,7 @@ from sqlalchemy import select
 from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services._helpers import estimate_tokens
+from ztlctl.services.contracts import AgentContextResultData, dump_validated
 from ztlctl.services.result import ServiceResult
 from ztlctl.services.telemetry import trace_span, traced
 
@@ -170,16 +171,21 @@ class ContextAssembler:
         elif remaining < budget * 0.15:
             pressure = "caution"
 
-        return ServiceResult(
-            ok=True,
-            op=op,
-            data={
+        payload = dump_validated(
+            AgentContextResultData,
+            {
                 "total_tokens": token_count,
                 "budget": budget,
                 "remaining": remaining,
                 "pressure": pressure,
                 "layers": layers,
             },
+        )
+
+        return ServiceResult(
+            ok=True,
+            op=op,
+            data=payload,
             warnings=warnings,
         )
 

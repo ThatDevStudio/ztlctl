@@ -21,6 +21,7 @@ from sqlalchemy import func, select, text
 from ztlctl.domain.content import parse_frontmatter
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
 from ztlctl.services.base import BaseService
+from ztlctl.services.contracts import ListItemsResultData, SearchResultData, dump_validated
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
 
@@ -147,7 +148,10 @@ class QueryService(BaseService):
                 result_kwargs: dict[str, Any] = {
                     "ok": True,
                     "op": "search",
-                    "data": {"query": query, "count": len(items), "items": items},
+                    "data": dump_validated(
+                        SearchResultData,
+                        {"query": query, "count": len(items), "items": items},
+                    ),
                 }
                 if warnings:
                     result_kwargs["warnings"] = warnings
@@ -224,7 +228,10 @@ class QueryService(BaseService):
         result_kwargs = {
             "ok": True,
             "op": "search",
-            "data": {"query": query, "count": len(items), "items": items},
+            "data": dump_validated(
+                SearchResultData,
+                {"query": query, "count": len(items), "items": items},
+            ),
         }
         if warnings:
             result_kwargs["warnings"] = warnings
@@ -523,7 +530,7 @@ class QueryService(BaseService):
         return ServiceResult(
             ok=True,
             op="list_items",
-            data={"count": len(items), "items": items},
+            data=dump_validated(ListItemsResultData, {"count": len(items), "items": items}),
         )
 
     def _apply_priority_sort(
@@ -559,7 +566,7 @@ class QueryService(BaseService):
         return ServiceResult(
             ok=True,
             op="list_items",
-            data={"count": len(items), "items": items},
+            data=dump_validated(ListItemsResultData, {"count": len(items), "items": items}),
             warnings=warnings,
         )
 
