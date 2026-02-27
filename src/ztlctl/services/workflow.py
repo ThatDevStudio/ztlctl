@@ -126,6 +126,50 @@ class WorkflowService:
         return resources.files("ztlctl").joinpath("templates/workflow")
 
     @staticmethod
+    def validate_init_target(vault_root: Path) -> ServiceResult | None:
+        """Validate that a vault can accept initial workflow scaffolding."""
+        vault_root = vault_root.resolve()
+        validation_error = WorkflowService._validate_vault_root(vault_root, op="workflow_init")
+        if validation_error is not None:
+            return validation_error
+
+        answers_path = vault_root / _ANSWERS_RELATIVE_PATH
+        if answers_path.exists():
+            return ServiceResult(
+                ok=False,
+                op="workflow_init",
+                error=ServiceError(
+                    code="WORKFLOW_EXISTS",
+                    message="Workflow scaffolding already exists. Use `ztlctl workflow update`.",
+                    detail={"path": str(answers_path)},
+                ),
+            )
+
+        return None
+
+    @staticmethod
+    def validate_update_target(vault_root: Path) -> ServiceResult | None:
+        """Validate that a vault can update existing workflow scaffolding."""
+        vault_root = vault_root.resolve()
+        validation_error = WorkflowService._validate_vault_root(vault_root, op="workflow_update")
+        if validation_error is not None:
+            return validation_error
+
+        answers_path = vault_root / _ANSWERS_RELATIVE_PATH
+        if not answers_path.exists():
+            return ServiceResult(
+                ok=False,
+                op="workflow_update",
+                error=ServiceError(
+                    code="WORKFLOW_NOT_INITIALIZED",
+                    message="Workflow scaffolding has not been initialized for this vault.",
+                    detail={"path": str(answers_path)},
+                ),
+            )
+
+        return None
+
+    @staticmethod
     def _run_copy(vault_root: Path, choices: WorkflowChoices) -> None:
         with resources.as_file(WorkflowService._template_root()) as template_root:
             run_copy(
@@ -172,21 +216,9 @@ class WorkflowService:
     def init_workflow(vault_root: Path, choices: WorkflowChoices) -> ServiceResult:
         """Initialize Copier-backed workflow scaffolding for a vault."""
         vault_root = vault_root.resolve()
-        validation_error = WorkflowService._validate_vault_root(vault_root, op="workflow_init")
+        validation_error = WorkflowService.validate_init_target(vault_root)
         if validation_error is not None:
             return validation_error
-
-        answers_path = vault_root / _ANSWERS_RELATIVE_PATH
-        if answers_path.exists():
-            return ServiceResult(
-                ok=False,
-                op="workflow_init",
-                error=ServiceError(
-                    code="WORKFLOW_EXISTS",
-                    message="Workflow scaffolding already exists. Use `ztlctl workflow update`.",
-                    detail={"path": str(answers_path)},
-                ),
-            )
 
         try:
             WorkflowService._run_copy(vault_root, choices)
@@ -219,21 +251,9 @@ class WorkflowService:
     ) -> ServiceResult:
         """Update workflow scaffolding using stored answers plus optional overrides."""
         vault_root = vault_root.resolve()
-        validation_error = WorkflowService._validate_vault_root(vault_root, op="workflow_update")
+        validation_error = WorkflowService.validate_update_target(vault_root)
         if validation_error is not None:
             return validation_error
-
-        answers_path = vault_root / _ANSWERS_RELATIVE_PATH
-        if not answers_path.exists():
-            return ServiceResult(
-                ok=False,
-                op="workflow_update",
-                error=ServiceError(
-                    code="WORKFLOW_NOT_INITIALIZED",
-                    message="Workflow scaffolding has not been initialized for this vault.",
-                    detail={"path": str(answers_path)},
-                ),
-            )
 
         try:
             mode, warnings = WorkflowService._run_update(vault_root, choices)

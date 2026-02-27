@@ -1,7 +1,7 @@
-# ztlctl — Remaining Tasks
+# ztlctl — Task Audit Status
 
-> Comprehensive audit of DESIGN.md vs current implementation (Phase 0–8 complete, ~1095 tests).
-> Generated 2026-02-26 from codebase analysis.
+> Comprehensive audit of DESIGN.md vs current implementation.
+> Updated 2026-02-27 after PR #69 merge. All tracked tasks below are complete; this file is now a delivery record rather than an active backlog.
 
 ## Legend
 
@@ -10,7 +10,7 @@
 
 ---
 
-## 1. Feature Gaps (Designed but Not Implemented)
+## 1. Feature Gaps (Now Implemented)
 
 ### T-001: Post-Create Automatic Reweave ✅
 
@@ -182,7 +182,7 @@ The `nodes.cluster_id` column exists in the schema but is never written. `GraphS
 
 ---
 
-## 2. Deferred Features (Explicitly Deferred in DESIGN.md)
+## 2. Deferred Features (Now Implemented)
 
 ### T-009: Local Directory Plugin Discovery ✅
 
@@ -207,7 +207,7 @@ DESIGN.md Section 15: "Discovery: entry_points (pip-installed) + `.ztlctl/plugin
 
 ### T-010: Copier Workflow Templates ✅
 
-**Effort:** XL | **Impact:** Medium | **Status:** Done (this PR)
+**Effort:** XL | **Impact:** Medium | **Status:** Done (PR #69)
 
 DESIGN.md Section 15: "`ztlctl workflow init` — interactive, CRA-style: source control, viewer, workflow, skill set. Powered by Copier."
 
@@ -275,7 +275,7 @@ DESIGN.md Section 16: "stdio default. Streamable HTTP optional for remote access
 
 ### T-013: User-Provided Jinja2 Templates ✅
 
-**Effort:** M | **Impact:** Low | **Status:** Done (this PR)
+**Effort:** M | **Impact:** Low | **Status:** Done (PR #66)
 
 DESIGN.md Section 2: "User-provided templates supported in future versions." Currently only bundled templates in `src/ztlctl/templates/` are used.
 
@@ -296,7 +296,7 @@ DESIGN.md Section 2: "User-provided templates supported in future versions." Cur
 
 ### T-014: Custom Subtypes (Plugin-Registered Content Models) ✅
 
-**Effort:** L | **Impact:** Low | **Status:** Done (this PR)
+**Effort:** L | **Impact:** Low | **Status:** Done (PR #67)
 
 DESIGN.md Section 2: "No custom subtypes in v1 — shipped subtypes use the same extensibility mechanism, allowing us to tune before opening to users."
 
@@ -426,7 +426,7 @@ Three plan documents in `docs/plans/` reference completed work:
 
 ### T-020: DESIGN.md Implementation Notes Refresh ✅
 
-**Effort:** M | **Impact:** Low | **Status:** Done (this PR)
+**Effort:** M | **Impact:** Low | **Status:** Done (PR #58)
 
 DESIGN.md updated with Phase 8 (verbose telemetry) and Phase 9 (quick wins + semantic search) documentation. Architecture diagram, search section, configuration, plugins, MCP, dependencies, and backlog all updated.
 
