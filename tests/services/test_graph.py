@@ -639,7 +639,7 @@ class TestUnlink:
         svc = GraphService(vault)
         result = svc.unlink("A", "B")
         assert result.ok
-        assert result.data["edges_removed"] >= 1
+        assert result.data["edges_removed"] == 1
 
         with vault.engine.connect() as conn:
             remaining = conn.execute(
@@ -651,7 +651,23 @@ class TestUnlink:
         assert len(remaining) == 0
 
     def test_unlink_bidirectional(self, vault: Vault) -> None:
-        """Unlink removes edges in both directions."""
+        """Unlink removes edges in both directions when requested."""
+        _insert_node(vault, "X", title="X")
+        _insert_node(vault, "Y", title="Y")
+        _insert_edge(vault, "X", "Y")
+        _insert_edge(vault, "Y", "X")
+        for nid in ("X", "Y"):
+            path = vault.root / f"notes/{nid}.md"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"---\nid: {nid}\ntitle: {nid}\n---\n", encoding="utf-8")
+
+        svc = GraphService(vault)
+        result = svc.unlink("X", "Y", both=True)
+        assert result.ok
+        assert result.data["edges_removed"] == 2
+
+    def test_unlink_default_preserves_reverse_edge(self, vault: Vault) -> None:
+        """Default unlink removes only source -> target direction."""
         _insert_node(vault, "X", title="X")
         _insert_node(vault, "Y", title="Y")
         _insert_edge(vault, "X", "Y")
@@ -664,7 +680,16 @@ class TestUnlink:
         svc = GraphService(vault)
         result = svc.unlink("X", "Y")
         assert result.ok
-        assert result.data["edges_removed"] == 2
+        assert result.data["edges_removed"] == 1
+
+        with vault.engine.connect() as conn:
+            reverse = conn.execute(
+                select(edges).where(
+                    edges.c.source_id == "Y",
+                    edges.c.target_id == "X",
+                )
+            ).fetchall()
+        assert len(reverse) == 1
 
     def test_unlink_source_not_found(self, vault: Vault) -> None:
         """Unlink fails if source node doesn't exist."""

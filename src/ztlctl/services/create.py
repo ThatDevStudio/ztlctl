@@ -7,6 +7,7 @@ Post-create reweave is plugin-driven via the ``post_create`` hook.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import insert, select
@@ -18,7 +19,7 @@ from ztlctl.domain.content import get_content_model
 from ztlctl.domain.ids import TYPE_PREFIXES, generate_content_hash
 from ztlctl.infrastructure.database.counters import next_sequential_id
 from ztlctl.infrastructure.database.schema import nodes
-from ztlctl.services._helpers import today_iso
+from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import trace_span, traced
@@ -41,8 +42,12 @@ class CreateService(BaseService):
         topic: str | None = None,
         session: str | None = None,
         maturity: str | None = None,
+        aliases: list[str] | None = None,
     ) -> ServiceResult:
         """Create a new note (plain, knowledge, or decision subtype)."""
+        extra: dict[str, Any] = {}
+        if aliases is not None:
+            extra["aliases"] = aliases
         return self._create_content(
             content_type="note",
             title=title,
@@ -51,6 +56,7 @@ class CreateService(BaseService):
             topic=topic,
             session=session,
             maturity=maturity,
+            **extra,
         )
 
     @traced
@@ -63,8 +69,12 @@ class CreateService(BaseService):
         tags: list[str] | None = None,
         topic: str | None = None,
         session: str | None = None,
+        aliases: list[str] | None = None,
     ) -> ServiceResult:
         """Create a new reference to an external source."""
+        extra: dict[str, Any] = {}
+        if aliases is not None:
+            extra["aliases"] = aliases
         return self._create_content(
             content_type="reference",
             title=title,
@@ -73,6 +83,7 @@ class CreateService(BaseService):
             topic=topic,
             session=session,
             url=url,
+            **extra,
         )
 
     @traced
@@ -164,6 +175,7 @@ class CreateService(BaseService):
         warnings: list[str] = []
         tags = tags or []
         today = today_iso()
+        now = now_iso()
 
         # ── VALIDATE ──────────────────────────────────────────────
         with trace_span("validate"):
@@ -271,6 +283,8 @@ class CreateService(BaseService):
                     "path": rel_path,
                     "created": today,
                     "modified": today,
+                    "created_at": now,
+                    "modified_at": now,
                 }
                 if topic:
                     node_row["topic"] = topic
@@ -279,6 +293,9 @@ class CreateService(BaseService):
                 maturity = extra.get("maturity")
                 if maturity:
                     node_row["maturity"] = maturity
+                aliases = fm.get("aliases")
+                if isinstance(aliases, list):
+                    node_row["aliases"] = json.dumps(aliases)
                 txn.conn.execute(insert(nodes).values(**node_row))
 
                 # FTS5 index

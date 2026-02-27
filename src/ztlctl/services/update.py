@@ -6,6 +6,7 @@ Pipeline: VALIDATE → APPLY → PROPAGATE → INDEX → RESPOND
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -19,7 +20,7 @@ from ztlctl.domain.lifecycle import (
     compute_note_status,
 )
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
-from ztlctl.services._helpers import today_iso
+from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import trace_span, traced
@@ -48,6 +49,7 @@ class UpdateService(BaseService):
         op = "update"
         warnings: list[str] = []
         today = today_iso()
+        now = now_iso()
 
         with self._vault.transaction() as txn:
             # ── VALIDATE ─────────────────────────────────────────
@@ -164,6 +166,7 @@ class UpdateService(BaseService):
                     "title": str(fm.get("title", node_row.title)),
                     "status": str(fm.get("status", node_row.status)),
                     "modified": today,
+                    "modified_at": now,
                 }
                 if "subtype" in fm:
                     update_cols["subtype"] = fm["subtype"]
@@ -175,9 +178,7 @@ class UpdateService(BaseService):
                     update_cols["session"] = fm["session"]
                 # Store aliases as JSON
                 aliases = fm.get("aliases")
-                if aliases and isinstance(aliases, list):
-                    import json
-
+                if isinstance(aliases, list):
                     update_cols["aliases"] = json.dumps(aliases)
 
                 txn.conn.execute(
@@ -247,6 +248,7 @@ class UpdateService(BaseService):
     def archive(self, content_id: str) -> ServiceResult:
         """Archive a content item (soft delete, preserves edges)."""
         today = today_iso()
+        now = now_iso()
 
         with self._vault.transaction() as txn:
             node_row = txn.conn.execute(
@@ -272,7 +274,9 @@ class UpdateService(BaseService):
 
             # Update DB
             txn.conn.execute(
-                nodes.update().where(nodes.c.id == content_id).values(archived=1, modified=today)
+                nodes.update()
+                .where(nodes.c.id == content_id)
+                .values(archived=1, modified=today, modified_at=now)
             )
 
         # Dispatch post_close event

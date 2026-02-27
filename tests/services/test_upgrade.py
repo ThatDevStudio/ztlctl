@@ -38,7 +38,7 @@ class TestCheckPending:
         """check_pending() always reports the head revision."""
         result = UpgradeService(vault).check_pending()
         assert result.ok
-        assert result.data["head"] == "001_baseline"
+        assert result.data["head"] == "002_node_timestamps"
 
 
 # ---------------------------------------------------------------------------
