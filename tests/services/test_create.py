@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from sqlalchemy import select, text
@@ -78,6 +79,15 @@ class TestCreateNote:
                 select(node_tags.c.tag).where(node_tags.c.node_id == result.data["id"])
             ).fetchall()
             assert [r.tag for r in tag_rows] == ["domain/scope"]
+
+    def test_note_with_aliases_persisted(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        result = svc.create_note("Alias Note", aliases=["py", "python"])
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes.c.aliases).where(nodes.c.id == result.data["id"])).one()
+            assert row.aliases == json.dumps(["py", "python"])
 
     def test_tag_registered_in_registry(self, vault: Vault) -> None:
         svc = CreateService(vault)

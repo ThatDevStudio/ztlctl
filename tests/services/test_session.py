@@ -50,11 +50,22 @@ class TestSessionStart:
 
     def test_start_sequential_ids(self, vault: Vault) -> None:
         data1 = start_session(vault, "First")
+        SessionService(vault).close()
         data2 = start_session(vault, "Second")
         # IDs should be sequential
         n1 = int(data1["id"].split("-")[1])
         n2 = int(data2["id"].split("-")[1])
         assert n2 == n1 + 1
+
+    def test_start_rejects_when_active_session_exists(self, vault: Vault) -> None:
+        first = SessionService(vault).start("First")
+        assert first.ok
+
+        second = SessionService(vault).start("Second")
+        assert not second.ok
+        assert second.error is not None
+        assert second.error.code == "ACTIVE_SESSION_EXISTS"
+        assert second.data["active_session_id"] == first.data["id"]
 
     def test_start_creates_fts_entry(self, vault: Vault) -> None:
         from sqlalchemy import text
@@ -246,6 +257,17 @@ class TestSessionReopen:
         result = SessionService(vault).close()
         assert result.ok
         assert result.data["session_id"] == data["id"]
+
+    def test_reopen_rejects_when_another_session_is_open(self, vault: Vault) -> None:
+        closed = start_session(vault, "Closed Session")
+        SessionService(vault).close()
+
+        active = start_session(vault, "Active Session")
+        result = SessionService(vault).reopen(closed["id"])
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "ACTIVE_SESSION_EXISTS"
+        assert result.data["active_session_id"] == active["id"]
 
 
 # ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy import insert, select
+from sqlalchemy import func, insert, select
 
 from ztlctl.infrastructure.database.counters import next_sequential_id
 from ztlctl.infrastructure.database.schema import edges, nodes, session_logs
@@ -28,11 +28,19 @@ class SessionService(BaseService):
 
     @staticmethod
     def _find_active_session(conn: Any) -> Any:
-        """Find the most recently created open session."""
+        """Find the most recently touched open session."""
         return conn.execute(
             select(nodes)
             .where(nodes.c.type == "log", nodes.c.status == "open")
-            .order_by(nodes.c.created.desc())
+            .order_by(
+                func.coalesce(
+                    nodes.c.modified_at,
+                    nodes.c.created_at,
+                    nodes.c.modified,
+                    nodes.c.created,
+                ).desc(),
+                nodes.c.id.desc(),
+            )
             .limit(1)
         ).first()
 
@@ -45,8 +53,22 @@ class SessionService(BaseService):
         """Start a new session, returning the LOG-NNNN id."""
         op = "session_start"
         today = today_iso()
+        now = now_iso()
 
         with self._vault.transaction() as txn:
+            active = self._find_active_session(txn.conn)
+            if active is not None:
+                active_id = str(active.id)
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="ACTIVE_SESSION_EXISTS",
+                        message=f"Session {active_id} is already open",
+                    ),
+                    data={"active_session_id": active_id},
+                )
+
             session_id = next_sequential_id(txn.conn, "LOG-")
 
             # Create JSONL file with initial entry
@@ -56,7 +78,7 @@ class SessionService(BaseService):
                     "type": "session_start",
                     "session_id": session_id,
                     "topic": topic,
-                    "timestamp": now_iso(),
+                    "timestamp": now,
                 },
                 separators=(",", ":"),
             )
@@ -74,6 +96,8 @@ class SessionService(BaseService):
                     topic=topic,
                     created=today,
                     modified=today,
+                    created_at=now,
+                    modified_at=now,
                 )
             )
 
@@ -104,6 +128,7 @@ class SessionService(BaseService):
         """
         op = "session_close"
         today = today_iso()
+        now = now_iso()
         warnings: list[str] = []
         cfg = self._vault.settings.session
 
@@ -127,7 +152,7 @@ class SessionService(BaseService):
             txn.conn.execute(
                 nodes.update()
                 .where(nodes.c.id == session_id)
-                .values(status="closed", modified=today)
+                .values(status="closed", modified=today, modified_at=now)
             )
 
             # Append close entry to JSONL
@@ -137,7 +162,7 @@ class SessionService(BaseService):
                     "type": "session_close",
                     "session_id": session_id,
                     "summary": summary or "",
-                    "timestamp": now_iso(),
+                    "timestamp": now,
                 },
                 separators=(",", ":"),
             )
@@ -213,6 +238,7 @@ class SessionService(BaseService):
         """Reopen a previously closed session."""
         op = "session_reopen"
         today = today_iso()
+        now = now_iso()
 
         with self._vault.transaction() as txn:
             session = txn.conn.execute(
@@ -239,8 +265,23 @@ class SessionService(BaseService):
                     ),
                 )
 
+            active = self._find_active_session(txn.conn)
+            if active is not None and str(active.id) != session_id:
+                active_id = str(active.id)
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="ACTIVE_SESSION_EXISTS",
+                        message=f"Session {active_id} is already open",
+                    ),
+                    data={"active_session_id": active_id},
+                )
+
             txn.conn.execute(
-                nodes.update().where(nodes.c.id == session_id).values(status="open", modified=today)
+                nodes.update()
+                .where(nodes.c.id == session_id)
+                .values(status="open", modified=today, modified_at=now)
             )
 
             # Append reopen entry to JSONL
@@ -249,7 +290,7 @@ class SessionService(BaseService):
                 {
                     "type": "session_reopen",
                     "session_id": session_id,
-                    "timestamp": now_iso(),
+                    "timestamp": now,
                 },
                 separators=(",", ":"),
             )
@@ -284,6 +325,7 @@ class SessionService(BaseService):
         session_logs DB table (for querying and budget tracking).
         """
         op = "log_entry"
+        today = today_iso()
         timestamp = now_iso()
 
         with self._vault.transaction() as txn:
@@ -334,6 +376,12 @@ class SessionService(BaseService):
                 )
             )
             entry_id = result.lastrowid
+
+            txn.conn.execute(
+                nodes.update()
+                .where(nodes.c.id == session_id)
+                .values(modified=today, modified_at=timestamp)
+            )
 
         return ServiceResult(
             ok=True,

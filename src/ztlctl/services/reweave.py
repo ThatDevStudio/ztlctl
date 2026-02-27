@@ -592,7 +592,11 @@ class ReweaveService(BaseService):
             txn.upsert_fts(target_id, str(fm.get("title", "")), body)
 
             # Update modified in nodes
-            txn.conn.execute(nodes.update().where(nodes.c.id == target_id).values(modified=today))
+            txn.conn.execute(
+                nodes.update()
+                .where(nodes.c.id == target_id)
+                .values(modified=today, modified_at=timestamp)
+            )
 
         return connected
 
@@ -669,7 +673,11 @@ class ReweaveService(BaseService):
             # Update FTS5
             txn.upsert_fts(source_id, str(fm.get("title", "")), body)
 
-            txn.conn.execute(nodes.update().where(nodes.c.id == source_id).values(modified=today))
+            txn.conn.execute(
+                nodes.update()
+                .where(nodes.c.id == source_id)
+                .values(modified=today, modified_at=timestamp)
+            )
 
         return pruned
 

@@ -416,12 +416,13 @@ class GraphService(BaseService):
     # ------------------------------------------------------------------
 
     @traced
-    def unlink(self, source_id: str, target_id: str) -> ServiceResult:
-        """Remove all links between *source_id* and *target_id*.
+    def unlink(self, source_id: str, target_id: str, *, both: bool = False) -> ServiceResult:
+        """Remove links from *source_id* to *target_id*.
 
-        Removes edges from DB, frontmatter link entries, and body
+        Removes edge rows from DB, frontmatter link entries, and body
         wikilinks. Respects garden note protection (maturity set →
         body not modified). Re-indexes FTS5 if body was changed.
+        When ``both`` is True, also removes the reverse direction.
         """
         op = "unlink"
         warnings: list[str] = []
@@ -450,7 +451,7 @@ class GraphService(BaseService):
                     ),
                 )
 
-            # -- Remove DB edges (both directions) --
+            # -- Remove DB edges --
             with trace_span("remove_edges") as span:
                 result = txn.conn.execute(
                     edges.delete().where(
@@ -460,25 +461,27 @@ class GraphService(BaseService):
                 )
                 removed = result.rowcount
 
-                # Also remove reverse direction
-                result_rev = txn.conn.execute(
-                    edges.delete().where(
-                        edges.c.source_id == target_id,
-                        edges.c.target_id == source_id,
+                if both:
+                    result_rev = txn.conn.execute(
+                        edges.delete().where(
+                            edges.c.source_id == target_id,
+                            edges.c.target_id == source_id,
+                        )
                     )
-                )
-                removed += result_rev.rowcount
+                    removed += result_rev.rowcount
 
                 if span:
                     span.annotate("edges_removed", removed)
 
             if removed == 0:
+                direction = "between" if both else "from"
+                relation = f"{source_id} and {target_id}" if both else f"{source_id} to {target_id}"
                 return ServiceResult(
                     ok=False,
                     op=op,
                     error=ServiceError(
                         code="NO_LINK",
-                        message=f"No link found between {source_id} and {target_id}",
+                        message=f"No link found {direction} {relation}",
                     ),
                 )
 
@@ -486,9 +489,10 @@ class GraphService(BaseService):
             with trace_span("update_source_file"):
                 self._remove_link_from_file(txn, source, target_id, str(target.title), warnings)
 
-            # -- Update target file (reverse frontmatter + body) --
-            with trace_span("update_target_file"):
-                self._remove_link_from_file(txn, target, source_id, str(source.title), warnings)
+            if both:
+                # -- Update target file (reverse frontmatter + body) --
+                with trace_span("update_target_file"):
+                    self._remove_link_from_file(txn, target, source_id, str(source.title), warnings)
 
         return ServiceResult(
             ok=True,
@@ -496,6 +500,7 @@ class GraphService(BaseService):
             data={
                 "source_id": source_id,
                 "target_id": target_id,
+                "both": both,
                 "edges_removed": removed,
             },
             warnings=warnings,

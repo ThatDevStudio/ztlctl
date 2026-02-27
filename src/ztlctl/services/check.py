@@ -16,7 +16,7 @@ from sqlalchemy import delete, insert, select, text
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.domain.ids import ID_PATTERNS
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
-from ztlctl.services._helpers import now_compact, today_iso
+from ztlctl.services._helpers import now_compact, now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import trace_span, traced
@@ -157,10 +157,16 @@ class CheckService(BaseService):
                     "archived": 1 if fm.get("archived") else 0,
                     "created": str(fm.get("created", today)),
                     "modified": str(fm.get("modified", today)),
+                    "created_at": str(
+                        fm.get("created_at") or f"{fm.get('created', today)!s}T00:00:00+00:00"
+                    ),
+                    "modified_at": str(
+                        fm.get("modified_at") or f"{fm.get('modified', today)!s}T00:00:00+00:00"
+                    ),
                 }
                 # Store aliases as JSON if present
                 aliases = fm.get("aliases")
-                if aliases and isinstance(aliases, list):
+                if isinstance(aliases, list):
                     import json
 
                     node_row["aliases"] = json.dumps(aliases)
@@ -763,6 +769,7 @@ class CheckService(BaseService):
 
             if updates:
                 updates["modified"] = today
+                updates["modified_at"] = now_iso()
                 conn.execute(nodes.update().where(nodes.c.id == row.id).values(**updates))
                 fixes.append(f"Re-synced DB from file for {row.id}: {list(updates.keys())}")
 
