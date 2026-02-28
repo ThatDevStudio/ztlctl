@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
 
 permissions:
   contents: write
@@ -49,7 +49,7 @@ jobs:
 
       - name: Push changes and tag
         if: steps.bump.outputs.skip != 'true'
-        run: git push origin main --follow-tags
+        run: git push origin develop --follow-tags
 
       - name: Create GitHub Release
         if: steps.bump.outputs.skip != 'true'
@@ -59,4 +59,4 @@ jobs:
           gh release create "${{ steps.bump.outputs.tag }}" \
             --title "${{ steps.bump.outputs.tag }}" \
             --generate-notes \
-            --target main
+            --target develop

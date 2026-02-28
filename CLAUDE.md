@@ -45,23 +45,19 @@ uv run cz check --message "feat: msg"   # validate a commit message
 
 **User (human):**
 - Reviews PRs, approves, and merges (squash-merge)
-- Creates PRs from `develop` to `main` when ready to release
-- Merges release PRs to `main`
 
 **Automation (CI/CD):**
 - Runs lint, test, typecheck, security, commit-lint on every PR
-- On merge to `main`: bumps version, updates changelog, creates tag + GitHub Release
-- On GitHub Release: builds and publishes to PyPI
+- On merge to `develop`: if version-bumping commits exist, bumps version, updates changelog, creates tag + GitHub Release
+- On GitHub Release: builds and publishes to PyPI (manual approval)
 
 ### Branching Model
 
 | Branch | Purpose | Merges to |
 |---|---|---|
-| `main` | Production releases (every merge = tagged release) | — |
-| `develop` | Integration branch (default, PR target) | `main` |
+| `develop` | Trunk — all development and releases | — |
 | `feature/<name>` | New features | `develop` |
 | `fix/<name>` | Bug fixes | `develop` |
-| `hotfix/<name>` | Urgent production fixes | `main` AND `develop` |
 
 ### Conventional Commits
 
@@ -119,35 +115,22 @@ All commit messages AND PR titles MUST follow the conventional commits format:
 
 **Do NOT use git worktrees** — work directly on feature/fix branches in the main repo checkout.
 
-### Post-Release Sync
+### Post-Release
 
-After a release (merge to `main`), the release workflow pushes a version bump commit to `main`. This means `develop` falls behind. Before starting new work:
+After a version-bumping merge, the release workflow pushes a version bump commit directly to `develop`. Pull before starting new work:
 
 ```bash
-git checkout develop
-git pull origin develop
-git merge origin/main
-git push origin develop
+git checkout develop && git pull origin develop
 ```
-
-If the user has already synced `develop`, just `git pull origin develop`.
-
-### Hotfix Workflow
-
-1. Branch from main: `git checkout -b hotfix/<name> main`
-2. Fix and commit: `git commit -m "fix(scope): description"`
-3. PR to `main` (triggers release after merge)
-4. After release, merge `main` back into `develop` to sync the version bump
 
 ### What NOT to Do
 
-- **Don't commit directly to `main` or `develop`** — always use feature/fix branches with PRs
+- **Don't commit directly to `develop`** — always use feature/fix branches with PRs
 - **Don't use non-conventional commit messages** — pre-commit hook and CI will reject them
 - **Don't use non-conventional PR titles** — squash-merge uses the PR title as the commit message
 - **Don't manually edit version numbers** — `cz bump` manages `pyproject.toml` and `src/ztlctl/__init__.py`
 - **Don't manually edit CHANGELOG.md** — `cz bump --changelog` generates it
 - **Don't create git tags manually** — the release workflow creates annotated tags
-- **Don't push to `main` directly** — merge via PR from `develop` or `hotfix/*`
 - **Don't merge PRs** — the user reviews and merges; Claude only creates PRs and addresses feedback
 - **Don't use git worktrees** — work directly on feature/fix branches
 - **Don't use `uv pip install`** — always use `uv add` (or `uv add --group <group>` for dev deps)
@@ -156,9 +139,9 @@ If the user has already synced `develop`, just `git pull origin develop`.
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| `ci.yml` | PR/push to `develop` or `main` | Lint, test, typecheck, security audit, commit lint |
-| `release.yml` | Push to `main` | Version bump, changelog, annotated tag, GitHub Release |
-| `publish.yml` | GitHub Release published | Build and publish to PyPI via OIDC |
+| `ci.yml` | PR/push to `develop` | Lint, test, typecheck, security audit, commit lint |
+| `release.yml` | Push to `develop` | Auto version bump, changelog, tag, GitHub Release (if version-bumping commits) |
+| `publish.yml` | GitHub Release published | Build and publish to PyPI via OIDC (manual approval) |
 
 ## Architecture
 

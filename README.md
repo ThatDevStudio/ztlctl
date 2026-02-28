@@ -114,7 +114,7 @@ This project uses [conventional commits](https://www.conventionalcommits.org/). 
 1. Branch from `develop`: `git checkout -b feature/<name> develop`
 2. Make changes and commit with conventional messages
 3. Open a PR targeting `develop`
-4. Releases are automated when `develop` is merged to `main`
+4. Releases are automated when version-bumping commits (`feat:`, `fix:`) merge to `develop`
 
 ## Community
 
