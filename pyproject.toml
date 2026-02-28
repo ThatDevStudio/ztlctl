@@ -92,12 +92,6 @@ package = true
 [tool.hatch.build.targets.wheel]
 packages = ["src/ztlctl"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/ztlctl/templates" = "ztlctl/templates"
-
-[tool.hatch.build.targets.sdist.force-include]
-"src/ztlctl/templates" = "src/ztlctl/templates"
-
 [tool.ruff]
 line-length = 100
 target-version = "py313"
