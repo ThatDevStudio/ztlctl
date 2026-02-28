@@ -53,6 +53,12 @@ class VectorService(BaseService):
             )
         return self._provider
 
+    @staticmethod
+    def _driver_connection(conn: Any) -> Any:
+        """Return the underlying sqlite3 connection for extension loading."""
+        pool_conn = conn.connection
+        return getattr(pool_conn, "driver_connection", pool_conn.connection)
+
     def is_available(self) -> bool:
         """Check if sqlite-vec extension can be loaded."""
         if self._vec_available is not None:
@@ -61,7 +67,7 @@ class VectorService(BaseService):
             import sqlite_vec  # type: ignore[import-not-found]
 
             with self._vault.engine.connect() as conn:
-                raw = conn.connection.connection
+                raw = self._driver_connection(conn)
                 sqlite_vec.load(raw)
             self._vec_available = True
         except Exception:
@@ -74,7 +80,7 @@ class VectorService(BaseService):
             return
         dim = self._vault.settings.search.embedding_dim
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
+            raw = self._driver_connection(conn)
             import sqlite_vec
 
             sqlite_vec.load(raw)
@@ -95,7 +101,7 @@ class VectorService(BaseService):
         vec = provider.embed(content)
         blob = _serialize_f32(vec)
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
+            raw = self._driver_connection(conn)
             import sqlite_vec
 
             sqlite_vec.load(raw)
@@ -113,7 +119,7 @@ class VectorService(BaseService):
         if not self.is_available():
             return
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
+            raw = self._driver_connection(conn)
             import sqlite_vec
 
             sqlite_vec.load(raw)
@@ -136,7 +142,7 @@ class VectorService(BaseService):
         blob = _serialize_f32(query_vec)
 
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
+            raw = self._driver_connection(conn)
             import sqlite_vec
 
             sqlite_vec.load(raw)
@@ -185,7 +191,7 @@ class VectorService(BaseService):
             vectors = provider.embed_batch(texts)
 
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
+            raw = self._driver_connection(conn)
             import sqlite_vec
 
             sqlite_vec.load(raw)
