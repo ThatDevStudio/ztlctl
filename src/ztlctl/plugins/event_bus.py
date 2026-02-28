@@ -115,11 +115,20 @@ class EventBus:
 
         return results
 
-    def shutdown(self) -> None:
-        """Shutdown ThreadPoolExecutor, waiting for pending tasks."""
-        self._wait_futures()
+    def shutdown(self, *, wait: bool = True, cancel_futures: bool = False) -> None:
+        """Shutdown ThreadPoolExecutor.
+
+        Args:
+            wait: Whether to wait for in-flight tasks to finish.
+            cancel_futures: Whether pending (not yet running) futures should be cancelled.
+        """
+        if wait:
+            self._wait_futures()
+        else:
+            self._futures.clear()
+
         if self._executor is not None:
-            self._executor.shutdown(wait=True)
+            self._executor.shutdown(wait=wait, cancel_futures=cancel_futures)
             self._executor = None
 
     # ------------------------------------------------------------------

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from sqlalchemy import insert, select, text
 
 from tests.conftest import create_decision, create_note, create_task
@@ -195,6 +197,35 @@ class TestNoteStatusPropagation:
         assert result.ok
         assert result.data["status"] == "connected"
 
+    def test_body_wikilink_update_immediately_sets_linked(self, vault: Vault) -> None:
+        data_a = create_note(vault, "Body Source")
+        data_b = create_note(vault, "Body Target")
+
+        result = UpdateService(vault).update(
+            data_a["id"],
+            changes={"body": f"Connected to [[{data_b['id']}]]"},
+        )
+
+        assert result.ok
+        assert result.data["status"] == "linked"
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes.c.status).where(nodes.c.id == data_a["id"])).one()
+            assert row.status == "linked"
+
+    def test_body_wikilink_update_immediately_sets_connected(self, vault: Vault) -> None:
+        data_a = create_note(vault, "Body Hub")
+        targets = [create_note(vault, f"Body Target {i}") for i in range(3)]
+        body = " ".join(f"[[{target['id']}]]" for target in targets)
+
+        result = UpdateService(vault).update(
+            data_a["id"],
+            changes={"body": body},
+        )
+
+        assert result.ok
+        assert result.data["status"] == "connected"
+
 
 # ---------------------------------------------------------------------------
 # FTS5 reindex
@@ -234,6 +265,26 @@ class TestEdgeReindex:
         result = UpdateService(vault).update(
             data_a["id"],
             changes={"links": {"relates": [data_b["id"]]}},
+        )
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            edge = conn.execute(
+                select(edges.c.target_id).where(
+                    edges.c.source_id == data_a["id"],
+                    edges.c.target_id == data_b["id"],
+                )
+            ).first()
+            assert edge is not None
+
+    def test_edges_reindexed_on_body_wikilink_change(self, vault: Vault) -> None:
+        data_a = create_note(vault, "Body Link Source")
+        data_b = create_note(vault, "Body Link Target")
+
+        # Body contains only a wikilink — no frontmatter links.
+        result = UpdateService(vault).update(
+            data_a["id"],
+            changes={"body": f"Connected to [[{data_b['id']}]]"},
         )
         assert result.ok
 
@@ -329,16 +380,11 @@ class TestSupersede:
 class TestAliasResolution:
     def test_wikilink_resolves_by_alias(self, vault: Vault) -> None:
         """Wikilinks can resolve via node aliases."""
-        import json
-
         data = create_note(vault, "Python Language")
-        # Store aliases in DB
-        with vault.engine.begin() as conn:
-            conn.execute(
-                nodes.update()
-                .where(nodes.c.id == data["id"])
-                .values(aliases=json.dumps(["py", "python"]))
-            )
+        alias_result = UpdateService(vault).update(
+            data["id"], changes={"aliases": ["py", "python"]}
+        )
+        assert alias_result.ok
 
         # Create another note with a wikilink to the alias
         data_b = create_note(vault, "Uses Python")
@@ -368,3 +414,17 @@ class TestAliasResolution:
                 )
             ).first()
             assert edge is not None
+
+    def test_aliases_can_be_cleared(self, vault: Vault) -> None:
+        data = create_note(vault, "Alias Clear Target")
+        svc = UpdateService(vault)
+
+        set_result = svc.update(data["id"], changes={"aliases": ["legacy"]})
+        assert set_result.ok
+
+        clear_result = svc.update(data["id"], changes={"aliases": []})
+        assert clear_result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes.c.aliases).where(nodes.c.id == data["id"])).one()
+            assert row.aliases == json.dumps([])

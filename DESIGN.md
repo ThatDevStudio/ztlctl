@@ -36,10 +36,12 @@ These rules apply across the entire codebase. Violating any of them is a bug.
 ├─────────────────────────────────────────────────────┤
 │               Presentation Layer                      │
 │   Click CLI · --json · --no-interact · Rich output   │
+│   vector (status, reindex)                            │
 ├─────────────────────────────────────────────────────┤
 │                Service Layer                          │
 │   CreateService · QueryService · GraphService        │
 │   SessionService · ReweaveService · CheckService     │
+│   VectorService · EmbeddingProvider                  │
 ├─────────────────────────────────────────────────────┤
 │                 Domain Layer                          │
 │   Content models · ID generation · Frontmatter       │
@@ -47,6 +49,7 @@ These rules apply across the entire codebase. Violating any of them is a bug.
 ├─────────────────────────────────────────────────────┤
 │              Infrastructure Layer                     │
 │   SQLite + FTS5 · NetworkX · Alembic · Filesystem    │
+│   sqlite-vec · sentence-transformers                 │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -146,7 +149,7 @@ CONTENT_REGISTRY: dict[str, type[ContentModel]] = {
 }
 ```
 
-Lookup via `get_content_model(content_type, subtype)` — subtype takes priority, falls back to type. Models ship with bundled Jinja2 body-only templates. User-provided templates supported in future versions. No custom subtypes in v1 — shipped subtypes use the same extensibility mechanism, allowing us to tune before opening to users.
+Lookup via `get_content_model(content_type, subtype)` — subtype takes priority, falls back to type. Models ship with bundled Jinja2 body-only templates, with per-vault overrides loaded from `.ztlctl/templates/` before package defaults. Plugin-registered custom subtypes extend the same `CONTENT_REGISTRY` through a setup-time pluggy hook, with built-in names reserved.
 
 Machine-layer subtypes are **strict** (validation blocks creation if rules violated). Garden-layer content is **flexible** (advisory warnings, never blocking).
 
@@ -300,7 +303,7 @@ VALIDATE → GENERATE → PERSIST → INDEX → RESPOND
 
 Single write path. No fallback mechanism. If the pipeline fails, it fails with a clear error. Post-create, the event bus (→ Section 15) dispatches `post_create` asynchronously. Reweave (→ Section 5) runs unless `--no-reweave` is passed.
 
-> **Implementation note (Phase 3):** The five-stage pipeline is complete for notes, references, and tasks. The RESPOND stage returns `{id, path, title, type}` plus warnings, rendered as human-readable key-value pairs or JSON. Post-create reweave invocation is available via ReweaveService. Event bus dispatch is deferred to Phase 6 (Extension) when the pluggy event system is implemented.
+> **Implementation note (Phase 3+9):** The five-stage pipeline is complete for notes, references, and tasks. The RESPOND stage returns `{id, path, title, type}` plus warnings, rendered as human-readable key-value pairs or JSON. Post-create reweave runs automatically for notes and references (inline in CreateService) unless `--no-reweave` is passed (Phase 9). Event bus dispatch (pluggy-based, WAL-backed async via EventBus) is integrated into all service modules (Phase 6).
 
 ### Command Surface
 
@@ -310,7 +313,7 @@ ztlctl create reference "Title" --url "https://..." --tags "domain/topic"
 ztlctl create task "Title" --priority high --impact high --effort low
 ztlctl garden seed "Half-formed idea"      # cultivation persona
 ztlctl agent session start "Research topic" # session management
-ztlctl extract decision LOG-0042            # JSONL → markdown
+ztlctl extract LOG-0042                     # JSONL → markdown
 ```
 
 ### Three Interaction Profiles
@@ -595,7 +598,38 @@ The `--ignore-checkpoints` flag reads full history when needed.
   - `recency`: BM25 × time decay
 - **Semantic search:** Optional, feature-flagged (`[search] semantic_enabled = false`)
 
-> **Implementation note (Phase 3+5):** Search supports `--rank-by relevance|recency|graph`. The `relevance` mode uses raw BM25 ordering. The `recency` mode applies BM25 × exponential time-decay (`exp(-age_days * ln2 / half_life_days)`) with configurable `half_life_days` in SearchConfig (Phase 5). The `graph` mode multiplies BM25 by materialized PageRank values from the nodes table (Phase 5). `GraphService.materialize_metrics()` computes and persists PageRank, degree centrality, and betweenness to the nodes table. `ztlctl graph materialize` triggers on demand; `ztlctl check --rebuild` also refreshes metrics.
+### Semantic Search
+
+Optional vector similarity search using local embeddings and `sqlite-vec`.
+
+**Components:**
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `EmbeddingProvider` | `infrastructure/embeddings.py` | Pluggable embedding abstraction; wraps `sentence-transformers` |
+| `VectorService` | `services/vector.py` | sqlite-vec `vec0` virtual table management, KNN queries |
+| `vector` CLI group | `commands/vector.py` | `status` and `reindex` subcommands |
+
+**Embedding pipeline:**
+
+1. Content → `EmbeddingProvider.embed(text)` → `FLOAT[384]` vector
+2. Vector → `sqlite-vec` `vec_items` virtual table (binary float32 format)
+3. Query → KNN cosine distance search → ranked results
+
+**Hybrid ranking:** `(1 - w) * bm25_norm + w * cosine_sim`, where `w = search.semantic_weight` (default 0.5).
+
+**Graceful degradation:** When `sqlite-vec` or `sentence-transformers` is not installed, `VectorService.is_available()` returns False and all vector operations silently no-op. Falls back to BM25-only search.
+
+**CLI commands:**
+
+```bash
+ztlctl vector status    # check availability and index stats
+ztlctl vector reindex   # rebuild vector index for all content
+```
+
+**Configuration:** See `[search]` section in Configuration Reference (→ Section 17).
+
+> **Implementation note (Phase 3+5+9):** Search supports `--rank-by relevance|recency|graph`. The `relevance` mode uses raw BM25 ordering. The `recency` mode applies BM25 × exponential time-decay (`exp(-age_days * ln2 / half_life_days)`) with configurable `half_life_days` in SearchConfig (Phase 5). The `graph` mode multiplies BM25 by materialized PageRank values from the nodes table (Phase 5). `GraphService.materialize_metrics()` computes and persists PageRank, degree centrality, and betweenness to the nodes table. `ztlctl graph materialize` triggers on demand; `ztlctl check --rebuild` also refreshes metrics. Semantic search (Phase 9, PR #57): `EmbeddingProvider` lazy-loads `all-MiniLM-L6-v2` model on first call (avoids startup cost when disabled). `VectorService` serializes vectors as compact binary (`struct.pack` float32) for sqlite-vec KNN queries. Integration points: `CreateService` auto-indexes via `VectorService.index_node()` when available; `QueryService` calls `VectorService.search_similar()` for hybrid ranking. Both `sqlite-vec` and `sentence-transformers` are optional dependencies in the `[semantic]` extra.
 
 ---
 
@@ -718,7 +752,7 @@ Performance indexes on high-cardinality columns, created via `metadata.create_al
 | `ix_edges_target` | `target_id` | `edges` |
 | `ix_node_tags_tag` | `tag` | `node_tags` |
 
-> **Note:** The `edges.bidirectional` column is reserved but not yet maintained by services. It exists in the schema for future bidirectional edge materialization.
+> **Note:** The `edges.bidirectional` column is maintained by `GraphService.materialize_metrics()` (Phase 9), which sets `bidirectional = 1` when a reverse edge exists. Used in garden health checks for evergreen readiness criteria.
 >
 > **Note:** All columns with `default=` also have `server_default=` to ensure `metadata.create_all()` and Alembic migrations produce identical DDL with `DEFAULT` clauses.
 
@@ -948,7 +982,7 @@ $ ztlctl init
 
 ### Self/ Generation
 
-Jinja2 templates bundled with the package. Config values flow into templates:
+Jinja2 templates are bundled with the package, with per-vault overrides loaded from `.ztlctl/templates/` before package defaults. Config values flow into templates:
 
 - `self/identity.md` — role, critique protocol, contextual graduation, anti-patterns
 - `self/methodology.md` — core principles, tool configuration, content types
@@ -957,7 +991,7 @@ The `research-partner` tone includes the full behavioral framework proven in the
 
 `ztlctl agent regenerate` re-derives self/ from current config. Staleness detection via timestamp comparison.
 
-> **Implementation note (Phase 5+7):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--client/--tone/--topics`) modes. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, stamps the Alembic migration head (Phase 7), generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, and optionally scaffolds `.obsidian/` for Obsidian clients. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Copier workflow templates (`ztlctl workflow init/update`) are deferred — the init command covers the core vault bootstrapping need.
+> **Implementation note (Phase 5+7, follow-up):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--client/--tone/--topics`) modes. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, stamps the Alembic migration head (Phase 7), generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, optionally scaffolds `.obsidian/` for Obsidian clients, and now applies the default Copier workflow scaffold unless `--no-workflow` is passed. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Both self/ and content templates honor per-vault overrides from `.ztlctl/templates/` before falling back to bundled package templates.
 
 ### Vault Structure
 
@@ -1101,6 +1135,8 @@ Powered by Copier. Composable template layers. `ztlctl workflow update` merges t
 
 `ztlctl init` runs workflow init by default. `--no-workflow` to skip.
 
+> **Implementation note:** The packaged Copier template writes `.ztlctl/workflow-answers.yml` plus generated guidance under `.ztlctl/workflow/`. `ztlctl workflow update` prefers Copier's smart update path and falls back to `recopy` with a warning when Git-based merge metadata is unavailable.
+
 ### Packaging
 
 ```bash
@@ -1110,7 +1146,7 @@ pip install ztlctl[mcp]       # Adds MCP adapter
 
 Claude Code plugin ships as a separate artifact (plugin.json + skills/ + hooks/) with an independent release cycle.
 
-> **Implementation note (Phase 6):** EventBus is implemented with WAL-backed async dispatch (`ThreadPoolExecutor`, configurable `max_workers=2`). Events persist to `event_wal` table before dispatch, retry on failure (configurable `max_retries=3`), and transition to `dead_letter` status after exhausting retries. `--sync` flag forces synchronous dispatch for deterministic testing. `drain()` retries all pending/failed events synchronously — called as a sync barrier at session close. PluginManager uses `pluggy.load_setuptools_entrypoints("ztlctl.plugins")` for discovery; built-in GitPlugin is registered explicitly via `register_plugin()` in `Vault.init_event_bus()`. GitPlugin implements all 8 hooks with subprocess-based git operations; all calls are wrapped in `try/except (OSError, CalledProcessError)` so a missing git binary silently degrades. `BaseService._dispatch_event()` is the fire-and-forget helper — plugin failures are captured as warnings in the ServiceResult, never propagated. Local directory plugin discovery (`.ztlctl/plugins/`) and Copier workflow templates are deferred.
+> **Implementation note (Phase 6+9, follow-up):** EventBus is implemented with WAL-backed async dispatch (`ThreadPoolExecutor`, configurable `max_workers=2`). Events persist to `event_wal` table before dispatch, retry on failure (configurable `max_retries=3`), and transition to `dead_letter` status after exhausting retries. `--sync` flag forces synchronous dispatch for deterministic testing. `drain()` retries all pending/failed events synchronously — called as a sync barrier at session close. PluginManager uses `pluggy.load_setuptools_entrypoints("ztlctl.plugins")` for discovery; built-in GitPlugin is registered explicitly via `register_plugin()` in `Vault.init_event_bus()`. GitPlugin implements all 8 lifecycle hooks with subprocess-based git operations; all calls are wrapped in `try/except (OSError, CalledProcessError)` so a missing git binary silently degrades. `BaseService._dispatch_event()` is the fire-and-forget helper — plugin failures are captured as warnings in the ServiceResult, never propagated. Local directory plugin discovery (Phase 9, PR #56): `PluginManager.discover_and_load(local_dir=...)` scans `.ztlctl/plugins/*.py` for classes with `@hookimpl`-decorated methods; files are loaded via `importlib.util.spec_from_file_location()` with module name `ztlctl_local_plugin_{stem}`. Underscore-prefixed files are excluded. Load errors are warnings, not failures. Plugin setup-time hook `register_content_models()` can extend `CONTENT_REGISTRY` with custom subtypes; conflicts with built-in names are warnings, not startup failures.
 
 ---
 
@@ -1146,13 +1182,19 @@ The MCP module uses `try/except ImportError` with a module-level `mcp_available`
 
 ### Transport
 
-stdio default (sub-ms latency). Streamable HTTP optional for remote access.
+Three transport options:
+
+| Transport | Flag | Use Case |
+|-----------|------|----------|
+| `stdio` (default) | `--transport stdio` | Sub-ms latency, local integration |
+| `sse` | `--transport sse --host 127.0.0.1 --port 8000` | Server-Sent Events over HTTP |
+| `streamable-http` | `--transport streamable-http --host 127.0.0.1 --port 8000` | HTTP streaming for remote access |
 
 ### Tool Proliferation Guard
 
 At 15+ tools (from plugin registration), activate `discover_tools` meta-tool for progressive discovery by category.
 
-> **Implementation note (Phase 6):** All 12 tools, 6 resources, and 4 prompts are implemented as thin service adapters. Each has a `_<name>_impl(vault, **params) -> dict` function that is testable without the `mcp` package installed. `register_tools()`, `register_resources()`, and `register_prompts()` wrap these with `@server.tool()` / `@server.resource()` / `@server.prompt()` FastMCP decorators. `create_server()` creates a `ZtlSettings` + `Vault` from the vault root and registers all components. `ztlctl serve --transport stdio` is the CLI entry point with an import guard for the optional `mcp` extra. The tool proliferation guard (discover_tools meta-tool) and streamable HTTP transport are deferred.
+> **Implementation note (Phase 6+9):** All 12 tools, 6 resources, and 4 prompts are implemented as thin service adapters. Each has a `_<name>_impl(vault, **params) -> dict` function that is testable without the `mcp` package installed. `register_tools()`, `register_resources()`, and `register_prompts()` wrap these with `@server.tool()` / `@server.resource()` / `@server.prompt()` FastMCP decorators. `create_server(vault_root, host, port)` creates a `ZtlSettings` + `Vault` from the vault root and registers all components. `ztlctl serve --transport {stdio|sse|streamable-http}` is the CLI entry point with `--host` and `--port` options for HTTP transports (Phase 9, PR #56). Transport is passed to `server.run(transport=...)` at runtime. The tool proliferation guard (discover_tools meta-tool) is deferred.
 
 ---
 
@@ -1168,7 +1210,7 @@ All configuration sections are frozen Pydantic `BaseModel` classes. Defaults are
 | `[agent]` | `AgentConfig` | `tone`, `context` (nested `AgentContextConfig`) |
 | `[reweave]` | `ReweaveConfig` | `enabled`, weights, thresholds |
 | `[garden]` | `GardenConfig` | `seed_age_warning_days`, evergreen criteria |
-| `[search]` | `SearchConfig` | `semantic_enabled`, embedding settings |
+| `[search]` | `SearchConfig` | `semantic_enabled`, `semantic_weight`, `embedding_model`, `embedding_dim`, `half_life_days` |
 | `[session]` | `SessionConfig` | `close_reweave`, `close_orphan_sweep` |
 | `[tags]` | `TagsConfig` | `auto_register` |
 | `[check]` | `CheckConfig` | `backup_retention_days`, `backup_max_count` |
@@ -1177,7 +1219,7 @@ All configuration sections are frozen Pydantic `BaseModel` classes. Defaults are
 | `[mcp]` | `McpConfig` | `enabled`, `transport` |
 | `[workflow]` | `WorkflowConfig` | `template`, `skill_set` |
 
-`ZtlSettings` composes all section models plus CLI flags and resolved paths. All models are frozen.
+`ZtlSettings` composes all section models plus CLI flags (`no_reweave`, `sync`, `log_json`, `verbose`) and resolved paths. All models are frozen.
 
 **Config discovery:** Walk up from cwd looking for `ztlctl.toml`. `ZTLCTL_CONFIG` env var overrides walk-up. `--config` CLI flag overrides both. No file found → all-defaults `ZtlSettings()`.
 
@@ -1229,6 +1271,8 @@ evergreen_min_bidirectional_links = 3
 semantic_enabled = false
 embedding_model = "local"
 embedding_dim = 384
+semantic_weight = 0.5
+half_life_days = 30.0
 
 [session]
 close_reweave = true
@@ -1280,6 +1324,8 @@ dependencies = [
     "jinja2>=3.1",
     "pluggy>=1.4",
     "rich>=13.0",
+    "structlog>=24.0",
+    "scipy>=1.17.1",
 ]
 ```
 
@@ -1289,7 +1335,7 @@ dependencies = [
 [project.optional-dependencies]
 mcp = ["mcp>=1.0", "anyio>=4.0"]
 community = ["leidenalg"]
-semantic = ["sqlite-vec"]
+semantic = ["sqlite-vec>=0.1", "sentence-transformers>=2.2"]
 ```
 
 ---
@@ -1392,9 +1438,11 @@ Decisions made during the design process (CONV-0017):
 | BL-0028 | Export (F10) | low | **done** | Markdown, indexes, graph export. 3 export subcommands with format options |
 | BL-0029 | Integrity (F11) | high | **done** | 4-category check (DB-file, schema, graph, structural), safe/aggressive fix, full rebuild, rollback. Uses VaultTransaction for atomicity |
 | BL-0030 | CLI Interface (F12) | high | **done** | Rich rendering (tables, styled text, icons), 3 verbosity modes, structured JSON errors, ZtlCommand/ZtlGroup base classes, all service operations have CLI commands. Consolidated `_helpers.py` for shared service utilities |
-| BL-0031 | Init & Self-Generation (F13) | high | **done** | Init flow, Jinja2 templates, Obsidian scaffolding, agent regenerate. Deferred: Copier workflow templates |
-| BL-0032 | Event System & Plugins (F14) | high | **done** | WAL-backed EventBus, pluggy hookspecs, PluginManager with entry-point discovery, Git plugin (all 8 hooks). Deferred: local directory plugin discovery, Copier workflow templates |
-| BL-0033 | MCP Adapter (F15) | high | **done** | 12 tools, 6 resources, 4 prompts, `ztlctl serve` command with stdio transport. Deferred: tool proliferation guard |
+| BL-0031 | Init & Self-Generation (F13) | high | **done** | Init flow, Jinja2 templates, Obsidian scaffolding, agent regenerate, Copier-backed workflow scaffold |
+| BL-0032 | Event System & Plugins (F14) | high | **done** | WAL-backed EventBus, pluggy hookspecs, PluginManager with entry-point + local directory discovery, Git plugin (all 8 lifecycle hooks), plugin-registered custom content models |
+| BL-0033 | MCP Adapter (F15) | high | **done** | 12 tools, 6 resources, 4 prompts, `ztlctl serve` with stdio/sse/streamable-http transports. Deferred: tool proliferation guard |
+| BL-0034 | Verbose Telemetry (F16) | medium | **done** | structlog dual-output, `@traced` decorator, `trace_span()` context manager, `--verbose`/`--log-json` CLI flags |
+| BL-0035 | Semantic Search (F17) | high | **done** | EmbeddingProvider, VectorService, sqlite-vec vec0 table, hybrid BM25+cosine ranking, `vector` CLI group |
 
 ### Implementation Dependency Graph
 
@@ -1408,7 +1456,7 @@ Phase 0 — CLI Structural Foundation (complete):
   Domain: StrEnum types, lifecycle transitions, ID system
   Services: ServiceResult/ServiceError (Pydantic), 6 service stubs
   Infrastructure: SQLite engine (WAL mode), GraphEngine (lazy NetworkX)
-  Plugins: 8 hookspecs, manager scaffold, Git plugin stub
+  Plugins: 9 hookspecs, manager scaffold, Git plugin stub
   MCP: Import-guarded server scaffold
   Templates: Content + self Jinja2 templates
   Output: ServiceResult formatter with --json support
@@ -1563,7 +1611,7 @@ Phase 6 — Extension (complete):
     - Drain barrier: session close flushes pending events synchronously
     - PluginManager: entry-point discovery via pluggy load_setuptools_entrypoints
     - register_plugin/unregister for runtime plugin management
-    - Git plugin (built-in): all 8 hookspecs implemented
+    - Git plugin (built-in): all 8 lifecycle hooks implemented
       - post_create/update/close: git add + optional immediate commit
       - post_session_close: batch commit of all staged changes, optional auto-push
       - post_init: .gitignore generation, git init, initial commit
@@ -1611,6 +1659,51 @@ Phase 7 — Stub Command Completion (complete):
     - init_vault stamp failures surfaced as ServiceResult warnings instead of silently swallowed
 
   1014 tests, mypy strict, ruff clean.
+
+Phase 8 — Verbose Telemetry (complete, PR #50):
+  F16 Verbose Telemetry:
+    - structlog dual-output: Rich console (human) + JSON (machine), all to stderr
+    - `@traced` decorator on 45 public service methods across 11 files
+    - `trace_span()` context manager: 28 sub-stage spans (create, check, update, reweave, session, graph, context)
+    - ContextVar wiring: `_verbose_enabled` + `_current_span` — zero-signature-change propagation
+    - `--verbose` CLI flag: hierarchical span tree rendering with duration color-coding
+    - `--log-json` CLI flag: structured JSON logs to stderr
+    - Idempotent `configure_logging()` (clears root logger handlers)
+    - ~10ns overhead when disabled (single ContextVar.get() check)
+  Fixes:
+    - Frozen ServiceResult + telemetry: `result.model_copy(update={"meta": merged})` pattern
+    - `@staticmethod` must be outside `@traced` (decorator order matters)
+    - Cross-service `@traced` calls create independent root spans
+
+  ~1095 tests, mypy strict, ruff clean.
+
+Phase 9 — Quick Wins + Semantic Search (complete, PRs #51–#57):
+  Feature Gaps (PRs #51, #53, #55):
+    - Post-create automatic reweave: inline in CreateService for notes/references, gated by `no_reweave`
+    - `graph unlink` command: remove edge + frontmatter + body wikilink
+    - `--ignore-checkpoints` flag on `agent context`
+    - Bidirectional edge materialization in `materialize_metrics()`
+    - `cluster_id` materialization via Leiden → Louvain community detection
+    - Interactive create prompts (TTY-aware, respects `--no-interact`)
+    - Garden advisory features: seed age warnings, evergreen readiness checks
+    - `--cost` flag on all content-modifying commands
+  Infrastructure (PR #56):
+    - MCP HTTP/SSE transport: `--transport {stdio|sse|streamable-http}` with `--host`/`--port`
+    - Local plugin discovery: `.ztlctl/plugins/*.py` via importlib, @hookimpl scanning
+    - Alembic migration tests: forward migration, pre-Alembic detection, stamp_current
+  Semantic Search (PR #57):
+    - EmbeddingProvider: pluggable abstraction, `sentence-transformers` default, `all-MiniLM-L6-v2`
+    - VectorService: sqlite-vec `vec0` virtual table, FLOAT[384], KNN cosine distance
+    - Hybrid ranking: `(1-w) * bm25_norm + w * cosine_sim`, configurable `semantic_weight`
+    - Graceful degradation: `is_available()` check, silent no-op when deps missing
+    - `vector status` and `vector reindex` CLI commands
+    - Pipeline integration: auto-index on create, hybrid search in query
+  Docs:
+    - Archived completed plan files
+    - `--examples` flag coverage on all commands/groups
+    - `type: ignore` audit (23 FastMCP stubs, 5 justified)
+
+  1198 tests, mypy strict, ruff clean.
 ```
 
 When implementing a feature, read its section in this document completely before writing code. Cross-reference the schema in Section 9 for all DB table definitions, and the `ServiceResult` contract in Section 10 for all return types.

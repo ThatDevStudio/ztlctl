@@ -401,6 +401,9 @@ class TestCheckRenderer:
         result = _ok(
             "check",
             count=2,
+            error_count=1,
+            warning_count=1,
+            healthy=False,
             issues=[
                 {
                     "category": "db-file",
@@ -423,6 +426,27 @@ class TestCheckRenderer:
         assert "Missing file" in output
         assert "1 errors" in output
         assert "1 warnings" in output
+
+    def test_warning_only_healthy_state(self) -> None:
+        result = _ok(
+            "check",
+            count=1,
+            error_count=0,
+            warning_count=1,
+            healthy=True,
+            issues=[
+                {
+                    "category": "graph",
+                    "severity": "warning",
+                    "node_id": None,
+                    "message": "Orphan node",
+                    "fix_action": None,
+                }
+            ],
+        )
+        output = render_result(result)
+        assert "No errors found; advisory warnings listed below." in output
+        assert "0 errors, 1 warnings" in output
 
     def test_verbose_shows_fix_action(self) -> None:
         result = _ok(

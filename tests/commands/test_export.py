@@ -31,6 +31,21 @@ class TestExportMarkdownCommand:
         result = cli_runner.invoke(cli, ["export", "markdown"])
         assert result.exit_code != 0
 
+    def test_export_markdown_json_includes_filters(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        cli_runner.invoke(cli, ["create", "note", "Filtered Markdown Note"])
+        output = tmp_path / "md-filtered"
+
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "export", "markdown", "--type", "note", "--output", str(output)],
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["data"]["filters"] == {"type": "note"}
+
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestExportIndexesCommand:
@@ -51,6 +66,22 @@ class TestExportIndexesCommand:
         output = tmp_path / "idx-files"
         cli_runner.invoke(cli, ["export", "indexes", "--output", str(output)])
         assert (Path(output) / "index.md").is_file()
+
+    def test_export_indexes_filters_by_type(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        cli_runner.invoke(cli, ["create", "note", "Index Note"])
+        cli_runner.invoke(cli, ["create", "reference", "Index Reference"])
+        output = tmp_path / "idx-filtered"
+
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "export", "indexes", "--type", "note", "--output", str(output)],
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["data"]["node_count"] == 1
+        assert data["data"]["filters"] == {"type": "note"}
+        assert "Index Note" in (output / "by-type" / "note.md").read_text()
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -89,3 +120,14 @@ class TestExportGraphCommand:
         result = cli_runner.invoke(cli, ["export", "graph"])
         assert result.exit_code == 0
         assert "digraph vault" in result.output
+
+    def test_export_graph_filtered_stdout(self, cli_runner: CliRunner) -> None:
+        cli_runner.invoke(cli, ["create", "note", "Graph Note"])
+        cli_runner.invoke(cli, ["create", "reference", "Graph Reference"])
+
+        result = cli_runner.invoke(cli, ["export", "graph", "--format", "json", "--type", "note"])
+
+        assert result.exit_code == 0
+        d3 = json.loads(result.output)
+        assert len(d3["nodes"]) == 1
+        assert d3["nodes"][0]["type"] == "note"

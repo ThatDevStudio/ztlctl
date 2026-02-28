@@ -16,6 +16,7 @@ from ztlctl.domain.content import (
     ValidationResult,
     get_content_model,
     parse_frontmatter,
+    register_content_model,
     render_frontmatter,
 )
 
@@ -141,6 +142,35 @@ class TestWriteBody:
             created=date(2025, 1, 15),
         )
         body = model.write_body(body="Hello world")
+        assert "Hello world" in body
+
+    def test_note_body_uses_user_template_override(self, tmp_path: Path) -> None:
+        model = NoteModel(
+            id="ztl_abc12345",
+            type="note",
+            status="draft",
+            title="Test",
+            created=date(2025, 1, 15),
+        )
+        template_dir = tmp_path / ".ztlctl" / "templates" / "content"
+        template_dir.mkdir(parents=True)
+        (template_dir / "note.md.j2").write_text("override body: {{ body }}\n", encoding="utf-8")
+
+        body = model.write_body(body="Hello world", template_root=tmp_path)
+
+        assert body == "override body: Hello world\n"
+
+    def test_note_body_falls_back_to_bundled_template(self, tmp_path: Path) -> None:
+        model = NoteModel(
+            id="ztl_abc12345",
+            type="note",
+            status="draft",
+            title="Test",
+            created=date(2025, 1, 15),
+        )
+
+        body = model.write_body(body="Hello world", template_root=tmp_path)
+
         assert "Hello world" in body
 
     def test_note_empty_body(self) -> None:
@@ -668,6 +698,33 @@ class TestContentRegistry:
     def test_unknown_subtype_falls_back_to_type(self) -> None:
         cls = get_content_model("note", "custom")
         assert cls is NoteModel
+
+    def test_register_custom_subtype(self) -> None:
+        original_registry = CONTENT_REGISTRY.copy()
+
+        class FlashcardModel(NoteModel):
+            _subtype_name = "flashcard"
+
+        try:
+            register_content_model("flashcard", FlashcardModel)
+            assert get_content_model("note", "flashcard") is FlashcardModel
+        finally:
+            CONTENT_REGISTRY.clear()
+            CONTENT_REGISTRY.update(original_registry)
+
+    def test_register_rejects_builtin_name_collision(self) -> None:
+        class PluginDecisionModel(NoteModel):
+            _subtype_name = "decision"
+
+        with pytest.raises(ValueError, match="built-in"):
+            register_content_model("decision", PluginDecisionModel)
+
+    def test_register_requires_concrete_content_type(self) -> None:
+        class InvalidModel(ContentModel):
+            _subtype_name = "invalid"
+
+        with pytest.raises(ValueError, match="_content_type"):
+            register_content_model("invalid", InvalidModel)
 
 
 # ---------------------------------------------------------------------------

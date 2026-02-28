@@ -20,9 +20,12 @@ if TYPE_CHECKING:
 )
 @click.argument("old_id")
 @click.argument("new_id")
+@click.option("--cost", "token_cost", type=int, default=0, help="Token cost for this action.")
 @click.pass_obj
-def supersede(app: AppContext, old_id: str, new_id: str) -> None:
+def supersede(app: AppContext, old_id: str, new_id: str, token_cost: int) -> None:
     """Mark a decision as superseded by a newer decision."""
     from ztlctl.services.update import UpdateService
 
-    app.emit(UpdateService(app.vault).supersede(old_id, new_id))
+    result = UpdateService(app.vault).supersede(old_id, new_id)
+    app.emit(result)
+    app.log_action_cost(result, token_cost)

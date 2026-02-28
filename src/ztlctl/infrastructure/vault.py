@@ -332,24 +332,50 @@ class Vault:
         """The plugin event bus (None if not initialized)."""
         return self._event_bus
 
+    def close(self, *, wait_for_events: bool = True) -> None:
+        """Release background workers and DB resources.
+
+        Safe to call multiple times.
+        """
+        if self._event_bus is not None:
+            try:
+                self._event_bus.shutdown(
+                    wait=wait_for_events,
+                    cancel_futures=not wait_for_events,
+                )
+            except Exception:
+                logger.debug("Event bus shutdown failed", exc_info=True)
+            finally:
+                self._event_bus = None
+
+        self._graph.invalidate()
+        self._engine.dispose()
+
     def init_event_bus(self, *, sync: bool = False) -> None:
         """Initialize the plugin event bus.
 
         Creates a PluginManager, discovers entry-point plugins,
-        registers the built-in GitPlugin, and wires up the EventBus.
+        registers the built-in GitPlugin and ReweavePlugin, and
+        wires up the EventBus.
         Called by AppContext when the vault is first accessed.
         """
         from ztlctl.plugins.builtins.git import GitPlugin
+        from ztlctl.plugins.builtins.reweave_plugin import ReweavePlugin
         from ztlctl.plugins.event_bus import EventBus
         from ztlctl.plugins.manager import PluginManager
 
         pm = PluginManager()
-        pm.discover_and_load()
+        local_plugins = self.root / ".ztlctl" / "plugins"
+        pm.discover_and_load(local_dir=local_plugins)
 
         # Register built-in git plugin with vault context
         git_config = self._settings.git
         git_plugin = GitPlugin(config=git_config, vault_root=self.root)
         pm.register_plugin(git_plugin, name="git-builtin")
+
+        # Register built-in reweave plugin for post-create graph densification
+        reweave_plugin = ReweavePlugin(vault=self)
+        pm.register_plugin(reweave_plugin, name="reweave-builtin")
 
         self._event_bus = EventBus(self._engine, pm, sync=sync)
 

@@ -95,6 +95,7 @@ class ZtlSettings(BaseSettings):
     json_output: bool = False
     quiet: bool = False
     verbose: bool = False
+    log_json: bool = False
     no_interact: bool = False
     no_reweave: bool = False
     sync: bool = False

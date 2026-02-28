@@ -16,7 +16,7 @@ def register_commands(cli: click.Group) -> None:
     """Register all command groups and standalone commands on the root CLI group.
 
     Uses deferred imports so modules are only loaded when actually invoked.
-    7 groups (have subcommands) + 8 standalone commands.
+    8 groups (have subcommands) + 8 standalone commands.
     """
     # --- Groups ---
     from ztlctl.commands.agent import agent
@@ -25,6 +25,7 @@ def register_commands(cli: click.Group) -> None:
     from ztlctl.commands.garden import garden
     from ztlctl.commands.graph import graph
     from ztlctl.commands.query import query
+    from ztlctl.commands.vector import vector
     from ztlctl.commands.workflow import workflow
 
     cli.add_command(create)
@@ -33,6 +34,7 @@ def register_commands(cli: click.Group) -> None:
     cli.add_command(agent)
     cli.add_command(garden)
     cli.add_command(export)
+    cli.add_command(vector)
     cli.add_command(workflow)
 
     # --- Standalone commands ---

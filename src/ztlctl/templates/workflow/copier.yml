@@ -1,0 +1,31 @@
+_min_copier_version: "9.0.0"
+_templates_suffix: ".jinja"
+_exclude:
+  - copier.yml
+  - layers
+source_control:
+  type: str
+  default: git
+  choices:
+    - git
+    - none
+viewer:
+  type: str
+  default: obsidian
+  choices:
+    - obsidian
+    - vanilla
+workflow:
+  type: str
+  default: claude-driven
+  choices:
+    - claude-driven
+    - agent-generic
+    - manual
+skill_set:
+  type: str
+  default: research
+  choices:
+    - research
+    - engineering
+    - minimal

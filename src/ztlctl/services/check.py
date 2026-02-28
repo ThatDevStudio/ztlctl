@@ -7,6 +7,7 @@ graph health, structural validation. (DESIGN.md Section 14)
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -16,9 +17,11 @@ from sqlalchemy import delete, insert, select, text
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.domain.ids import ID_PATTERNS
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
-from ztlctl.services._helpers import now_compact, today_iso
+from ztlctl.services._helpers import now_compact, now_iso, today_iso
 from ztlctl.services.base import BaseService
+from ztlctl.services.contracts import CheckResultData, dump_validated
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import trace_span, traced
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
@@ -32,11 +35,20 @@ if TYPE_CHECKING:
 
 SEVERITY_ERROR = "error"
 SEVERITY_WARNING = "warning"
+_SEVERITY_RANK = {
+    SEVERITY_WARNING: 1,
+    SEVERITY_ERROR: 2,
+}
 
 CAT_DB_FILE = "db_file_consistency"
 CAT_SCHEMA = "schema_integrity"
 CAT_GRAPH = "graph_health"
 CAT_STRUCTURAL = "structural_validation"
+CAT_GARDEN = "garden_health"
+
+
+class _ConsistencyReadError(ValueError):
+    """Raised when a content file cannot be normalized for consistency checks."""
 
 
 # ---------------------------------------------------------------------------
@@ -51,14 +63,40 @@ class CheckService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
-    def check(self) -> ServiceResult:
+    @traced
+    def check(self, *, min_severity: str = SEVERITY_WARNING) -> ServiceResult:
         """Report integrity issues without modifying anything."""
         issues: list[dict[str, Any]] = []
         with self._vault.engine.connect() as conn:
-            issues.extend(self._check_db_file_consistency(conn))
-            issues.extend(self._check_schema_integrity(conn))
-            issues.extend(self._check_graph_health(conn))
-            issues.extend(self._check_structural_validation(conn))
+            with trace_span("db_file_consistency"):
+                issues.extend(self._check_db_file_consistency(conn))
+            with trace_span("schema_integrity"):
+                issues.extend(self._check_schema_integrity(conn))
+            with trace_span("graph_health"):
+                issues.extend(self._check_graph_health(conn))
+            with trace_span("structural_validation"):
+                issues.extend(self._check_structural_validation(conn))
+            with trace_span("garden_health"):
+                issues.extend(self._check_garden_health(conn))
+
+        issues = [
+            issue
+            for issue in issues
+            if _SEVERITY_RANK.get(str(issue.get("severity")), 0)
+            >= _SEVERITY_RANK.get(min_severity, _SEVERITY_RANK[SEVERITY_WARNING])
+        ]
+        error_count = sum(1 for issue in issues if issue.get("severity") == SEVERITY_ERROR)
+        warning_count = sum(1 for issue in issues if issue.get("severity") == SEVERITY_WARNING)
+        payload = dump_validated(
+            CheckResultData,
+            {
+                "issues": issues,
+                "count": len(issues),
+                "error_count": error_count,
+                "warning_count": warning_count,
+                "healthy": error_count == 0,
+            },
+        )
 
         warnings: list[str] = []
         issues_fixed = sum(1 for i in issues if i.get("fix_action") is not None)
@@ -71,10 +109,11 @@ class CheckService(BaseService):
         return ServiceResult(
             ok=True,
             op="check",
-            data={"issues": issues, "count": len(issues)},
+            data=payload,
             warnings=warnings,
         )
 
+    @traced
     def fix(self, *, level: str = "safe") -> ServiceResult:
         """Automatically repair issues. Level: 'safe' or 'aggressive'."""
         self._backup_db()
@@ -97,6 +136,7 @@ class CheckService(BaseService):
             data={"fixes": fixes, "count": len(fixes)},
         )
 
+    @traced
     def rebuild(self) -> ServiceResult:
         """Full DB rebuild from filesystem (files are truth)."""
         self._backup_db()
@@ -146,10 +186,16 @@ class CheckService(BaseService):
                     "archived": 1 if fm.get("archived") else 0,
                     "created": str(fm.get("created", today)),
                     "modified": str(fm.get("modified", today)),
+                    "created_at": str(
+                        fm.get("created_at") or f"{fm.get('created', today)!s}T00:00:00+00:00"
+                    ),
+                    "modified_at": str(
+                        fm.get("modified_at") or f"{fm.get('modified', today)!s}T00:00:00+00:00"
+                    ),
                 }
                 # Store aliases as JSON if present
                 aliases = fm.get("aliases")
-                if aliases and isinstance(aliases, list):
+                if isinstance(aliases, list):
                     import json
 
                     node_row["aliases"] = json.dumps(aliases)
@@ -202,6 +248,7 @@ class CheckService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def rollback(self) -> ServiceResult:
         """Restore DB from latest backup."""
         backup_dir = self._vault.root / ".ztlctl" / "backups"
@@ -274,13 +321,85 @@ class CheckService(BaseService):
     # Check categories (read-only)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _normalize_optional(value: Any) -> str:
+        """Normalize optional DB/file values for equality checks."""
+        return "" if value is None else str(value)
+
+    def _read_consistency_fields(self, file_path: Path, content_type: str) -> dict[str, str]:
+        """Read file metadata in a form comparable to the nodes table."""
+        if content_type == "log":
+            return self._read_log_consistency_fields(file_path)
+
+        try:
+            fm, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise _ConsistencyReadError(str(exc)) from exc
+
+        return {
+            "id": self._normalize_optional(fm.get("id")),
+            "title": self._normalize_optional(fm.get("title")),
+            "status": self._normalize_optional(fm.get("status")),
+            "topic": self._normalize_optional(fm.get("topic")),
+        }
+
+    def _read_log_consistency_fields(self, file_path: Path) -> dict[str, str]:
+        """Read session log JSONL into normalized integrity-check fields."""
+        raw = file_path.read_text(encoding="utf-8")
+        lines = [line for line in raw.splitlines() if line.strip()]
+        if not lines:
+            raise _ConsistencyReadError("empty log file")
+
+        entries: list[dict[str, Any]] = []
+        for line in lines:
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise _ConsistencyReadError("invalid log JSON") from exc
+            if not isinstance(entry, dict):
+                raise _ConsistencyReadError("log entry must be a JSON object")
+            entries.append(entry)
+
+        first = entries[0]
+        if first.get("type") != "session_start":
+            raise _ConsistencyReadError("first log entry must be session_start")
+
+        session_id = self._normalize_optional(first.get("session_id"))
+        topic = self._normalize_optional(first.get("topic"))
+        if not session_id:
+            raise _ConsistencyReadError("session_start missing session_id")
+        if not topic:
+            raise _ConsistencyReadError("session_start missing topic")
+
+        status = "open"
+        for entry in entries[1:]:
+            entry_type = self._normalize_optional(entry.get("type"))
+            if entry_type == "session_close":
+                status = "closed"
+            elif entry_type in {"session_start", "session_reopen"}:
+                status = "open"
+
+        return {
+            "id": session_id,
+            "title": f"Session: {topic}",
+            "status": status,
+            "topic": topic,
+        }
+
     def _check_db_file_consistency(self, conn: Connection) -> list[dict[str, Any]]:
         """Category 1: DB rows vs. files on disk."""
         issues: list[dict[str, Any]] = []
 
         # For each DB node, verify the file exists
         all_nodes = conn.execute(
-            select(nodes.c.id, nodes.c.path, nodes.c.title, nodes.c.type, nodes.c.status)
+            select(
+                nodes.c.id,
+                nodes.c.path,
+                nodes.c.title,
+                nodes.c.type,
+                nodes.c.status,
+                nodes.c.topic,
+            )
         ).fetchall()
 
         db_paths: set[str] = set()
@@ -301,21 +420,21 @@ class CheckService(BaseService):
 
             # Verify frontmatter matches DB
             try:
-                fm, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"))
-            except Exception:
+                file_fields = self._read_consistency_fields(file_path, str(row.type))
+            except _ConsistencyReadError:
                 issues.append(
                     {
                         "category": CAT_DB_FILE,
                         "severity": SEVERITY_ERROR,
                         "node_id": row.id,
-                        "message": f"Cannot parse frontmatter: {row.path}",
+                        "message": f"Cannot parse content metadata: {row.path}",
                         "fix_action": "resync_from_file",
                     }
                 )
                 continue
 
             # Compare key fields
-            fm_id = fm.get("id", "")
+            fm_id = file_fields["id"]
             if str(fm_id) != str(row.id):
                 issues.append(
                     {
@@ -327,7 +446,7 @@ class CheckService(BaseService):
                     }
                 )
 
-            fm_title = fm.get("title", "")
+            fm_title = file_fields["title"]
             if str(fm_title) != str(row.title):
                 issues.append(
                     {
@@ -339,7 +458,7 @@ class CheckService(BaseService):
                     }
                 )
 
-            fm_status = fm.get("status", "")
+            fm_status = file_fields["status"]
             if str(fm_status) != str(row.status):
                 issues.append(
                     {
@@ -347,6 +466,19 @@ class CheckService(BaseService):
                         "severity": SEVERITY_WARNING,
                         "node_id": row.id,
                         "message": (f"Status mismatch: DB='{row.status}', file='{fm_status}'"),
+                        "fix_action": "resync_from_file",
+                    }
+                )
+
+            fm_topic = file_fields["topic"]
+            db_topic = self._normalize_optional(row.topic)
+            if fm_topic != db_topic:
+                issues.append(
+                    {
+                        "category": CAT_DB_FILE,
+                        "severity": SEVERITY_WARNING,
+                        "node_id": row.id,
+                        "message": f"Topic mismatch: DB='{db_topic}', file='{fm_topic}'",
                         "fix_action": "resync_from_file",
                     }
                 )
@@ -554,6 +686,98 @@ class CheckService(BaseService):
 
         return issues
 
+    def _check_garden_health(self, conn: Connection) -> list[dict[str, Any]]:
+        """Category 5: garden advisory — aging seeds and evergreen readiness."""
+        from datetime import UTC, datetime, timedelta
+
+        issues: list[dict[str, Any]] = []
+        garden = self._vault.settings.garden
+
+        # --- Aging seeds ---
+        cutoff = (datetime.now(UTC) - timedelta(days=garden.seed_age_warning_days)).strftime(
+            "%Y-%m-%d"
+        )
+        aging_seeds = conn.execute(
+            select(nodes.c.id, nodes.c.title, nodes.c.created).where(
+                nodes.c.maturity == "seed",
+                nodes.c.type == "note",
+                nodes.c.archived == 0,
+                nodes.c.created < cutoff,
+            )
+        ).fetchall()
+        for row in aging_seeds:
+            issues.append(
+                {
+                    "category": CAT_GARDEN,
+                    "severity": SEVERITY_WARNING,
+                    "node_id": row.id,
+                    "message": (
+                        f"Aging seed: '{row.title}' created {row.created}, "
+                        f"older than {garden.seed_age_warning_days} days"
+                    ),
+                    "fix_action": None,
+                }
+            )
+
+        # --- Evergreen readiness ---
+        min_bidir = garden.evergreen_min_bidirectional_links
+        min_kp = garden.evergreen_min_key_points
+        candidates = conn.execute(
+            select(nodes.c.id, nodes.c.title, nodes.c.path).where(
+                nodes.c.maturity.in_(["seed", "budding"]),
+                nodes.c.type == "note",
+                nodes.c.archived == 0,
+            )
+        ).fetchall()
+        for row in candidates:
+            # Count bidirectional links for this node
+            bidir_count = (
+                conn.execute(
+                    text(
+                        "SELECT COUNT(*) FROM edges e1"
+                        " WHERE e1.source_id = :nid"
+                        "   AND EXISTS ("
+                        "     SELECT 1 FROM edges e2"
+                        "     WHERE e2.source_id = e1.target_id"
+                        "       AND e2.target_id = e1.source_id"
+                        "   )"
+                    ),
+                    {"nid": row.id},
+                ).scalar()
+                or 0
+            )
+            if bidir_count < min_bidir:
+                continue
+
+            # Check key_points count from frontmatter
+            file_path = self._vault.root / row.path
+            if not file_path.exists():
+                continue
+            try:
+                fm, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            key_points = fm.get("key_points", [])
+            if not isinstance(key_points, list) or len(key_points) < min_kp:
+                continue
+
+            issues.append(
+                {
+                    "category": CAT_GARDEN,
+                    "severity": SEVERITY_WARNING,
+                    "node_id": row.id,
+                    "message": (
+                        f"Evergreen candidate: '{row.title}' has "
+                        f"{bidir_count} bidirectional links and "
+                        f"{len(key_points)} key points — "
+                        f"consider promoting to evergreen"
+                    ),
+                    "fix_action": None,
+                }
+            )
+
+        return issues
+
     # ------------------------------------------------------------------
     # Fix helpers
     # ------------------------------------------------------------------
@@ -635,6 +859,7 @@ class CheckService(BaseService):
                 nodes.c.title,
                 nodes.c.type,
                 nodes.c.status,
+                nodes.c.topic,
             )
         ).fetchall()
 
@@ -644,21 +869,26 @@ class CheckService(BaseService):
                 continue
 
             try:
-                fm, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"))
-            except Exception:
+                file_fields = self._read_consistency_fields(file_path, str(row.type))
+            except _ConsistencyReadError:
                 continue
 
             updates: dict[str, Any] = {}
-            fm_title = str(fm.get("title", ""))
-            fm_status = str(fm.get("status", ""))
+            fm_title = file_fields["title"]
+            fm_status = file_fields["status"]
+            fm_topic = file_fields["topic"]
+            db_topic = self._normalize_optional(row.topic)
 
             if fm_title and fm_title != str(row.title):
                 updates["title"] = fm_title
             if fm_status and fm_status != str(row.status):
                 updates["status"] = fm_status
+            if fm_topic and fm_topic != db_topic:
+                updates["topic"] = fm_topic
 
             if updates:
                 updates["modified"] = today
+                updates["modified_at"] = now_iso()
                 conn.execute(nodes.update().where(nodes.c.id == row.id).values(**updates))
                 fixes.append(f"Re-synced DB from file for {row.id}: {list(updates.keys())}")
 

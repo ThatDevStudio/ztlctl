@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from click.testing import CliRunner
 
@@ -31,8 +33,13 @@ class TestSessionCommands:
         assert result.exit_code == 0
 
     def test_session_close_no_active(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "session", "close"])
+        result = cli_runner.invoke(cli, ["--json", "agent", "session", "close"])
         assert result.exit_code == 1
+        assert result.stdout == ""
+        payload = json.loads(result.stderr)
+        assert payload["ok"] is False
+        assert payload["op"] == "session_close"
+        assert payload["error"]["code"] == "NO_ACTIVE_SESSION"
 
     def test_session_reopen(self, cli_runner: CliRunner) -> None:
         import json
@@ -51,3 +58,20 @@ class TestSessionCommands:
     def test_session_reopen_not_found(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["agent", "session", "reopen", "LOG-9999"])
         assert result.exit_code == 1
+
+    def test_session_reopen_already_open_json_writes_to_stderr_only(
+        self, cli_runner: CliRunner
+    ) -> None:
+        start_result = cli_runner.invoke(
+            cli, ["--json", "agent", "session", "start", "Already Open Topic"]
+        )
+        session_id = json.loads(start_result.output)["data"]["id"]
+
+        result = cli_runner.invoke(cli, ["--json", "agent", "session", "reopen", session_id])
+
+        assert result.exit_code == 1
+        assert result.stdout == ""
+        payload = json.loads(result.stderr)
+        assert payload["ok"] is False
+        assert payload["op"] == "session_reopen"
+        assert payload["error"]["code"] == "ALREADY_OPEN"

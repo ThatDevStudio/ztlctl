@@ -46,6 +46,18 @@ class TestInitVault:
         assert "research-partner" in identity
         assert "self-test" in methodology
 
+    def test_uses_user_self_template_override(self, tmp_path: Path) -> None:
+        template_dir = tmp_path / ".ztlctl" / "templates"
+        template_dir.mkdir(parents=True)
+        (template_dir / "identity.md.j2").write_text("custom identity for {{ vault_name }}\n")
+
+        InitService.init_vault(tmp_path, name="override-vault")
+
+        identity = (tmp_path / "self" / "identity.md").read_text()
+        methodology = (tmp_path / "self" / "methodology.md").read_text()
+        assert identity == "custom identity for override-vault\n"
+        assert "override-vault" in methodology
+
     def test_identity_tone_research_partner(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="rp-vault", tone="research-partner")
         identity = (tmp_path / "self" / "identity.md").read_text()
@@ -92,7 +104,37 @@ class TestInitVault:
         InitService.init_vault(tmp_path, name="wf-vault")
         wf = tmp_path / ".ztlctl" / "workflow-answers.yml"
         assert wf.is_file()
-        assert "workflow" in wf.read_text()
+        assert "claude-driven" in wf.read_text()
+
+    def test_init_dispatches_post_init_hooks(self, tmp_path: Path) -> None:
+        marker = tmp_path / "post-init.txt"
+        plugin_dir = tmp_path / ".ztlctl" / "plugins"
+        plugin_dir.mkdir(parents=True)
+        plugin_dir.joinpath("post_init_plugin.py").write_text(
+            f"""import pluggy
+
+hookimpl = pluggy.HookimplMarker("ztlctl")
+
+
+class PostInitPlugin:
+    @hookimpl
+    def post_init(self, vault_name: str, client: str, tone: str) -> None:
+        with open({str(marker)!r}, "w", encoding="utf-8") as fh:
+            fh.write(f"{{vault_name}}|{{client}}|{{tone}}")
+""",
+            encoding="utf-8",
+        )
+
+        result = InitService.init_vault(tmp_path, name="hooked-vault", client="vanilla")
+
+        assert result.ok
+        assert marker.read_text(encoding="utf-8") == "hooked-vault|vanilla|research-partner"
+
+    def test_workflow_scaffold_created_by_default(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault")
+        readme = tmp_path / ".ztlctl" / "workflow" / "README.md"
+        assert readme.is_file()
+        assert "Workflow Scaffold" in readme.read_text()
 
     def test_no_workflow_flag(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="nowf-vault", no_workflow=True)
@@ -107,6 +149,7 @@ class TestInitVault:
         assert "self/methodology.md" in files
         assert ".obsidian/snippets/ztlctl.css" in files
         assert ".ztlctl/workflow-answers.yml" in files
+        assert ".ztlctl/workflow/README.md" in files
 
     def test_result_data_fields(self, tmp_path: Path) -> None:
         result = InitService.init_vault(
@@ -204,6 +247,27 @@ class TestRegenerateSelf:
         result = InitService.regenerate_self(vault)
         assert result.ok
         assert (tmp_path / "self" / "identity.md").is_file()
+
+    def test_regenerate_uses_user_template_override(self, tmp_path: Path) -> None:
+        vault = self._make_vault(tmp_path, name="custom-regen")
+        template_dir = tmp_path / ".ztlctl" / "templates" / "self"
+        template_dir.mkdir(parents=True)
+        (template_dir / "identity.md.j2").write_text("regen override {{ vault_name }}\n")
+
+        result = InitService.regenerate_self(vault)
+
+        assert result.ok
+        assert (tmp_path / "self" / "identity.md").read_text() == "regen override custom-regen\n"
+
+    def test_regenerate_requires_config(self, tmp_path: Path) -> None:
+        vault = self._make_vault(tmp_path)
+        (tmp_path / "ztlctl.toml").unlink()
+
+        result = InitService.regenerate_self(vault)
+
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "NO_CONFIG"
 
 
 class TestCheckStaleness:

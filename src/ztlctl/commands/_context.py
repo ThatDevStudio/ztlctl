@@ -31,6 +31,17 @@ class AppContext:
         self.settings = settings
         self._vault: Vault | None = None
 
+        # Configure structured logging
+        from ztlctl.config.logging import configure_logging
+
+        configure_logging(verbose=settings.verbose, log_json=settings.log_json)
+
+        # Enable telemetry context var when verbose
+        if settings.verbose:
+            from ztlctl.services.telemetry import enable_telemetry
+
+            enable_telemetry()
+
     @property
     def vault(self) -> Vault:
         """The vault instance (created lazily on first access)."""
@@ -63,3 +74,32 @@ class AppContext:
         else:
             click.echo(output, err=True)
             raise SystemExit(1)
+
+    def log_action_cost(self, result: ServiceResult, cost: int) -> None:
+        """Log action cost to the active session.
+
+        Called after emit() for commands that accept ``--cost``.
+        No-op if cost is 0 or no active session exists. Failures are
+        silently ignored — cost logging never blocks the primary command.
+        """
+        if cost <= 0:
+            return
+        try:
+            from ztlctl.services.session import SessionService
+
+            content_id = result.data.get("id", "") if result.data else ""
+            summary = f"{result.op}: {content_id}" if content_id else result.op
+            SessionService(self.vault).log_entry(
+                summary,
+                cost=cost,
+                entry_type="action_cost",
+                references=[content_id] if content_id else None,
+            )
+        except Exception:
+            pass  # Cost logging never blocks
+
+    def close(self) -> None:
+        """Release held resources after command execution."""
+        if self._vault is not None:
+            # Keep command teardown non-blocking for async plugin dispatch.
+            self._vault.close(wait_for_events=False)

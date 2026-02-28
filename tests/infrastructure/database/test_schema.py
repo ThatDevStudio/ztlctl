@@ -80,6 +80,8 @@ class TestNodesTable:
             "pagerank",
             "cluster_id",
             "betweenness",
+            "created_at",
+            "modified_at",
         }
         assert required.issubset(columns)
 

@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     default=None,
     help="Set garden maturity level.",
 )
+@click.option("--cost", "token_cost", type=int, default=0, help="Token cost for this action.")
 @click.pass_obj
 def update(
     app: AppContext,
@@ -43,6 +44,7 @@ def update(
     topic: str | None,
     body: str | None,
     maturity: str | None,
+    token_cost: int,
 ) -> None:
     """Update a content item's metadata or body."""
     from ztlctl.services.update import UpdateService
@@ -76,4 +78,6 @@ def update(
         )
         return
 
-    app.emit(UpdateService(app.vault).update(content_id, changes=changes))
+    result = UpdateService(app.vault).update(content_id, changes=changes)
+    app.emit(result)
+    app.log_action_cost(result, token_cost)

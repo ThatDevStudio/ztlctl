@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ztlctl.services.export import ExportService
+from ztlctl.services.export import ExportFilters, ExportService
 
 if TYPE_CHECKING:
     from ztlctl.infrastructure.vault import Vault
@@ -67,6 +67,95 @@ class TestExportMarkdown:
         output = tmp_path / "export"
         result = ExportService(vault).export_markdown(output)
         assert str(output) in result.data["output_dir"]
+
+    def test_export_filters_by_type(self, vault: Vault, tmp_path: Path) -> None:
+        from tests.conftest import create_note, create_reference
+
+        note = create_note(vault, "Kept Note")
+        reference = create_reference(vault, "Skipped Reference")
+
+        output = tmp_path / "export"
+        result = ExportService(vault).export_markdown(
+            output,
+            filters=ExportFilters(content_type="note"),
+        )
+
+        assert result.ok
+        assert result.data["file_count"] == 1
+        assert result.data["filters"] == {"type": "note"}
+        assert (output / note["path"]).is_file()
+        assert not (output / reference["path"]).exists()
+
+    def test_export_filters_by_tag(self, vault: Vault, tmp_path: Path) -> None:
+        from tests.conftest import create_note
+
+        tagged = create_note(vault, "Tagged Note", tags=["ai/ml"])
+        other = create_note(vault, "Other Note", tags=["ops/runbook"])
+
+        output = tmp_path / "export"
+        result = ExportService(vault).export_markdown(
+            output,
+            filters=ExportFilters(tag="ai/ml"),
+        )
+
+        assert result.ok
+        assert result.data["file_count"] == 1
+        assert (output / tagged["path"]).is_file()
+        assert not (output / other["path"]).exists()
+
+    def test_export_filters_by_since(self, vault: Vault, tmp_path: Path) -> None:
+        from tests.conftest import create_note
+
+        create_note(vault, "Future Filter Note")
+
+        output = tmp_path / "export"
+        result = ExportService(vault).export_markdown(
+            output,
+            filters=ExportFilters(since="2099-01-01"),
+        )
+
+        assert result.ok
+        assert result.data["file_count"] == 0
+        assert result.data["filters"] == {"since": "2099-01-01"}
+
+    def test_export_filters_archived_only(self, vault: Vault, tmp_path: Path) -> None:
+        from tests.conftest import create_note
+        from ztlctl.services.update import UpdateService
+
+        archived = create_note(vault, "Archived Note")
+        create_note(vault, "Active Note")
+        archive_result = UpdateService(vault).archive(archived["id"])
+        assert archive_result.ok
+
+        output = tmp_path / "export"
+        result = ExportService(vault).export_markdown(
+            output,
+            filters=ExportFilters(archived="only"),
+        )
+
+        assert result.ok
+        assert result.data["file_count"] == 1
+        assert result.data["filters"] == {"archived": "only"}
+        assert (output / archived["path"]).is_file()
+
+    def test_filtered_markdown_skips_unparsable_logs_with_warning(
+        self, vault: Vault, tmp_path: Path
+    ) -> None:
+        from tests.conftest import create_note, start_session
+
+        start_session(vault, "Filter Session")
+        note = create_note(vault, "Exported Note")
+
+        output = tmp_path / "export"
+        result = ExportService(vault).export_markdown(
+            output,
+            filters=ExportFilters(content_type="note"),
+        )
+
+        assert result.ok
+        assert result.data["file_count"] == 1
+        assert (output / note["path"]).is_file()
+        assert any("ops/logs" in warning for warning in result.warnings)
 
 
 class TestExportIndexes:
@@ -143,6 +232,45 @@ class TestExportIndexes:
         ExportService(vault).export_indexes(output)
         type_content = (output / "by-type" / "note.md").read_text()
         assert "ai/ml" in type_content
+
+    def test_indexes_filter_by_type(self, vault: Vault, tmp_path: Path) -> None:
+        from tests.conftest import create_note, create_reference
+
+        create_note(vault, "Note Only")
+        create_reference(vault, "Reference Only")
+
+        output = tmp_path / "indexes"
+        result = ExportService(vault).export_indexes(
+            output,
+            filters=ExportFilters(content_type="note"),
+        )
+
+        assert result.ok
+        assert result.data["node_count"] == 1
+        assert result.data["filters"] == {"type": "note"}
+        assert (output / "by-type" / "note.md").is_file()
+        assert not (output / "by-type" / "reference.md").exists()
+
+    def test_indexes_filter_archived_only(self, vault: Vault, tmp_path: Path) -> None:
+        from tests.conftest import create_note
+        from ztlctl.services.update import UpdateService
+
+        archived = create_note(vault, "Archived Index Note")
+        create_note(vault, "Active Index Note")
+        archive_result = UpdateService(vault).archive(archived["id"])
+        assert archive_result.ok
+
+        output = tmp_path / "indexes"
+        result = ExportService(vault).export_indexes(
+            output,
+            filters=ExportFilters(archived="only"),
+        )
+
+        assert result.ok
+        assert result.data["node_count"] == 1
+        assert result.data["filters"] == {"archived": "only"}
+        note_index = (output / "by-type" / "note.md").read_text()
+        assert "Archived Index Note" in note_index
 
 
 class TestExportGraph:
@@ -246,3 +374,31 @@ class TestExportGraph:
         result = ExportService(vault).export_graph()
         assert result.ok
         assert result.data["format"] == "dot"
+
+    def test_graph_filter_by_type_returns_induced_subgraph(self, vault: Vault) -> None:
+        from sqlalchemy import text
+
+        from tests.conftest import create_note, create_reference
+
+        note = create_note(vault, "Kept Note")
+        reference = create_reference(vault, "Dropped Reference")
+        with vault.engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO edges (source_id, target_id, edge_type, weight, created) "
+                    "VALUES (:s, :t, 'relates', 1.0, '2024-01-01')"
+                ),
+                {"s": note["id"], "t": reference["id"]},
+            )
+
+        vault.graph.invalidate()
+        result = ExportService(vault).export_graph(
+            fmt="json",
+            filters=ExportFilters(content_type="note"),
+        )
+
+        assert result.ok
+        assert result.data["filters"] == {"type": "note"}
+        d3 = json.loads(result.data["content"])
+        assert [node["id"] for node in d3["nodes"]] == [note["id"]]
+        assert d3["links"] == []

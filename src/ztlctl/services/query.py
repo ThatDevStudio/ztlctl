@@ -14,14 +14,17 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, datetime
-from typing import Any
-
-from sqlalchemy import select, text
+from typing import TYPE_CHECKING, Any
 
 from ztlctl.domain.content import parse_frontmatter
-from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
+from ztlctl.infrastructure.repositories import QueryRepository
 from ztlctl.services.base import BaseService
+from ztlctl.services.contracts import ListItemsResultData, SearchResultData, dump_validated
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import traced
+
+if TYPE_CHECKING:
+    from ztlctl.infrastructure.vault import Vault
 
 # Priority/impact/effort scoring weights for work_queue
 _PRIORITY_SCORES: dict[str, float] = {
@@ -37,10 +40,32 @@ _EFFORT_SCORES: dict[str, float] = {"high": 3.0, "medium": 2.0, "low": 1.0}
 class QueryService(BaseService):
     """Handles search, retrieval, and agent context queries."""
 
+    def __init__(self, vault: Vault) -> None:
+        """Initialize service with read repository."""
+        super().__init__(vault)
+        self._repo = QueryRepository(vault.engine)
+
+    # ------------------------------------------------------------------
+    # count_items — total items in index
+    # ------------------------------------------------------------------
+
+    @traced
+    def count_items(self, *, include_archived: bool = False) -> ServiceResult:
+        """Return total indexed item count."""
+        count = self._repo.count_items(include_archived=include_archived)
+        return ServiceResult(ok=True, op="count_items", data={"count": count})
+
     # ------------------------------------------------------------------
     # search — FTS5 full-text search
     # ------------------------------------------------------------------
 
+    def _get_vector_service(self) -> Any:
+        """Lazy-create VectorService for semantic search."""
+        from ztlctl.services.vector import VectorService
+
+        return VectorService(self._vault)
+
+    @traced
     def search(
         self,
         query: str,
@@ -59,7 +84,8 @@ class QueryService(BaseService):
             tag: Filter to items with this tag.
             space: Filter by vault space (notes, ops, self).
             rank_by: Sort mode — "relevance" (BM25), "recency" (BM25*decay),
-                or "graph" (BM25*PageRank).
+                "graph" (BM25*PageRank), "semantic" (vector cosine similarity),
+                or "hybrid" (BM25 + cosine weighted merge).
             limit: Maximum results to return.
         """
         if not query.strip():
@@ -69,80 +95,166 @@ class QueryService(BaseService):
                 error=ServiceError(code="EMPTY_QUERY", message="Search query cannot be empty"),
             )
 
-        # Recency/graph modes: fetch more candidates for Python-side re-ranking
+        # Recency/graph/hybrid modes: fetch more candidates for Python-side re-ranking
         use_time_decay = rank_by == "recency"
         use_graph_rank = rank_by == "graph"
-        needs_rerank = use_time_decay or use_graph_rank
+        use_semantic = rank_by == "semantic"
+        use_hybrid = rank_by == "hybrid"
+        needs_rerank = use_time_decay or use_graph_rank or use_hybrid
         fetch_limit = min(limit * 3, 1000) if needs_rerank else limit
 
-        # Always order by BM25 for the SQL fetch
-        order_clause = "bm25(nodes_fts)"
+        warnings: list[str] = []
 
-        sql = """
-            SELECT n.id, n.title, n.type, n.subtype, n.status, n.path,
-                   n.created, n.modified, n.pagerank, bm25(nodes_fts) AS score
-            FROM nodes_fts AS fts
-            JOIN nodes AS n ON fts.id = n.id
-            WHERE nodes_fts MATCH :query
-              AND n.archived = 0
-        """
+        # --- Pure semantic: skip FTS5, use vector search only ---
+        if use_semantic:
+            vec_svc = self._get_vector_service()
+            if not vec_svc.is_available():
+                warnings.append("Semantic search unavailable — falling back to FTS5")
+                # Fall through: run FTS5 below
+            else:
+                vec_results: list[dict[str, Any]] = vec_svc.search_similar(query, limit=limit)
+                items: list[dict[str, Any]] = []
+                if vec_results:
+                    node_ids = [r["node_id"] for r in vec_results]
+                    meta_map = self._repo.get_nodes_metadata(node_ids)
 
-        params: dict[str, Any] = {"query": query, "limit": fetch_limit}
+                    for vr in vec_results:
+                        nid = vr["node_id"]
+                        if nid in meta_map:
+                            r = meta_map[nid]
+                            similarity = 1.0 - vr["distance"] / 2.0
+                            items.append(
+                                {
+                                    "id": r["id"],
+                                    "title": r["title"],
+                                    "type": r["type"],
+                                    "subtype": r["subtype"],
+                                    "status": r["status"],
+                                    "path": r["path"],
+                                    "created": r["created"],
+                                    "modified": r["modified"],
+                                    "score": round(similarity, 4),
+                                }
+                            )
 
-        if content_type:
-            sql += " AND n.type = :content_type"
-            params["content_type"] = content_type
+                result_kwargs: dict[str, Any] = {
+                    "ok": True,
+                    "op": "search",
+                    "data": dump_validated(
+                        SearchResultData,
+                        {"query": query, "count": len(items), "items": items},
+                    ),
+                }
+                if warnings:
+                    result_kwargs["warnings"] = warnings
+                return ServiceResult(**result_kwargs)
 
-        if tag:
-            sql += " AND n.id IN (SELECT node_id FROM node_tags WHERE tag = :tag)"
-            params["tag"] = tag
-
-        if space:
-            sql += " AND n.path LIKE :space_prefix"
-            params["space_prefix"] = f"{space}/%"
-
-        sql += f" ORDER BY {order_clause} LIMIT :limit"
-
-        with self._vault.engine.connect() as conn:
-            rows = conn.execute(text(sql), params).fetchall()
-
+        # --- FTS5 query (used by relevance, recency, graph, hybrid, and fallback) ---
+        rows = self._repo.search_fts_rows(
+            query,
+            content_type=content_type,
+            tag=tag,
+            space=space,
+            limit=fetch_limit,
+        )
         items = [
             {
-                "id": r.id,
-                "title": r.title,
-                "type": r.type,
-                "subtype": r.subtype,
-                "status": r.status,
-                "path": r.path,
-                "created": r.created,
-                "modified": r.modified,
-                "pagerank": float(r.pagerank or 0.0),
-                "score": float(r.score),
+                "id": row["id"],
+                "title": row["title"],
+                "type": row["type"],
+                "subtype": row["subtype"],
+                "status": row["status"],
+                "path": row["path"],
+                "created": row["created"],
+                "modified": row["modified"],
+                "pagerank": float(row.get("pagerank") or 0.0),
+                "score": float(row["score"]),
             }
-            for r in rows
+            for row in rows
         ]
-
-        warnings: list[str] = []
 
         if use_time_decay:
             half_life = self._vault.settings.search.half_life_days
             items = self._apply_time_decay(items, half_life=half_life, limit=limit)
         elif use_graph_rank:
             items, warnings = self._apply_graph_rank(items, limit=limit)
+        elif use_hybrid:
+            vec_svc = self._get_vector_service()
+            if not vec_svc.is_available():
+                warnings.append("Semantic search unavailable — using FTS5 only")
+            else:
+                vec_results = vec_svc.search_similar(query, limit=fetch_limit)
+                if vec_results:
+                    w = self._vault.settings.search.semantic_weight
+                    items = self._merge_hybrid_scores(items, vec_results, w, limit)
 
         # Round scores for final output and strip pagerank from response
         for item in items:
             item["score"] = round(item["score"], 4)
             item.pop("pagerank", None)
 
-        result_kwargs: dict[str, Any] = {
+        result_kwargs = {
             "ok": True,
             "op": "search",
-            "data": {"query": query, "count": len(items), "items": items},
+            "data": dump_validated(
+                SearchResultData,
+                {"query": query, "count": len(items), "items": items},
+            ),
         }
         if warnings:
             result_kwargs["warnings"] = warnings
         return ServiceResult(**result_kwargs)
+
+    @staticmethod
+    def _merge_hybrid_scores(
+        fts_items: list[dict[str, Any]],
+        vec_results: list[dict[str, Any]],
+        semantic_weight: float,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Merge FTS5 BM25 and vector cosine scores with min-max normalization."""
+        # Convert BM25 scores to positive (FTS5 BM25 is negative)
+        bm25_scores = {item["id"]: abs(item["score"]) for item in fts_items}
+
+        # Convert cosine distances to similarities
+        vec_scores = {r["node_id"]: 1.0 - r["distance"] / 2.0 for r in vec_results}
+
+        # Min-max normalize BM25 scores
+        bm25_vals = list(bm25_scores.values())
+        bm25_min = min(bm25_vals) if bm25_vals else 0.0
+        bm25_max = max(bm25_vals) if bm25_vals else 1.0
+        bm25_range = bm25_max - bm25_min or 1.0
+
+        # Min-max normalize vector scores
+        vec_vals = list(vec_scores.values())
+        vec_min = min(vec_vals) if vec_vals else 0.0
+        vec_max = max(vec_vals) if vec_vals else 1.0
+        vec_range = vec_max - vec_min or 1.0
+
+        # Merge: all IDs from both sets
+        all_ids = set(bm25_scores.keys()) | set(vec_scores.keys())
+        merged: dict[str, float] = {}
+        for nid in all_ids:
+            bm25_norm = (
+                (bm25_scores.get(nid, 0.0) - bm25_min) / bm25_range if nid in bm25_scores else 0.0
+            )
+            vec_norm = (
+                (vec_scores.get(nid, 0.0) - vec_min) / vec_range if nid in vec_scores else 0.0
+            )
+            merged[nid] = (1.0 - semantic_weight) * bm25_norm + semantic_weight * vec_norm
+
+        # Re-rank FTS items by merged score, adding any vector-only results
+        fts_map = {item["id"]: item for item in fts_items}
+        result: list[dict[str, Any]] = []
+        for nid, score in sorted(merged.items(), key=lambda x: x[1], reverse=True):
+            if nid in fts_map:
+                item = fts_map[nid].copy()
+                item["score"] = score
+                result.append(item)
+            # Vector-only results need metadata — skip them for now
+            # (they'd need a DB join like semantic mode does)
+
+        return result[:limit]
 
     def _apply_time_decay(
         self,
@@ -215,60 +327,47 @@ class QueryService(BaseService):
     # get — single item retrieval
     # ------------------------------------------------------------------
 
+    @traced
     def get(self, content_id: str) -> ServiceResult:
         """Retrieve a single content item by ID.
 
         Returns the node metadata, tags, file body, and graph neighbors
         (outgoing and incoming links).
         """
-        with self._vault.engine.connect() as conn:
-            row = conn.execute(select(nodes).where(nodes.c.id == content_id)).first()
-            if row is None:
-                return ServiceResult(
-                    ok=False,
-                    op="get",
-                    error=ServiceError(
-                        code="NOT_FOUND",
-                        message=f"No content found with ID '{content_id}'",
-                    ),
-                )
+        row = self._repo.get_node(content_id)
+        if row is None:
+            return ServiceResult(
+                ok=False,
+                op="get",
+                error=ServiceError(
+                    code="NOT_FOUND",
+                    message=f"No content found with ID '{content_id}'",
+                ),
+            )
 
-            # Tags
-            tag_rows = conn.execute(
-                select(node_tags.c.tag).where(node_tags.c.node_id == content_id)
-            ).fetchall()
-            item_tags = [t.tag for t in tag_rows]
-
-            # Outgoing links
-            out_rows = conn.execute(
-                select(edges.c.target_id, edges.c.edge_type).where(edges.c.source_id == content_id)
-            ).fetchall()
-            links_out = [{"id": e.target_id, "edge_type": e.edge_type} for e in out_rows]
-
-            # Incoming links
-            in_rows = conn.execute(
-                select(edges.c.source_id, edges.c.edge_type).where(edges.c.target_id == content_id)
-            ).fetchall()
-            links_in = [{"id": e.source_id, "edge_type": e.edge_type} for e in in_rows]
+        item_tags = self._repo.get_node_tags(content_id)
+        links_out = self._repo.get_outgoing_links(content_id)
+        links_in = self._repo.get_incoming_links(content_id)
 
         # Read file body
         body = ""
-        file_path = self._vault.root / row.path
+        file_path = self._vault.root / str(row["path"])
         if file_path.exists():
             content = file_path.read_text(encoding="utf-8")
             _, body = parse_frontmatter(content)
 
         data: dict[str, Any] = {
-            "id": row.id,
-            "title": row.title,
-            "type": row.type,
-            "subtype": row.subtype,
-            "status": row.status,
-            "path": row.path,
-            "topic": row.topic,
-            "session": row.session,
-            "created": row.created,
-            "modified": row.modified,
+            "id": row["id"],
+            "title": row["title"],
+            "type": row["type"],
+            "subtype": row["subtype"],
+            "status": row["status"],
+            "maturity": row["maturity"],
+            "path": row["path"],
+            "topic": row["topic"],
+            "session": row["session"],
+            "created": row["created"],
+            "modified": row["modified"],
             "tags": item_tags,
             "body": body,
             "links_out": links_out,
@@ -281,6 +380,7 @@ class QueryService(BaseService):
     # list_items — filtered listing
     # ------------------------------------------------------------------
 
+    @traced
     def list_items(
         self,
         *,
@@ -311,69 +411,32 @@ class QueryService(BaseService):
             sort: Sort mode — "recency", "title", "type", or "priority".
             limit: Maximum results.
         """
-        stmt = select(
-            nodes.c.id,
-            nodes.c.title,
-            nodes.c.type,
-            nodes.c.subtype,
-            nodes.c.maturity,
-            nodes.c.status,
-            nodes.c.path,
-            nodes.c.topic,
-            nodes.c.created,
-            nodes.c.modified,
+        rows = self._repo.list_items_rows(
+            content_type=content_type,
+            status=status,
+            tag=tag,
+            topic=topic,
+            subtype=subtype,
+            maturity=maturity,
+            space=space,
+            since=since,
+            include_archived=include_archived,
+            sort=sort,
+            limit=limit,
         )
-
-        if not include_archived:
-            stmt = stmt.where(nodes.c.archived == 0)
-
-        if content_type:
-            stmt = stmt.where(nodes.c.type == content_type)
-        if status:
-            stmt = stmt.where(nodes.c.status == status)
-        if topic:
-            stmt = stmt.where(nodes.c.topic == topic)
-        if tag:
-            stmt = stmt.where(
-                nodes.c.id.in_(select(node_tags.c.node_id).where(node_tags.c.tag == tag))
-            )
-        if subtype:
-            stmt = stmt.where(nodes.c.subtype == subtype)
-        if maturity:
-            stmt = stmt.where(nodes.c.maturity == maturity)
-        if since:
-            stmt = stmt.where(nodes.c.modified >= since)
-        if space:
-            stmt = stmt.where(nodes.c.path.like(f"{space}/%"))
-
-        # Sort — priority sort fetches all rows for in-Python scoring
-        if sort == "priority":
-            pass
-        elif sort == "title":
-            stmt = stmt.order_by(nodes.c.title)
-        elif sort == "type":
-            stmt = stmt.order_by(nodes.c.type, nodes.c.modified.desc())
-        else:  # recency (default)
-            stmt = stmt.order_by(nodes.c.modified.desc())
-
-        if sort != "priority":
-            stmt = stmt.limit(limit)
-
-        with self._vault.engine.connect() as conn:
-            rows = conn.execute(stmt).fetchall()
 
         items = [
             {
-                "id": r.id,
-                "title": r.title,
-                "type": r.type,
-                "subtype": r.subtype,
-                "maturity": r.maturity,
-                "status": r.status,
-                "path": r.path,
-                "topic": r.topic,
-                "created": r.created,
-                "modified": r.modified,
+                "id": r["id"],
+                "title": r["title"],
+                "type": r["type"],
+                "subtype": r["subtype"],
+                "maturity": r["maturity"],
+                "status": r["status"],
+                "path": r["path"],
+                "topic": r["topic"],
+                "created": r["created"],
+                "modified": r["modified"],
             }
             for r in rows
         ]
@@ -384,7 +447,7 @@ class QueryService(BaseService):
         return ServiceResult(
             ok=True,
             op="list_items",
-            data={"count": len(items), "items": items},
+            data=dump_validated(ListItemsResultData, {"count": len(items), "items": items}),
         )
 
     def _apply_priority_sort(
@@ -420,7 +483,7 @@ class QueryService(BaseService):
         return ServiceResult(
             ok=True,
             op="list_items",
-            data={"count": len(items), "items": items},
+            data=dump_validated(ListItemsResultData, {"count": len(items), "items": items}),
             warnings=warnings,
         )
 
@@ -428,6 +491,7 @@ class QueryService(BaseService):
     # work_queue — scored task prioritization
     # ------------------------------------------------------------------
 
+    @traced
     def work_queue(self, *, space: str | None = None) -> ServiceResult:
         """Return prioritized task list using scoring formula.
 
@@ -437,24 +501,7 @@ class QueryService(BaseService):
         Args:
             space: Filter by vault space (notes, ops, self).
         """
-        with self._vault.engine.connect() as conn:
-            # Read file content to extract priority/impact/effort from frontmatter
-            stmt = (
-                select(
-                    nodes.c.id,
-                    nodes.c.title,
-                    nodes.c.status,
-                    nodes.c.path,
-                    nodes.c.created,
-                    nodes.c.modified,
-                )
-                .where(nodes.c.type == "task")
-                .where(nodes.c.status.in_(["inbox", "active", "blocked"]))
-                .where(nodes.c.archived == 0)
-            )
-            if space:
-                stmt = stmt.where(nodes.c.path.like(f"{space}/%"))
-            rows = conn.execute(stmt).fetchall()
+        rows = self._repo.work_queue_rows(space=space)
 
         tasks: list[dict[str, Any]] = []
         warnings: list[str] = []
@@ -464,7 +511,7 @@ class QueryService(BaseService):
             impact = "medium"
             effort = "medium"
 
-            file_path = self._vault.root / row.path
+            file_path = self._vault.root / str(row["path"])
             if file_path.exists():
                 content = file_path.read_text(encoding="utf-8")
                 fm, _ = parse_frontmatter(content)
@@ -472,7 +519,7 @@ class QueryService(BaseService):
                 impact = str(fm.get("impact", "medium"))
                 effort = str(fm.get("effort", "medium"))
             else:
-                warnings.append(f"Task file missing for {row.id}: {row.path}")
+                warnings.append(f"Task file missing for {row['id']}: {row['path']}")
 
             p_score = _PRIORITY_SCORES.get(priority, 2.0)
             i_score = _IMPACT_SCORES.get(impact, 2.0)
@@ -481,16 +528,16 @@ class QueryService(BaseService):
 
             tasks.append(
                 {
-                    "id": row.id,
-                    "title": row.title,
-                    "status": row.status,
-                    "path": row.path,
+                    "id": row["id"],
+                    "title": row["title"],
+                    "status": row["status"],
+                    "path": row["path"],
                     "priority": priority,
                     "impact": impact,
                     "effort": effort,
                     "score": round(score, 2),
-                    "created": row.created,
-                    "modified": row.modified,
+                    "created": row["created"],
+                    "modified": row["modified"],
                 }
             )
 
@@ -508,6 +555,7 @@ class QueryService(BaseService):
     # decision_support — aggregated decision context
     # ------------------------------------------------------------------
 
+    @traced
     def decision_support(
         self, *, topic: str | None = None, space: str | None = None
     ) -> ServiceResult:
@@ -520,30 +568,7 @@ class QueryService(BaseService):
             topic: Filter by topic.
             space: Filter by vault space (notes, ops, self).
         """
-        base_stmt = select(
-            nodes.c.id,
-            nodes.c.title,
-            nodes.c.type,
-            nodes.c.subtype,
-            nodes.c.status,
-            nodes.c.path,
-            nodes.c.topic,
-            nodes.c.created,
-            nodes.c.modified,
-        ).where(
-            nodes.c.archived == 0,
-            nodes.c.type.in_(["note", "reference"]),
-        )
-
-        if topic:
-            base_stmt = base_stmt.where(nodes.c.topic == topic)
-        if space:
-            base_stmt = base_stmt.where(nodes.c.path.like(f"{space}/%"))
-
-        base_stmt = base_stmt.order_by(nodes.c.modified.desc())
-
-        with self._vault.engine.connect() as conn:
-            rows = conn.execute(base_stmt).fetchall()
+        rows = self._repo.decision_support_rows(topic=topic, space=space)
 
         decisions: list[dict[str, Any]] = []
         notes_list: list[dict[str, Any]] = []
@@ -551,20 +576,20 @@ class QueryService(BaseService):
 
         for r in rows:
             item: dict[str, Any] = {
-                "id": r.id,
-                "title": r.title,
-                "type": r.type,
-                "subtype": r.subtype,
-                "status": r.status,
-                "path": r.path,
-                "topic": r.topic,
-                "created": r.created,
-                "modified": r.modified,
+                "id": r["id"],
+                "title": r["title"],
+                "type": r["type"],
+                "subtype": r["subtype"],
+                "status": r["status"],
+                "path": r["path"],
+                "topic": r["topic"],
+                "created": r["created"],
+                "modified": r["modified"],
             }
 
-            if r.subtype == "decision":
+            if r["subtype"] == "decision":
                 decisions.append(item)
-            elif r.type == "reference":
+            elif r["type"] == "reference":
                 references.append(item)
             else:
                 notes_list.append(item)

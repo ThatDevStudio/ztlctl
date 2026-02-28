@@ -161,3 +161,61 @@ class TestBridgesCommand:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
+
+
+@pytest.mark.usefixtures("_isolated_vault")
+class TestUnlinkCommand:
+    def test_unlink_basic(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        id_map = _seed_graph(cli_runner, tmp_path)
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "graph", "unlink", id_map["Alpha"], id_map["Beta"]],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["data"]["edges_removed"] == 1
+
+    def test_unlink_both_flag(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        id_map = _seed_graph(cli_runner, tmp_path)
+        settings = ZtlSettings.from_cli(vault_root=tmp_path)
+        vault = Vault(settings)
+        with vault.engine.begin() as conn:
+            conn.execute(
+                insert(edges).values(
+                    source_id=id_map["Beta"],
+                    target_id=id_map["Alpha"],
+                    edge_type="relates",
+                    weight=1.0,
+                    source_layer="body",
+                    created="2025-01-01T00:00:00",
+                )
+            )
+
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "graph", "unlink", id_map["Alpha"], id_map["Beta"], "--both"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["data"]["edges_removed"] == 2
+
+    def test_unlink_no_link(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        id_map = _seed_graph(cli_runner, tmp_path)
+        # Alpha and Delta have no link
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "graph", "unlink", id_map["Alpha"], id_map["Delta"]],
+        )
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["ok"] is False
+        assert data["error"]["code"] == "NO_LINK"
+
+    def test_unlink_not_found(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(cli, ["--json", "graph", "unlink", "MISSING_A", "MISSING_B"])
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["ok"] is False
+        assert data["error"]["code"] == "NOT_FOUND"

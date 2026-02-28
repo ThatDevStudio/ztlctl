@@ -15,6 +15,7 @@ from ztlctl.config.settings import ZtlSettings
 @click.option("--json", "json_output", is_flag=True, help="Structured JSON output.")
 @click.option("-q", "--quiet", is_flag=True, help="Minimal output.")
 @click.option("-v", "--verbose", is_flag=True, help="Detailed output with debug info.")
+@click.option("--log-json", is_flag=True, help="Structured JSON log output to stderr.")
 @click.option("--no-interact", is_flag=True, help="Non-interactive mode (no prompts).")
 @click.option("--no-reweave", is_flag=True, help="Skip reweave on creation.")
 @click.option("-c", "--config", "config_path", default=None, help="Override config file path.")
@@ -25,6 +26,7 @@ def cli(
     json_output: bool,
     quiet: bool,
     verbose: bool,
+    log_json: bool,
     no_interact: bool,
     no_reweave: bool,
     config_path: str | None,
@@ -37,11 +39,14 @@ def cli(
         json_output=json_output,
         quiet=quiet,
         verbose=verbose,
+        log_json=log_json,
         no_interact=no_interact,
         no_reweave=no_reweave,
         sync=sync,
     )
-    ctx.obj = AppContext(settings)
+    app = AppContext(settings)
+    ctx.obj = app
+    ctx.call_on_close(app.close)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 

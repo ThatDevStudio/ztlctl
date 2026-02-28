@@ -1,21 +1,25 @@
 """GraphService — graph traversal and analysis algorithms.
 
-Six read-only algorithms via NetworkX computed on the lazy-built DiGraph.
+Six read-only algorithms via NetworkX computed on the lazy-built DiGraph,
+plus ``unlink()`` for removing specific links between nodes.
 Uses ``self._vault.graph.graph`` to access the graph (triggers lazy build).
-(DESIGN.md Section 3)
+(DESIGN.md Section 3, 5)
 """
 
 from __future__ import annotations
 
 import math
+import re
 from collections import deque
 from typing import Any
 
 import networkx as nx
+from sqlalchemy import text
 
-from ztlctl.infrastructure.database.schema import nodes
+from ztlctl.infrastructure.database.schema import edges, nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import trace_span, traced
 
 
 class GraphService(BaseService):
@@ -34,6 +38,7 @@ class GraphService(BaseService):
     # related — spreading activation (BFS with decay)
     # ------------------------------------------------------------------
 
+    @traced
     def related(
         self,
         content_id: str,
@@ -121,13 +126,18 @@ class GraphService(BaseService):
     # themes — community detection (Leiden → Louvain fallback)
     # ------------------------------------------------------------------
 
+    @traced
     def themes(self) -> ServiceResult:
         """Discover topic clusters via community detection.
 
         Tries leidenalg first (higher quality), falls back to NetworkX
         Louvain if leidenalg is not installed.
         """
-        g = self._vault.graph.graph
+        with trace_span("build_graph") as span:
+            g = self._vault.graph.graph
+            if span:
+                span.annotate("nodes", g.number_of_nodes())
+                span.annotate("edges", g.number_of_edges())
 
         if g.number_of_nodes() == 0:
             return self._empty_graph_result("themes", key="communities")
@@ -138,12 +148,13 @@ class GraphService(BaseService):
         warnings: list[str] = []
         partition: dict[str, int] = {}
 
-        try:
-            partition = self._leiden_communities(ug)
-        except ImportError:
-            warnings.append("leidenalg not installed, using Louvain fallback")
-            communities = nx.community.louvain_communities(ug, seed=42)
-            partition = self._sets_to_partition(communities)
+        with trace_span("community_detection"):
+            try:
+                partition = self._leiden_communities(ug)
+            except ImportError:
+                warnings.append("leidenalg not installed, using Louvain fallback")
+                communities = nx.community.louvain_communities(ug, seed=42)
+                partition = self._sets_to_partition(communities)
 
         # Group nodes by community
         comm_groups: dict[int, list[dict[str, Any]]] = {}
@@ -205,6 +216,7 @@ class GraphService(BaseService):
     # rank — PageRank importance scoring
     # ------------------------------------------------------------------
 
+    @traced
     def rank(self, *, top: int = 20) -> ServiceResult:
         """Identify important nodes via PageRank.
 
@@ -243,6 +255,7 @@ class GraphService(BaseService):
     # path — shortest connection chain between two nodes
     # ------------------------------------------------------------------
 
+    @traced
     def path(self, source_id: str, target_id: str) -> ServiceResult:
         """Find shortest connection chain between two nodes.
 
@@ -304,6 +317,7 @@ class GraphService(BaseService):
     # gaps — structural holes via constraint
     # ------------------------------------------------------------------
 
+    @traced
     def gaps(self, *, top: int = 20) -> ServiceResult:
         """Find structural holes — nodes with high constraint.
 
@@ -353,6 +367,7 @@ class GraphService(BaseService):
     # bridges — betweenness centrality
     # ------------------------------------------------------------------
 
+    @traced
     def bridges(self, *, top: int = 20) -> ServiceResult:
         """Find bridge nodes via betweenness centrality.
 
@@ -396,12 +411,167 @@ class GraphService(BaseService):
     # materialize_metrics — persist graph metrics to the nodes table
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # unlink — remove specific links (DESIGN.md Section 5)
+    # ------------------------------------------------------------------
+
+    @traced
+    def unlink(self, source_id: str, target_id: str, *, both: bool = False) -> ServiceResult:
+        """Remove links from *source_id* to *target_id*.
+
+        Removes edge rows from DB, frontmatter link entries, and body
+        wikilinks. Respects garden note protection (maturity set →
+        body not modified). Re-indexes FTS5 if body was changed.
+        When ``both`` is True, also removes the reverse direction.
+        """
+        op = "unlink"
+        warnings: list[str] = []
+
+        with self._vault.transaction() as txn:
+            # Verify both nodes exist
+            source = txn.conn.execute(nodes.select().where(nodes.c.id == source_id)).first()
+            if source is None:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NOT_FOUND",
+                        message=f"Source node not found: {source_id}",
+                    ),
+                )
+
+            target = txn.conn.execute(nodes.select().where(nodes.c.id == target_id)).first()
+            if target is None:
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NOT_FOUND",
+                        message=f"Target node not found: {target_id}",
+                    ),
+                )
+
+            # -- Remove DB edges --
+            with trace_span("remove_edges") as span:
+                result = txn.conn.execute(
+                    edges.delete().where(
+                        edges.c.source_id == source_id,
+                        edges.c.target_id == target_id,
+                    )
+                )
+                removed = result.rowcount
+
+                if both:
+                    result_rev = txn.conn.execute(
+                        edges.delete().where(
+                            edges.c.source_id == target_id,
+                            edges.c.target_id == source_id,
+                        )
+                    )
+                    removed += result_rev.rowcount
+
+                if span:
+                    span.annotate("edges_removed", removed)
+
+            if removed == 0:
+                direction = "between" if both else "from"
+                relation = f"{source_id} and {target_id}" if both else f"{source_id} to {target_id}"
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="NO_LINK",
+                        message=f"No link found {direction} {relation}",
+                    ),
+                )
+
+            # -- Update source file (frontmatter + body) --
+            with trace_span("update_source_file"):
+                self._remove_link_from_file(txn, source, target_id, str(target.title), warnings)
+
+            if both:
+                # -- Update target file (reverse frontmatter + body) --
+                with trace_span("update_target_file"):
+                    self._remove_link_from_file(txn, target, source_id, str(source.title), warnings)
+
+        return ServiceResult(
+            ok=True,
+            op=op,
+            data={
+                "source_id": source_id,
+                "target_id": target_id,
+                "both": both,
+                "edges_removed": removed,
+            },
+            warnings=warnings,
+        )
+
+    def _remove_link_from_file(
+        self,
+        txn: Any,
+        node_row: Any,
+        other_id: str,
+        other_title: str,
+        warnings: list[str],
+    ) -> None:
+        """Remove references to *other_id* from a node's file content."""
+        file_path = self._vault.root / node_row.path
+        if not file_path.exists():
+            return
+
+        fm, body = txn.read_content(file_path)
+        changed = False
+
+        # Remove from frontmatter links
+        links: dict[str, list[str]] = fm.get("links", {})
+        for edge_type in list(links.keys()):
+            targets = links[edge_type]
+            if other_id in targets:
+                targets.remove(other_id)
+                changed = True
+            if not targets:
+                del links[edge_type]
+        if links:
+            fm["links"] = links
+        elif "links" in fm:
+            del fm["links"]
+
+        # Remove body wikilinks (unless garden note)
+        maturity = fm.get("maturity")
+        if maturity is not None:
+            warnings.append(
+                f"Body wikilinks preserved for garden note {node_row.id} (maturity={maturity})"
+            )
+        else:
+            # Remove [[other_id]], [[other_id|display]], [[other_title]],
+            # [[other_title|display]]
+            targets_to_remove = {other_id, other_title}
+            pattern = re.compile(
+                r"\[\[(" + "|".join(re.escape(t) for t in targets_to_remove) + r")(?:\|[^\]]+)?\]\]"
+            )
+            new_body = pattern.sub("", body)
+            new_body = re.sub(r"[ \t]{2,}", " ", new_body)
+            new_body = re.sub(r"[ \t]+\n", "\n", new_body)
+            if new_body != body:
+                body = new_body
+                changed = True
+
+        if changed:
+            txn.write_content(file_path, fm, body)
+            # Re-index FTS5
+            txn.upsert_fts(str(node_row.id), str(node_row.title), body)
+
+    # ------------------------------------------------------------------
+    # materialize_metrics — compute and store graph metrics
+    # ------------------------------------------------------------------
+
+    @traced
     def materialize_metrics(self) -> ServiceResult:
         """Compute and store graph metrics in the nodes table.
 
-        Computes PageRank, degree_in, degree_out, and betweenness centrality
-        via NetworkX and writes the results to the materialized columns
-        in the nodes table.
+        Computes PageRank, degree_in, degree_out, betweenness centrality,
+        and cluster_id via NetworkX, then flags bidirectional edges in
+        the edges table (``bidirectional = 1`` when the reverse edge exists).
         """
         g = self._vault.graph.graph
 
@@ -416,6 +586,18 @@ class GraphService(BaseService):
         pageranks = nx.pagerank(g)
         betweenness = nx.betweenness_centrality(g)
 
+        # Compute community assignments (Leiden → Louvain fallback)
+        warnings: list[str] = []
+        cluster_map: dict[str, int] = {}
+        ug = g.to_undirected(as_view=True)
+        if ug.number_of_edges() > 0:
+            try:
+                cluster_map = self._leiden_communities(ug)
+            except ImportError:
+                warnings.append("leidenalg not installed, using Louvain fallback")
+                communities = nx.community.louvain_communities(ug, seed=42)
+                cluster_map = self._sets_to_partition(communities)
+
         updated = 0
         with self._vault.engine.begin() as conn:
             for node_id in g.nodes():
@@ -423,6 +605,7 @@ class GraphService(BaseService):
                 d_out = g.out_degree(node_id)
                 pr = pageranks.get(node_id, 0.0)
                 bc = betweenness.get(node_id, 0.0)
+                cid = cluster_map.get(node_id)
 
                 conn.execute(
                     nodes.update()
@@ -432,12 +615,33 @@ class GraphService(BaseService):
                         degree_out=d_out,
                         pagerank=round(pr, 8),
                         betweenness=round(bc, 8),
+                        cluster_id=cid,
                     )
                 )
                 updated += 1
 
+            # Flag bidirectional edges
+            with trace_span("bidirectional_edges"):
+                conn.execute(
+                    text(
+                        "UPDATE edges SET bidirectional = ("
+                        "  SELECT COUNT(*) FROM edges AS r"
+                        "  WHERE r.source_id = edges.target_id"
+                        "    AND r.target_id = edges.source_id"
+                        "    AND r.edge_type = edges.edge_type"
+                        ") > 0"
+                    )
+                )
+                bidir_count = (
+                    conn.execute(
+                        text("SELECT COUNT(*) FROM edges WHERE bidirectional = 1")
+                    ).scalar()
+                    or 0
+                )
+
         return ServiceResult(
             ok=True,
             op="materialize_metrics",
-            data={"nodes_updated": updated},
+            data={"nodes_updated": updated, "edges_bidirectional": bidir_count},
+            warnings=warnings,
         )

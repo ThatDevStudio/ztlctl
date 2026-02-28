@@ -1,0 +1,60 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement to ztlctl.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: >
+        What problem does this solve? What workflow is missing or awkward?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: >
+        Describe what you would like to happen. Include CLI examples if
+        applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative approaches you have considered.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Affected area
+      options:
+        - CLI commands
+        - Services / business logic
+        - MCP server
+        - Configuration
+        - Graph / reweave
+        - Plugin system
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, references, or related issues.
+    validations:
+      required: false

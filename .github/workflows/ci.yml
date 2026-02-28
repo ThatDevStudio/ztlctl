@@ -44,6 +44,28 @@ jobs:
       - run: uv sync --group dev
       - run: uv run mypy src/
 
+  mcp-extra:
+    name: MCP Extra Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --group test --extra mcp
+      - run: uv run pytest tests/mcp/test_stdio_integration.py tests/commands/test_serve.py -q
+
+  semantic-extra:
+    name: Semantic Extra Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --group test --extra semantic
+      - run: uv run pytest tests/integration/test_semantic_extra.py -q
+
   security:
     name: Security Audit
     runs-on: ubuntu-latest
