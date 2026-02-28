@@ -46,6 +46,9 @@ Thumbs.db
 notes/
 ops/
 
+# Business Acceptance Testing
+.bat/
+
 # Worktrees
 .worktrees/
 .firecrawl/
