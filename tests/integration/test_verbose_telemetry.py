@@ -126,6 +126,35 @@ class TestVerboseTelemetry:
                 continue
         assert found_json_log, "Expected a JSON log line with event=span.complete"
 
+    def test_log_json_registration_lines_are_fully_structured(self) -> None:
+        """Bootstrap plugin registration logs should include standard JSONL fields."""
+        result = self.runner.invoke(
+            cli,
+            ["-v", "--log-json", "create", "note", "Registration JSON Note"],
+        )
+        assert result.exit_code == 0
+
+        json_lines: list[dict[str, object]] = []
+        for line in result.stderr.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                json_lines.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+
+        registration = [
+            line
+            for line in json_lines
+            if str(line.get("event", "")).startswith("Registered plugin")
+        ]
+        assert registration, "Expected plugin registration log lines on stderr"
+        for line in registration:
+            assert "level" in line
+            assert "logger" in line
+            assert "timestamp" in line
+
     def test_telemetry_disabled_without_verbose(self) -> None:
         """Without --verbose, telemetry ContextVar remains disabled."""
         # Run non-verbose command

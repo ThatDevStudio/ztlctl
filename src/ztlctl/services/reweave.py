@@ -48,7 +48,7 @@ class ReweaveService(BaseService):
             return ServiceResult(
                 ok=True,
                 op=op,
-                data={"suggestions": [], "skipped": True},
+                data=self._with_dry_run({"suggestions": [], "skipped": True}, dry_run=dry_run),
                 warnings=["Reweave is disabled in settings"],
             )
 
@@ -77,7 +77,10 @@ class ReweaveService(BaseService):
                     return ServiceResult(
                         ok=True,
                         op=op,
-                        data={"target_id": target_id, "suggestions": [], "count": 0},
+                        data=self._with_dry_run(
+                            {"target_id": target_id, "suggestions": [], "count": 0},
+                            dry_run=dry_run,
+                        ),
                     )
 
             # -- SCORE --
@@ -110,11 +113,14 @@ class ReweaveService(BaseService):
                     return ServiceResult(
                         ok=True,
                         op=op,
-                        data={
-                            "target_id": target_id,
-                            "suggestions": [],
-                            "count": 0,
-                        },
+                        data=self._with_dry_run(
+                            {
+                                "target_id": target_id,
+                                "suggestions": [],
+                                "count": 0,
+                            },
+                            dry_run=dry_run,
+                        ),
                         warnings=["Node already at max_links_per_note"],
                     )
 
@@ -129,12 +135,14 @@ class ReweaveService(BaseService):
             return ServiceResult(
                 ok=True,
                 op=op,
-                data={
-                    "target_id": target_id,
-                    "suggestions": suggestions,
-                    "count": len(suggestions),
-                    "dry_run": True,
-                },
+                data=self._with_dry_run(
+                    {
+                        "target_id": target_id,
+                        "suggestions": suggestions,
+                        "count": len(suggestions),
+                    },
+                    dry_run=dry_run,
+                ),
             )
 
         # CONNECT — modify files and DB
@@ -309,6 +317,13 @@ class ReweaveService(BaseService):
     # ------------------------------------------------------------------
     # Discovery
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _with_dry_run(payload: dict[str, Any], *, dry_run: bool) -> dict[str, Any]:
+        """Annotate successful dry-run payloads consistently."""
+        if not dry_run:
+            return payload
+        return {**payload, "dry_run": True}
 
     @staticmethod
     def _discover_target(conn: Connection, content_id: str | None) -> Any:

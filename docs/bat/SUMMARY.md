@@ -68,6 +68,24 @@ BAT-20, BAT-43) is confirmed fixed. The tool is production-ready for v0.1.0.
 
 ---
 
+## Post-BAT Follow-Up Status
+
+Follow-up work after Run 2 closed the remaining high-value improvement items from this
+summary without changing BAT outcomes:
+
+- **OBS-4 fixed** — `reweave --dry-run` now returns `dry_run: true` on every successful
+  dry-run path, including zero-candidate and max-links early returns.
+- **OBS-5 fixed** — `--log-json -v` bootstrap plugin registration lines now include the
+  standard structured fields (`level`, `logger`, `timestamp`) from startup onward.
+- **OBS-7 fixed** — Git session-close commit messages are now derived from the staged
+  diff, so the summary reflects the commit contents instead of unrelated session stats.
+- **Export filtering added** — `export markdown`, `export indexes`, and `export graph`
+  now support filtering by type, status, tag, topic, since date, and archive mode.
+- **Verbose noise reduced** — verbose logging now favors `ztlctl` debug output without
+  routine Alembic/Copier debug noise.
+
+---
+
 ## Remaining Observations
 
 These are not blocking issues — all are low-severity or design-level observations.
@@ -81,40 +99,20 @@ Older critique notes describe duplicate output on some error paths, but the save
 not preserve split stdout/stderr evidence for those claims. Current CLI regression tests
 now lock stderr-only JSON emission for representative error paths.
 
-### OBS-3: Reweave Undo Leaves Orphaned Wikilink in Body
-**Severity**: Low | **Test**: BAT-72
+### OBS-3: Reweave Undo Does Not Rewrite Freeform Body Prose
+**Severity**: Low | **Test**: BAT-72 | **Status**: Intentional
 
-Undo removes DB edge and frontmatter `links.relates` but leaves `[[Target]]` wikilink
-text in the note body. A subsequent `check --rebuild` could re-create the edge from the
-orphaned wikilink. This is a design-level observation — the implementation correctly
-separates structured metadata from freeform content.
-
-### OBS-4: Reweave Dry-Run Schema Inconsistency
-**Severity**: Minor | **Test**: BAT-70
-
-When `reweave --dry-run` finds no candidates, the response omits the `dry_run: true`
-field (early return from DISCOVER stage). When candidates are found, the field is present.
-
-### OBS-5: Plugin Registration JSONL Lines Incomplete
-**Severity**: Minor | **Test**: BAT-128
-
-With `--log-json -v`, the first 3 JSONL lines on stderr (plugin registration) lack
-`level`, `timestamp`, `logger` keys — emitted before structlog configuration completes.
-Strict JSONL schema consumers would encounter inconsistent records.
+Undo removes DB edges and frontmatter `links.relates`, but it does not attempt to edit
+freeform body prose. If a body wikilink was inserted during reweave, it remains in the
+note body after undo. This is an intentional product decision: the implementation does
+not track enough provenance to rewrite body text safely.
 
 ### OBS-6: Telemetry Span Tree Location
-**Severity**: Cosmetic | **Test**: BAT-125
+**Severity**: Cosmetic | **Test**: BAT-125 | **Status**: No change planned
 
 The telemetry span tree renders on stdout (as part of Rich output), not on stderr as the
 BAT spec described. Uses indentation-based nesting rather than box-drawing characters.
 Functionally correct.
-
-### OBS-7: Git Plugin Session Stats
-**Severity**: Cosmetic | **Test**: BAT-113
-
-Git plugin session-close commit message shows "0 created, 0 updated" despite items being
-created during the session. The stats passed to `post_session_close` appear to count
-close-time operations, not full session activity.
 
 ---
 
@@ -141,8 +139,9 @@ close-time operations, not full session activity.
 
 ### Remaining
 1. **Sparse data scoring** — BM25, recency, and graph scores limited on small/new vaults
-2. **Export lacks filtering** — No filtering by type, tag, status, or date range
-3. **Verbose mode noise** — Third-party debug messages (Alembic, Copier) in `-v` output
+2. **Undo body provenance** — exact body reversal would need provenance tracking for
+   reweave-inserted prose
+3. **Telemetry placement** — span tree remains in normal verbose output by design
 
 ---
 
@@ -175,13 +174,13 @@ close-time operations, not full session activity.
 
 ## Recommendations
 
-### Should Fix (Nice to Have)
-1. Export filtering (by type, tag, status)
-2. Suppress third-party debug output in `-v` mode
-3. Reweave undo: also remove orphaned wikilink text from body
+### Nice to Have
+1. Investigate sparse-data scoring behavior in small/new vaults
 
 ### Design Decisions
-4. Consider promoting plugin failures to ServiceResult warnings for visibility
+2. Consider promoting plugin failures to ServiceResult warnings for visibility
+3. If exact reweave undo is desired later, add provenance for body mutations before
+   attempting text rewrites
 
 ---
 
@@ -203,5 +202,6 @@ close-time operations, not full session activity.
 **128/130 pass (98.5%)** — 0 hard failures, 7 partial passes, 2 skips
 
 ztlctl v0.1.0 is production-ready. All previously reported BAT bugs are now fixed or
-closed as stale based on the preserved evidence. The remaining observations are
-low-severity design considerations, not blocking issues.
+closed as stale based on the preserved evidence, and the highest-value follow-up
+observations from the BAT summary are now addressed. The remaining items are
+design-level considerations, not blocking issues.

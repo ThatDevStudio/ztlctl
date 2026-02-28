@@ -24,7 +24,7 @@ def configure_logging(
         verbose: Enable DEBUG-level output. When False, only WARNING+.
         log_json: Use JSON renderer instead of console renderer.
     """
-    level = logging.DEBUG if verbose else logging.WARNING
+    ztl_level = logging.DEBUG if verbose else logging.WARNING
 
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
@@ -51,6 +51,7 @@ def configure_logging(
     )
 
     formatter = structlog.stdlib.ProcessorFormatter(
+        foreign_pre_chain=shared_processors,
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             renderer,
@@ -63,7 +64,9 @@ def configure_logging(
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
-    root_logger.setLevel(level)
+    root_logger.setLevel(logging.WARNING)
 
     ztl_logger = logging.getLogger("ztlctl")
-    ztl_logger.setLevel(level)
+    ztl_logger.setLevel(ztl_level)
+    logging.getLogger("alembic").setLevel(logging.WARNING)
+    logging.getLogger("copier").setLevel(logging.WARNING)

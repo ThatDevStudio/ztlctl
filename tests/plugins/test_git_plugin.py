@@ -218,11 +218,56 @@ class TestGitPluginSessionClose:
 
         plugin.post_session_close(
             session_id="LOG-0001",
-            stats={"created": 1, "updated": 0},
+            stats={"created": 0, "updated": 0},
         )
 
         log = _git_log(git_vault)
         assert any("LOG-0001" in msg for msg in log)
+        assert any("1 created, 0 updated" in msg for msg in log)
+
+    def test_session_close_skips_commit_when_nothing_staged(
+        self, plugin: GitPlugin, git_vault: Path
+    ):
+        before = _git_log(git_vault)
+
+        plugin.post_session_close(
+            session_id="LOG-0001",
+            stats={"created": 99, "updated": 99},
+        )
+
+        after = _git_log(git_vault)
+        assert after == before
+
+    def test_session_close_reports_renamed_files(self, plugin: GitPlugin, git_vault: Path):
+        tracked = git_vault / "notes" / "N-0001.md"
+        tracked.parent.mkdir(parents=True, exist_ok=True)
+        tracked.write_text("# Renamed", encoding="utf-8")
+        subprocess.run(
+            ["git", "add", "notes/N-0001.md"],
+            cwd=git_vault,
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "track note"],
+            cwd=git_vault,
+            capture_output=True,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "mv", "notes/N-0001.md", "notes/N-0002.md"],
+            cwd=git_vault,
+            capture_output=True,
+            check=True,
+        )
+
+        plugin.post_session_close(
+            session_id="LOG-0002",
+            stats={"created": 0, "updated": 0},
+        )
+
+        log = _git_log(git_vault)
+        assert any("LOG-0002" in msg and "1 renamed" in msg for msg in log)
 
     def test_auto_push_calls_git_push(self, git_vault: Path):
         push_plugin = GitPlugin(
