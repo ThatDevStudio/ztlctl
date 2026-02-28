@@ -4,11 +4,37 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ztlctl"
-version = "1.0.0"
-description = "Zettelkasten Control — CLI utility for managing a Zettelkasten note-taking system"
+version = "0.1.0"
+description = "ZettelControl — CLI utility for managing a Zettelkasten note-taking system"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
+authors = [
+    { name = "ThatDev Studio" },
+]
+keywords = [
+    "zettelkasten",
+    "knowledge-management",
+    "cli",
+    "note-taking",
+    "knowledge-graph",
+    "second-brain",
+    "digital-garden",
+    "mcp",
+    "agentic",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing :: General",
+    "Topic :: Office/Business :: Groupware",
+    "Typing :: Typed",
+]
 dependencies = [
     "click>=8.1",
     "pydantic>=2.0",
@@ -21,7 +47,16 @@ dependencies = [
     "rich>=13.0",
     "pydantic-settings>=2.13.1",
     "scipy>=1.17.1",
+    "structlog>=24.0",
+    "copier>=9.12.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/ThatDevStudio/ztlctl"
+Documentation = "https://thatdevstudio.github.io/ztlctl/"
+Repository = "https://github.com/ThatDevStudio/ztlctl"
+Changelog = "https://github.com/ThatDevStudio/ztlctl/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/ThatDevStudio/ztlctl/issues"
 
 [project.scripts]
 ztlctl = "ztlctl.cli:cli"
@@ -29,7 +64,7 @@ ztlctl = "ztlctl.cli:cli"
 [project.optional-dependencies]
 mcp = ["mcp>=1.0", "anyio>=4.0"]
 community = ["leidenalg"]
-semantic = ["sqlite-vec"]
+semantic = ["sqlite-vec>=0.1", "sentence-transformers>=2.2"]
 
 [project.entry-points."ztlctl.plugins"]
 git = "ztlctl.plugins.builtins.git:GitPlugin"
@@ -54,6 +89,15 @@ lint = [
 [tool.uv]
 package = true
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/ztlctl"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/ztlctl/templates" = "ztlctl/templates"
+
+[tool.hatch.build.targets.sdist.force-include]
+"src/ztlctl/templates" = "src/ztlctl/templates"
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"
@@ -77,6 +121,10 @@ warn_unused_configs = true
 mypy_path = "src"
 packages = ["ztlctl"]
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "ztlctl.mcp.*"
+warn_unused_ignores = false
 
 [tool.coverage.run]
 source = ["ztlctl"]

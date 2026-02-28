@@ -95,12 +95,54 @@ def _field(console: Console, key: str, value: Any) -> None:
 
 
 def _render_meta(console: Console, result: ServiceResult) -> None:
-    """Print meta block (verbose only)."""
-    if result.meta:
-        console.print()
-        console.print(Text("  meta:", style="dim"))
-        for k, v in result.meta.items():
+    """Print meta block including telemetry span tree (verbose only)."""
+    if not result.meta:
+        return
+
+    console.print()
+    console.print(Text("  meta:", style="dim"))
+
+    for k, v in result.meta.items():
+        if k == "telemetry":
+            _render_telemetry_tree(console, v, indent=4)
+        else:
             console.print(f"    {k}: {v}")
+
+
+def _render_telemetry_tree(
+    console: Console,
+    span_data: dict[str, Any],
+    indent: int = 4,
+) -> None:
+    """Render a hierarchical span tree with color-coded timing."""
+    prefix = " " * indent
+    name = span_data.get("name", "?")
+    duration = span_data.get("duration_ms", 0.0)
+
+    if duration > 1000:
+        style = "bold red"
+    elif duration > 100:
+        style = "yellow"
+    else:
+        style = "dim"
+
+    line = f"{prefix}[{style}]{duration:>8.2f}ms[/{style}]  {name}"
+
+    extras: list[str] = []
+    if span_data.get("tokens"):
+        extras.append(f"tokens={span_data['tokens']}")
+    if span_data.get("cost"):
+        extras.append(f"cost={span_data['cost']}")
+    if span_data.get("annotations"):
+        for ak, av in span_data["annotations"].items():
+            extras.append(f"{ak}={av}")
+    if extras:
+        line += f"  ({', '.join(extras)})"
+
+    console.print(line)
+
+    for child in span_data.get("children", []):
+        _render_telemetry_tree(console, child, indent=indent + 4)
 
 
 def _item_table(
@@ -384,6 +426,9 @@ def _render_check(result: ServiceResult, console: Console, *, verbose: bool = Fa
     """Render check results with issues grouped by category."""
     issues = result.data.get("issues", [])
     count = result.data.get("count", len(issues))
+    errors = result.data.get("error_count")
+    warnings = result.data.get("warning_count")
+    healthy = result.data.get("healthy")
 
     if count == 0:
         console.print("[ztl.ok]OK[/ztl.ok]  No issues found.")
@@ -410,8 +455,12 @@ def _render_check(result: ServiceResult, console: Console, *, verbose: bool = Fa
             if verbose and issue.get("fix_action"):
                 console.print(f"    fix: {issue['fix_action']}")
 
-    errors = sum(1 for i in issues if i.get("severity") == "error")
-    warnings = count - errors
+    if not isinstance(errors, int):
+        errors = sum(1 for i in issues if i.get("severity") == "error")
+    if not isinstance(warnings, int):
+        warnings = count - errors
+    if healthy is True and errors == 0 and count > 0:
+        console.print("\n[ztl.ok]OK[/ztl.ok]  No errors found; advisory warnings listed below.")
     console.print(f"\n{errors} errors, {warnings} warnings")
 
 
@@ -572,6 +621,9 @@ def _render_reweave(result: ServiceResult, console: Console, *, verbose: bool = 
         else:
             for item in items:
                 console.print(f"  [ztl.id]{item.get('id', '')}[/ztl.id]  {item.get('title', '')}")
+
+    if verbose:
+        _render_meta(console, result)
 
 
 def _render_undo(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:

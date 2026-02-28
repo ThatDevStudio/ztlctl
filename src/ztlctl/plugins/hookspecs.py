@@ -1,14 +1,18 @@
-"""Pluggy hook specifications for ztlctl lifecycle events.
+"""Pluggy hook specifications for ztlctl lifecycle events and setup extensions.
 
-Eight lifecycle events dispatched asynchronously via ThreadPoolExecutor.
+Eight lifecycle events are dispatched asynchronously via ThreadPoolExecutor.
+One setup-time hook allows plugins to register custom content subtypes.
 (DESIGN.md Section 15)
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pluggy
+
+if TYPE_CHECKING:
+    from ztlctl.domain.content import ContentModel
 
 hookspec = pluggy.HookspecMarker("ztlctl")
 
@@ -84,3 +88,7 @@ class ZtlctlHookSpec:
         tone: str,
     ) -> None:
         """Called after vault init."""
+
+    @hookspec
+    def register_content_models(self) -> dict[str, type[ContentModel]] | None:
+        """Return subtype -> ContentModel mappings to extend CONTENT_REGISTRY."""

@@ -27,7 +27,6 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, ClassVar, Self
 
-from jinja2 import Environment, PackageLoader
 from pydantic import BaseModel, Field
 from ruamel.yaml import YAML
 
@@ -37,23 +36,25 @@ from ztlctl.domain.lifecycle import (
     REFERENCE_TRANSITIONS,
     TASK_TRANSITIONS,
 )
+from ztlctl.infrastructure.templates import build_template_environment
 
 # ---------------------------------------------------------------------------
 # YAML parser (round-trip preserves comments and quote styles)
 # ---------------------------------------------------------------------------
 
-_yaml = YAML()
-_yaml.preserve_quotes = True
-_yaml.default_flow_style = False
 
-# ---------------------------------------------------------------------------
-# Jinja2 environment for body-only templates
-# ---------------------------------------------------------------------------
+def _new_yaml() -> YAML:
+    """Create a fresh round-trip YAML parser.
 
-_jinja_env = Environment(
-    loader=PackageLoader("ztlctl", "templates/content"),
-    keep_trailing_newline=True,
-)
+    A new instance per call avoids corrupted internal emitter state from
+    propagating across operations (ruamel.yaml's YAML object is stateful
+    and a failed dump can leave the singleton in a broken state).
+    """
+    y = YAML()
+    y.preserve_quotes = True
+    y.default_flow_style = False
+    return y
+
 
 # ---------------------------------------------------------------------------
 # Canonical frontmatter key ordering (DESIGN.md Section 2)
@@ -137,7 +138,7 @@ def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     if body.startswith("\n"):
         body = body[1:]
 
-    fm: dict[str, Any] = _yaml.load(yaml_block) or {}
+    fm: dict[str, Any] = _new_yaml().load(yaml_block) or {}
     return fm, body
 
 
@@ -168,7 +169,7 @@ def render_frontmatter(frontmatter: dict[str, Any], body: str) -> str:
     """
     ordered = order_frontmatter(frontmatter)
     buf = StringIO()
-    _yaml.dump(ordered, buf)
+    _new_yaml().dump(ordered, buf)
     yaml_text = buf.getvalue()
 
     parts = [_FRONTMATTER_DELIMITER, "\n", yaml_text, _FRONTMATTER_DELIMITER, "\n"]
@@ -203,6 +204,60 @@ def get_content_model(
         return CONTENT_REGISTRY[content_type]
     msg = f"No content model registered for type={content_type!r}, subtype={subtype!r}"
     raise KeyError(msg)
+
+
+def register_content_model(name: str, model_cls: type[ContentModel]) -> None:
+    """Register a custom content subtype model.
+
+    The model must extend :class:`ContentModel`, resolve to a concrete base
+    content type, and expose the standard validation/status APIs. Built-in
+    names are reserved and cannot be overridden by plugins.
+    """
+
+    normalized_name = name.strip()
+    if not normalized_name:
+        msg = "Content model name must not be empty"
+        raise ValueError(msg)
+
+    if not issubclass(model_cls, ContentModel):
+        msg = f"Content model {normalized_name!r} must extend ContentModel"
+        raise TypeError(msg)
+
+    if normalized_name in _builtin_model_map():
+        msg = f"Content model {normalized_name!r} conflicts with a built-in registration"
+        raise ValueError(msg)
+
+    if model_cls._subtype_name is None:
+        model_cls._subtype_name = normalized_name
+    elif model_cls._subtype_name != normalized_name:
+        msg = (
+            f"Content model {normalized_name!r} declares subtype "
+            f"{model_cls._subtype_name!r}; these must match"
+        )
+        raise ValueError(msg)
+
+    if not model_cls._content_type:
+        msg = f"Content model {normalized_name!r} must declare a concrete _content_type"
+        raise ValueError(msg)
+
+    required_api = (
+        "validate_create",
+        "validate_update",
+        "required_sections",
+        "status_transitions",
+    )
+    for attr_name in required_api:
+        attr = getattr(model_cls, attr_name, None)
+        if not callable(attr):
+            msg = f"Content model {normalized_name!r} is missing required API: {attr_name}"
+            raise TypeError(msg)
+
+    existing = CONTENT_REGISTRY.get(normalized_name)
+    if existing is not None and existing is not model_cls:
+        msg = f"Content model {normalized_name!r} is already registered"
+        raise ValueError(msg)
+
+    CONTENT_REGISTRY[normalized_name] = model_cls
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +297,7 @@ class ContentModel(BaseModel):
         fm = self.model_dump(mode="json", exclude_none=True)
         return order_frontmatter(fm)
 
-    def write_body(self, **kwargs: Any) -> str:
+    def write_body(self, *, template_root: Path | None = None, **kwargs: Any) -> str:
         """Render the body-only Jinja2 template.
 
         All keyword arguments are passed to the Jinja2 template. Common
@@ -252,7 +307,8 @@ class ContentModel(BaseModel):
         """
         if not self._template_name:
             return str(kwargs.get("body", ""))
-        template = _jinja_env.get_template(self._template_name)
+        env = build_template_environment("content", vault_root=template_root)
+        template = env.get_template(self._template_name)
         return template.render(**kwargs)
 
     @staticmethod
@@ -465,13 +521,20 @@ class TaskModel(ContentModel):
 # ---------------------------------------------------------------------------
 
 
+def _builtin_model_map() -> dict[str, type[ContentModel]]:
+    """Return the built-in content model registry."""
+    return {
+        "note": NoteModel,
+        "knowledge": KnowledgeModel,
+        "decision": DecisionModel,
+        "reference": ReferenceModel,
+        "task": TaskModel,
+    }
+
+
 def _register_models() -> None:
     """Populate :data:`CONTENT_REGISTRY` with built-in content models."""
-    CONTENT_REGISTRY["note"] = NoteModel
-    CONTENT_REGISTRY["knowledge"] = KnowledgeModel
-    CONTENT_REGISTRY["decision"] = DecisionModel
-    CONTENT_REGISTRY["reference"] = ReferenceModel
-    CONTENT_REGISTRY["task"] = TaskModel
+    CONTENT_REGISTRY.update(_builtin_model_map())
 
 
 _register_models()

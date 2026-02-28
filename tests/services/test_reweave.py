@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import insert, select
 
 from tests.conftest import create_note
-from ztlctl.domain.content import parse_frontmatter
+from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, reweave_log
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.reweave import ReweaveService, _jaccard
@@ -110,6 +110,7 @@ class TestDiscover:
         result = ReweaveService(vault).reweave(content_id=data["id"], dry_run=True)
         assert result.ok
         assert result.data["count"] == 0
+        assert result.data["dry_run"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +248,21 @@ class TestFilter:
         max_links = vault.settings.reweave.max_links_per_note
         assert result.data["count"] <= max_links
 
+    def test_min_score_override(self, vault: Vault) -> None:
+        """min_score_override lowers the filter threshold."""
+        data_a = create_note(vault, "Override Threshold Test")
+        create_note(vault, "Slightly Related Content", tags=["testing"])
+
+        svc = ReweaveService(vault)
+        # With default threshold, run dry
+        default_result = svc.reweave(content_id=data_a["id"], dry_run=True)
+        assert default_result.ok
+
+        # With very low threshold (0.0), should get at least as many suggestions
+        low_result = svc.reweave(content_id=data_a["id"], dry_run=True, min_score_override=0.0)
+        assert low_result.ok
+        assert low_result.data["count"] >= default_result.data["count"]
+
     def test_already_at_max_links(self, vault: Vault) -> None:
         """Returns empty suggestions if node is already at max links."""
         data = create_note(vault, "Full Node")
@@ -259,6 +275,7 @@ class TestFilter:
         result = svc.reweave(content_id=data["id"], dry_run=True)
         assert result.ok
         assert result.data["count"] == 0
+        assert result.data["dry_run"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +299,7 @@ class TestDisabled:
         result = svc.reweave(dry_run=True)
         assert result.ok
         assert result.data.get("skipped") is True
+        assert result.data["dry_run"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -519,6 +537,54 @@ class TestUndo:
             undo_result = svc.undo(reweave_id=log_entry.id)
             assert undo_result.ok
             assert undo_result.data["count"] == 1
+
+    def test_undo_preserves_body_wikilink_text(self, vault: Vault) -> None:
+        """Undo reverses structured links but leaves freeform body wikilinks intact."""
+        source = create_note(
+            vault,
+            "Python Programming Guide",
+            topic="python",
+            tags=["lang/python"],
+        )
+        target = create_note(
+            vault,
+            "Python Programming Reference",
+            topic="python",
+            tags=["lang/python"],
+        )
+
+        source_path = vault.root / source["path"]
+        frontmatter, _body = parse_frontmatter(source_path.read_text(encoding="utf-8"))
+        source_path.write_text(
+            render_frontmatter(frontmatter, "Session notes."),
+            encoding="utf-8",
+        )
+
+        svc = ReweaveService(vault)
+        result = svc.reweave(content_id=source["id"], dry_run=False)
+        assert result.ok
+        assert result.data["count"] > 0
+
+        frontmatter, body = parse_frontmatter(source_path.read_text(encoding="utf-8"))
+        assert target["id"] in frontmatter["links"]["relates"]
+        assert f"[[{target['title']}]]" in body
+
+        undo_result = svc.undo()
+        assert undo_result.ok
+
+        with vault.engine.connect() as conn:
+            edge = conn.execute(
+                select(edges.c.source_id).where(
+                    edges.c.source_id == source["id"],
+                    edges.c.target_id == target["id"],
+                    edges.c.edge_type == "relates",
+                )
+            ).first()
+            assert edge is None
+
+        frontmatter, body = parse_frontmatter(source_path.read_text(encoding="utf-8"))
+        assert target["id"] not in frontmatter["links"]["relates"]
+        assert f"[[{target['title']}]]" in body
 
     def test_undo_no_history(self, vault: Vault) -> None:
         """Undo with no history returns error."""

@@ -45,6 +45,20 @@ class TestVaultInit:
     def test_settings_property(self, vault: Vault) -> None:
         assert vault.settings.vault.name == "my-vault"
 
+    def test_close_without_event_bus(self, vault: Vault) -> None:
+        vault.close()  # no exception
+
+    def test_close_shuts_down_event_bus(self, vault: Vault) -> None:
+        from unittest.mock import patch
+
+        vault.init_event_bus(sync=False)
+        bus = vault.event_bus
+        assert bus is not None
+
+        with patch.object(bus, "shutdown") as mock_shutdown:
+            vault.close()
+            mock_shutdown.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Transaction — success path

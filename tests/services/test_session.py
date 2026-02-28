@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from sqlalchemy import select
 
 from tests.conftest import create_note, create_task, start_session
 from ztlctl.infrastructure.database.schema import nodes, session_logs
 from ztlctl.infrastructure.vault import Vault
+from ztlctl.services.result import ServiceResult
 from ztlctl.services.session import SessionService
 
 # ---------------------------------------------------------------------------
@@ -48,11 +50,22 @@ class TestSessionStart:
 
     def test_start_sequential_ids(self, vault: Vault) -> None:
         data1 = start_session(vault, "First")
+        SessionService(vault).close()
         data2 = start_session(vault, "Second")
         # IDs should be sequential
         n1 = int(data1["id"].split("-")[1])
         n2 = int(data2["id"].split("-")[1])
         assert n2 == n1 + 1
+
+    def test_start_rejects_when_active_session_exists(self, vault: Vault) -> None:
+        first = SessionService(vault).start("First")
+        assert first.ok
+
+        second = SessionService(vault).start("Second")
+        assert not second.ok
+        assert second.error is not None
+        assert second.error.code == "ACTIVE_SESSION_EXISTS"
+        assert second.data["active_session_id"] == first.data["id"]
 
     def test_start_creates_fts_entry(self, vault: Vault) -> None:
         from sqlalchemy import text
@@ -123,6 +136,15 @@ class TestSessionClose:
         assert "orphan_count" in result.data
         assert "integrity_issues" in result.data
 
+    def test_close_fresh_session_reports_zero_integrity_issues(self, vault: Vault) -> None:
+        start_session(vault, "Healthy Close")
+
+        result = SessionService(vault).close()
+
+        assert result.ok
+        assert result.data["integrity_issues"] == 0
+        assert not any("Integrity check found" in warning for warning in result.warnings)
+
     def test_close_with_session_notes_reweave(self, vault: Vault) -> None:
         """Notes created in the session are reweaved on close."""
         data = start_session(vault, "Reweave Session")
@@ -164,6 +186,27 @@ class TestSessionCloseDisabled:
         assert result.ok
         assert result.data["reweave_count"] == 0
         assert result.data["orphan_count"] == 0
+
+    def test_orphan_sweep_uses_lower_threshold(self, vault: Vault) -> None:
+        """Orphan sweep passes orphan_reweave_threshold to ReweaveService."""
+        start_session(vault, "Orphan Threshold Test")
+        # Create an orphan note (no links to anything)
+        create_note(vault, "Lonely Note")
+
+        expected_threshold = vault.settings.session.orphan_reweave_threshold
+
+        with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
+            mock_cls.return_value.reweave.return_value = ServiceResult(
+                ok=True, op="reweave", data={"count": 0, "suggestions": []}
+            )
+            SessionService(vault).close()
+
+            # Verify orphan sweep called reweave with the lower threshold
+            calls = mock_cls.return_value.reweave.call_args_list
+            orphan_calls = [c for c in calls if c.kwargs.get("min_score_override") is not None]
+            assert len(orphan_calls) > 0
+            for call in orphan_calls:
+                assert call.kwargs["min_score_override"] == expected_threshold
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +266,17 @@ class TestSessionReopen:
         result = SessionService(vault).close()
         assert result.ok
         assert result.data["session_id"] == data["id"]
+
+    def test_reopen_rejects_when_another_session_is_open(self, vault: Vault) -> None:
+        closed = start_session(vault, "Closed Session")
+        SessionService(vault).close()
+
+        active = start_session(vault, "Active Session")
+        result = SessionService(vault).reopen(closed["id"])
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "ACTIVE_SESSION_EXISTS"
+        assert result.data["active_session_id"] == active["id"]
 
 
 # ---------------------------------------------------------------------------
@@ -498,13 +552,17 @@ class TestContext:
     def test_context_layer2_topic_content(self, vault: Vault) -> None:
         """Layer 2 includes topic-scoped notes."""
         start_session(vault, "Topic Content")
-        create_note(vault, "Python Basics", topic="python")
+        target = create_note(vault, "Python Basics", topic="python")
         create_note(vault, "Python Advanced", topic="python")
 
         result = SessionService(vault).context(topic="python")
         assert result.ok
         layers = result.data["layers"]
         assert "topic_content" in layers
+        topic_items = layers["topic_content"]
+        assert topic_items, "Expected topic_content to include search results"
+        ids = {item["id"] for item in topic_items}
+        assert target["id"] in ids
 
     def test_context_layer3_graph_adjacent(self, vault: Vault) -> None:
         """Layer 3 includes graph neighbors of Layer 2 content."""
@@ -557,6 +615,28 @@ class TestContext:
         # Should include checkpoint and after, not before
         types = [e["type"] for e in entries]
         assert "checkpoint" in types
+
+    def test_context_ignore_checkpoints(self, vault: Vault) -> None:
+        """With ignore_checkpoints, all entries are returned regardless of checkpoint."""
+        start_session(vault, "Ignore Checkpoint")
+        svc = SessionService(vault)
+        svc.log_entry("Before checkpoint", cost=100)
+        svc.log_entry(
+            "Checkpoint",
+            entry_type="checkpoint",
+            subtype="checkpoint",
+            detail="Accumulated context snapshot",
+        )
+        svc.log_entry("After checkpoint", cost=200)
+
+        result = svc.context(ignore_checkpoints=True)
+        assert result.ok
+        entries = result.data["layers"]["log_entries"]
+        summaries = [e["summary"] for e in entries]
+        # All three entries should be present (not just checkpoint + after)
+        assert "Before checkpoint" in summaries
+        assert "Checkpoint" in summaries
+        assert "After checkpoint" in summaries
 
     def test_context_pinned_entries_survive_budget(self, vault: Vault) -> None:
         """Pinned entries are never dropped under budget pressure."""

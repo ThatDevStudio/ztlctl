@@ -83,6 +83,18 @@ class TestBatchCreateCommand:
         assert result.exit_code == 1
         assert "array" in result.output
 
+    def test_batch_not_array_json_uses_consistent_op(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        batch_file = tmp_path / "obj.json"
+        batch_file.write_text('{"type": "note", "title": "Single"}', encoding="utf-8")
+
+        result = cli_runner.invoke(cli, ["--json", "create", "batch", str(batch_file)])
+
+        assert result.exit_code == 1
+        data = json.loads(result.output)
+        assert data["op"] == "create_batch"
+
     def test_batch_file_not_found(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(cli, ["create", "batch", "/nonexistent/file.json"])
         assert result.exit_code != 0

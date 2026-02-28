@@ -37,6 +37,8 @@ nodes = Table(
     Column("archived", Integer, default=0, server_default="0"),
     Column("created", Text, nullable=False),
     Column("modified", Text, nullable=False),
+    Column("created_at", Text),  # high-resolution timestamp (DB-only)
+    Column("modified_at", Text),  # high-resolution timestamp (DB-only)
     # Materialized graph metrics (recomputed by graph service)
     Column("degree_in", Integer, default=0, server_default="0"),
     Column("degree_out", Integer, default=0, server_default="0"),
@@ -142,4 +144,11 @@ session_logs = Table(
 # id is UNINDEXED: stored for joins but not searched.
 FTS5_CREATE_SQL = (
     "CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(id UNINDEXED, title, body)"
+)
+
+# sqlite-vec virtual table DDL — created when semantic search is enabled.
+# node_id maps to nodes.id; embedding dimension must match SearchConfig.embedding_dim.
+VEC_CREATE_SQL = (
+    "CREATE VIRTUAL TABLE IF NOT EXISTS vec_items USING vec0("
+    "node_id TEXT PRIMARY KEY, embedding FLOAT[384])"
 )

@@ -1,12 +1,18 @@
-"""Tests for CreateService — five-stage content creation pipeline."""
+"""Tests for CreateService — six-stage content creation pipeline."""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from sqlalchemy import select, text
 
+from ztlctl.config.settings import ZtlSettings
+from ztlctl.domain.ids import generate_content_hash
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.create import CreateService
+from ztlctl.services.result import ServiceResult
 
 # ---------------------------------------------------------------------------
 # Note creation
@@ -74,6 +80,15 @@ class TestCreateNote:
                 select(node_tags.c.tag).where(node_tags.c.node_id == result.data["id"])
             ).fetchall()
             assert [r.tag for r in tag_rows] == ["domain/scope"]
+
+    def test_note_with_aliases_persisted(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        result = svc.create_note("Alias Note", aliases=["py", "python"])
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes.c.aliases).where(nodes.c.id == result.data["id"])).one()
+            assert row.aliases == json.dumps(["py", "python"])
 
     def test_tag_registered_in_registry(self, vault: Vault) -> None:
         svc = CreateService(vault)
@@ -299,6 +314,27 @@ class TestCreateBatch:
         assert result.error is not None
         assert result.error.code == "BATCH_FAILED"
 
+    def test_batch_all_or_nothing_rolls_back_written_content(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        items = [
+            {"type": "note", "title": "Good Note"},
+            {"type": "invalid_type", "title": "Bad Item"},
+        ]
+
+        result = svc.create_batch(items)
+
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "BATCH_FAILED"
+        assert result.data["created"] == []
+
+        with vault.engine.connect() as conn:
+            rows = conn.execute(select(nodes.c.id)).fetchall()
+            assert rows == []
+
+        note_path = vault.root / "notes" / f"{generate_content_hash('Good Note', 'ztl_')}.md"
+        assert not note_path.exists()
+
     def test_batch_partial(self, vault: Vault) -> None:
         """With partial=True, failures are collected but don't stop."""
         svc = CreateService(vault)
@@ -340,3 +376,75 @@ class TestCreateNoteMaturity:
             ).first()
             assert row is not None
             assert row.maturity is None
+
+
+# ---------------------------------------------------------------------------
+# Post-create automatic reweave (T-001)
+# ---------------------------------------------------------------------------
+
+
+class TestPostCreateReweave:
+    def test_create_service_does_not_call_reweave_directly(self, vault_root: Path) -> None:
+        """CreateService delegates post-create reweave to plugins via event bus."""
+        from unittest.mock import patch
+
+        v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        svc = CreateService(v)
+
+        with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
+            result = svc.create_note("No Event Bus")
+
+        assert result.ok
+        mock_cls.assert_not_called()
+
+    def test_reweave_runs_via_post_create_plugin(self, vault_root: Path) -> None:
+        """When event bus is active, post_create plugin triggers reweave exactly once."""
+        from unittest.mock import patch
+
+        mock_result = ServiceResult(ok=True, op="reweave", data={"count": 2, "suggestions": []})
+        v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        v.init_event_bus(sync=True)
+        svc = CreateService(v)
+
+        with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
+            mock_cls.return_value.reweave.return_value = mock_result
+            result = svc.create_note("Plugin Reweave")
+
+        assert result.ok
+        mock_cls.assert_called_once_with(v)
+        mock_cls.return_value.reweave.assert_called_once()
+        call_kwargs = mock_cls.return_value.reweave.call_args.kwargs
+        assert call_kwargs["content_id"] == result.data["id"]
+
+    def test_task_creation_skips_plugin_reweave(self, vault_root: Path) -> None:
+        """Tasks don't participate in post-create reweave."""
+        from unittest.mock import patch
+
+        v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        v.init_event_bus(sync=True)
+        svc = CreateService(v)
+
+        with patch("ztlctl.services.reweave.ReweaveService") as mock_cls:
+            result = svc.create_task("Some Task")
+
+        assert result.ok
+        mock_cls.assert_not_called()
+
+    def test_entrypoint_plugins_do_not_fail_post_create_dispatch(self, vault_root: Path) -> None:
+        v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        v.init_event_bus(sync=True)
+        try:
+            result = CreateService(v).create_note("Entrypoint Note")
+            assert result.ok
+
+            with v.engine.connect() as conn:
+                row = conn.execute(
+                    text(
+                        "SELECT status, error FROM event_wal "
+                        "WHERE hook_name = 'post_create' ORDER BY id DESC LIMIT 1"
+                    )
+                ).one()
+            assert row.status == "completed"
+            assert row.error is None
+        finally:
+            v.close()

@@ -9,13 +9,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy import insert, select
+from sqlalchemy import func, insert, select
 
 from ztlctl.infrastructure.database.counters import next_sequential_id
 from ztlctl.infrastructure.database.schema import edges, nodes, session_logs
 from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.telemetry import trace_span, traced
 
 
 class SessionService(BaseService):
@@ -27,11 +28,19 @@ class SessionService(BaseService):
 
     @staticmethod
     def _find_active_session(conn: Any) -> Any:
-        """Find the most recently created open session."""
+        """Find the most recently touched open session."""
         return conn.execute(
             select(nodes)
             .where(nodes.c.type == "log", nodes.c.status == "open")
-            .order_by(nodes.c.created.desc())
+            .order_by(
+                func.coalesce(
+                    nodes.c.modified_at,
+                    nodes.c.created_at,
+                    nodes.c.modified,
+                    nodes.c.created,
+                ).desc(),
+                nodes.c.id.desc(),
+            )
             .limit(1)
         ).first()
 
@@ -39,12 +48,27 @@ class SessionService(BaseService):
     # Public API
     # ------------------------------------------------------------------
 
+    @traced
     def start(self, topic: str) -> ServiceResult:
         """Start a new session, returning the LOG-NNNN id."""
         op = "session_start"
         today = today_iso()
+        now = now_iso()
 
         with self._vault.transaction() as txn:
+            active = self._find_active_session(txn.conn)
+            if active is not None:
+                active_id = str(active.id)
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="ACTIVE_SESSION_EXISTS",
+                        message=f"Session {active_id} is already open",
+                    ),
+                    data={"active_session_id": active_id},
+                )
+
             session_id = next_sequential_id(txn.conn, "LOG-")
 
             # Create JSONL file with initial entry
@@ -54,7 +78,7 @@ class SessionService(BaseService):
                     "type": "session_start",
                     "session_id": session_id,
                     "topic": topic,
-                    "timestamp": now_iso(),
+                    "timestamp": now,
                 },
                 separators=(",", ":"),
             )
@@ -72,6 +96,8 @@ class SessionService(BaseService):
                     topic=topic,
                     created=today,
                     modified=today,
+                    created_at=now,
+                    modified_at=now,
                 )
             )
 
@@ -94,6 +120,7 @@ class SessionService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def close(self, *, summary: str | None = None) -> ServiceResult:
         """Close the active session with enrichment pipeline.
 
@@ -101,6 +128,7 @@ class SessionService(BaseService):
         """
         op = "session_close"
         today = today_iso()
+        now = now_iso()
         warnings: list[str] = []
         cfg = self._vault.settings.session
 
@@ -124,7 +152,7 @@ class SessionService(BaseService):
             txn.conn.execute(
                 nodes.update()
                 .where(nodes.c.id == session_id)
-                .values(status="closed", modified=today)
+                .values(status="closed", modified=today, modified_at=now)
             )
 
             # Append close entry to JSONL
@@ -134,7 +162,7 @@ class SessionService(BaseService):
                     "type": "session_close",
                     "session_id": session_id,
                     "summary": summary or "",
-                    "timestamp": now_iso(),
+                    "timestamp": now,
                 },
                 separators=(",", ":"),
             )
@@ -142,26 +170,34 @@ class SessionService(BaseService):
             txn.write_file(file_path, existing + close_entry + "\n")
 
         # -- CROSS-SESSION REWEAVE --
-        reweave_count = 0
-        if cfg.close_reweave:
-            reweave_count = self._cross_session_reweave(session_id, warnings)
+        with trace_span("cross_session_reweave") as span:
+            reweave_count = 0
+            if cfg.close_reweave:
+                reweave_count = self._cross_session_reweave(session_id, warnings)
+            if span:
+                span.annotate("reweave_count", reweave_count)
 
         # -- ORPHAN SWEEP --
-        orphan_count = 0
-        if cfg.close_orphan_sweep:
-            orphan_count = self._orphan_sweep(warnings)
+        with trace_span("orphan_sweep") as span:
+            orphan_count = 0
+            if cfg.close_orphan_sweep:
+                orphan_count = self._orphan_sweep(warnings)
+            if span:
+                span.annotate("orphan_count", orphan_count)
 
         # -- INTEGRITY CHECK --
-        integrity_issues = 0
-        if cfg.close_integrity_check:
-            integrity_issues = self._integrity_check(warnings)
+        with trace_span("integrity_check"):
+            integrity_issues = 0
+            if cfg.close_integrity_check:
+                integrity_issues = self._integrity_check(warnings)
 
         # -- GRAPH MATERIALIZATION --
-        from ztlctl.services.graph import GraphService
+        with trace_span("materialize"):
+            from ztlctl.services.graph import GraphService
 
-        mat_result = GraphService(self._vault).materialize_metrics()
-        if not mat_result.ok:
-            warnings.append("Graph metric materialization failed during session close")
+            mat_result = GraphService(self._vault).materialize_metrics()
+            if not mat_result.ok:
+                warnings.append("Graph metric materialization failed during session close")
 
         # -- EVENT DISPATCH --
         self._dispatch_event(
@@ -197,10 +233,12 @@ class SessionService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def reopen(self, session_id: str) -> ServiceResult:
         """Reopen a previously closed session."""
         op = "session_reopen"
         today = today_iso()
+        now = now_iso()
 
         with self._vault.transaction() as txn:
             session = txn.conn.execute(
@@ -227,8 +265,23 @@ class SessionService(BaseService):
                     ),
                 )
 
+            active = self._find_active_session(txn.conn)
+            if active is not None and str(active.id) != session_id:
+                active_id = str(active.id)
+                return ServiceResult(
+                    ok=False,
+                    op=op,
+                    error=ServiceError(
+                        code="ACTIVE_SESSION_EXISTS",
+                        message=f"Session {active_id} is already open",
+                    ),
+                    data={"active_session_id": active_id},
+                )
+
             txn.conn.execute(
-                nodes.update().where(nodes.c.id == session_id).values(status="open", modified=today)
+                nodes.update()
+                .where(nodes.c.id == session_id)
+                .values(status="open", modified=today, modified_at=now)
             )
 
             # Append reopen entry to JSONL
@@ -237,7 +290,7 @@ class SessionService(BaseService):
                 {
                     "type": "session_reopen",
                     "session_id": session_id,
-                    "timestamp": now_iso(),
+                    "timestamp": now,
                 },
                 separators=(",", ":"),
             )
@@ -253,6 +306,7 @@ class SessionService(BaseService):
             },
         )
 
+    @traced
     def log_entry(
         self,
         message: str,
@@ -271,6 +325,7 @@ class SessionService(BaseService):
         session_logs DB table (for querying and budget tracking).
         """
         op = "log_entry"
+        today = today_iso()
         timestamp = now_iso()
 
         with self._vault.transaction() as txn:
@@ -322,6 +377,12 @@ class SessionService(BaseService):
             )
             entry_id = result.lastrowid
 
+            txn.conn.execute(
+                nodes.update()
+                .where(nodes.c.id == session_id)
+                .values(modified=today, modified_at=timestamp)
+            )
+
         return ServiceResult(
             ok=True,
             op=op,
@@ -332,6 +393,7 @@ class SessionService(BaseService):
             },
         )
 
+    @traced
     def cost(self, *, report: int | None = None) -> ServiceResult:
         """Query or report accumulated token cost for the active session.
 
@@ -383,11 +445,13 @@ class SessionService(BaseService):
 
         return ServiceResult(ok=True, op=op, data=data)
 
+    @traced
     def context(
         self,
         *,
         topic: str | None = None,
         budget: int = 8000,
+        ignore_checkpoints: bool = False,
     ) -> ServiceResult:
         """Build token-budgeted agent context payload (delegates to ContextAssembler)."""
         from ztlctl.services.context import ContextAssembler
@@ -405,8 +469,11 @@ class SessionService(BaseService):
                 ),
             )
 
-        return ContextAssembler(self._vault).assemble(active, topic=topic, budget=budget)
+        return ContextAssembler(self._vault).assemble(
+            active, topic=topic, budget=budget, ignore_checkpoints=ignore_checkpoints
+        )
 
+    @traced
     def brief(self) -> ServiceResult:
         """Quick orientation (delegates to ContextAssembler)."""
         from sqlalchemy import func
@@ -426,6 +493,7 @@ class SessionService(BaseService):
 
         return ContextAssembler(self._vault).build_brief(active, vault_stats)
 
+    @traced
     def extract_decision(self, session_id: str, *, title: str | None = None) -> ServiceResult:
         """Extract a decision note from a session log's pinned/decision entries."""
         op = "extract_decision"
@@ -578,6 +646,8 @@ class SessionService(BaseService):
         from ztlctl.services.reweave import ReweaveService
 
         count = 0
+        orphan_threshold = self._vault.settings.session.orphan_reweave_threshold
+
         with self._vault.engine.connect() as conn:
             # Find notes with 0 outgoing edges
             all_notes = conn.execute(
@@ -597,7 +667,7 @@ class SessionService(BaseService):
 
         svc = ReweaveService(self._vault)
         for orphan_id in orphans:
-            result = svc.reweave(content_id=orphan_id)
+            result = svc.reweave(content_id=orphan_id, min_score_override=orphan_threshold)
             if result.ok:
                 count += result.data.get("count", 0)
             else:

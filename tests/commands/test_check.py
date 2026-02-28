@@ -25,6 +25,9 @@ class TestCheckCommand:
         data = json.loads(result.output)
         assert data["ok"] is True
         assert "count" in data["data"]
+        assert "error_count" in data["data"]
+        assert "warning_count" in data["data"]
+        assert "healthy" in data["data"]
 
     def test_check_fix(self, cli_runner: CliRunner) -> None:
         """--fix flag runs repair."""
@@ -54,3 +57,41 @@ class TestCheckCommand:
         """--rollback with no backups fails."""
         result = cli_runner.invoke(cli, ["--json", "check", "--rollback"])
         assert result.exit_code == 1
+        assert result.stdout == ""
+        payload = json.loads(result.stderr)
+        assert payload["ok"] is False
+        assert payload["op"] == "rollback"
+        assert payload["error"]["code"] == "NO_BACKUPS"
+
+    def test_check_errors_only_filters_warning_issues(self, cli_runner: CliRunner) -> None:
+        cli_runner.invoke(cli, ["--json", "create", "note", "Warning Note", "--tags", "unscoped"])
+
+        result = cli_runner.invoke(cli, ["--json", "check", "--errors-only"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["data"]["count"] == 0
+        assert data["data"]["error_count"] == 0
+        assert data["data"]["warning_count"] == 0
+        assert data["data"]["healthy"] is True
+        assert data["data"]["issues"] == []
+
+    def test_check_warning_only_vault_reports_healthy(self, cli_runner: CliRunner) -> None:
+        cli_runner.invoke(cli, ["create", "note", "Warning Note", "--tags", "unscoped"])
+
+        result = cli_runner.invoke(cli, ["--json", "check"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["data"]["count"] > 0
+        assert data["data"]["error_count"] == 0
+        assert data["data"]["warning_count"] == data["data"]["count"]
+        assert data["data"]["healthy"] is True
+
+    def test_check_warning_only_human_output_marks_advisory(self, cli_runner: CliRunner) -> None:
+        cli_runner.invoke(cli, ["create", "note", "Warning Note", "--tags", "unscoped"])
+
+        result = cli_runner.invoke(cli, ["check"])
+
+        assert result.exit_code == 0
+        assert "No errors found; advisory warnings listed below." in result.output

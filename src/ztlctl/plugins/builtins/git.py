@@ -125,9 +125,15 @@ class GitPlugin:
         if not self._enabled:
             return
         if self._config.batch_commits:
-            created = stats.get("created", 0)
-            updated = stats.get("updated", 0)
-            self._git_commit(f"docs: session {session_id} — {created} created, {updated} updated")
+            summary = self._git_staged_summary()
+            if summary is not None and summary["has_staged"]:
+                parts = [
+                    f"{summary['created']} created",
+                    f"{summary['updated']} updated",
+                ]
+                if summary["renamed"] > 0:
+                    parts.append(f"{summary['renamed']} renamed")
+                self._git_commit(f"docs: session {session_id} — {', '.join(parts)}")
         if self._config.auto_push:
             self._git_push()
 
@@ -196,6 +202,33 @@ class GitPlugin:
             self._run_git("commit", "-m", message)
         except (OSError, subprocess.CalledProcessError) as exc:
             logger.debug("git commit failed: %s", exc)
+
+    def _git_staged_summary(self) -> dict[str, int | bool] | None:
+        """Summarize staged changes from git diff metadata."""
+        try:
+            result = self._run_git("diff", "--cached", "--name-status")
+        except (OSError, subprocess.CalledProcessError) as exc:
+            logger.debug("git diff --cached --name-status failed: %s", exc)
+            return None
+
+        summary: dict[str, int | bool] = {
+            "has_staged": False,
+            "created": 0,
+            "updated": 0,
+            "renamed": 0,
+        }
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+            summary["has_staged"] = True
+            status = line.split("\t", 1)[0][:1]
+            if status in {"A", "C"}:
+                summary["created"] += 1
+            elif status == "M":
+                summary["updated"] += 1
+            elif status == "R":
+                summary["renamed"] += 1
+        return summary
 
     def _git_push(self) -> None:
         """Push to remote."""
