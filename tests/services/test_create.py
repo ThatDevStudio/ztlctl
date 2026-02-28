@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import select, text
 
 from ztlctl.config.settings import ZtlSettings
+from ztlctl.domain.ids import generate_content_hash
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.create import CreateService
@@ -313,6 +314,27 @@ class TestCreateBatch:
         assert result.error is not None
         assert result.error.code == "BATCH_FAILED"
 
+    def test_batch_all_or_nothing_rolls_back_written_content(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        items = [
+            {"type": "note", "title": "Good Note"},
+            {"type": "invalid_type", "title": "Bad Item"},
+        ]
+
+        result = svc.create_batch(items)
+
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "BATCH_FAILED"
+        assert result.data["created"] == []
+
+        with vault.engine.connect() as conn:
+            rows = conn.execute(select(nodes.c.id)).fetchall()
+            assert rows == []
+
+        note_path = vault.root / "notes" / f"{generate_content_hash('Good Note', 'ztl_')}.md"
+        assert not note_path.exists()
+
     def test_batch_partial(self, vault: Vault) -> None:
         """With partial=True, failures are collected but don't stop."""
         svc = CreateService(vault)
@@ -407,3 +429,22 @@ class TestPostCreateReweave:
 
         assert result.ok
         mock_cls.assert_not_called()
+
+    def test_entrypoint_plugins_do_not_fail_post_create_dispatch(self, vault_root: Path) -> None:
+        v = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        v.init_event_bus(sync=True)
+        try:
+            result = CreateService(v).create_note("Entrypoint Note")
+            assert result.ok
+
+            with v.engine.connect() as conn:
+                row = conn.execute(
+                    text(
+                        "SELECT status, error FROM event_wal "
+                        "WHERE hook_name = 'post_create' ORDER BY id DESC LIMIT 1"
+                    )
+                ).one()
+            assert row.status == "completed"
+            assert row.error is None
+        finally:
+            v.close()

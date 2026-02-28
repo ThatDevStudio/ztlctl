@@ -155,6 +155,16 @@ class TestGet:
         assert result.ok
         assert result.data["type"] == "task"
 
+    def test_get_includes_maturity(self, vault: Vault) -> None:
+        cs = CreateService(vault)
+        r = cs.create_note("Garden Get", maturity="seed")
+        assert r.ok
+
+        result = QueryService(vault).get(r.data["id"])
+
+        assert result.ok
+        assert result.data["maturity"] == "seed"
+
 
 # ---------------------------------------------------------------------------
 # list_items

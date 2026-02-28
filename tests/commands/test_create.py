@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -45,6 +46,37 @@ class TestCreateNoteCommand:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "math" in data["data"]["path"]
+
+    def test_create_note_with_plugin_subtype(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        plugin_dir = tmp_path / ".ztlctl" / "plugins"
+        plugin_dir.mkdir(parents=True)
+        plugin_dir.joinpath("custom_content.py").write_text(
+            """import pluggy
+from ztlctl.domain.content import NoteModel
+
+hookimpl = pluggy.HookimplMarker("ztlctl")
+
+
+class ExperimentModel(NoteModel):
+    _subtype_name = "experiment"
+
+
+class CustomContentPlugin:
+    @hookimpl
+    def register_content_models(self):
+        return {"experiment": ExperimentModel}
+""",
+            encoding="utf-8",
+        )
+
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "--sync", "create", "note", "Experiment", "--subtype", "experiment"],
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
 
 
 @pytest.mark.usefixtures("_isolated_vault")

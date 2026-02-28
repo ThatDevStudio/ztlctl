@@ -550,6 +550,8 @@ class GraphService(BaseService):
                 r"\[\[(" + "|".join(re.escape(t) for t in targets_to_remove) + r")(?:\|[^\]]+)?\]\]"
             )
             new_body = pattern.sub("", body)
+            new_body = re.sub(r"[ \t]{2,}", " ", new_body)
+            new_body = re.sub(r"[ \t]+\n", "\n", new_body)
             if new_body != body:
                 body = new_body
                 changed = True

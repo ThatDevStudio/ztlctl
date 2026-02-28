@@ -37,6 +37,15 @@ class TestCheckCleanVault:
         errors = [i for i in result.data["issues"] if i["severity"] == "error"]
         assert len(errors) == 0
 
+    def test_errors_only_filter_hides_warning_only_issues(self, vault: Vault) -> None:
+        create_note(vault, "Warning Note", tags=["unscoped"])
+
+        result = CheckService(vault).check(min_severity="error")
+
+        assert result.ok
+        assert result.data["count"] == 0
+        assert result.data["issues"] == []
+
 
 class TestCheckDbFileConsistency:
     def test_orphan_db_row_detected(self, vault: Vault) -> None:

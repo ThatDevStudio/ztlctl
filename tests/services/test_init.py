@@ -106,6 +106,30 @@ class TestInitVault:
         assert wf.is_file()
         assert "claude-driven" in wf.read_text()
 
+    def test_init_dispatches_post_init_hooks(self, tmp_path: Path) -> None:
+        marker = tmp_path / "post-init.txt"
+        plugin_dir = tmp_path / ".ztlctl" / "plugins"
+        plugin_dir.mkdir(parents=True)
+        plugin_dir.joinpath("post_init_plugin.py").write_text(
+            f"""import pluggy
+
+hookimpl = pluggy.HookimplMarker("ztlctl")
+
+
+class PostInitPlugin:
+    @hookimpl
+    def post_init(self, vault_name: str, client: str, tone: str) -> None:
+        with open({str(marker)!r}, "w", encoding="utf-8") as fh:
+            fh.write(f"{{vault_name}}|{{client}}|{{tone}}")
+""",
+            encoding="utf-8",
+        )
+
+        result = InitService.init_vault(tmp_path, name="hooked-vault", client="vanilla")
+
+        assert result.ok
+        assert marker.read_text(encoding="utf-8") == "hooked-vault|vanilla|research-partner"
+
     def test_workflow_scaffold_created_by_default(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="wf-vault")
         readme = tmp_path / ".ztlctl" / "workflow" / "README.md"
@@ -234,6 +258,16 @@ class TestRegenerateSelf:
 
         assert result.ok
         assert (tmp_path / "self" / "identity.md").read_text() == "regen override custom-regen\n"
+
+    def test_regenerate_requires_config(self, tmp_path: Path) -> None:
+        vault = self._make_vault(tmp_path)
+        (tmp_path / "ztlctl.toml").unlink()
+
+        result = InitService.regenerate_self(vault)
+
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "NO_CONFIG"
 
 
 class TestCheckStaleness:

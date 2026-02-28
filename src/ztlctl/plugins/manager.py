@@ -40,6 +40,7 @@ class PluginManager:
         Returns a list of loaded plugin names.
         """
         self._pm.load_setuptools_entrypoints("ztlctl.plugins")
+        self._normalize_plugin_instances()
         if local_dir is not None:
             self._discover_local(local_dir)
         self._register_content_models()
@@ -132,6 +133,34 @@ class PluginManager:
                         py_file,
                         exc_info=True,
                     )
+
+    def _normalize_plugin_instances(self) -> None:
+        """Replace registered plugin classes with instantiated objects.
+
+        Entry-point loading may register a plugin class directly. Hook dispatch
+        against class objects leaves ``self`` unbound and fails at runtime.
+        """
+        for plugin in list(self._pm.get_plugins()):
+            if not inspect.isclass(plugin):
+                continue
+            if not self._has_hook_impls(plugin):
+                continue
+
+            plugin_name = self._pm.get_name(plugin) or plugin.__name__
+            self._pm.unregister(plugin)
+
+            try:
+                instance = plugin()
+            except Exception:
+                logger.warning(
+                    "Failed to instantiate entry-point plugin %s",
+                    plugin_name,
+                    exc_info=True,
+                )
+                continue
+
+            self._pm.register(instance, name=plugin_name)
+            logger.debug("Instantiated entry-point plugin: %s", plugin_name)
 
     def _register_content_models(self) -> None:
         """Load plugin-provided content subtype models into the domain registry."""

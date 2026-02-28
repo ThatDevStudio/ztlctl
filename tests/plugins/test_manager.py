@@ -23,6 +23,12 @@ class _CustomSubtypeModel(NoteModel):
     _subtype_name = "plugin_note"
 
 
+class _ClassBasedPlugin:
+    @hookimpl
+    def post_check(self, issues_found: int, issues_fixed: int) -> None:
+        pass
+
+
 class _ContentModelPlugin:
     @hookimpl
     def register_content_models(self) -> dict[str, type[NoteModel]]:
@@ -139,3 +145,13 @@ class TestPluginManager:
         finally:
             CONTENT_REGISTRY.clear()
             CONTENT_REGISTRY.update(original_registry)
+
+    def test_normalize_plugin_instances_instantiates_registered_classes(self) -> None:
+        pm = PluginManager()
+        pm._pm.register(_ClassBasedPlugin, name="class-based")
+
+        pm._normalize_plugin_instances()
+
+        plugins = [p for p in pm.get_plugins() if pm._pm.get_name(p) == "class-based"]
+        assert len(plugins) == 1
+        assert isinstance(plugins[0], _ClassBasedPlugin)

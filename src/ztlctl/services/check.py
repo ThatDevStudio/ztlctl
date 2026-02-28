@@ -33,6 +33,10 @@ if TYPE_CHECKING:
 
 SEVERITY_ERROR = "error"
 SEVERITY_WARNING = "warning"
+_SEVERITY_RANK = {
+    SEVERITY_WARNING: 1,
+    SEVERITY_ERROR: 2,
+}
 
 CAT_DB_FILE = "db_file_consistency"
 CAT_SCHEMA = "schema_integrity"
@@ -54,7 +58,7 @@ class CheckService(BaseService):
     # ------------------------------------------------------------------
 
     @traced
-    def check(self) -> ServiceResult:
+    def check(self, *, min_severity: str = SEVERITY_WARNING) -> ServiceResult:
         """Report integrity issues without modifying anything."""
         issues: list[dict[str, Any]] = []
         with self._vault.engine.connect() as conn:
@@ -68,6 +72,13 @@ class CheckService(BaseService):
                 issues.extend(self._check_structural_validation(conn))
             with trace_span("garden_health"):
                 issues.extend(self._check_garden_health(conn))
+
+        issues = [
+            issue
+            for issue in issues
+            if _SEVERITY_RANK.get(str(issue.get("severity")), 0)
+            >= _SEVERITY_RANK.get(min_severity, _SEVERITY_RANK[SEVERITY_WARNING])
+        ]
 
         warnings: list[str] = []
         issues_fixed = sum(1 for i in issues if i.get("fix_action") is not None)

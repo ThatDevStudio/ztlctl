@@ -362,6 +362,7 @@ class QueryService(BaseService):
             "type": row["type"],
             "subtype": row["subtype"],
             "status": row["status"],
+            "maturity": row["maturity"],
             "path": row["path"],
             "topic": row["topic"],
             "session": row["session"],
