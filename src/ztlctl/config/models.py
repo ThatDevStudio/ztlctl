@@ -124,7 +124,7 @@ class GitConfig(BaseModel):
     model_config = {"frozen": True}
 
     enabled: bool = True
-    branch: str = "main"
+    branch: str = "develop"
     auto_push: bool = True
     commit_style: str = "conventional"
     batch_commits: bool = True
