@@ -426,6 +426,9 @@ def _render_check(result: ServiceResult, console: Console, *, verbose: bool = Fa
     """Render check results with issues grouped by category."""
     issues = result.data.get("issues", [])
     count = result.data.get("count", len(issues))
+    errors = result.data.get("error_count")
+    warnings = result.data.get("warning_count")
+    healthy = result.data.get("healthy")
 
     if count == 0:
         console.print("[ztl.ok]OK[/ztl.ok]  No issues found.")
@@ -452,8 +455,12 @@ def _render_check(result: ServiceResult, console: Console, *, verbose: bool = Fa
             if verbose and issue.get("fix_action"):
                 console.print(f"    fix: {issue['fix_action']}")
 
-    errors = sum(1 for i in issues if i.get("severity") == "error")
-    warnings = count - errors
+    if not isinstance(errors, int):
+        errors = sum(1 for i in issues if i.get("severity") == "error")
+    if not isinstance(warnings, int):
+        warnings = count - errors
+    if healthy is True and errors == 0 and count > 0:
+        console.print("\n[ztl.ok]OK[/ztl.ok]  No errors found; advisory warnings listed below.")
     console.print(f"\n{errors} errors, {warnings} warnings")
 
 

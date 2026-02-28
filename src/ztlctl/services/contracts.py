@@ -67,6 +67,28 @@ class ListItemsResultData(BaseModel):
     items: list[ListItem]
 
 
+class CheckIssue(BaseModel):
+    """One integrity finding returned by ``CheckService.check``."""
+
+    model_config = ConfigDict(extra="allow")
+
+    category: str
+    severity: Literal["warning", "error"]
+    node_id: str | None = None
+    message: str
+    fix_action: str | None = None
+
+
+class CheckResultData(BaseModel):
+    """Payload contract for ``CheckService.check``."""
+
+    issues: list[CheckIssue]
+    count: int
+    error_count: int
+    warning_count: int
+    healthy: bool
+
+
 class SessionLayerSummary(BaseModel):
     """Active session summary embedded in context layer 1."""
 
