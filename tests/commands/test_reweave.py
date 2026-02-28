@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from click.testing import CliRunner
 
@@ -95,3 +97,14 @@ class TestReweaveInteractive:
         result = cli_runner.invoke(cli, ["reweave"], input="y\n")
         # Either no content or no suggestions — should not prompt
         assert "Apply" not in result.output
+
+    def test_reweave_dry_run_json_no_candidates_includes_flag(self, cli_runner: CliRunner) -> None:
+        cli_runner.invoke(cli, ["create", "note", "Lonely Reweave Note"])
+
+        result = cli_runner.invoke(cli, ["--json", "reweave", "--dry-run"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["data"]["count"] == 0
+        assert data["data"]["dry_run"] is True
