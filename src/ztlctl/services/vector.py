@@ -53,16 +53,37 @@ class VectorService(BaseService):
             )
         return self._provider
 
+    @staticmethod
+    def _driver_connection(conn: Any) -> Any:
+        """Return the underlying sqlite3 connection for extension loading."""
+        pool_conn = conn.connection
+        if hasattr(pool_conn, "driver_connection"):
+            return pool_conn.driver_connection
+        return pool_conn.connection
+
+    @classmethod
+    def _load_sqlite_vec(cls, conn: Any) -> Any:
+        """Load sqlite-vec into the active sqlite connection."""
+        import sqlite_vec  # type: ignore[import-not-found]
+
+        raw = cls._driver_connection(conn)
+        enable_load_extension = getattr(raw, "enable_load_extension", None)
+        if callable(enable_load_extension):
+            enable_load_extension(True)
+        try:
+            sqlite_vec.load(raw)
+        finally:
+            if callable(enable_load_extension):
+                enable_load_extension(False)
+        return sqlite_vec
+
     def is_available(self) -> bool:
         """Check if sqlite-vec extension can be loaded."""
         if self._vec_available is not None:
             return self._vec_available
         try:
-            import sqlite_vec  # type: ignore[import-not-found]
-
             with self._vault.engine.connect() as conn:
-                raw = conn.connection.connection
-                sqlite_vec.load(raw)
+                self._load_sqlite_vec(conn)
             self._vec_available = True
         except Exception:
             self._vec_available = False
@@ -74,10 +95,7 @@ class VectorService(BaseService):
             return
         dim = self._vault.settings.search.embedding_dim
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
-            import sqlite_vec
-
-            sqlite_vec.load(raw)
+            self._load_sqlite_vec(conn)
             conn.execute(
                 text(
                     f"CREATE VIRTUAL TABLE IF NOT EXISTS vec_items "
@@ -95,10 +113,7 @@ class VectorService(BaseService):
         vec = provider.embed(content)
         blob = _serialize_f32(vec)
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
-            import sqlite_vec
-
-            sqlite_vec.load(raw)
+            self._load_sqlite_vec(conn)
             # Upsert: delete then insert (sqlite-vec doesn't support ON CONFLICT)
             conn.execute(text("DELETE FROM vec_items WHERE node_id = :nid"), {"nid": node_id})
             conn.execute(
@@ -113,10 +128,7 @@ class VectorService(BaseService):
         if not self.is_available():
             return
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
-            import sqlite_vec
-
-            sqlite_vec.load(raw)
+            self._load_sqlite_vec(conn)
             conn.execute(text("DELETE FROM vec_items WHERE node_id = :nid"), {"nid": node_id})
             conn.commit()
 
@@ -136,10 +148,7 @@ class VectorService(BaseService):
         blob = _serialize_f32(query_vec)
 
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
-            import sqlite_vec
-
-            sqlite_vec.load(raw)
+            self._load_sqlite_vec(conn)
             rows = conn.execute(
                 text(
                     "SELECT node_id, distance FROM vec_items "
@@ -185,10 +194,7 @@ class VectorService(BaseService):
             vectors = provider.embed_batch(texts)
 
         with self._vault.engine.connect() as conn:
-            raw = conn.connection.connection
-            import sqlite_vec
-
-            sqlite_vec.load(raw)
+            self._load_sqlite_vec(conn)
             conn.execute(text("DELETE FROM vec_items"))
             for nid, vec in zip(node_ids, vectors):
                 blob = _serialize_f32(vec)

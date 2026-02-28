@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import MagicMock
+
+import pytest
 
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.vector import VectorService, _serialize_f32
@@ -50,6 +53,54 @@ class TestVectorServiceAvailability:
         result2 = svc.is_available()
         assert result1 == result2
         assert svc._vec_available is not None
+
+    def test_is_available_uses_driver_connection(
+        self, monkeypatch: pytest.MonkeyPatch, vault: Vault
+    ) -> None:
+        raw_conn = object()
+        sqlite_vec = MagicMock()
+        monkeypatch.setitem(sys.modules, "sqlite_vec", sqlite_vec)
+
+        pool_conn = MagicMock()
+        pool_conn.driver_connection = raw_conn
+        pool_conn.connection = object()
+
+        sa_conn = MagicMock()
+        sa_conn.connection = pool_conn
+
+        connect_ctx = MagicMock()
+        connect_ctx.__enter__.return_value = sa_conn
+        connect_ctx.__exit__.return_value = False
+        monkeypatch.setattr(vault.engine, "connect", MagicMock(return_value=connect_ctx))
+
+        svc = VectorService(vault)
+
+        assert svc.is_available() is True
+        sqlite_vec.load.assert_called_once_with(raw_conn)
+
+    def test_is_available_enables_extension_loading(
+        self, monkeypatch: pytest.MonkeyPatch, vault: Vault
+    ) -> None:
+        raw_conn = MagicMock()
+        sqlite_vec = MagicMock()
+        monkeypatch.setitem(sys.modules, "sqlite_vec", sqlite_vec)
+
+        pool_conn = MagicMock()
+        pool_conn.driver_connection = raw_conn
+
+        sa_conn = MagicMock()
+        sa_conn.connection = pool_conn
+
+        connect_ctx = MagicMock()
+        connect_ctx.__enter__.return_value = sa_conn
+        connect_ctx.__exit__.return_value = False
+        monkeypatch.setattr(vault.engine, "connect", MagicMock(return_value=connect_ctx))
+
+        svc = VectorService(vault)
+
+        assert svc.is_available() is True
+        raw_conn.enable_load_extension.assert_any_call(True)
+        raw_conn.enable_load_extension.assert_any_call(False)
 
 
 class TestVectorServiceGracefulDegradation:

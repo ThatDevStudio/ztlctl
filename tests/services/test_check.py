@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import delete, insert, select, text
 
-from tests.conftest import create_note, create_reference
+from tests.conftest import create_note, create_reference, start_session
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
 from ztlctl.infrastructure.vault import Vault
@@ -102,6 +102,71 @@ class TestCheckDbFileConsistency:
         issues = result.data["issues"]
         mismatch = [i for i in issues if "Status mismatch" in i["message"]]
         assert len(mismatch) == 1
+
+    def test_session_log_not_reported_as_id_mismatch(self, vault: Vault) -> None:
+        """Session JSONL files should not be treated like markdown frontmatter."""
+        data = start_session(vault, "Clean Session")
+
+        result = CheckService(vault).check()
+
+        issues = [
+            issue
+            for issue in result.data["issues"]
+            if issue["node_id"] == data["id"] and issue["category"] == "db_file_consistency"
+        ]
+        assert not any("ID mismatch" in issue["message"] for issue in issues)
+
+    def test_session_log_closed_status_not_reported_as_error(self, vault: Vault) -> None:
+        data = start_session(vault, "Closed Session")
+        from ztlctl.services.session import SessionService
+
+        SessionService(vault).close()
+        result = CheckService(vault).check()
+
+        issues = [
+            issue
+            for issue in result.data["issues"]
+            if issue["node_id"] == data["id"] and issue["category"] == "db_file_consistency"
+        ]
+        assert not any("ID mismatch" in issue["message"] for issue in issues)
+
+    def test_invalid_log_jsonl_reports_parse_error(self, vault: Vault) -> None:
+        data = start_session(vault, "Broken Session")
+        log_path = vault.root / data["path"]
+        log_path.write_text('{"type":"session_start"\n', encoding="utf-8")
+
+        result = CheckService(vault).check()
+
+        issues = [
+            issue
+            for issue in result.data["issues"]
+            if issue["node_id"] == data["id"] and issue["category"] == "db_file_consistency"
+        ]
+        assert len(issues) == 1
+        assert issues[0]["severity"] == "error"
+        assert "Cannot parse content metadata" in issues[0]["message"]
+
+    def test_fix_resyncs_log_row_from_jsonl(self, vault: Vault) -> None:
+        data = start_session(vault, "Repair Session")
+        with vault.engine.begin() as conn:
+            conn.execute(
+                nodes.update()
+                .where(nodes.c.id == data["id"])
+                .values(title="Wrong Title", status="closed", topic="wrong-topic")
+            )
+
+        result = CheckService(vault).fix()
+
+        assert result.ok
+        assert any(data["id"] in fix for fix in result.data["fixes"])
+        with vault.engine.connect() as conn:
+            row = conn.execute(
+                select(nodes.c.title, nodes.c.status, nodes.c.topic).where(nodes.c.id == data["id"])
+            ).first()
+        assert row is not None
+        assert row.title == "Session: Repair Session"
+        assert row.status == "open"
+        assert row.topic == "Repair Session"
 
 
 class TestCheckSchemaIntegrity:
