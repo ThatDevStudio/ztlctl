@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.1.0 (2026-02-28)
+
+### Feat
+
+- ZettelControl v1.1.0 — documentation upgrade and community health (#81)
+
 ## v1.0.0 (2026-02-26)
 
 ### Feat
