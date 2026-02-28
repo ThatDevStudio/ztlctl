@@ -97,3 +97,10 @@ class TestEnvVars:
         monkeypatch.setenv("ZTLCTL_QUIET", "true")
         settings = ZtlSettings.from_cli(vault_root=tmp_path)
         assert settings.quiet is True
+
+    def test_nested_env_var_override(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ZTLCTL_REWEAVE__MIN_SCORE_THRESHOLD", "0.5")
+
+        settings = ZtlSettings.from_cli(vault_root=tmp_path)
+
+        assert settings.reweave.min_score_threshold == 0.5

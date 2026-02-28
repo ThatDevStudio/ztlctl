@@ -147,17 +147,9 @@ class UpdateService(BaseService):
 
             # ── PROPAGATE ────────────────────────────────────────
             with trace_span("propagate"):
-                # Recompute note status from link count
-                if content_type == "note" and subtype != "decision":
-                    outgoing = txn.conn.execute(
-                        select(edges.c.target_id).where(edges.c.source_id == content_id)
-                    ).fetchall()
-                    computed_status = compute_note_status(len(outgoing))
-                    current_fm_status = str(fm.get("status", "draft"))
-                    if computed_status != current_fm_status:
-                        fm["status"] = computed_status
-                        fm["modified"] = today
-                        txn.write_content(file_path, fm, body)
+                # Note status depends on the final indexed edge set, so it is
+                # recomputed after edge re-indexing in the INDEX stage below.
+                pass
 
             # ── INDEX ────────────────────────────────────────────
             with trace_span("index"):
@@ -181,10 +173,6 @@ class UpdateService(BaseService):
                 if isinstance(aliases, list):
                     update_cols["aliases"] = json.dumps(aliases)
 
-                txn.conn.execute(
-                    nodes.update().where(nodes.c.id == content_id).values(**update_cols)
-                )
-
                 # FTS5
                 txn.upsert_fts(content_id, str(fm.get("title", "")), body)
 
@@ -202,6 +190,21 @@ class UpdateService(BaseService):
                     if not isinstance(fm_links, dict):
                         fm_links = {}
                     txn.index_links(content_id, fm_links, body, today)
+
+                if content_type == "note" and subtype != "decision":
+                    outgoing = txn.conn.execute(
+                        select(edges.c.target_id).where(edges.c.source_id == content_id)
+                    ).fetchall()
+                    computed_status = compute_note_status(len(outgoing))
+                    if computed_status != str(fm.get("status", "draft")):
+                        fm["status"] = computed_status
+                        fm["modified"] = today
+                        update_cols["status"] = computed_status
+                        txn.write_content(file_path, fm, body)
+
+                txn.conn.execute(
+                    nodes.update().where(nodes.c.id == content_id).values(**update_cols)
+                )
 
         # ── EVENT ────────────────────────────────────────────
         self._dispatch_event(

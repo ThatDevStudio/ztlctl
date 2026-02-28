@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import click
@@ -21,6 +22,49 @@ def _is_interactive(app: AppContext) -> bool:
     Prompts require: no ``--no-interact``, no ``--json``, and stdin is a TTY.
     """
     return not app.settings.no_interact and not app.settings.json_output and sys.stdin.isatty()
+
+
+def _load_dynamic_subtypes(ctx: click.Context, content_type: str) -> list[str]:
+    """Load built-in and plugin-registered subtype choices for a content type."""
+    from ztlctl.domain.content import CONTENT_REGISTRY
+
+    if ctx.obj is not None:
+        try:
+            _ = ctx.obj.vault
+        except Exception:
+            pass
+
+    builtin_by_type = {
+        "note": ["knowledge", "decision"],
+        "reference": ["article", "tool", "spec"],
+    }
+    builtin = list(builtin_by_type.get(content_type, []))
+    plugin_subtypes = sorted(
+        name
+        for name, model_cls in CONTENT_REGISTRY.items()
+        if name not in builtin
+        and name != content_type
+        and getattr(model_cls, "_content_type", None) == content_type
+    )
+    return builtin + plugin_subtypes
+
+
+def _validate_subtype(
+    content_type: str,
+) -> Callable[[click.Context, click.Parameter, str | None], str | None]:
+    """Build a Click callback that validates subtypes lazily."""
+
+    def _callback(ctx: click.Context, _param: click.Parameter, value: str | None) -> str | None:
+        if value is None:
+            return None
+
+        choices = _load_dynamic_subtypes(ctx, content_type)
+        if value not in choices:
+            formatted = ", ".join(repr(choice) for choice in choices)
+            raise click.BadParameter(f"{value!r} is not one of {formatted}")
+        return value
+
+    return _callback
 
 
 _CREATE_EXAMPLES = """\
@@ -45,7 +89,11 @@ def create(app: AppContext) -> None:
   ztlctl create note "Session Note" --session LOG-0001"""
 )
 @click.argument("title")
-@click.option("--subtype", type=click.Choice(["knowledge", "decision"]), help="Note subtype.")
+@click.option(
+    "--subtype",
+    callback=_validate_subtype("note"),
+    help="Note subtype. Supports built-ins and plugin-registered note subtypes.",
+)
 @click.option("--tags", multiple=True, help="Tags (repeatable, e.g. --tags domain/scope).")
 @click.option("--topic", default=None, help="Topic subdirectory.")
 @click.option("--session", default=None, help="Session ID (LOG-NNNN).")
@@ -91,7 +139,9 @@ def note(
 @click.argument("title")
 @click.option("--url", default=None, help="Source URL.")
 @click.option(
-    "--subtype", type=click.Choice(["article", "tool", "spec"]), help="Reference subtype."
+    "--subtype",
+    callback=_validate_subtype("reference"),
+    help="Reference subtype. Supports built-ins and plugin-registered reference subtypes.",
 )
 @click.option("--tags", multiple=True, help="Tags (repeatable).")
 @click.option("--topic", default=None, help="Topic subdirectory.")
@@ -233,7 +283,7 @@ def batch(app: AppContext, file: str, partial: bool) -> None:
         app.emit(
             ServiceResult(
                 ok=False,
-                op="batch_create",
+                op="create_batch",
                 error=ServiceError(
                     code="invalid_file",
                     message=f"Error reading {file}: {exc}",
@@ -248,7 +298,7 @@ def batch(app: AppContext, file: str, partial: bool) -> None:
         app.emit(
             ServiceResult(
                 ok=False,
-                op="batch_create",
+                op="create_batch",
                 error=ServiceError(
                     code="invalid_format",
                     message="JSON file must contain a top-level array.",

@@ -54,3 +54,13 @@ class TestCheckCommand:
         """--rollback with no backups fails."""
         result = cli_runner.invoke(cli, ["--json", "check", "--rollback"])
         assert result.exit_code == 1
+
+    def test_check_errors_only_filters_warning_issues(self, cli_runner: CliRunner) -> None:
+        cli_runner.invoke(cli, ["--json", "create", "note", "Warning Note", "--tags", "unscoped"])
+
+        result = cli_runner.invoke(cli, ["--json", "check", "--errors-only"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["data"]["count"] == 0
+        assert data["data"]["issues"] == []

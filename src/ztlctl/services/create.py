@@ -8,12 +8,15 @@ Post-create reweave is plugin-driven via the ``post_create`` hook.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import insert, select
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
+
+    from ztlctl.infrastructure.vault import VaultTransaction
 
 from ztlctl.domain.content import get_content_model
 from ztlctl.domain.ids import TYPE_PREFIXES, generate_content_hash
@@ -23,6 +26,22 @@ from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import trace_span, traced
+
+
+@dataclass(frozen=True)
+class _CreatedContent:
+    """Committed content metadata used for post-commit side effects."""
+
+    content_type: str
+    content_id: str
+    title: str
+    path: str
+    tags: list[str]
+    body: str
+
+
+class _BatchAbort(RuntimeError):
+    """Internal sentinel used to roll back an all-or-nothing batch."""
 
 
 class CreateService(BaseService):
@@ -118,38 +137,93 @@ class CreateService(BaseService):
         """Create multiple items. All-or-nothing unless *partial* is True."""
         results: list[dict[str, Any]] = []
         errors: list[dict[str, Any]] = []
+        warnings: list[str] = []
 
-        for i, item in enumerate(items):
-            content_type = str(item.get("type", "note"))
-            title = str(item.get("title", ""))
-            kwargs: dict[str, Any] = {k: v for k, v in item.items() if k not in ("type", "title")}
-            result = self._create_content(content_type=content_type, title=title, **kwargs)
-            if result.ok:
-                results.append(result.data)
-            else:
-                errors.append({"index": i, "error": result.error.message if result.error else ""})
-                if not partial:
-                    return ServiceResult(
-                        ok=False,
-                        op="create_batch",
-                        error=ServiceError(
-                            code="BATCH_FAILED",
-                            message=f"Item {i} failed: {errors[-1]['error']}",
-                        ),
-                        data={"created": results, "errors": errors},
+        if partial:
+            for i, item in enumerate(items):
+                content_type = str(item.get("type", "note"))
+                title = str(item.get("title", ""))
+                kwargs: dict[str, Any] = {
+                    k: v for k, v in item.items() if k not in ("type", "title")
+                }
+                result = self._create_content(content_type=content_type, title=title, **kwargs)
+                if result.ok:
+                    results.append(result.data)
+                    warnings.extend(result.warnings)
+                else:
+                    errors.append(
+                        {"index": i, "error": result.error.message if result.error else ""}
                     )
+                    warnings.extend(result.warnings)
 
-        all_ok = len(errors) == 0
+            all_ok = len(errors) == 0
+            return ServiceResult(
+                ok=all_ok,
+                op="create_batch",
+                data={"created": results, "errors": errors},
+                warnings=warnings,
+                error=ServiceError(
+                    code="BATCH_PARTIAL",
+                    message=f"{len(errors)} of {len(items)} items failed",
+                )
+                if not all_ok
+                else None,
+            )
+
+        created_items: list[_CreatedContent] = []
+
+        try:
+            with self._vault.transaction() as txn:
+                for i, item in enumerate(items):
+                    content_type = str(item.get("type", "note"))
+                    title = str(item.get("title", ""))
+                    kwargs = {k: v for k, v in item.items() if k not in ("type", "title")}
+                    result, created = self._create_content_in_txn(
+                        txn,
+                        content_type=content_type,
+                        title=title,
+                        **kwargs,
+                    )
+                    if result.ok and created is not None:
+                        results.append(result.data)
+                        warnings.extend(result.warnings)
+                        created_items.append(created)
+                        continue
+
+                    errors.append(
+                        {"index": i, "error": result.error.message if result.error else ""}
+                    )
+                    raise _BatchAbort()
+        except _BatchAbort:
+            return ServiceResult(
+                ok=False,
+                op="create_batch",
+                error=ServiceError(
+                    code="BATCH_FAILED",
+                    message=f"Item {errors[-1]['index']} failed: {errors[-1]['error']}",
+                ),
+                data={"created": [], "errors": errors},
+            )
+
+        for created in created_items:
+            self._dispatch_event(
+                "post_create",
+                {
+                    "content_type": created.content_type,
+                    "content_id": created.content_id,
+                    "title": created.title,
+                    "path": created.path,
+                    "tags": created.tags,
+                },
+                warnings,
+            )
+            self._vector_index_created(created, warnings)
+
         return ServiceResult(
-            ok=all_ok,
+            ok=True,
             op="create_batch",
             data={"created": results, "errors": errors},
-            error=ServiceError(
-                code="BATCH_PARTIAL",
-                message=f"{len(errors)} of {len(items)} items failed",
-            )
-            if not all_ok
-            else None,
+            warnings=warnings,
         )
 
     # ------------------------------------------------------------------
@@ -171,24 +245,80 @@ class CreateService(BaseService):
 
         VALIDATE → GENERATE → PERSIST → INDEX → EVENT → VECTOR INDEX → RESPOND
         """
+        with self._vault.transaction() as txn:
+            result, created = self._create_content_in_txn(
+                txn,
+                content_type=content_type,
+                title=title,
+                subtype=subtype,
+                tags=tags,
+                topic=topic,
+                session=session,
+                **extra,
+            )
+
+        if not result.ok or created is None:
+            return result
+
+        warnings = list(result.warnings)
+
+        with trace_span("dispatch_event"):
+            self._dispatch_event(
+                "post_create",
+                {
+                    "content_type": created.content_type,
+                    "content_id": created.content_id,
+                    "title": created.title,
+                    "path": created.path,
+                    "tags": created.tags,
+                },
+                warnings,
+            )
+
+        self._vector_index_created(created, warnings)
+
+        return ServiceResult(
+            ok=True,
+            op=result.op,
+            data=result.data,
+            warnings=warnings,
+        )
+
+    def _create_content_in_txn(
+        self,
+        txn: VaultTransaction,
+        *,
+        content_type: str,
+        title: str,
+        subtype: str | None = None,
+        tags: list[str] | None = None,
+        topic: str | None = None,
+        session: str | None = None,
+        **extra: Any,
+    ) -> tuple[ServiceResult, _CreatedContent | None]:
+        """Create content inside an existing transaction without side effects."""
         op = f"create_{content_type}"
         warnings: list[str] = []
         tags = tags or []
         today = today_iso()
         now = now_iso()
 
-        # ── VALIDATE ──────────────────────────────────────────────
         with trace_span("validate"):
             try:
                 model_cls = get_content_model(content_type, subtype)
             except KeyError:
-                return ServiceResult(
-                    ok=False,
-                    op=op,
-                    error=ServiceError(
-                        code="UNKNOWN_TYPE",
-                        message=f"Unknown content type: {content_type!r} / subtype: {subtype!r}",
+                return (
+                    ServiceResult(
+                        ok=False,
+                        op=op,
+                        error=ServiceError(
+                            code="UNKNOWN_TYPE",
+                            message=(
+                                f"Unknown content type: {content_type!r} / subtype: {subtype!r}"
+                            ),
+                        ),
                     ),
+                    None,
                 )
 
             initial_status = self._initial_status(content_type, subtype)
@@ -200,144 +330,111 @@ class CreateService(BaseService):
             }
             vr = model_cls.validate_create(validate_data)
             if not vr.valid:
-                return ServiceResult(
-                    ok=False,
-                    op=op,
-                    error=ServiceError(code="VALIDATION_FAILED", message="; ".join(vr.errors)),
+                return (
+                    ServiceResult(
+                        ok=False,
+                        op=op,
+                        error=ServiceError(code="VALIDATION_FAILED", message="; ".join(vr.errors)),
+                    ),
+                    None,
                 )
             warnings.extend(vr.warnings)
 
-            # Warn on tags missing domain/scope format
             for tag in tags:
                 if "/" not in tag:
                     warnings.append(
                         f"Tag '{tag}' missing domain/scope format (e.g. 'domain/scope')"
                     )
 
-        # ── GENERATE → PERSIST → INDEX (inside transaction) ───────
-        with self._vault.transaction() as txn:
-            # GENERATE
-            with trace_span("generate"):
-                content_id = self._generate_id(txn.conn, content_type, title)
-                if content_id is None:
-                    return ServiceResult(
+        with trace_span("generate"):
+            content_id = self._generate_id(txn.conn, content_type, title)
+            if content_id is None:
+                return (
+                    ServiceResult(
                         ok=False,
                         op=op,
                         error=ServiceError(
                             code="UNKNOWN_TYPE",
                             message=f"No ID prefix for content type: {content_type!r}",
                         ),
-                    )
+                    ),
+                    None,
+                )
 
-                # Check for ID collision
-                existing = txn.conn.execute(
-                    select(nodes.c.id).where(nodes.c.id == content_id)
-                ).first()
-                if existing is not None:
-                    return ServiceResult(
+            existing = txn.conn.execute(select(nodes.c.id).where(nodes.c.id == content_id)).first()
+            if existing is not None:
+                return (
+                    ServiceResult(
                         ok=False,
                         op=op,
                         error=ServiceError(
                             code="ID_COLLISION",
                             message=f"Content with ID '{content_id}' already exists",
                         ),
-                    )
+                    ),
+                    None,
+                )
 
-            with trace_span("persist"):
-                # Build model attributes
-                model_data: dict[str, Any] = {
-                    "id": content_id,
-                    "type": content_type,
-                    "status": initial_status,
-                    "title": title,
-                    "created": today,
-                    "modified": today,
-                }
-                if subtype:
-                    model_data["subtype"] = subtype
-                if tags:
-                    model_data["tags"] = tags
-                if topic:
-                    model_data["topic"] = topic
-                if session:
-                    model_data["session"] = session
-                model_data.update(extra)
+        with trace_span("persist"):
+            model_data: dict[str, Any] = {
+                "id": content_id,
+                "type": content_type,
+                "status": initial_status,
+                "title": title,
+                "created": today,
+                "modified": today,
+            }
+            if subtype:
+                model_data["subtype"] = subtype
+            if tags:
+                model_data["tags"] = tags
+            if topic:
+                model_data["topic"] = topic
+            if session:
+                model_data["session"] = session
+            model_data.update(extra)
 
-                model = model_cls.model_validate(model_data)
-                body = model.write_body(template_root=self._vault.root, **extra)
-                fm = model.to_frontmatter()
+            model = model_cls.model_validate(model_data)
+            body = model.write_body(template_root=self._vault.root, **extra)
+            fm = model.to_frontmatter()
 
-                # PERSIST
-                path = txn.resolve_path(content_type, content_id, topic=topic)
-                txn.write_content(path, fm, body)
+            path = txn.resolve_path(content_type, content_id, topic=topic)
+            txn.write_content(path, fm, body)
 
-            # INDEX
-            with trace_span("index"):
-                rel_path = str(path.relative_to(self._vault.root))
-                node_row: dict[str, Any] = {
-                    "id": content_id,
-                    "title": title,
-                    "type": content_type,
-                    "subtype": subtype,
-                    "status": initial_status,
-                    "path": rel_path,
-                    "created": today,
-                    "modified": today,
-                    "created_at": now,
-                    "modified_at": now,
-                }
-                if topic:
-                    node_row["topic"] = topic
-                if session:
-                    node_row["session"] = session
-                maturity = extra.get("maturity")
-                if maturity:
-                    node_row["maturity"] = maturity
-                aliases = fm.get("aliases")
-                if isinstance(aliases, list):
-                    node_row["aliases"] = json.dumps(aliases)
-                txn.conn.execute(insert(nodes).values(**node_row))
+        with trace_span("index"):
+            rel_path = str(path.relative_to(self._vault.root))
+            node_row: dict[str, Any] = {
+                "id": content_id,
+                "title": title,
+                "type": content_type,
+                "subtype": subtype,
+                "status": initial_status,
+                "path": rel_path,
+                "created": today,
+                "modified": today,
+                "created_at": now,
+                "modified_at": now,
+            }
+            if topic:
+                node_row["topic"] = topic
+            if session:
+                node_row["session"] = session
+            maturity = extra.get("maturity")
+            if maturity:
+                node_row["maturity"] = maturity
+            aliases = fm.get("aliases")
+            if isinstance(aliases, list):
+                node_row["aliases"] = json.dumps(aliases)
+            txn.conn.execute(insert(nodes).values(**node_row))
 
-                # FTS5 index
-                txn.upsert_fts(content_id, title, body)
+            txn.upsert_fts(content_id, title, body)
+            txn.index_tags(content_id, tags, today)
 
-                # Tags
-                txn.index_tags(content_id, tags, today)
+            fm_links = fm.get("links", {})
+            if isinstance(fm_links, dict):
+                txn.index_links(content_id, fm_links, body, today)
 
-                # Links (frontmatter + body wikilinks)
-                fm_links = fm.get("links", {})
-                if isinstance(fm_links, dict):
-                    txn.index_links(content_id, fm_links, body, today)
-
-        # ── EVENT ─────────────────────────────────────────────────
-        with trace_span("dispatch_event"):
-            self._dispatch_event(
-                "post_create",
-                {
-                    "content_type": content_type,
-                    "content_id": content_id,
-                    "title": title,
-                    "path": rel_path,
-                    "tags": tags,
-                },
-                warnings,
-            )
-
-        # ── VECTOR INDEX ─────────────────────────────────────────
-        if self._vault.settings.search.semantic_enabled:
-            with trace_span("vector_index"):
-                try:
-                    from ztlctl.services.vector import VectorService
-
-                    vec_svc = VectorService(self._vault)
-                    if vec_svc.is_available():
-                        vec_svc.ensure_table()
-                        vec_svc.index_node(content_id, f"{title} {body}")
-                except Exception as exc:
-                    warnings.append(f"Vector indexing skipped: {exc}")
-
-        # ── RESPOND ───────────────────────────────────────────────
-        return ServiceResult(
+        result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -348,6 +445,31 @@ class CreateService(BaseService):
             },
             warnings=warnings,
         )
+        created = _CreatedContent(
+            content_type=content_type,
+            content_id=content_id,
+            title=title,
+            path=rel_path,
+            tags=list(tags),
+            body=body,
+        )
+        return result, created
+
+    def _vector_index_created(self, created: _CreatedContent, warnings: list[str]) -> None:
+        """Best-effort vector indexing for newly created content."""
+        if not self._vault.settings.search.semantic_enabled:
+            return
+
+        with trace_span("vector_index"):
+            try:
+                from ztlctl.services.vector import VectorService
+
+                vec_svc = VectorService(self._vault)
+                if vec_svc.is_available():
+                    vec_svc.ensure_table()
+                    vec_svc.index_node(created.content_id, f"{created.title} {created.body}")
+            except Exception as exc:
+                warnings.append(f"Vector indexing skipped: {exc}")
 
     # ------------------------------------------------------------------
     # Helpers

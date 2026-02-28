@@ -58,6 +58,36 @@ def _render_self_files(
     }
 
 
+def _dispatch_post_init(*, vault_path: Path, name: str, client: str, tone: str) -> list[str]:
+    """Dispatch post-init hooks against the freshly created vault."""
+    warnings: list[str] = []
+
+    try:
+        from ztlctl.config.settings import ZtlSettings
+        from ztlctl.infrastructure.vault import Vault
+
+        settings = ZtlSettings.from_cli(vault_root=vault_path)
+        vault = Vault(settings)
+        try:
+            vault.init_event_bus(sync=True)
+            bus = vault.event_bus
+            if bus is not None:
+                bus.dispatch(
+                    "post_init",
+                    {
+                        "vault_name": name,
+                        "client": client,
+                        "tone": tone,
+                    },
+                )
+        finally:
+            vault.close(wait_for_events=True)
+    except Exception as exc:
+        warnings.append(f"post_init hooks skipped ({exc})")
+
+    return warnings
+
+
 # ── TOML generation ──────────────────────────────────────────────────
 
 
@@ -192,6 +222,10 @@ class InitService:
                     "run 'ztlctl workflow init' to retry"
                 )
 
+        warnings.extend(
+            _dispatch_post_init(vault_path=vault_path, name=name, client=client, tone=tone)
+        )
+
         return ServiceResult(
             ok=True,
             op="init_vault",
@@ -214,6 +248,17 @@ class InitService:
         Reads config from the vault's ZtlSettings and overwrites
         self/identity.md and self/methodology.md with fresh renders.
         """
+        config_path = vault.settings.config_path
+        if config_path is None or not config_path.exists():
+            return ServiceResult(
+                ok=False,
+                op="regenerate_self",
+                error=ServiceError(
+                    code="NO_CONFIG",
+                    message="No ztlctl.toml found",
+                ),
+            )
+
         settings = vault.settings
         self_dir = vault.root / "self"
         self_dir.mkdir(exist_ok=True)

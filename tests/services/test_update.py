@@ -197,6 +197,35 @@ class TestNoteStatusPropagation:
         assert result.ok
         assert result.data["status"] == "connected"
 
+    def test_body_wikilink_update_immediately_sets_linked(self, vault: Vault) -> None:
+        data_a = create_note(vault, "Body Source")
+        data_b = create_note(vault, "Body Target")
+
+        result = UpdateService(vault).update(
+            data_a["id"],
+            changes={"body": f"Connected to [[{data_b['id']}]]"},
+        )
+
+        assert result.ok
+        assert result.data["status"] == "linked"
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes.c.status).where(nodes.c.id == data_a["id"])).one()
+            assert row.status == "linked"
+
+    def test_body_wikilink_update_immediately_sets_connected(self, vault: Vault) -> None:
+        data_a = create_note(vault, "Body Hub")
+        targets = [create_note(vault, f"Body Target {i}") for i in range(3)]
+        body = " ".join(f"[[{target['id']}]]" for target in targets)
+
+        result = UpdateService(vault).update(
+            data_a["id"],
+            changes={"body": body},
+        )
+
+        assert result.ok
+        assert result.data["status"] == "connected"
+
 
 # ---------------------------------------------------------------------------
 # FTS5 reindex

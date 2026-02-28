@@ -777,6 +777,30 @@ class TestUnlink:
         content = source_path.read_text(encoding="utf-8")
         assert "[[T]]" not in content
 
+    def test_unlink_cleans_up_double_spaces_after_body_removal(self, vault: Vault) -> None:
+        _insert_node(vault, "S", title="Source")
+        _insert_node(vault, "T", title="Target Note")
+        _insert_edge(vault, "S", "T", source_layer="body")
+
+        source_path = vault.root / "notes/S.md"
+        source_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path.write_text(
+            "---\nid: S\ntitle: Source\n---\nLinks to [[T]] and [[Other]].\n",
+            encoding="utf-8",
+        )
+        target_path = vault.root / "notes/T.md"
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(
+            "---\nid: T\ntitle: Target Note\n---\nBody text.\n",
+            encoding="utf-8",
+        )
+
+        result = GraphService(vault).unlink("S", "T")
+
+        assert result.ok
+        content = source_path.read_text(encoding="utf-8")
+        assert "  " not in content
+
     def test_unlink_preserves_garden_note_body(self, vault: Vault) -> None:
         """Unlink does not modify body of garden notes (maturity set)."""
         _insert_node(vault, "G", title="Garden")
