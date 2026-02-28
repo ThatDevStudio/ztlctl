@@ -9,9 +9,7 @@ description = "ZettelControl — CLI utility for managing a Zettelkasten note-ta
 readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
-authors = [
-    { name = "ThatDev Studio" },
-]
+authors = [{ name = "ThatDev Studio" }]
 keywords = [
     "zettelkasten",
     "knowledge-management",
@@ -78,13 +76,8 @@ dev = [
     { include-group = "test" },
     { include-group = "lint" },
 ]
-test = [
-    "pytest>=8.3",
-    "pytest-cov>=6.0",
-]
-lint = [
-    "ruff>=0.8",
-]
+test = ["pytest>=8.3", "pytest-cov>=6.0"]
+lint = ["ruff>=0.8"]
 
 [tool.uv]
 package = true
@@ -139,9 +132,7 @@ fail_under = 80
 [tool.commitizen]
 name = "cz_conventional_commits"
 version_provider = "pep621"
-version_files = [
-    "src/ztlctl/__init__.py:__version__",
-]
+version_files = ["src/ztlctl/__init__.py:__version__"]
 update_changelog_on_bump = true
 changelog_file = "CHANGELOG.md"
 tag_format = "v$version"
