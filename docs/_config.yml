@@ -1,0 +1,31 @@
+title: ztlctl
+description: >-
+  Zettelkasten Control — CLI utility and agentic note-taking ecosystem
+  for knowledge graph management.
+
+remote_theme: just-the-docs/just-the-docs
+
+url: https://thatdevstudio.github.io
+baseurl: /ztlctl
+
+aux_links:
+  "View on GitHub":
+    - "https://github.com/ThatDevStudio/ztlctl"
+aux_links_new_tab: true
+
+search_enabled: true
+
+color_scheme: light
+
+footer_content: >-
+  MIT License. Distributed under the
+  <a href="https://github.com/ThatDevStudio/ztlctl/blob/main/LICENSE">MIT License</a>.
+
+back_to_top: true
+back_to_top_text: "Back to top"
+enable_copy_code_button: true
+heading_anchors: true
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
