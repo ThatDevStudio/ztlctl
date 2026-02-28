@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import click
@@ -48,7 +49,9 @@ def _load_dynamic_subtypes(ctx: click.Context, content_type: str) -> list[str]:
     return builtin + plugin_subtypes
 
 
-def _validate_subtype(content_type: str):
+def _validate_subtype(
+    content_type: str,
+) -> Callable[[click.Context, click.Parameter, str | None], str | None]:
     """Build a Click callback that validates subtypes lazily."""
 
     def _callback(ctx: click.Context, _param: click.Parameter, value: str | None) -> str | None:

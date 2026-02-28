@@ -9,6 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from ztlctl.cli import cli
+from ztlctl.domain.content import CONTENT_REGISTRY
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -48,6 +49,7 @@ class TestCreateNoteCommand:
         assert "math" in data["data"]["path"]
 
     def test_create_note_with_plugin_subtype(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        original_registry = CONTENT_REGISTRY.copy()
         plugin_dir = tmp_path / ".ztlctl" / "plugins"
         plugin_dir.mkdir(parents=True)
         plugin_dir.joinpath("custom_content.py").write_text(
@@ -69,10 +71,14 @@ class CustomContentPlugin:
             encoding="utf-8",
         )
 
-        result = cli_runner.invoke(
-            cli,
-            ["--json", "--sync", "create", "note", "Experiment", "--subtype", "experiment"],
-        )
+        try:
+            result = cli_runner.invoke(
+                cli,
+                ["--json", "--sync", "create", "note", "Experiment", "--subtype", "experiment"],
+            )
+        finally:
+            CONTENT_REGISTRY.clear()
+            CONTENT_REGISTRY.update(original_registry)
 
         assert result.exit_code == 0
         data = json.loads(result.output)
