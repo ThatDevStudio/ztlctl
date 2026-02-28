@@ -22,6 +22,9 @@ class TestCheckCleanVault:
         result = svc.check()
         assert result.ok
         assert result.data["count"] == 0
+        assert result.data["error_count"] == 0
+        assert result.data["warning_count"] == 0
+        assert result.data["healthy"] is True
         assert result.data["issues"] == []
 
     def test_clean_vault_after_create(self, vault: Vault) -> None:
@@ -44,7 +47,34 @@ class TestCheckCleanVault:
 
         assert result.ok
         assert result.data["count"] == 0
+        assert result.data["error_count"] == 0
+        assert result.data["warning_count"] == 0
+        assert result.data["healthy"] is True
         assert result.data["issues"] == []
+
+    def test_warning_only_vault_reports_healthy(self, vault: Vault) -> None:
+        create_note(vault, "Warning Note", tags=["unscoped"])
+
+        result = CheckService(vault).check()
+
+        assert result.ok
+        assert result.data["count"] > 0
+        assert result.data["error_count"] == 0
+        assert result.data["warning_count"] == result.data["count"]
+        assert result.data["healthy"] is True
+
+    def test_mixed_warning_and_error_vault_reports_unhealthy(self, vault: Vault) -> None:
+        create_note(vault, "Warning Note", tags=["unscoped"])
+        broken = create_note(vault, "Broken Note", tags=["domain/scope"])
+        (vault.root / broken["path"]).unlink()
+
+        result = CheckService(vault).check()
+
+        assert result.ok
+        assert result.data["count"] >= 2
+        assert result.data["error_count"] >= 1
+        assert result.data["warning_count"] >= 1
+        assert result.data["healthy"] is False
 
 
 class TestCheckDbFileConsistency:

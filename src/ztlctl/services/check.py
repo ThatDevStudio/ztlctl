@@ -19,6 +19,7 @@ from ztlctl.domain.ids import ID_PATTERNS
 from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
 from ztlctl.services._helpers import now_compact, now_iso, today_iso
 from ztlctl.services.base import BaseService
+from ztlctl.services.contracts import CheckResultData, dump_validated
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import trace_span, traced
 
@@ -84,6 +85,18 @@ class CheckService(BaseService):
             if _SEVERITY_RANK.get(str(issue.get("severity")), 0)
             >= _SEVERITY_RANK.get(min_severity, _SEVERITY_RANK[SEVERITY_WARNING])
         ]
+        error_count = sum(1 for issue in issues if issue.get("severity") == SEVERITY_ERROR)
+        warning_count = sum(1 for issue in issues if issue.get("severity") == SEVERITY_WARNING)
+        payload = dump_validated(
+            CheckResultData,
+            {
+                "issues": issues,
+                "count": len(issues),
+                "error_count": error_count,
+                "warning_count": warning_count,
+                "healthy": error_count == 0,
+            },
+        )
 
         warnings: list[str] = []
         issues_fixed = sum(1 for i in issues if i.get("fix_action") is not None)
@@ -96,7 +109,7 @@ class CheckService(BaseService):
         return ServiceResult(
             ok=True,
             op="check",
-            data={"issues": issues, "count": len(issues)},
+            data=payload,
             warnings=warnings,
         )
 

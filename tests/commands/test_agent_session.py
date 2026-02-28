@@ -68,8 +68,13 @@ class TestSessionLog:
         assert result.exit_code == 0
 
     def test_log_no_session(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "session", "log", "Orphan"])
+        result = cli_runner.invoke(cli, ["--json", "agent", "session", "log", "Orphan"])
         assert result.exit_code == 1
+        assert result.stdout == ""
+        data = json.loads(result.stderr)
+        assert data["ok"] is False
+        assert data["op"] == "log_entry"
+        assert data["error"]["code"] == "NO_ACTIVE_SESSION"
 
 
 @pytest.mark.usefixtures("_isolated_vault")
@@ -91,8 +96,13 @@ class TestAgentContext:
         assert "total_tokens" in data["data"]
 
     def test_context_no_session(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["agent", "context"])
+        result = cli_runner.invoke(cli, ["--json", "agent", "context"])
         assert result.exit_code == 1
+        assert result.stdout == ""
+        data = json.loads(result.stderr)
+        assert data["ok"] is False
+        assert data["op"] == "context"
+        assert data["error"]["code"] == "NO_ACTIVE_SESSION"
 
     def test_context_with_topic(self, cli_runner: CliRunner) -> None:
         cli_runner.invoke(cli, ["agent", "session", "start", "Topic Test"])
