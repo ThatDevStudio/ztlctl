@@ -1,6 +1,6 @@
-title: ztlctl
+title: ZettelControl
 description: >-
-  Zettelkasten Control — CLI utility and agentic note-taking ecosystem
+  ZettelControl — CLI utility and agentic note-taking ecosystem
   for knowledge graph management.
 
 remote_theme: just-the-docs/just-the-docs

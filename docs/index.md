@@ -3,9 +3,9 @@ title: Home
 nav_order: 1
 ---
 
-# ztlctl Documentation
+# ZettelControl Documentation
 
-**Zettelkasten Control** is a CLI utility and agentic note-taking ecosystem that combines zettelkasten, second-brain, and knowledge-garden paradigms into a single tool designed for both human users and AI agents.
+**ZettelControl** (`ztlctl`) is a CLI utility and agentic note-taking ecosystem that combines zettelkasten, second-brain, and knowledge-garden paradigms into a single tool designed for both human users and AI agents.
 
 ztlctl manages your knowledge vault as structured markdown files backed by a SQLite index, connected through a weighted knowledge graph, and accessible via CLI, MCP server, or direct Python API.
 
