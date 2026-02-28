@@ -136,6 +136,15 @@ class TestSessionClose:
         assert "orphan_count" in result.data
         assert "integrity_issues" in result.data
 
+    def test_close_fresh_session_reports_zero_integrity_issues(self, vault: Vault) -> None:
+        start_session(vault, "Healthy Close")
+
+        result = SessionService(vault).close()
+
+        assert result.ok
+        assert result.data["integrity_issues"] == 0
+        assert not any("Integrity check found" in warning for warning in result.warnings)
+
     def test_close_with_session_notes_reweave(self, vault: Vault) -> None:
         """Notes created in the session are reweaved on close."""
         data = start_session(vault, "Reweave Session")

@@ -7,6 +7,7 @@ graph health, structural validation. (DESIGN.md Section 14)
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -43,6 +44,10 @@ CAT_SCHEMA = "schema_integrity"
 CAT_GRAPH = "graph_health"
 CAT_STRUCTURAL = "structural_validation"
 CAT_GARDEN = "garden_health"
+
+
+class _ConsistencyReadError(ValueError):
+    """Raised when a content file cannot be normalized for consistency checks."""
 
 
 # ---------------------------------------------------------------------------
@@ -303,13 +308,85 @@ class CheckService(BaseService):
     # Check categories (read-only)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _normalize_optional(value: Any) -> str:
+        """Normalize optional DB/file values for equality checks."""
+        return "" if value is None else str(value)
+
+    def _read_consistency_fields(self, file_path: Path, content_type: str) -> dict[str, str]:
+        """Read file metadata in a form comparable to the nodes table."""
+        if content_type == "log":
+            return self._read_log_consistency_fields(file_path)
+
+        try:
+            fm, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise _ConsistencyReadError(str(exc)) from exc
+
+        return {
+            "id": self._normalize_optional(fm.get("id")),
+            "title": self._normalize_optional(fm.get("title")),
+            "status": self._normalize_optional(fm.get("status")),
+            "topic": self._normalize_optional(fm.get("topic")),
+        }
+
+    def _read_log_consistency_fields(self, file_path: Path) -> dict[str, str]:
+        """Read session log JSONL into normalized integrity-check fields."""
+        raw = file_path.read_text(encoding="utf-8")
+        lines = [line for line in raw.splitlines() if line.strip()]
+        if not lines:
+            raise _ConsistencyReadError("empty log file")
+
+        entries: list[dict[str, Any]] = []
+        for line in lines:
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise _ConsistencyReadError("invalid log JSON") from exc
+            if not isinstance(entry, dict):
+                raise _ConsistencyReadError("log entry must be a JSON object")
+            entries.append(entry)
+
+        first = entries[0]
+        if first.get("type") != "session_start":
+            raise _ConsistencyReadError("first log entry must be session_start")
+
+        session_id = self._normalize_optional(first.get("session_id"))
+        topic = self._normalize_optional(first.get("topic"))
+        if not session_id:
+            raise _ConsistencyReadError("session_start missing session_id")
+        if not topic:
+            raise _ConsistencyReadError("session_start missing topic")
+
+        status = "open"
+        for entry in entries[1:]:
+            entry_type = self._normalize_optional(entry.get("type"))
+            if entry_type == "session_close":
+                status = "closed"
+            elif entry_type in {"session_start", "session_reopen"}:
+                status = "open"
+
+        return {
+            "id": session_id,
+            "title": f"Session: {topic}",
+            "status": status,
+            "topic": topic,
+        }
+
     def _check_db_file_consistency(self, conn: Connection) -> list[dict[str, Any]]:
         """Category 1: DB rows vs. files on disk."""
         issues: list[dict[str, Any]] = []
 
         # For each DB node, verify the file exists
         all_nodes = conn.execute(
-            select(nodes.c.id, nodes.c.path, nodes.c.title, nodes.c.type, nodes.c.status)
+            select(
+                nodes.c.id,
+                nodes.c.path,
+                nodes.c.title,
+                nodes.c.type,
+                nodes.c.status,
+                nodes.c.topic,
+            )
         ).fetchall()
 
         db_paths: set[str] = set()
@@ -330,21 +407,21 @@ class CheckService(BaseService):
 
             # Verify frontmatter matches DB
             try:
-                fm, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"))
-            except Exception:
+                file_fields = self._read_consistency_fields(file_path, str(row.type))
+            except _ConsistencyReadError:
                 issues.append(
                     {
                         "category": CAT_DB_FILE,
                         "severity": SEVERITY_ERROR,
                         "node_id": row.id,
-                        "message": f"Cannot parse frontmatter: {row.path}",
+                        "message": f"Cannot parse content metadata: {row.path}",
                         "fix_action": "resync_from_file",
                     }
                 )
                 continue
 
             # Compare key fields
-            fm_id = fm.get("id", "")
+            fm_id = file_fields["id"]
             if str(fm_id) != str(row.id):
                 issues.append(
                     {
@@ -356,7 +433,7 @@ class CheckService(BaseService):
                     }
                 )
 
-            fm_title = fm.get("title", "")
+            fm_title = file_fields["title"]
             if str(fm_title) != str(row.title):
                 issues.append(
                     {
@@ -368,7 +445,7 @@ class CheckService(BaseService):
                     }
                 )
 
-            fm_status = fm.get("status", "")
+            fm_status = file_fields["status"]
             if str(fm_status) != str(row.status):
                 issues.append(
                     {
@@ -376,6 +453,19 @@ class CheckService(BaseService):
                         "severity": SEVERITY_WARNING,
                         "node_id": row.id,
                         "message": (f"Status mismatch: DB='{row.status}', file='{fm_status}'"),
+                        "fix_action": "resync_from_file",
+                    }
+                )
+
+            fm_topic = file_fields["topic"]
+            db_topic = self._normalize_optional(row.topic)
+            if fm_topic != db_topic:
+                issues.append(
+                    {
+                        "category": CAT_DB_FILE,
+                        "severity": SEVERITY_WARNING,
+                        "node_id": row.id,
+                        "message": f"Topic mismatch: DB='{db_topic}', file='{fm_topic}'",
                         "fix_action": "resync_from_file",
                     }
                 )
@@ -756,6 +846,7 @@ class CheckService(BaseService):
                 nodes.c.title,
                 nodes.c.type,
                 nodes.c.status,
+                nodes.c.topic,
             )
         ).fetchall()
 
@@ -765,18 +856,22 @@ class CheckService(BaseService):
                 continue
 
             try:
-                fm, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"))
-            except Exception:
+                file_fields = self._read_consistency_fields(file_path, str(row.type))
+            except _ConsistencyReadError:
                 continue
 
             updates: dict[str, Any] = {}
-            fm_title = str(fm.get("title", ""))
-            fm_status = str(fm.get("status", ""))
+            fm_title = file_fields["title"]
+            fm_status = file_fields["status"]
+            fm_topic = file_fields["topic"]
+            db_topic = self._normalize_optional(row.topic)
 
             if fm_title and fm_title != str(row.title):
                 updates["title"] = fm_title
             if fm_status and fm_status != str(row.status):
                 updates["status"] = fm_status
+            if fm_topic and fm_topic != db_topic:
+                updates["topic"] = fm_topic
 
             if updates:
                 updates["modified"] = today
