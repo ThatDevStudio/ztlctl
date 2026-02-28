@@ -65,16 +65,14 @@ For the complete design specification, see [DESIGN.md](DESIGN.md).
 
 | Branch | Purpose | Merges to |
 |--------|---------|-----------|
-| `main` | Production releases (every merge = tagged release) | — |
-| `develop` | Integration branch (default, PR target) | `main` |
+| `develop` | Trunk — all development and releases | — |
 | `feature/<name>` | New features | `develop` |
 | `fix/<name>` | Bug fixes | `develop` |
-| `hotfix/<name>` | Urgent production fixes | `main` AND `develop` |
 
 **Important:**
-- Never commit directly to `main` or `develop`
+- Never commit directly to `develop`
 - Always work on feature/fix branches created from `develop`
-- PRs always target `develop` (except hotfixes)
+- PRs always target `develop`
 
 ## Making Changes
 
@@ -159,7 +157,7 @@ All four must pass — CI enforces the same checks.
 ## Pull Request Requirements
 
 - **Title**: Must use conventional commit format (e.g., `feat(graph): add bridge detection`)
-- **Target**: `develop` branch (unless hotfix)
+- **Target**: `develop` branch
 - **CI**: All checks must pass (lint, test, typecheck, security audit, commit lint)
 - **Scope**: Keep PRs focused — one feature or fix per PR
 
