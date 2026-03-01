@@ -29,3 +29,46 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  sync-homebrew-tap:
+    name: Sync Homebrew Tap
+    runs-on: macos-latest
+    needs: publish
+    if: ${{ needs.publish.result == 'success' && secrets.HOMEBREW_TAP_TOKEN != '' }}
+    env:
+      HOMEBREW_TAP_REPOSITORY: ThatDev/homebrew-ztlctl
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Generate Homebrew formula
+        run: python scripts/update_homebrew_formula.py
+
+      - name: Audit Homebrew formula
+        run: |
+          brew tap-new ThatDev/ztlctl
+          cp Formula/ztlctl.rb "$(brew --repo)/Library/Taps/thatdev/homebrew-ztlctl/Formula/ztlctl.rb"
+          brew audit --strict ThatDev/ztlctl/ztlctl
+
+      - name: Push formula to tap repository
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${HOMEBREW_TAP_REPOSITORY}.git" tap
+          mkdir -p tap/Formula
+          cp Formula/ztlctl.rb tap/Formula/ztlctl.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/ztlctl.rb
+          if git diff --cached --quiet; then
+            echo "No Homebrew formula changes."
+            exit 0
+          fi
+          git commit -m "brew: update ztlctl formula for ${{ github.event.release.tag_name }}"
+          git push

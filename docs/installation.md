@@ -17,6 +17,15 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv tool install ztlctl
 ```
 
+Or with Homebrew:
+
+```bash
+brew tap ThatDev/ztlctl
+brew install ThatDev/ztlctl/ztlctl
+```
+
+The Homebrew formula installs the base CLI. Optional extras such as MCP support or semantic search are available through `pip` or `uv`, not through Homebrew.
+
 ## Optional Extras
 
 ### MCP Server Support

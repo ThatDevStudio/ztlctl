@@ -33,6 +33,20 @@ uv run mypy src/                                 # Type check
 uv run pre-commit run --all-files                # All pre-commit hooks
 ```
 
+## Homebrew Formula
+
+The Homebrew tap publishes `ztlctl` at `ThatDev/ztlctl`.
+
+```bash
+# Regenerate the formula from the current project version
+python scripts/update_homebrew_formula.py
+
+# Verify the checked-in formula is current
+python scripts/update_homebrew_formula.py --check
+```
+
+The formula uses a release tarball as the stable source, installs the CLI into a Python virtualenv, and refreshes build-backend metadata with Homebrew's `brew update-python-resources` flow. The release workflow uploads the source tarball to GitHub Releases, and the publish workflow regenerates and syncs the formula into the tap repository.
+
 ## Architecture
 
 ztlctl follows a strict 6-layer package structure where dependencies flow downward:

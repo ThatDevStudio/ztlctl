@@ -13,7 +13,7 @@ For agent-fetched web pages and multimodal captures, ztlctl persists durable sou
 
 ## Getting Started
 
-- [Installation](installation.md) — Install via pip or uv
+- [Installation](installation.md) — Install via pip, uv, or Homebrew
 - [Quick Start](quickstart.md) — Your first vault in 9 commands
 - [Tutorial](tutorial.md) — Step-by-step guide to building a knowledge vault
 
