@@ -74,7 +74,13 @@ You are capturing knowledge into the vault.
 
 def vault_orientation_impl(vault: Any) -> str:
     """Generate onboarding instructions for an agent entering the vault."""
-    from ztlctl.mcp.resources import overview_impl, self_identity_impl, self_methodology_impl
+    from ztlctl.mcp.resources import (
+        overview_impl,
+        resource_catalog,
+        self_identity_impl,
+        self_methodology_impl,
+    )
+    from ztlctl.mcp.tools import tool_catalog
 
     identity = self_identity_impl(vault)
     methodology = self_methodology_impl(vault)
@@ -82,6 +88,19 @@ def vault_orientation_impl(vault: Any) -> str:
 
     counts = overview.get("counts", {})
     total = overview.get("total", 0)
+
+    # Build tools section dynamically from the catalog
+    grouped: dict[str, list[str]] = {}
+    for entry in tool_catalog():
+        grouped.setdefault(entry["category"], []).append(entry["name"])
+    tools_lines = "\n".join(
+        f"- **{cat.title()}**: {', '.join(sorted(names))}" for cat, names in sorted(grouped.items())
+    )
+
+    # Build resources section dynamically from the catalog
+    resources_lines = "\n".join(
+        f"- `{entry['uri']}` — {entry['description']}" for entry in resource_catalog()
+    )
 
     return f"""## Vault Orientation
 
@@ -98,17 +117,11 @@ def vault_orientation_impl(vault: Any) -> str:
 - **Tasks**: {counts.get("task", 0)}
 - **Sessions**: {counts.get("log", 0)}
 
-### Available Tools
-- **Creation**: create_note, create_reference, create_task, create_log
-- **Lifecycle**: update_content, close_content, reweave
-- **Query**: search, get_document, get_related, agent_context
-- **Session**: session_close
+### Available Tools ({len(tool_catalog())})
+{tools_lines}
 
-### Available Resources
-- `ztlctl://context` — full vault context
-- `ztlctl://overview` — counts and recent items
-- `ztlctl://work-queue` — prioritized task queue
-- `ztlctl://topics` — topic directories
+### Available Resources ({len(resource_catalog())})
+{resources_lines}
 """
 
 

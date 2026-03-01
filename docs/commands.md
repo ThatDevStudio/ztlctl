@@ -69,6 +69,8 @@ Most commands also support `--examples` to show usage examples.
 | `vector reindex` | Rebuild the vector index |
 | `workflow init` | Initialize workflow scaffolding |
 | `workflow update` | Update workflow scaffolding |
+| `workflow export` | Export agent workflow assets (Claude/Codex) |
+| `workflow validate` | Validate exported workflow assets |
 
 ## Search Ranking Modes
 
