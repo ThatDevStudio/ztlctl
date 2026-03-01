@@ -7,7 +7,6 @@ graph health, structural validation. (DESIGN.md Section 14)
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -328,9 +327,6 @@ class CheckService(BaseService):
 
     def _read_consistency_fields(self, file_path: Path, content_type: str) -> dict[str, str]:
         """Read file metadata in a form comparable to the nodes table."""
-        if content_type == "log":
-            return self._read_log_consistency_fields(file_path)
-
         try:
             fm, _ = parse_frontmatter(file_path.read_text(encoding="utf-8"))
         except Exception as exc:
@@ -341,49 +337,6 @@ class CheckService(BaseService):
             "title": self._normalize_optional(fm.get("title")),
             "status": self._normalize_optional(fm.get("status")),
             "topic": self._normalize_optional(fm.get("topic")),
-        }
-
-    def _read_log_consistency_fields(self, file_path: Path) -> dict[str, str]:
-        """Read session log JSONL into normalized integrity-check fields."""
-        raw = file_path.read_text(encoding="utf-8")
-        lines = [line for line in raw.splitlines() if line.strip()]
-        if not lines:
-            raise _ConsistencyReadError("empty log file")
-
-        entries: list[dict[str, Any]] = []
-        for line in lines:
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError as exc:
-                raise _ConsistencyReadError("invalid log JSON") from exc
-            if not isinstance(entry, dict):
-                raise _ConsistencyReadError("log entry must be a JSON object")
-            entries.append(entry)
-
-        first = entries[0]
-        if first.get("type") != "session_start":
-            raise _ConsistencyReadError("first log entry must be session_start")
-
-        session_id = self._normalize_optional(first.get("session_id"))
-        topic = self._normalize_optional(first.get("topic"))
-        if not session_id:
-            raise _ConsistencyReadError("session_start missing session_id")
-        if not topic:
-            raise _ConsistencyReadError("session_start missing topic")
-
-        status = "open"
-        for entry in entries[1:]:
-            entry_type = self._normalize_optional(entry.get("type"))
-            if entry_type == "session_close":
-                status = "closed"
-            elif entry_type in {"session_start", "session_reopen"}:
-                status = "open"
-
-        return {
-            "id": session_id,
-            "title": f"Session: {topic}",
-            "status": status,
-            "topic": topic,
         }
 
     def _check_db_file_consistency(self, conn: Connection) -> list[dict[str, Any]]:
@@ -405,6 +358,8 @@ class CheckService(BaseService):
         db_paths: set[str] = set()
         for row in all_nodes:
             db_paths.add(row.path)
+            if str(row.type) == "log":
+                continue  # Session logs are DB-only — no file to validate
             file_path = self._vault.root / row.path
             if not file_path.exists():
                 issues.append(
@@ -785,9 +740,11 @@ class CheckService(BaseService):
     def _fix_orphan_db_rows(self, txn: VaultTransaction) -> list[str]:
         """Remove DB rows whose files no longer exist."""
         fixes: list[str] = []
-        all_nodes = txn.conn.execute(select(nodes.c.id, nodes.c.path)).fetchall()
+        all_nodes = txn.conn.execute(select(nodes.c.id, nodes.c.path, nodes.c.type)).fetchall()
 
         for row in all_nodes:
+            if str(row.type) == "log":
+                continue  # Session logs are DB-only — no file expected
             file_path = self._vault.root / row.path
             if not file_path.exists():
                 txn.conn.execute(delete(node_tags).where(node_tags.c.node_id == row.id))
@@ -864,6 +821,8 @@ class CheckService(BaseService):
         ).fetchall()
 
         for row in all_nodes:
+            if str(row.type) == "log":
+                continue  # Session logs are DB-only — no file to resync
             file_path = self._vault.root / row.path
             if not file_path.exists():
                 continue

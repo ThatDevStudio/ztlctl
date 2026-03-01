@@ -138,9 +138,10 @@ class TestExportMarkdown:
         assert result.data["filters"] == {"archived": "only"}
         assert (output / archived["path"]).is_file()
 
-    def test_filtered_markdown_skips_unparsable_logs_with_warning(
+    def test_filtered_markdown_no_log_warnings_after_session(
         self, vault: Vault, tmp_path: Path
     ) -> None:
+        """Sessions are DB-only — no JSONL file, so no parse warning."""
         from tests.conftest import create_note, start_session
 
         start_session(vault, "Filter Session")
@@ -155,7 +156,8 @@ class TestExportMarkdown:
         assert result.ok
         assert result.data["file_count"] == 1
         assert (output / note["path"]).is_file()
-        assert any("ops/logs" in warning for warning in result.warnings)
+        # No JSONL file created, so no ops/logs warnings
+        assert not any("ops/logs" in warning for warning in result.warnings)
 
 
 class TestExportIndexes:

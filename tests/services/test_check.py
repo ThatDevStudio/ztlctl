@@ -133,8 +133,8 @@ class TestCheckDbFileConsistency:
         mismatch = [i for i in issues if "Status mismatch" in i["message"]]
         assert len(mismatch) == 1
 
-    def test_session_log_not_reported_as_id_mismatch(self, vault: Vault) -> None:
-        """Session JSONL files should not be treated like markdown frontmatter."""
+    def test_session_log_skipped_in_consistency_check(self, vault: Vault) -> None:
+        """Session log nodes (DB-only) are skipped in file consistency checks."""
         data = start_session(vault, "Clean Session")
 
         result = CheckService(vault).check()
@@ -144,9 +144,10 @@ class TestCheckDbFileConsistency:
             for issue in result.data["issues"]
             if issue["node_id"] == data["id"] and issue["category"] == "db_file_consistency"
         ]
-        assert not any("ID mismatch" in issue["message"] for issue in issues)
+        assert len(issues) == 0
 
-    def test_session_log_closed_status_not_reported_as_error(self, vault: Vault) -> None:
+    def test_closed_session_log_skipped_in_consistency_check(self, vault: Vault) -> None:
+        """Closed session log nodes are also skipped (DB-only)."""
         data = start_session(vault, "Closed Session")
         from ztlctl.services.session import SessionService
 
@@ -158,25 +159,10 @@ class TestCheckDbFileConsistency:
             for issue in result.data["issues"]
             if issue["node_id"] == data["id"] and issue["category"] == "db_file_consistency"
         ]
-        assert not any("ID mismatch" in issue["message"] for issue in issues)
+        assert len(issues) == 0
 
-    def test_invalid_log_jsonl_reports_parse_error(self, vault: Vault) -> None:
-        data = start_session(vault, "Broken Session")
-        log_path = vault.root / data["path"]
-        log_path.write_text('{"type":"session_start"\n', encoding="utf-8")
-
-        result = CheckService(vault).check()
-
-        issues = [
-            issue
-            for issue in result.data["issues"]
-            if issue["node_id"] == data["id"] and issue["category"] == "db_file_consistency"
-        ]
-        assert len(issues) == 1
-        assert issues[0]["severity"] == "error"
-        assert "Cannot parse content metadata" in issues[0]["message"]
-
-    def test_fix_resyncs_log_row_from_jsonl(self, vault: Vault) -> None:
+    def test_fix_skips_log_nodes_in_resync(self, vault: Vault) -> None:
+        """fix() does NOT modify log-type nodes (they're skipped in resync)."""
         data = start_session(vault, "Repair Session")
         with vault.engine.begin() as conn:
             conn.execute(
@@ -188,15 +174,17 @@ class TestCheckDbFileConsistency:
         result = CheckService(vault).fix()
 
         assert result.ok
-        assert any(data["id"] in fix for fix in result.data["fixes"])
+        # Log nodes are skipped — no fix should reference this session
+        assert not any(data["id"] in fix for fix in result.data["fixes"])
+        # DB row remains as-is (not resynced from file)
         with vault.engine.connect() as conn:
             row = conn.execute(
                 select(nodes.c.title, nodes.c.status, nodes.c.topic).where(nodes.c.id == data["id"])
             ).first()
         assert row is not None
-        assert row.title == "Session: Repair Session"
-        assert row.status == "open"
-        assert row.topic == "Repair Session"
+        assert row.title == "Wrong Title"
+        assert row.status == "closed"
+        assert row.topic == "wrong-topic"
 
 
 class TestCheckSchemaIntegrity:

@@ -27,17 +27,20 @@ class TestSessionStart:
         assert result.data["topic"] == "Test Topic"
         assert result.data["status"] == "open"
 
-    def test_start_creates_jsonl_file(self, vault: Vault) -> None:
+    def test_start_creates_lifecycle_db_row(self, vault: Vault) -> None:
         data = start_session(vault, "File Test")
-        path = vault.root / data["path"]
-        assert path.exists()
-        assert path.suffix == ".jsonl"
-
-        content = path.read_text(encoding="utf-8").strip()
-        entry = json.loads(content)
-        assert entry["type"] == "session_start"
-        assert entry["session_id"] == data["id"]
-        assert entry["topic"] == "File Test"
+        # No JSONL file created
+        assert not (vault.root / data["path"]).with_suffix(".jsonl").exists()
+        # Lifecycle row in session_logs
+        with vault.engine.connect() as conn:
+            row = conn.execute(
+                select(session_logs).where(
+                    session_logs.c.session_id == data["id"],
+                    session_logs.c.type == "session_start",
+                )
+            ).first()
+            assert row is not None
+            assert "File Test" in row.summary
 
     def test_start_creates_db_row(self, vault: Vault) -> None:
         data = start_session(vault, "DB Test")
@@ -101,16 +104,19 @@ class TestSessionClose:
             assert row is not None
             assert row.status == "closed"
 
-    def test_close_appends_to_jsonl(self, vault: Vault) -> None:
-        data = start_session(vault, "JSONL Close Test")
+    def test_close_creates_lifecycle_db_row(self, vault: Vault) -> None:
+        data = start_session(vault, "Close DB Entry Test")
         SessionService(vault).close(summary="Done!")
 
-        path = vault.root / data["path"]
-        lines = path.read_text(encoding="utf-8").strip().split("\n")
-        assert len(lines) == 2  # start + close
-        close_entry = json.loads(lines[1])
-        assert close_entry["type"] == "session_close"
-        assert close_entry["summary"] == "Done!"
+        with vault.engine.connect() as conn:
+            row = conn.execute(
+                select(session_logs).where(
+                    session_logs.c.session_id == data["id"],
+                    session_logs.c.type == "session_close",
+                )
+            ).first()
+            assert row is not None
+            assert row.summary == "Done!"
 
     def test_close_no_active_session(self, vault: Vault) -> None:
         result = SessionService(vault).close()
@@ -233,16 +239,20 @@ class TestSessionReopen:
             assert row is not None
             assert row.status == "open"
 
-    def test_reopen_appends_to_jsonl(self, vault: Vault) -> None:
-        data = start_session(vault, "Reopen JSONL Test")
+    def test_reopen_creates_lifecycle_db_row(self, vault: Vault) -> None:
+        data = start_session(vault, "Reopen DB Entry Test")
         SessionService(vault).close()
         SessionService(vault).reopen(data["id"])
 
-        path = vault.root / data["path"]
-        lines = path.read_text(encoding="utf-8").strip().split("\n")
-        assert len(lines) == 3  # start + close + reopen
-        reopen_entry = json.loads(lines[2])
-        assert reopen_entry["type"] == "session_reopen"
+        with vault.engine.connect() as conn:
+            row = conn.execute(
+                select(session_logs).where(
+                    session_logs.c.session_id == data["id"],
+                    session_logs.c.type == "session_reopen",
+                )
+            ).first()
+            assert row is not None
+            assert row.summary == "Session reopened"
 
     def test_reopen_already_open(self, vault: Vault) -> None:
         data = start_session(vault, "Already Open")
@@ -292,24 +302,31 @@ class TestLogEntry:
         assert result.op == "log_entry"
         assert "entry_id" in result.data
 
-    def test_log_entry_appends_to_jsonl(self, vault: Vault) -> None:
-        data = start_session(vault, "JSONL Log Test")
+    def test_log_entry_creates_db_rows(self, vault: Vault) -> None:
+        data = start_session(vault, "DB Log Entry Test")
         SessionService(vault).log_entry("Entry one")
         SessionService(vault).log_entry("Entry two")
 
-        path = vault.root / data["path"]
-        lines = path.read_text(encoding="utf-8").strip().split("\n")
-        assert len(lines) == 3  # start + 2 entries
-        entry = json.loads(lines[1])
-        assert entry["type"] == "log_entry"
-        assert entry["message"] == "Entry one"
+        with vault.engine.connect() as conn:
+            rows = conn.execute(
+                select(session_logs)
+                .where(session_logs.c.session_id == data["id"])
+                .order_by(session_logs.c.id.asc())
+            ).fetchall()
+            # session_start + 2 log entries = 3 rows
+            assert len(rows) == 3
+            assert rows[0].type == "session_start"
+            assert rows[1].type == "log_entry"
+            assert rows[1].summary == "Entry one"
 
     def test_log_entry_inserts_db_row(self, vault: Vault) -> None:
         start_session(vault, "DB Log Test")
         SessionService(vault).log_entry("DB entry", cost=1500)
 
         with vault.engine.connect() as conn:
-            rows = conn.execute(select(session_logs)).fetchall()
+            rows = conn.execute(
+                select(session_logs).where(session_logs.c.type == "log_entry")
+            ).fetchall()
             assert len(rows) == 1
             assert rows[0].summary == "DB entry"
             assert rows[0].cost == 1500
@@ -320,7 +337,9 @@ class TestLogEntry:
         assert result.ok
 
         with vault.engine.connect() as conn:
-            row = conn.execute(select(session_logs)).first()
+            row = conn.execute(
+                select(session_logs).where(session_logs.c.type == "log_entry")
+            ).first()
             assert row is not None
             assert row.pinned == 1
 
@@ -333,7 +352,9 @@ class TestLogEntry:
         assert result.ok
 
         with vault.engine.connect() as conn:
-            row = conn.execute(select(session_logs)).first()
+            row = conn.execute(
+                select(session_logs).where(session_logs.c.type == "log_entry")
+            ).first()
             assert row is not None
             assert row.detail == "Full detailed context here"
 
@@ -347,7 +368,9 @@ class TestLogEntry:
         assert result.ok
 
         with vault.engine.connect() as conn:
-            row = conn.execute(select(session_logs)).first()
+            row = conn.execute(
+                select(session_logs).where(session_logs.c.type == "log_entry")
+            ).first()
             assert row is not None
             refs = json.loads(row.references)
             assert note["id"] in refs
@@ -361,19 +384,26 @@ class TestLogEntry:
         assert result.ok
 
         with vault.engine.connect() as conn:
-            row = conn.execute(select(session_logs)).first()
+            row = conn.execute(
+                select(session_logs).where(session_logs.c.type == "decision_made")
+            ).first()
             assert row is not None
             assert row.type == "decision_made"
 
-    def test_log_entry_jsonl_reflects_entry_type(self, vault: Vault) -> None:
-        """JSONL entry type must match the entry_type parameter."""
+    def test_log_entry_db_reflects_entry_type(self, vault: Vault) -> None:
+        """DB entry type must match the entry_type parameter."""
         data = start_session(vault, "Type Sync Test")
         SessionService(vault).log_entry("Made a call", entry_type="decision_made")
 
-        path = vault.root / data["path"]
-        lines = path.read_text(encoding="utf-8").strip().split("\n")
-        entry = json.loads(lines[1])  # index 0 is session_start
-        assert entry["type"] == "decision_made"
+        with vault.engine.connect() as conn:
+            row = conn.execute(
+                select(session_logs).where(
+                    session_logs.c.session_id == data["id"],
+                    session_logs.c.type == "decision_made",
+                )
+            ).first()
+            assert row is not None
+            assert row.summary == "Made a call"
 
     def test_log_entry_checkpoint_subtype(self, vault: Vault) -> None:
         start_session(vault, "Checkpoint Test")
@@ -386,7 +416,9 @@ class TestLogEntry:
         assert result.ok
 
         with vault.engine.connect() as conn:
-            row = conn.execute(select(session_logs)).first()
+            row = conn.execute(
+                select(session_logs).where(session_logs.c.type == "checkpoint")
+            ).first()
             assert row is not None
             assert row.subtype == "checkpoint"
 
@@ -401,7 +433,9 @@ class TestLogEntry:
         SessionService(vault).log_entry("Test entry")
 
         with vault.engine.connect() as conn:
-            row = conn.execute(select(session_logs)).first()
+            row = conn.execute(
+                select(session_logs).where(session_logs.c.type == "log_entry")
+            ).first()
             assert row is not None
             assert row.session_id == data["id"]
 
@@ -429,7 +463,8 @@ class TestCost:
         result = svc.cost()
         assert result.ok
         assert result.data["total_cost"] == 4000
-        assert result.data["entry_count"] == 3
+        # session_start (cost=0) + 3 log entries = 4 rows
+        assert result.data["entry_count"] == 4
 
     def test_cost_report_mode(self, vault: Vault) -> None:
         start_session(vault, "Report Test")
@@ -820,7 +855,7 @@ class TestExtractDecision:
             assert edge is not None
 
     def test_extract_decision_matches_on_type(self, vault: Vault) -> None:
-        """extract_decision finds entries by type='decision_made' in JSONL."""
+        """extract_decision finds entries by type='decision_made' in DB."""
         data = start_session(vault, "Type Match")
         svc = SessionService(vault)
         svc.log_entry("Decision via type", entry_type="decision_made")
