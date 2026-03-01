@@ -9,6 +9,8 @@ nav_order: 1
 
 ztlctl stores durable notes, references, and tasks as markdown files, indexes them in SQLite, and exposes them through a CLI, MCP server, and generated workflow assets. Sessions and other operational state are internal coordination mechanisms rather than part of the file-first durability contract.
 
+For agent-fetched web pages and multimodal captures, ztlctl persists durable source bundles beside ingested references so topic packets, drafts, and dashboard dossiers can keep citing the same evidence later.
+
 ## Getting Started
 
 - [Installation](installation.md) — Install via pip or uv

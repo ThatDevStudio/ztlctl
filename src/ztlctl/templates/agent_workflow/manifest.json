@@ -36,7 +36,9 @@
         {
           "template": "claude/.claude/commands/ztlctl-capture.md.jinja",
           "output": ".claude/commands/ztlctl-capture.md",
-          "tools": ["search", "list_tags", "list_source_providers", "ingest_source", "create_note", "create_reference", "create_task", "garden_seed", "reweave"]
+          "resources": ["ztlctl://capture/spec"],
+          "tools": ["search", "list_tags", "list_source_providers", "ingest_source", "create_note", "create_reference", "create_task", "garden_seed", "reweave"],
+          "prompts": ["capture_web_source", "capture_multimodal_source"]
         },
         {
           "template": "claude/.claude/commands/ztlctl-review.md.jinja",
@@ -66,7 +68,9 @@
         {
           "template": "claude/.claude/skills/vault-methodology/SKILL.md.jinja",
           "output": ".claude/skills/vault-methodology/SKILL.md",
-          "tools": ["create_note", "create_reference", "create_task", "garden_seed", "ingest_source", "list_source_providers", "list_tags", "reweave"]
+          "resources": ["ztlctl://capture/spec"],
+          "tools": ["create_note", "create_reference", "create_task", "garden_seed", "ingest_source", "list_source_providers", "list_tags", "reweave"],
+          "prompts": ["capture_web_source", "capture_multimodal_source"]
         },
         {
           "template": "claude/.claude/skills/session-workflow/SKILL.md.jinja",
@@ -85,14 +89,16 @@
         {
           "template": "codex/AGENTS.md.jinja",
           "output": "AGENTS.md",
-          "resources": ["ztlctl://review/dashboard", "ztlctl://garden/backlog", "ztlctl://decision-queue"],
+          "resources": ["ztlctl://review/dashboard", "ztlctl://garden/backlog", "ztlctl://decision-queue", "ztlctl://capture/spec"],
           "tools": ["session_status", "create_log", "session_close", "create_note", "create_reference", "create_task", "garden_seed", "ingest_source", "list_source_providers", "reweave", "vault_review", "list_tags", "search", "get_document", "get_related", "topic_packet", "draft_from_topic", "graph_themes", "graph_rank", "graph_path", "graph_gaps", "graph_bridges", "decision_support", "work_queue"],
-          "prompts": ["topic_learn", "topic_review", "topic_decision"]
+          "prompts": ["topic_learn", "topic_review", "topic_decision", "capture_web_source", "capture_multimodal_source"]
         },
         {
           "template": "codex/.ztlctl/codex/skills/methodology.md.jinja",
           "output": ".ztlctl/codex/skills/methodology.md",
-          "tools": ["create_note", "create_reference", "create_task", "garden_seed", "ingest_source", "list_source_providers", "list_tags", "reweave"]
+          "resources": ["ztlctl://capture/spec"],
+          "tools": ["create_note", "create_reference", "create_task", "garden_seed", "ingest_source", "list_source_providers", "list_tags", "reweave"],
+          "prompts": ["capture_web_source", "capture_multimodal_source"]
         },
         {
           "template": "codex/.ztlctl/codex/skills/session-workflow.md.jinja",

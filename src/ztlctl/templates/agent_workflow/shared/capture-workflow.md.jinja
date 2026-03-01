@@ -12,5 +12,7 @@
    - `create_note` accepts `body`, `key_points`, `aliases`, and `links`.
    - `create_reference` accepts `subtype` in addition to `url`.
    - `ingest_source` creates structured references with provenance when the source needs to stay attached.
-   - `ingest_source` can also preserve agent-supplied `source_kind`, `modalities`, `citations`, `excerpts`, and source `artifacts`.
+   - When an agent fetched or extracted a source outside ztlctl, read `ztlctl://capture/spec` first.
+   - Prefer a nested `source_bundle` over loose ingest metadata for web pages, transcripts, OCR output, screenshots, and other multimodal captures.
+   - `ingest_source` still accepts flat `source_kind`, `modalities`, `citations`, `excerpts`, and `artifacts` fields, but ztlctl will normalize them into the durable source bundle format internally.
 5. Run `reweave` on important new content.

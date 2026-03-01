@@ -10,6 +10,7 @@ from ztlctl.config.settings import ZtlSettings
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.mcp.resources import (
     agent_reference_impl,
+    capture_spec_impl,
     context_impl,
     decision_queue_impl,
     garden_backlog_impl,
@@ -92,6 +93,12 @@ class TestResources:
         assert "decisions" in result
         assert "work_queue" in result
 
+    def test_capture_spec_returns_bundle_contract(self, vault: Vault):
+        result = capture_spec_impl(vault)
+        assert result["version"] == 1
+        assert "bundle_fields" in result
+        assert "source_bundle" in result["minimal_example"]
+
     def test_topics_lists_directories(self, vault: Vault):
         (vault.root / "notes" / "math").mkdir()
         (vault.root / "notes" / "physics").mkdir()
@@ -114,12 +121,13 @@ class TestResources:
 class TestResourceCatalog:
     """Tests for resource catalog completeness."""
 
-    def test_catalog_has_10_resources(self):
-        assert len(resource_catalog()) == 10
+    def test_catalog_has_11_resources(self):
+        assert len(resource_catalog()) == 11
 
     def test_agent_reference_in_catalog(self):
         uris = {r["uri"] for r in resource_catalog()}
         assert "ztlctl://agent-reference" in uris
+        assert "ztlctl://capture/spec" in uris
 
 
 class TestAgentReference:

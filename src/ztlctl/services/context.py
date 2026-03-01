@@ -19,6 +19,13 @@ from ztlctl.infrastructure.vault import Vault
 from ztlctl.services._helpers import estimate_tokens
 from ztlctl.services.contracts import AgentContextResultData, TopicPacketData, dump_validated
 from ztlctl.services.result import ServiceResult
+from ztlctl.services.source_bundles import (
+    bundle_artifacts,
+    bundle_citation_lines,
+    bundle_excerpt_lines,
+    bundle_provenance_lines,
+    load_source_bundle,
+)
 from ztlctl.services.telemetry import trace_span, traced
 
 
@@ -273,6 +280,20 @@ class ContextAssembler:
         references = ref_result.data.get("items", []) if ref_result.ok else []
         decisions = decisions_result.data.get("items", []) if decisions_result.ok else []
         tasks = tasks_result.data.get("items", []) if tasks_result.ok else []
+        topic_notes_result = query.list_items(content_type="note", topic=topic, limit=8)
+        topic_refs_result = query.list_items(content_type="reference", topic=topic, limit=6)
+        topic_notes = (
+            [
+                item
+                for item in topic_notes_result.data.get("items", [])
+                if item.get("subtype") != "decision"
+            ]
+            if topic_notes_result.ok
+            else []
+        )
+        topic_refs = topic_refs_result.data.get("items", []) if topic_refs_result.ok else []
+        notes = self._merge_packet_items(notes, topic_notes, limit=8)
+        references = self._merge_packet_items(references, topic_refs, limit=6)
 
         adjacent = self._graph_adjacent(
             [item["id"] for item in notes[:3] if item.get("id")],
@@ -598,6 +619,26 @@ class ContextAssembler:
             return []
 
     @staticmethod
+    def _merge_packet_items(
+        primary: list[dict[str, Any]],
+        secondary: list[dict[str, Any]],
+        *,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Merge packet item collections while preserving primary order."""
+        merged: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for item in [*primary, *secondary]:
+            item_id = str(item.get("id", ""))
+            if not item_id or item_id in seen:
+                continue
+            seen.add(item_id)
+            merged.append(item)
+            if len(merged) >= limit:
+                break
+        return merged
+
+    @staticmethod
     def _section_map(markdown: str) -> dict[str, str]:
         """Split markdown into second-level sections."""
         sections: dict[str, list[str]] = {}
@@ -666,16 +707,48 @@ class ContextAssembler:
                 item = result.data
                 raw_path = self._vault.root / str(item.get("path", ""))
                 sections: dict[str, str] = {}
+                frontmatter: dict[str, Any] = {}
                 if raw_path.is_file():
                     raw = raw_path.read_text(encoding="utf-8")
-                    _, body = parse_frontmatter(raw)
+                    frontmatter, body = parse_frontmatter(raw)
                     sections = self._section_map(body)
+                bundle = load_source_bundle(
+                    self._vault.root,
+                    str(frontmatter.get("source_bundle_path") or "") or None,
+                )
+                bundle_excerpts = bundle_excerpt_lines(bundle) if bundle else []
+                bundle_provenance = bundle_provenance_lines(bundle) if bundle else []
+                bundle_citations = bundle_citation_lines(bundle) if bundle else []
+                bundle_artifact_list = bundle_artifacts(bundle) if bundle else []
                 summary = sections.get("Summary") or self._first_summary(str(item.get("body", "")))
+                if bundle and bundle.get("summary_hint"):
+                    summary = str(bundle.get("summary_hint"))
                 details[content_id] = {
                     "summary": summary,
-                    "key_points": self._bullet_lines(sections.get("Key Points", "")),
-                    "excerpts": self._excerpt_lines(sections.get("Excerpts", "")),
-                    "provenance": self._bullet_lines(sections.get("Provenance", "")),
+                    "key_points": list(bundle.get("key_points", []))
+                    if bundle and bundle.get("key_points")
+                    else self._bullet_lines(sections.get("Key Points", "")),
+                    "excerpts": bundle_excerpts
+                    or self._excerpt_lines(sections.get("Excerpts", "")),
+                    "provenance": bundle_provenance
+                    or self._bullet_lines(sections.get("Provenance", "")),
+                    "citations": bundle_citations,
+                    "artifacts": bundle_artifact_list,
+                    "source_bundle_path": frontmatter.get("source_bundle_path"),
+                    "source_bundle": bundle,
+                    "modalities": (
+                        list(bundle.get("modalities", []))
+                        if bundle
+                        else frontmatter.get("modalities", [])
+                    ),
+                    "capture_agent": (
+                        bundle.get("capture_agent") if bundle else frontmatter.get("capture_agent")
+                    ),
+                    "capture_method": (
+                        bundle.get("capture_method")
+                        if bundle
+                        else frontmatter.get("capture_method")
+                    ),
                     "links_out": list(item.get("links_out", [])),
                     "links_in": list(item.get("links_in", [])),
                     "type": item.get("type"),
@@ -706,6 +779,18 @@ class ContextAssembler:
                 updated["excerpts"] = detail["excerpts"][:3]
             if detail.get("provenance"):
                 updated["provenance_count"] = len(detail["provenance"])
+            if detail.get("citations"):
+                updated["citations"] = detail["citations"][:5]
+            if detail.get("artifacts"):
+                updated["artifacts"] = detail["artifacts"][:5]
+            if detail.get("source_bundle_path"):
+                updated["source_bundle_path"] = detail["source_bundle_path"]
+            if detail.get("modalities"):
+                updated["modalities"] = detail["modalities"]
+            if detail.get("capture_agent"):
+                updated["capture_agent"] = detail["capture_agent"]
+            if detail.get("capture_method"):
+                updated["capture_method"] = detail["capture_method"]
             decorated.append(updated)
         return decorated
 
@@ -723,6 +808,26 @@ class ContextAssembler:
             detail = detail_map.get(content_id, {})
             title = str(item.get("title", content_id))
             source_type = str(item.get("type", "note"))
+            bundle = detail.get("source_bundle")
+            if isinstance(bundle, dict):
+                for excerpt in bundle.get("excerpts", [])[:2]:
+                    if isinstance(excerpt, dict) and str(excerpt.get("text") or "").strip():
+                        evidence.append(
+                            {
+                                "content_id": content_id,
+                                "title": title,
+                                "source_type": source_type,
+                                "text": str(excerpt["text"]),
+                                "locator": (
+                                    str(
+                                        excerpt.get("locator") or excerpt.get("citation") or ""
+                                    ).strip()
+                                    or "source_bundle"
+                                ),
+                            }
+                        )
+                if evidence and evidence[-1]["content_id"] == content_id:
+                    continue
             excerpts = list(detail.get("excerpts", []))
             if excerpts:
                 for excerpt in excerpts[:2]:
@@ -926,9 +1031,25 @@ class ContextAssembler:
             entries: list[str] = []
             if detail.get("path"):
                 entries.append(f"Path: {detail['path']}")
+            if detail.get("source_bundle_path"):
+                entries.append(f"Source Bundle: {detail['source_bundle_path']}")
             for item in detail.get("provenance", []):
                 if item:
                     entries.append(str(item))
+            for citation in detail.get("citations", [])[:3]:
+                if citation:
+                    entries.append(f"Citation: {citation}")
+            for artifact in detail.get("artifacts", [])[:3]:
+                if not isinstance(artifact, dict):
+                    continue
+                label = str(artifact.get("label") or artifact.get("kind") or "artifact")
+                kind = str(artifact.get("kind") or "").strip()
+                uri = str(artifact.get("uri") or "").strip()
+                suffix = f" ({kind})" if kind else ""
+                if uri:
+                    entries.append(f"Artifact {label}{suffix}: {uri}")
+                else:
+                    entries.append(f"Artifact {label}{suffix}")
             provenance[content_id] = entries
         return provenance
 

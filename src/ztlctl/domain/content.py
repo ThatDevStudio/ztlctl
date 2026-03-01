@@ -85,6 +85,7 @@ CANONICAL_KEY_ORDER: list[str] = [
     "capture_method",
     "citations",
     "artifacts",
+    "source_bundle_path",
     "retrieved_at",
     "content_hash",
     "language",
@@ -513,6 +514,7 @@ class ReferenceModel(ContentModel):
     capture_method: str | None = None
     citations: list[str] = Field(default_factory=list)
     artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    source_bundle_path: str | None = None
     retrieved_at: str | None = None
     content_hash: str | None = None
     language: str | None = None

@@ -206,9 +206,24 @@ Work queue scoring: `priority×2 + impact×1.5 + (4 − effort_weight)`. High/hi
 
 ### Frontmatter Standards
 
-**Canonical key ordering per type:** `id, type, subtype, status, maturity, title, session, tags, aliases, topic, links, created, modified`
+**Canonical key ordering per type:** `id, type, subtype, status, maturity, title, session, tags, aliases, topic, links, key_points, url, canonical_url, source_provider, source_type, source_kind, modalities, capture_agent, capture_method, citations, artifacts, source_bundle_path, retrieved_at, content_hash, language, created, modified`
 
 **Frontmatter handling:** ruamel.yaml round-trip preserving comments and formatting.
+
+### Reference Source Bundles
+
+Agent-driven captures may attach a durable source bundle to a reference. The bundle is not a new top-level knowledge artifact. It is a persisted source attachment stored beside the reference under `sources/<reference-id>/bundle.json` plus `sources/<reference-id>/normalized.md`, with `source_bundle_path` recorded on the reference frontmatter.
+
+Bundles preserve capture metadata such as:
+
+- canonical source identity
+- normalized text pointer and content hash
+- modalities
+- capture agent and capture method
+- excerpts and citations with locators
+- source artifacts such as screenshots, transcripts, and original files
+
+`ingest_source` remains backward compatible with flat evidence-envelope fields, but the service normalizes them into the bundle format internally.
 
 ---
 
@@ -1173,7 +1188,7 @@ The MCP module uses `try/except ImportError` with a module-level `mcp_available`
 | Session | `session_close`, `session_status` |
 | Analysis | `decision_support`, `vault_review` |
 
-### Resources (10)
+### Resources (11)
 
 | URI | Content |
 |-----|---------|
@@ -1185,12 +1200,13 @@ The MCP module uses `try/except ImportError` with a module-level `mcp_available`
 | `ztlctl://review/dashboard` | Review-oriented dashboard snapshot |
 | `ztlctl://garden/backlog` | Stale/orphan backlog for enrichment |
 | `ztlctl://decision-queue` | Recent decisions plus current work queue |
+| `ztlctl://capture/spec` | Source-bundle contract for agent capture and ingest handoff |
 | `ztlctl://topics` | Topic listing |
 | `ztlctl://agent-reference` | One-shot onboarding guide with workflows and recovery guidance |
 
-### Prompts (7)
+### Prompts (9)
 
-`research_session`, `knowledge_capture`, `vault_orientation`, `decision_record`, `topic_learn`, `topic_review`, `topic_decision` — portable workflows for any MCP client.
+`research_session`, `knowledge_capture`, `vault_orientation`, `decision_record`, `topic_learn`, `topic_review`, `topic_decision`, `capture_web_source`, `capture_multimodal_source` — portable workflows for any MCP client.
 
 ### Transport
 
@@ -1637,9 +1653,9 @@ Phase 6 — Extension (complete):
     - Event dispatch integrated into all 6 service modules (create, update, reweave, session, check, init)
   F15 MCP Adapter:
     - Discovery-first tool surface across Discovery, Creation, Lifecycle, Query, Graph, Session, and Analysis
-    - Core additions for ingestion and retrieval packets: `list_source_providers`, `ingest_source`, `topic_packet`
-    - 7 resources: context, self/identity, self/methodology, overview, work-queue, topics, agent-reference
-    - 4 prompts: research_session, knowledge_capture, vault_orientation, decision_record
+    - Core additions for ingestion and retrieval packets: `list_source_providers`, `ingest_source`, `topic_packet`, `draft_from_topic`
+    - 11 resources including review/dashboard, garden/backlog, decision-queue, capture/spec, and agent-reference
+    - 9 prompts including topic_learn/review/decision plus capture_web_source and capture_multimodal_source
     - _impl function pattern: testable without mcp package installed
     - register_tools/resources/prompts wraps _impl functions with FastMCP decorators and extends with plugin contributions
     - `ztlctl serve --transport {stdio|sse|streamable-http}` command with mcp install guard

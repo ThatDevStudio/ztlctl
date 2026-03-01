@@ -69,10 +69,11 @@ ztlctl agent session close --summary "Mapped async patterns, identified refactor
 - **Session-based agentic workflows** with token-budgeted 5-layer context assembly ([Agentic Workflows](docs/agentic-workflows.md))
 - **Digital garden maturity** tracking — seed, budding, and evergreen stages ([Knowledge Paradigms](docs/paradigms.md))
 - **Text-first ingestion** for raw text, markdown files, and provider-backed URL capture ([Command Reference](docs/commands.md))
+- **Durable source bundles** for agent-fetched web and multimodal captures, persisted beside ingested references for later packet/export reuse ([Agentic Workflows](docs/agentic-workflows.md))
 - **Full-text + semantic search** with BM25/vector hybrid ranking, explainable review/garden modes, and topic packets ([Command Reference](docs/commands.md))
 - **Conversational enrichment workflows** with packet-to-draft note/task/decision generation ([Agentic Workflows](docs/agentic-workflows.md))
 - **Dashboard and dossier export** for review queues, garden backlog, and topic workbenches ([Tutorial](docs/tutorial.md#step-8-export-and-share))
-- **MCP server** with discovery-first tooling, portable prompts, and exported client assets for AI integration ([MCP Server](docs/mcp.md))
+- **MCP server** with discovery-first tooling, portable prompts, capture-spec resources, and exported client assets for AI integration ([MCP Server](docs/mcp.md))
 - **Generated Claude and Codex workflow assets** via `ztlctl workflow export` for portable agent setup
 - **Export** to markdown, indexes, graph formats, and dashboard artifacts ([Tutorial](docs/tutorial.md#step-8-export-and-share))
 - **Plugin system** via pluggy event bus with built-in git integration ([Development](docs/development.md))

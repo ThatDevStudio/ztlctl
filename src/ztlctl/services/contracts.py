@@ -367,6 +367,8 @@ class IngestPreviewData(BaseModel):
     key_points: list[str] = Field(default_factory=list)
     citations: list[str] = Field(default_factory=list)
     excerpts: list[str] = Field(default_factory=list)
+    source_bundle_version: int | None = None
+    source_bundle_path: str | None = None
 
 
 class IngestResultData(BaseModel):
@@ -383,6 +385,8 @@ class IngestResultData(BaseModel):
     modalities: list[str] = Field(default_factory=list)
     capture_agent: str | None = None
     capture_method: str | None = None
+    source_bundle_version: int | None = None
+    source_bundle_path: str | None = None
 
 
 class SourceArtifactItem(BaseModel):
@@ -392,6 +396,66 @@ class SourceArtifactItem(BaseModel):
     label: str | None = None
     uri: str | None = None
     mime_type: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SourceBundleCitationItem(BaseModel):
+    """Structured citation entry stored in a durable source bundle."""
+
+    text: str
+    locator: str | None = None
+    source: str | None = None
+
+
+class SourceBundleExcerptItem(BaseModel):
+    """Structured excerpt entry stored in a durable source bundle."""
+
+    text: str
+    locator: str | None = None
+    modality: str | None = None
+    citation: str | None = None
+
+
+class SourceBundleCanonicalSource(BaseModel):
+    """Canonical source identity for a captured bundle."""
+
+    title: str | None = None
+    url: str | None = None
+    canonical_url: str | None = None
+    provider: str | None = None
+    source_type: str | None = None
+    language: str | None = None
+
+
+class SourceBundleNormalizedText(BaseModel):
+    """Normalized text pointer stored in a durable source bundle."""
+
+    path: str
+    content_hash: str
+    line_count: int = 0
+
+
+class SourceBundleData(BaseModel):
+    """Durable source bundle persisted beside a captured reference."""
+
+    version: Literal[1] = 1
+    input_kind: Literal["text", "file", "url"]
+    title: str
+    source_kind: str | None = None
+    modalities: list[str] = Field(default_factory=list)
+    capture_agent: str | None = None
+    capture_method: str | None = None
+    captured_at: str
+    summary_hint: str | None = None
+    key_points: list[str] = Field(default_factory=list)
+    provenance: list[str] = Field(default_factory=list)
+    canonical_source: SourceBundleCanonicalSource = Field(
+        default_factory=SourceBundleCanonicalSource
+    )
+    normalized_text: SourceBundleNormalizedText
+    citations: list[SourceBundleCitationItem] = Field(default_factory=list)
+    excerpts: list[SourceBundleExcerptItem] = Field(default_factory=list)
+    artifacts: list[SourceArtifactItem] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

@@ -584,9 +584,34 @@ class ExportService(BaseService):
         evidence = packet.get("evidence", [])
         if evidence:
             for item in evidence[:10]:
-                lines.append(f"- {item.get('title')}: {item.get('text')}")
+                locator = str(item.get("locator") or "").strip()
+                suffix = f" [{locator}]" if locator else ""
+                lines.append(f"- {item.get('title')}: {item.get('text')}{suffix}")
         else:
             lines.append("- No evidence excerpts.")
+
+        citations = cls._packet_citations(packet)
+        lines.extend(["", "## Citations"])
+        if citations:
+            for citation in citations[:10]:
+                lines.append(f"- {citation}")
+        else:
+            lines.append("- No citations captured.")
+
+        artifacts = cls._packet_artifacts(packet)
+        lines.extend(["", "## Source Artifacts"])
+        if artifacts:
+            for artifact in artifacts[:10]:
+                label = artifact.get("label") or artifact.get("kind") or "artifact"
+                uri = str(artifact.get("uri") or "").strip()
+                kind = str(artifact.get("kind") or "").strip()
+                suffix = f" ({kind})" if kind else ""
+                if uri:
+                    lines.append(f"- {label}{suffix}: {uri}")
+                else:
+                    lines.append(f"- {label}{suffix}")
+        else:
+            lines.append("- No source artifacts captured.")
 
         lines.extend(["", "## Stale Items"])
         stale_items = packet.get("stale_items", [])
@@ -615,6 +640,78 @@ class ExportService(BaseService):
             lines.append("- No bridge candidates.")
 
         return "\n".join(lines).strip() + "\n"
+
+    @staticmethod
+    def _packet_citations(packet: dict[str, Any]) -> list[str]:
+        """Collect unique citation lines from packet items."""
+        seen: set[str] = set()
+        lines: list[str] = []
+        for collection_name in ("references", "notes", "decisions"):
+            for item in packet.get(collection_name, []):
+                for citation in item.get("citations", []):
+                    text = str(citation).strip()
+                    if not text or text in seen:
+                        continue
+                    seen.add(text)
+                    lines.append(text)
+        for provenance_lines in packet.get("provenance_map", {}).values():
+            if not isinstance(provenance_lines, list):
+                continue
+            for entry in provenance_lines:
+                text = str(entry).strip()
+                if not text.startswith("Citation: "):
+                    continue
+                citation = text.removeprefix("Citation: ").strip()
+                if citation and citation not in seen:
+                    seen.add(citation)
+                    lines.append(citation)
+        return lines
+
+    @staticmethod
+    def _packet_artifacts(packet: dict[str, Any]) -> list[dict[str, Any]]:
+        """Collect unique source artifact payloads from packet items."""
+        seen: set[tuple[str, str, str]] = set()
+        items: list[dict[str, Any]] = []
+        for collection_name in ("references", "notes", "decisions"):
+            for item in packet.get(collection_name, []):
+                for artifact in item.get("artifacts", []):
+                    if not isinstance(artifact, dict):
+                        continue
+                    key = (
+                        str(artifact.get("kind") or ""),
+                        str(artifact.get("label") or ""),
+                        str(artifact.get("uri") or ""),
+                    )
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    items.append(dict(artifact))
+        for provenance_lines in packet.get("provenance_map", {}).values():
+            if not isinstance(provenance_lines, list):
+                continue
+            for entry in provenance_lines:
+                text = str(entry).strip()
+                if not text.startswith("Artifact "):
+                    continue
+                body = text.removeprefix("Artifact ").strip()
+                label_part, _, uri = body.partition(": ")
+                label = label_part
+                kind = ""
+                if label_part.endswith(")") and " (" in label_part:
+                    label, _, kind_part = label_part.rpartition(" (")
+                    kind = kind_part[:-1]
+                key = (kind, label, uri)
+                if key in seen:
+                    continue
+                seen.add(key)
+                items.append(
+                    {
+                        "kind": kind or None,
+                        "label": label or None,
+                        "uri": uri or None,
+                    }
+                )
+        return items
 
     def _select_filtered_node_rows(
         self,

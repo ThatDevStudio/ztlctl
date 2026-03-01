@@ -116,6 +116,7 @@ class CreateService(BaseService):
         capture_method: str | None = None,
         citations: list[str] | None = None,
         artifacts: list[dict[str, Any]] | None = None,
+        source_bundle_path: str | None = None,
         retrieved_at: str | None = None,
         content_hash: str | None = None,
         language: str | None = None,
@@ -157,6 +158,8 @@ class CreateService(BaseService):
             extra["citations"] = citations
         if artifacts is not None:
             extra["artifacts"] = artifacts
+        if source_bundle_path is not None:
+            extra["source_bundle_path"] = source_bundle_path
         if retrieved_at is not None:
             extra["retrieved_at"] = retrieved_at
         if content_hash is not None:

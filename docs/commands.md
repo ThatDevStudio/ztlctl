@@ -127,7 +127,9 @@ ztlctl ingest url https://example.com/spec --provider my-provider --as reference
 
 URL ingestion is provider-backed. If no source provider is installed, `ingest url` returns `NO_PROVIDER` and suggests `ztlctl ingest providers`.
 
-For richer agent-driven capture, the MCP `ingest_source` tool also accepts optional evidence-envelope fields such as `source_kind`, `modalities`, `capture_agent`, `capture_method`, `citations`, `excerpts`, and `artifacts`.
+For richer agent-driven capture, the MCP `ingest_source` tool accepts a nested `source_bundle` object. ztlctl persists that bundle beside the created reference under `sources/<reference-id>/bundle.json` plus `sources/<reference-id>/normalized.md`.
+
+Read `ztlctl://capture/spec` for the exact bundle contract. The older flat evidence-envelope fields (`source_kind`, `modalities`, `capture_agent`, `capture_method`, `citations`, `excerpts`, and `artifacts`) still work, but ztlctl now lifts them into the durable source bundle format internally.
 
 ## Topic Packets and Drafts
 
@@ -140,6 +142,8 @@ ztlctl query packet --topic architecture --mode decision
 ```
 
 Packets now include evidence excerpts, supporting/conflicting links, stale items, bridge candidates, suggested actions, and ranking explanations.
+
+Packets also merge topic-scoped items with search-ranked items, so topic-tagged references and notes still surface even when the topic string is not a strong lexical match.
 
 Use drafts when you want the next durable artifact sketched from the packet:
 

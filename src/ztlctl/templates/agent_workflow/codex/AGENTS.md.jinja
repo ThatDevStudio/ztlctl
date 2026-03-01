@@ -9,6 +9,8 @@ This vault is managed by `ztlctl`. Treat the MCP surface as canonical when it is
 - Search before creating.
 - Reuse existing tags via `list_tags` when possible.
 - Prefer `ingest_source` for external text, files, and provider-backed URLs when provenance matters.
+- Read `ztlctl://capture/spec` before ingesting agent-fetched web pages or multimodal evidence.
+- Prefer nested `source_bundle` payloads over loose capture metadata when using `ingest_source`.
 - Prefer one-step note creation with authored `body`, `key_points`, `aliases`, and `links` when creating synthesis or knowledge notes.
 - Run `reweave` after important note creation.
 - Use `vault_review` for health checks and periodic reviews.
@@ -42,4 +44,4 @@ This vault is managed by `ztlctl`. Treat the MCP surface as canonical when it is
 - Available MCP prompts: {{ prompt_count }}
 - Keep Claude-specific slash-command syntax out of Codex interactions.
 - Prefer `topic_packet` when you need a topic-scoped learning or review bundle outside an active session.
-- Prefer `topic_learn`, `topic_review`, and `topic_decision` prompts when the MCP client exposes prompts.
+- Prefer `topic_learn`, `topic_review`, `topic_decision`, `capture_web_source`, and `capture_multimodal_source` prompts when the MCP client exposes prompts.

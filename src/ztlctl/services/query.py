@@ -651,10 +651,11 @@ class QueryService(BaseService):
 
         # Read file body
         body = ""
+        frontmatter: dict[str, Any] = {}
         file_path = self._vault.root / str(row["path"])
         if file_path.exists():
             content = file_path.read_text(encoding="utf-8")
-            _, body = parse_frontmatter(content)
+            frontmatter, body = parse_frontmatter(content)
 
         data: dict[str, Any] = {
             "id": row["id"],
@@ -672,6 +673,13 @@ class QueryService(BaseService):
             "body": body,
             "links_out": links_out,
             "links_in": links_in,
+            "source_kind": frontmatter.get("source_kind"),
+            "modalities": frontmatter.get("modalities", []),
+            "capture_agent": frontmatter.get("capture_agent"),
+            "capture_method": frontmatter.get("capture_method"),
+            "citations": frontmatter.get("citations", []),
+            "artifacts": frontmatter.get("artifacts", []),
+            "source_bundle_path": frontmatter.get("source_bundle_path"),
         }
 
         return ServiceResult(ok=True, op="get", data=data)

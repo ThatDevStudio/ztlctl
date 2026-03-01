@@ -1,8 +1,9 @@
 """MCP prompt definitions — portable workflow prompts.
 
 Prompts: research_session, knowledge_capture, vault_orientation,
-decision_record, topic_learn, topic_review, topic_decision. Available
-to any MCP client. (DESIGN.md Section 16)
+decision_record, topic_learn, topic_review, topic_decision,
+capture_web_source, capture_multimodal_source. Available to any MCP
+client. (DESIGN.md Section 16)
 Each prompt has a ``_<name>_impl`` function testable without the mcp package.
 """
 
@@ -24,6 +25,14 @@ _PROMPT_CATALOG: tuple[dict[str, str], ...] = (
         "description": "Review a topic for stale, weak, or disconnected knowledge.",
     },
     {"name": "topic_decision", "description": "Prepare a decision-ready topic packet and draft."},
+    {
+        "name": "capture_web_source",
+        "description": "Normalize a fetched web source into a source bundle.",
+    },
+    {
+        "name": "capture_multimodal_source",
+        "description": "Normalize multimodal evidence into a source bundle for ingest.",
+    },
 )
 
 
@@ -245,6 +254,56 @@ Focus on:
 """
 
 
+def capture_web_source_impl(source: str, topic: str | None = None) -> str:
+    """Generate instructions for bundle-first web capture."""
+    scoped = f' and `topic="{topic}"`' if topic else ""
+    ingest_call = (
+        '4. Call `ingest_source` with `input_kind="text"`, '
+        '`content=<normalized text>`, `target_type="reference"`'
+        f"{scoped}, and `source_bundle=<bundle>`."
+    )
+    return f"""## Capture Web Source
+
+1. Read `ztlctl://capture/spec` before building the capture payload.
+2. Fetch or parse `{source}` outside ztlctl.
+3. Normalize the page into plain text and a `source_bundle` object.
+{ingest_call}
+5. After ingest, use `topic_packet` or `draft_from_topic`
+   to turn the captured source into review or synthesis work.
+
+Bundle priorities:
+- set `source_kind="web"`
+- include `canonical_url`, `capture_agent`, and `capture_method`
+- preserve any citations or excerpts with locators when available
+- attach screenshots or downloads as `artifacts` when they matter
+"""
+
+
+def capture_multimodal_source_impl(source: str, modality: str, topic: str | None = None) -> str:
+    """Generate instructions for bundle-first multimodal capture."""
+    scoped = f' and `topic="{topic}"`' if topic else ""
+    ingest_call = (
+        '4. Call `ingest_source` with `input_kind="text"`, '
+        '`content=<normalized text>`, `target_type="reference"`'
+        f"{scoped}, and `source_bundle=<bundle>`."
+    )
+    return f"""## Capture Multimodal Source
+
+1. Read `ztlctl://capture/spec` before building the capture payload.
+2. Extract or transcribe `{source}` outside ztlctl.
+3. Normalize the extracted text into `content` and put modality metadata in `source_bundle`.
+{ingest_call}
+5. Use `topic_packet` in `learn` or `review` mode after ingest
+   to work from the captured evidence.
+
+Bundle priorities:
+- include `{modality}` in `modalities`
+- preserve excerpt locators from transcripts, OCR spans, or page/slide timestamps
+- attach original files, screenshots, or transcript URIs in `artifacts`
+- record the extraction method and capture agent explicitly
+"""
+
+
 # ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
@@ -287,6 +346,20 @@ def register_prompts(server: Any, vault: Any) -> None:
     def topic_decision(topic: str) -> str:
         """Prepare a decision-ready topic packet and draft."""
         return topic_decision_impl(topic)
+
+    @server.prompt()  # type: ignore[untyped-decorator]
+    def capture_web_source(source: str, topic: str | None = None) -> str:
+        """Normalize a fetched web source into a source bundle."""
+        return capture_web_source_impl(source, topic=topic)
+
+    @server.prompt()  # type: ignore[untyped-decorator]
+    def capture_multimodal_source(
+        source: str,
+        modality: str,
+        topic: str | None = None,
+    ) -> str:
+        """Normalize multimodal evidence into a source bundle for ingest."""
+        return capture_multimodal_source_impl(source, modality=modality, topic=topic)
 
     plugin_manager = getattr(vault, "plugin_manager", None)
     if plugin_manager is None:

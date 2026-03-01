@@ -50,7 +50,14 @@ ztlctl ingest providers --json
 
 URL ingestion is provider-backed by design. The core tool does not ship a built-in remote fetcher in the base install.
 
-For early multimodal workflows, agents can fetch or extract content externally and hand the normalized result to MCP `ingest_source` with fields such as `source_kind`, `modalities`, `capture_agent`, `capture_method`, `citations`, `excerpts`, and `artifacts`.
+For agent-fetched web and multimodal workflows, use a bundle-first handoff:
+
+1. Fetch or extract the source outside ztlctl.
+2. Normalize the capture into plain text plus a nested `source_bundle`.
+3. Call MCP `ingest_source` with `content=<normalized text>` and `source_bundle=<bundle>`.
+4. Let ztlctl persist the bundle beside the ingested reference under `sources/<reference-id>/`.
+
+Read `ztlctl://capture/spec` for the exact bundle contract. The flat evidence-envelope fields (`source_kind`, `modalities`, `capture_agent`, `capture_method`, `citations`, `excerpts`, and `artifacts`) still work, but ztlctl now normalizes them into the durable source bundle format internally.
 
 ## Context Assembly (5-Layer System)
 
@@ -88,6 +95,8 @@ ztlctl query packet --topic architecture --mode decision --json
 ```
 
 Packets combine topic-matched notes, references, decisions, tasks, graph-adjacent material, evidence excerpts, supporting/conflicting links, stale items, bridge candidates, suggested actions, ranking explanations, and provenance maps so an agent can continue reasoning from captured knowledge rather than only from recent session state.
+
+Packets now merge topic-scoped items with search-ranked items, so a reference tagged to a topic is still available for review and learning even when its title/body is a weak lexical match for the topic string itself.
 
 When a packet should become durable work, draft from it directly:
 
@@ -145,8 +154,9 @@ For enrichment-focused agents, the most useful read models are:
 - `ztlctl://review/dashboard`
 - `ztlctl://garden/backlog`
 - `ztlctl://decision-queue`
+- `ztlctl://capture/spec`
 
-The MCP prompt layer now also includes `topic_learn`, `topic_review`, and `topic_decision`.
+The MCP prompt layer now also includes `topic_learn`, `topic_review`, `topic_decision`, `capture_web_source`, and `capture_multimodal_source`.
 
 See the [MCP Server](mcp.md) page for tool categories, resources, prompts, and exported client assets.
 

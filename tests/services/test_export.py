@@ -450,3 +450,31 @@ class TestExportDashboard:
 
         assert result.ok
         assert not (output / ".obsidian").exists()
+
+    def test_dashboard_dossier_surfaces_bundle_citations_and_artifacts(
+        self, vault: Vault, tmp_path: Path
+    ) -> None:
+        from ztlctl.services.ingest import IngestService
+
+        IngestService(vault).ingest_text(
+            "Bundle Export Source",
+            "Normalized export body",
+            target_type="reference",
+            topic="architecture",
+            source_bundle={
+                "source_kind": "web",
+                "citations": [{"text": "Export citation", "locator": "paragraph 2"}],
+                "excerpts": [{"text": "Export excerpt", "locator": "paragraph 2"}],
+                "artifacts": [
+                    {"kind": "screenshot", "label": "hero", "uri": "https://example.com/hero.png"}
+                ],
+            },
+        )
+
+        output = tmp_path / "dashboard-bundle"
+        result = ExportService(vault).export_dashboard(output, viewer="vanilla")
+
+        assert result.ok
+        dossier = (output / "topics" / "architecture.md").read_text(encoding="utf-8")
+        assert "Export citation [paragraph 2]" in dossier
+        assert "hero (screenshot): https://example.com/hero.png" in dossier
