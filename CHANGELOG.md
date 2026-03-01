@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.1.3 (2026-03-01)
+
+### Refactor
+
+- **session**: remove JSONL dual-write from session logs (#85)
+
 ## v1.1.2 (2026-02-28)
 
 ### Fix
