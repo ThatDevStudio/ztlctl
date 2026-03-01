@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import func, select, text
 from sqlalchemy.engine import Engine
@@ -206,7 +206,7 @@ class QueryRepository:
 
         with self._engine.connect() as conn:
             rows = conn.execute(stmt).all()
-        return {str(row.type): int(row.count) for row in rows}
+        return {str(row.type): int(cast(int, row._mapping["count"])) for row in rows}
 
     def list_tags_rows(
         self, *, prefix: str | None = None, limit: int = 100

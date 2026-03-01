@@ -138,7 +138,11 @@ class WorkflowService:
     def _load_agent_manifest() -> dict[str, Any]:
         """Load the packaged agent workflow manifest."""
         manifest = WorkflowService._agent_template_root().joinpath("manifest.json")
-        return json.loads(manifest.read_text(encoding="utf-8"))
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            msg = "Agent workflow manifest must be a JSON object"
+            raise ValueError(msg)
+        return cast(dict[str, Any], payload)
 
     @staticmethod
     def _selected_clients(client: WorkflowAssetClient) -> list[str]:
