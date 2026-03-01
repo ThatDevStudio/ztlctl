@@ -34,22 +34,10 @@ uv run cz check --message "feat: msg"   # validate a commit message
 
 ## Git Workflow
 
-### Roles
-
-**Claude (you):**
-- Create `feature/*` or `fix/*` branches from `develop`
-- Write code and commit with conventional commit messages
-- Push branches and create PRs targeting `develop`
-- PR titles MUST use conventional commit format (see below)
-- Address review feedback on open PRs
-
-**User (human):**
-- Reviews PRs, approves, and merges (squash-merge)
-
 **Automation (CI/CD):**
 - Runs lint, test, typecheck, security, commit-lint on every PR
 - On merge to `develop`: if version-bumping commits exist, bumps version, updates changelog, creates tag + GitHub Release
-- On GitHub Release: builds and publishes to PyPI (manual approval)
+- On GitHub Release: builds and publishes to PyPI
 
 ### Branching Model
 
@@ -109,9 +97,7 @@ All commit messages AND PR titles MUST follow the conventional commits format:
    git push -u origin feature/<name>
    gh pr create --base develop --title "feat(scope): description"
    ```
-   Provide the PR link for the user to review.
-6. **Address review feedback** — push additional commits to the same branch
-7. Wait for user to review, approve, and squash-merge
+6. **Address review feedback** — push additional commits to the same branch if needed
 
 **Do NOT use git worktrees** — work directly on feature/fix branches in the main repo checkout.
 
@@ -131,7 +117,7 @@ git checkout develop && git pull origin develop
 - **Don't manually edit version numbers** — `cz bump` manages `pyproject.toml` and `src/ztlctl/__init__.py`
 - **Don't manually edit CHANGELOG.md** — `cz bump --changelog` generates it
 - **Don't create git tags manually** — the release workflow creates annotated tags
-- **Don't merge PRs** — the user reviews and merges; Claude only creates PRs and addresses feedback
+- **Don't merge PRs** — create PRs and let them be merged via squash-merge
 - **Don't use git worktrees** — work directly on feature/fix branches
 - **Don't use `uv pip install`** — always use `uv add` (or `uv add --group <group>` for dev deps)
 
@@ -141,7 +127,7 @@ git checkout develop && git pull origin develop
 |---|---|---|
 | `ci.yml` | PR/push to `develop` | Lint, test, typecheck, security audit, commit lint |
 | `release.yml` | Push to `develop` | Auto version bump, changelog, tag, GitHub Release (if version-bumping commits) |
-| `publish.yml` | GitHub Release published | Build and publish to PyPI via OIDC (manual approval) |
+| `publish.yml` | GitHub Release published | Build and publish to PyPI via OIDC |
 
 ## Architecture
 
