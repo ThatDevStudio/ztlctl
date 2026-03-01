@@ -131,3 +131,31 @@ class TestExportGraphCommand:
         d3 = json.loads(result.output)
         assert len(d3["nodes"]) == 1
         assert d3["nodes"][0]["type"] == "note"
+
+
+@pytest.mark.usefixtures("_isolated_vault")
+class TestExportDashboardCommand:
+    def test_export_dashboard_json(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        output = tmp_path / "dashboard-json"
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "export", "dashboard", "--viewer", "obsidian", "--output", str(output)],
+        )
+
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["op"] == "export_dashboard"
+        assert (output / "dashboard.md").is_file()
+
+    def test_export_dashboard_vanilla_writes_no_obsidian_state(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        output = tmp_path / "dashboard-vanilla"
+        result = cli_runner.invoke(
+            cli,
+            ["export", "dashboard", "--viewer", "vanilla", "--output", str(output)],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert not (output / ".obsidian").exists()

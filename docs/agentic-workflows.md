@@ -5,17 +5,18 @@ nav_order: 8
 
 # Agentic Workflows
 
-ztlctl is designed to be operated by AI agents as a first-class use case. Every command supports `--json` output for structured parsing, and the session/context system provides token-budgeted context windows.
+ztlctl is designed for agent-assisted capture and synthesis. Every command supports `--json`, sessions provide operational coordination, and topic packets provide read-oriented retrieval even when no session is active.
 
-## Session-Based Agent Workflow
+## Capture and Synthesis Workflow
 
-Sessions are the primary organizational container for agentic work:
+Sessions are operational coordination state, not durable authored knowledge. Use them to structure research work, then turn findings into notes, references, and tasks:
 
 ```bash
 # Agent starts a focused research session
 ztlctl agent session start "API design patterns" --json
 
-# Agent creates notes as it discovers knowledge
+# Agent captures sources and synthesis
+ztlctl ingest text "API source notes" --stdin --as reference --json
 ztlctl create note "REST vs GraphQL trade-offs" \
   --tags "architecture/api" --session LOG-0001 --json
 
@@ -29,9 +30,25 @@ ztlctl agent session cost --report 50000 --json
 # Agent requests context for continued work
 ztlctl agent context --topic "api" --budget 4000 --json
 
-# Agent closes session, triggering enrichment pipeline
+# Agent closes session, triggering capture/synthesis cleanup
 ztlctl agent session close --summary "Mapped API paradigms" --json
 ```
+
+## Ingestion
+
+Core ingestion is text-first:
+
+- raw text via `ztlctl ingest text`
+- markdown and plain text files via `ztlctl ingest file`
+- URLs via `ztlctl ingest url`, but only when a source-provider plugin is installed
+
+```bash
+ztlctl ingest text "OAuth notes" --stdin --as reference --json
+ztlctl ingest file ./source.md --as note --json
+ztlctl ingest providers --json
+```
+
+URL ingestion is provider-backed by design. The core tool does not ship a built-in remote fetcher in the base install.
 
 ## Context Assembly (5-Layer System)
 
@@ -57,6 +74,18 @@ ztlctl agent context --topic "architecture" --budget 4000 --json
 # Quick orientation (no session required)
 ztlctl agent brief --json
 ```
+
+## Topic Packets
+
+Use topic packets when you want conversational retrieval without depending on an active session:
+
+```bash
+ztlctl query packet --topic architecture --mode learn --json
+ztlctl query packet --topic architecture --mode review --json
+ztlctl query packet --topic architecture --mode decision --json
+```
+
+Packets combine topic-matched notes, references, decisions, tasks, graph-adjacent material, and provenance so an agent can continue reasoning from captured knowledge rather than only from recent session state.
 
 ## Session Close Enrichment Pipeline
 
@@ -89,13 +118,19 @@ This creates a decision note (`subtype=decision`, status `proposed`) linked to t
 
 ## MCP Server Integration
 
-ztlctl includes a Model Context Protocol (MCP) server for direct integration with AI clients like Claude Desktop:
+ztlctl includes a Model Context Protocol (MCP) server for direct integration with AI clients like Claude Desktop and Codex-compatible environments:
 
 ```bash
 ztlctl serve --transport stdio
 ```
 
-See the [MCP Server](mcp.md) page for full details on available tools, resources, and prompts.
+Use the discovery flow in MCP clients:
+
+1. `discover_tools`
+2. `describe_tool`
+3. `ztlctl://agent-reference`
+
+See the [MCP Server](mcp.md) page for tool categories, resources, prompts, and exported client assets.
 
 ## Batch Operations
 

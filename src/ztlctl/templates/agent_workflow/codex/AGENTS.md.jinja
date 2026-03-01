@@ -1,6 +1,6 @@
 # AGENTS.md for {{ vault_name }}
 
-This vault is managed by `ztlctl`. Treat the `ztlctl` service and MCP surface as the canonical workflow contract.
+This vault is managed by `ztlctl`. Treat the MCP surface as canonical when it is available, and use the CLI as the fallback contract.
 
 ## Core Rules
 
@@ -8,6 +8,7 @@ This vault is managed by `ztlctl`. Treat the `ztlctl` service and MCP surface as
 - Use one active session at a time and check `session_status` before starting a new one.
 - Search before creating.
 - Reuse existing tags via `list_tags` when possible.
+- Prefer `ingest_source` for external text, files, and provider-backed URLs when provenance matters.
 - Prefer one-step note creation with authored `body`, `key_points`, `aliases`, and `links` when creating synthesis or knowledge notes.
 - Run `reweave` after important note creation.
 - Use `vault_review` for health checks and periodic reviews.
@@ -38,3 +39,4 @@ This vault is managed by `ztlctl`. Treat the `ztlctl` service and MCP surface as
 - Available MCP resources: {{ resource_count }}
 - Available MCP prompts: {{ prompt_count }}
 - Keep Claude-specific slash-command syntax out of Codex interactions.
+- Prefer `topic_packet` when you need a topic-scoped learning or review bundle outside an active session.

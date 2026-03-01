@@ -314,7 +314,172 @@ class ExportService(BaseService):
             data=payload,
         )
 
+    @traced
+    def export_dashboard(
+        self,
+        output_dir: Path,
+        *,
+        viewer: Literal["obsidian", "vanilla"] = "obsidian",
+    ) -> ServiceResult:
+        """Export a viewer-friendly dashboard plus JSON review indexes."""
+        from ztlctl.services.query import QueryService
+
+        output_dir = output_dir.resolve()
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        query = QueryService(self._vault)
+        export_cfg = self._vault.settings.exports.dashboard
+        work_queue_result = query.work_queue()
+        decisions_result = query.list_items(
+            content_type="note",
+            subtype="decision",
+            sort="recency",
+            limit=10,
+        )
+        review_result = query.vault_review(top=10)
+        recent_items_result = query.list_items(sort="recency", limit=25)
+
+        work_queue = work_queue_result.data.get("items", []) if work_queue_result.ok else []
+        recent_decisions = decisions_result.data.get("items", []) if decisions_result.ok else []
+        review_data = review_result.data if review_result.ok else {}
+        garden_backlog = [
+            *review_data.get("stale_seeds", []),
+            *review_data.get("orphan_notes", []),
+        ]
+
+        seen_backlog: set[str] = set()
+        deduped_backlog: list[dict[str, Any]] = []
+        for item in garden_backlog:
+            item_id = str(item.get("id", ""))
+            if item_id in seen_backlog:
+                continue
+            seen_backlog.add(item_id)
+            deduped_backlog.append(item)
+        garden_backlog = deduped_backlog
+
+        recent_items = recent_items_result.data.get("items", []) if recent_items_result.ok else []
+        by_topic = Counter(
+            str(item.get("topic") or "unscoped")
+            for item in recent_items
+            if str(item.get("topic") or "").strip() or item.get("topic") is None
+        )
+        topic_summaries = [
+            {"topic": topic, "count": count}
+            for topic, count in sorted(by_topic.items(), key=lambda item: (-item[1], item[0]))
+        ]
+
+        files_created: list[str] = []
+
+        dashboard_path = output_dir / "dashboard.md"
+        dashboard_sections = [
+            "# ztlctl Dashboard",
+            "",
+            f"- Viewer mode: {viewer}",
+            "- Focus: capture and synthesis feed the enrichment backlog.",
+        ]
+        if export_cfg.include_work_queue:
+            dashboard_sections.extend(
+                [
+                    "",
+                    "## Work Queue",
+                    *self._dashboard_lines(
+                        work_queue[:10], viewer=viewer, empty="No active tasks."
+                    ),
+                ]
+            )
+        if export_cfg.include_recent_decisions:
+            dashboard_sections.extend(
+                [
+                    "",
+                    "## Recent Decisions",
+                    *self._dashboard_lines(
+                        recent_decisions[:10],
+                        viewer=viewer,
+                        empty="No recent decisions.",
+                    ),
+                ]
+            )
+        if export_cfg.include_garden_backlog:
+            dashboard_sections.extend(
+                [
+                    "",
+                    "## Garden Backlog",
+                    *self._dashboard_lines(
+                        garden_backlog[:10],
+                        viewer=viewer,
+                        empty="No garden backlog items.",
+                    ),
+                ]
+            )
+        topic_lines = [
+            f"- {summary['topic']}: {summary['count']}" for summary in topic_summaries[:10]
+        ] or ["- No recent topic activity."]
+        dashboard_sections.extend(["", "## Topic Review Summary", *topic_lines])
+        dashboard_path.write_text("\n".join(dashboard_sections) + "\n", encoding="utf-8")
+        files_created.append("dashboard.md")
+
+        if export_cfg.include_work_queue:
+            (output_dir / "work-queue.json").write_text(
+                json.dumps({"items": work_queue}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            files_created.append("work-queue.json")
+        if export_cfg.include_recent_decisions:
+            (output_dir / "recent-decisions.json").write_text(
+                json.dumps({"items": recent_decisions}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            files_created.append("recent-decisions.json")
+        if export_cfg.include_garden_backlog:
+            (output_dir / "garden-backlog.json").write_text(
+                json.dumps({"items": garden_backlog}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            files_created.append("garden-backlog.json")
+
+        (output_dir / "topic-review-summary.json").write_text(
+            json.dumps({"items": topic_summaries}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        files_created.append("topic-review-summary.json")
+
+        return ServiceResult(
+            ok=True,
+            op="export_dashboard",
+            data={
+                "output_dir": str(output_dir),
+                "viewer": viewer,
+                "files_created": files_created,
+            },
+        )
+
     # ── Private helpers ───────────────────────────────────────────────
+
+    @staticmethod
+    def _dashboard_lines(
+        items: list[dict[str, Any]],
+        *,
+        viewer: Literal["obsidian", "vanilla"],
+        empty: str,
+    ) -> list[str]:
+        """Render one dashboard section according to the target viewer."""
+        if not items:
+            return [f"- {empty}"]
+
+        lines: list[str] = []
+        for item in items:
+            item_id = str(item.get("id", ""))
+            title = str(item.get("title", item_id))
+            status = str(item.get("status", ""))
+            topic = str(item.get("topic") or "")
+            if viewer == "obsidian":
+                label = f"[[{item_id}]] {title}"
+            else:
+                label = f"{item_id} - {title}"
+            suffix_parts = [part for part in (status, topic) if part]
+            suffix = f" ({', '.join(suffix_parts)})" if suffix_parts else ""
+            lines.append(f"- {label}{suffix}")
+        return lines
 
     def _select_filtered_node_rows(
         self,

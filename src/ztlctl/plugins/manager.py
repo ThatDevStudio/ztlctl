@@ -1,9 +1,4 @@
-"""Plugin discovery and loading.
-
-Discovery: entry_points (pip-installed) via pluggy setuptools entrypoints,
-plus local directory discovery from ``.ztlctl/plugins/``.
-Capabilities: lifecycle hooks, CLI commands, MCP tools/resources.
-"""
+"""Plugin discovery, loading, and contribution collection."""
 
 from __future__ import annotations
 
@@ -12,14 +7,24 @@ import inspect
 import logging
 import sys
 from pathlib import Path
+from typing import Any, TypeVar
 
 import pluggy
 
+from ztlctl.plugins.contracts import (
+    CliCommandContribution,
+    McpPromptContribution,
+    McpResourceContribution,
+    McpToolContribution,
+    SourceProviderContribution,
+    WorkflowModuleContribution,
+)
 from ztlctl.plugins.hookspecs import ZtlctlHookSpec
 
 PROJECT_NAME = "ztlctl"
 
 logger = logging.getLogger(__name__)
+_ContributionT = TypeVar("_ContributionT")
 
 
 class PluginManager:
@@ -76,6 +81,84 @@ class PluginManager:
     def list_plugin_names(self) -> list[str]:
         """Return names of all registered plugins."""
         return [self._pm.get_name(p) or p.__class__.__name__ for p in self._pm.get_plugins()]
+
+    def cli_command_contributions(
+        self,
+        *,
+        reserved_names: set[str] | None = None,
+    ) -> list[CliCommandContribution]:
+        """Collect plugin CLI command contributions."""
+        return self._collect_contributions(
+            "register_cli_commands",
+            CliCommandContribution,
+            key_fn=lambda item: item.name,
+            reserved=reserved_names,
+        )
+
+    def mcp_tool_contributions(
+        self,
+        *,
+        reserved_names: set[str] | None = None,
+    ) -> list[McpToolContribution]:
+        """Collect plugin MCP tool contributions."""
+        return self._collect_contributions(
+            "register_mcp_tools",
+            McpToolContribution,
+            key_fn=lambda item: item.name,
+            reserved=reserved_names,
+        )
+
+    def mcp_resource_contributions(
+        self,
+        *,
+        reserved_uris: set[str] | None = None,
+    ) -> list[McpResourceContribution]:
+        """Collect plugin MCP resource contributions."""
+        return self._collect_contributions(
+            "register_mcp_resources",
+            McpResourceContribution,
+            key_fn=lambda item: item.uri,
+            reserved=reserved_uris,
+        )
+
+    def mcp_prompt_contributions(
+        self,
+        *,
+        reserved_names: set[str] | None = None,
+    ) -> list[McpPromptContribution]:
+        """Collect plugin MCP prompt contributions."""
+        return self._collect_contributions(
+            "register_mcp_prompts",
+            McpPromptContribution,
+            key_fn=lambda item: item.name,
+            reserved=reserved_names,
+        )
+
+    def workflow_module_contributions(
+        self,
+        *,
+        reserved_names: set[str] | None = None,
+    ) -> list[WorkflowModuleContribution]:
+        """Collect plugin workflow module contributions."""
+        return self._collect_contributions(
+            "register_workflow_modules",
+            WorkflowModuleContribution,
+            key_fn=lambda item: item.name,
+            reserved=reserved_names,
+        )
+
+    def source_provider_contributions(
+        self,
+        *,
+        reserved_names: set[str] | None = None,
+    ) -> list[SourceProviderContribution]:
+        """Collect plugin source provider contributions."""
+        return self._collect_contributions(
+            "register_source_providers",
+            SourceProviderContribution,
+            key_fn=lambda item: item.name,
+            reserved=reserved_names,
+        )
 
     # ------------------------------------------------------------------
     # Local directory discovery
@@ -221,3 +304,59 @@ class PluginManager:
             if callable(method) and getattr(method, "ztlctl_impl", None):
                 return True
         return False
+
+    def _collect_contributions(
+        self,
+        hook_name: str,
+        expected_type: type[_ContributionT],
+        *,
+        key_fn: Any,
+        reserved: set[str] | None = None,
+    ) -> list[_ContributionT]:
+        """Collect typed plugin contributions from one hook."""
+        if not self._loaded:
+            return []
+
+        hook = getattr(self._pm.hook, hook_name, None)
+        if hook is None:
+            return []
+
+        reserved_keys = set(reserved or ())
+        seen = set(reserved_keys)
+        results: list[_ContributionT] = []
+
+        try:
+            hook_results = hook()
+        except Exception:
+            logger.warning("Failed to collect contributions from %s", hook_name, exc_info=True)
+            return []
+
+        for plugin_items in hook_results:
+            if plugin_items is None:
+                continue
+            if not isinstance(plugin_items, list):
+                logger.warning("%s returned non-list contributions", hook_name)
+                continue
+            for item in plugin_items:
+                if not isinstance(item, expected_type):
+                    logger.warning(
+                        "Skipping invalid %s contribution: expected %s",
+                        hook_name,
+                        expected_type.__name__,
+                    )
+                    continue
+                key = key_fn(item)
+                if key in reserved_keys:
+                    logger.warning(
+                        "Skipping reserved plugin contribution %r from %s", key, hook_name
+                    )
+                    continue
+                if key in seen:
+                    logger.warning(
+                        "Skipping duplicate plugin contribution %r from %s", key, hook_name
+                    )
+                    continue
+                seen.add(key)
+                results.append(item)
+
+        return results

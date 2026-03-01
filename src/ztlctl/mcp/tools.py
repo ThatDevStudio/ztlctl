@@ -1,7 +1,6 @@
-"""MCP tool definitions — 26 tools across 7 categories.
+"""MCP tool definitions — core tools across 7 categories.
 
-Categories: Discovery (3), Creation (5), Lifecycle (3), Query (6), Graph (5),
-Session (2), Analysis (2).
+Categories: Discovery, Creation, Lifecycle, Query, Graph, Session, Analysis.
 Each tool has a ``_<name>_impl`` function testable without the mcp package.
 ``register_tools()`` wraps them with FastMCP decorators.
 (DESIGN.md Section 16)
@@ -104,6 +103,15 @@ _TOOL_CATALOG: tuple[ToolCatalogEntry, ...] = (
             "prefix": "Optional tag prefix to filter results, such as research/ or project/.",
             "limit": "Maximum number of tags to return.",
         },
+    ),
+    _tool_entry(
+        name="list_source_providers",
+        category="discovery",
+        description="List registered source providers available for URL ingestion.",
+        when_to_use="Before ingesting URLs or when diagnosing missing provider support.",
+        avoid_when="You already know the provider you need and are ingesting text or files.",
+        side_effect="read",
+        args_guidance={},
     ),
     _tool_entry(
         name="create_note",
@@ -414,6 +422,25 @@ _TOOL_CATALOG: tuple[ToolCatalogEntry, ...] = (
         },
     ),
     _tool_entry(
+        name="ingest_source",
+        category="creation",
+        description="Normalize text, files, or provider-backed URLs into notes or references.",
+        when_to_use="Capturing external text or source material with provenance and structure.",
+        avoid_when="You are authoring a note or reference directly without source normalization.",
+        side_effect="write",
+        common_errors=("VALIDATION_FAILED", "NO_PROVIDER", "NOT_FOUND", "UNKNOWN_TYPE"),
+        args_guidance={
+            "input_kind": "One of text, file, or url.",
+            "content": "Raw text, a filesystem path, or a URL depending on input_kind.",
+            "target_type": "Destination artifact type: reference or note.",
+            "provider": "Optional provider name for URL ingestion.",
+            "topic": "Optional topic directory under notes/.",
+            "tags": "Optional tags applied to the created artifact.",
+            "summary": "Optional capture summary hint for the created reference.",
+            "dry_run": "Set true to preview normalized capture without writing files.",
+        },
+    ),
+    _tool_entry(
         name="describe_tool",
         category="discovery",
         description="Get detailed usage guidance for a single tool by name.",
@@ -425,14 +452,37 @@ _TOOL_CATALOG: tuple[ToolCatalogEntry, ...] = (
             "name": "Exact tool name to describe.",
         },
     ),
+    _tool_entry(
+        name="topic_packet",
+        category="query",
+        description="Assemble a topic-scoped packet for learning, review, or decision support.",
+        when_to_use=(
+            "You need a conversational, topic-focused retrieval bundle without an active session."
+        ),
+        avoid_when="A single document lookup or plain search result list is sufficient.",
+        side_effect="read",
+        args_guidance={
+            "topic": "Topic name or query anchor for the packet.",
+            "mode": "Packet mode: learn, review, or decision.",
+            "budget": "Approximate token budget for assembled results.",
+        },
+    ),
 )
 
 _TOOL_CATALOG_BY_NAME: dict[str, ToolCatalogEntry] = {tool["name"]: tool for tool in _TOOL_CATALOG}
 
 
-def tool_catalog() -> tuple[ToolCatalogEntry, ...]:
+def tool_catalog(vault: Any | None = None) -> tuple[ToolCatalogEntry, ...]:
     """Return the MCP tool catalog for validation and docs."""
-    return _TOOL_CATALOG
+    catalog = list(_TOOL_CATALOG)
+    plugin_manager = getattr(vault, "plugin_manager", None) if vault is not None else None
+    if plugin_manager is None:
+        return tuple(catalog)
+
+    reserved = {entry["name"] for entry in _TOOL_CATALOG}
+    for contribution in plugin_manager.mcp_tool_contributions(reserved_names=reserved):
+        catalog.append(contribution.catalog_entry)
+    return tuple(catalog)
 
 
 def common_error_recovery() -> dict[str, str]:
@@ -440,8 +490,13 @@ def common_error_recovery() -> dict[str, str]:
     return dict(COMMON_ERROR_RECOVERY)
 
 
-def _catalog_entry(name: str) -> ToolCatalogEntry:
+def _catalog_entry(name: str, vault: Any | None = None) -> ToolCatalogEntry:
     """Look up tool metadata by registered name."""
+    if vault is None:
+        return _TOOL_CATALOG_BY_NAME[name]
+    for entry in tool_catalog(vault):
+        if entry["name"] == name:
+            return entry
     return _TOOL_CATALOG_BY_NAME[name]
 
 
@@ -475,10 +530,31 @@ def _render_tool_doc(tool: ToolCatalogEntry) -> str:
     return "\n".join(lines)
 
 
-def _register_tool(server: Any, fn: Callable[..., dict[str, Any]]) -> None:
+def _register_tool(
+    server: Any,
+    fn: Callable[..., dict[str, Any]],
+    *,
+    entry: ToolCatalogEntry | None = None,
+    vault: Any | None = None,
+) -> None:
     """Register an MCP tool with generated metadata from the catalog."""
-    fn.__doc__ = _render_tool_doc(_catalog_entry(fn.__name__))
+    resolved_entry = entry or _catalog_entry(fn.__name__, vault)
+    fn.__doc__ = _render_tool_doc(resolved_entry)
     server.tool()(fn)
+
+
+def _plugin_tool_wrapper(
+    vault: Any,
+    name: str,
+    handler: Callable[..., dict[str, Any]],
+) -> Callable[..., dict[str, Any]]:
+    """Bind a plugin tool handler to the current vault."""
+
+    def wrapped(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return handler(vault, *args, **kwargs)
+
+    wrapped.__name__ = name
+    return wrapped
 
 
 def _to_mcp_response(result: ServiceResult) -> dict[str, Any]:
@@ -510,9 +586,10 @@ def discover_tools_impl(_vault: Any, *, category: str | None = None) -> dict[str
     """
     selected_category = category.lower().strip() if category else None
 
+    available = tool_catalog(_vault)
     selected = [
         tool
-        for tool in _TOOL_CATALOG
+        for tool in available
         if selected_category is None or tool["category"] == selected_category
     ]
 
@@ -537,7 +614,7 @@ def discover_tools_impl(_vault: Any, *, category: str | None = None) -> dict[str
         "op": "discover_tools",
         "data": {
             "count": len(selected),
-            "total_count": len(_TOOL_CATALOG),
+            "total_count": len(available),
             "categories": categories,
         },
     }
@@ -567,7 +644,7 @@ def describe_tool_impl(_vault: Any, *, name: str) -> dict[str, Any]:
     Pure catalog lookup — no service call needed.
     """
     tool_name = name.lower().strip()
-    for tool in _TOOL_CATALOG:
+    for tool in tool_catalog(_vault):
         if tool["name"] == tool_name:
             return {
                 "ok": True,
@@ -646,6 +723,75 @@ def create_reference_impl(
         topic=topic,
     )
     return _to_mcp_response(result)
+
+
+def ingest_source_impl(
+    vault: Any,
+    *,
+    input_kind: str,
+    content: str,
+    target_type: str,
+    title: str | None = None,
+    topic: str | None = None,
+    tags: list[str] | None = None,
+    session: str | None = None,
+    provider: str | None = None,
+    summary: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Ingest normalized text, file, or URL content into the vault."""
+    from pathlib import Path
+
+    from ztlctl.services.ingest import IngestService
+
+    service = IngestService(vault)
+    kind = input_kind.strip().lower()
+    if kind == "text":
+        resolved_title = (title or "Untitled Capture").strip()
+        result = service.ingest_text(
+            resolved_title,
+            content,
+            target_type=target_type,
+            topic=topic,
+            tags=tags,
+            session=session,
+            summary=summary,
+            dry_run=dry_run,
+        )
+        return _to_mcp_response(result)
+    if kind == "file":
+        result = service.ingest_file(
+            Path(content),
+            title=title,
+            target_type=target_type,
+            topic=topic,
+            tags=tags,
+            session=session,
+            summary=summary,
+            dry_run=dry_run,
+        )
+        return _to_mcp_response(result)
+    if kind == "url":
+        result = service.ingest_url(
+            content,
+            provider=provider,
+            title=title,
+            target_type=target_type,
+            topic=topic,
+            tags=tags,
+            session=session,
+            summary=summary,
+            dry_run=dry_run,
+        )
+        return _to_mcp_response(result)
+    return {
+        "ok": False,
+        "op": "ingest_source",
+        "error": {
+            "code": "VALIDATION_FAILED",
+            "message": f"Unsupported input_kind '{input_kind}'. Use text, file, or url.",
+        },
+    }
 
 
 def create_task_impl(
@@ -858,6 +1004,20 @@ def list_items_impl(
     return _to_mcp_response(result)
 
 
+def topic_packet_impl(
+    vault: Any,
+    *,
+    topic: str,
+    mode: str = "learn",
+    budget: int = 4000,
+) -> dict[str, Any]:
+    """Build a topic packet for conversational learning and review."""
+    from ztlctl.services.query import QueryService
+
+    result = QueryService(vault).topic_packet(topic, mode=mode, budget=budget)
+    return _to_mcp_response(result)
+
+
 def work_queue_impl(
     vault: Any,
     *,
@@ -966,6 +1126,14 @@ def session_status_impl(vault: Any) -> dict[str, Any]:
     return _to_mcp_response(result)
 
 
+def list_source_providers_impl(vault: Any) -> dict[str, Any]:
+    """List registered source providers for ingestion."""
+    from ztlctl.services.ingest import IngestService
+
+    result = IngestService(vault).list_providers()
+    return _to_mcp_response(result)
+
+
 # ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
@@ -979,6 +1147,9 @@ def register_tools(server: Any, vault: Any) -> None:
 
     def list_tags(prefix: str | None = None, limit: int = 100) -> dict[str, Any]:
         return list_tags_impl(vault, prefix=prefix, limit=limit)
+
+    def list_source_providers() -> dict[str, Any]:
+        return list_source_providers_impl(vault)
 
     def describe_tool(name: str) -> dict[str, Any]:
         return describe_tool_impl(vault, name=name)
@@ -1041,6 +1212,32 @@ def register_tools(server: Any, vault: Any) -> None:
         topic: str | None = None,
     ) -> dict[str, Any]:
         return garden_seed_impl(vault, title, tags=tags, topic=topic)
+
+    def ingest_source(
+        input_kind: str,
+        content: str,
+        target_type: str,
+        title: str | None = None,
+        topic: str | None = None,
+        tags: list[str] | None = None,
+        session: str | None = None,
+        provider: str | None = None,
+        summary: str | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        return ingest_source_impl(
+            vault,
+            input_kind=input_kind,
+            content=content,
+            target_type=target_type,
+            title=title,
+            topic=topic,
+            tags=tags,
+            session=session,
+            provider=provider,
+            summary=summary,
+            dry_run=dry_run,
+        )
 
     def update_content(content_id: str, changes: dict[str, Any]) -> dict[str, Any]:
         return update_content_impl(vault, content_id, changes=changes)
@@ -1125,6 +1322,13 @@ def register_tools(server: Any, vault: Any) -> None:
     def work_queue(space: str | None = None) -> dict[str, Any]:
         return work_queue_impl(vault, space=space)
 
+    def topic_packet(
+        topic: str,
+        mode: str = "learn",
+        budget: int = 4000,
+    ) -> dict[str, Any]:
+        return topic_packet_impl(vault, topic=topic, mode=mode, budget=budget)
+
     def decision_support(
         topic: str | None = None,
         space: str | None = None,
@@ -1152,12 +1356,14 @@ def register_tools(server: Any, vault: Any) -> None:
     for fn in (
         discover_tools,
         list_tags,
+        list_source_providers,
         describe_tool,
         create_note,
         create_reference,
         create_task,
         create_log,
         garden_seed,
+        ingest_source,
         update_content,
         close_content,
         reweave,
@@ -1169,6 +1375,7 @@ def register_tools(server: Any, vault: Any) -> None:
         session_status,
         list_items,
         work_queue,
+        topic_packet,
         decision_support,
         vault_review,
         graph_themes,
@@ -1177,4 +1384,13 @@ def register_tools(server: Any, vault: Any) -> None:
         graph_gaps,
         graph_bridges,
     ):
-        _register_tool(server, fn)
+        _register_tool(server, fn, vault=vault)
+
+    plugin_manager = getattr(vault, "plugin_manager", None)
+    if plugin_manager is None:
+        return
+
+    reserved = {entry["name"] for entry in _TOOL_CATALOG}
+    for contribution in plugin_manager.mcp_tool_contributions(reserved_names=reserved):
+        bound = _plugin_tool_wrapper(vault, contribution.name, contribution.handler)
+        _register_tool(server, bound, entry=contribution.catalog_entry, vault=vault)

@@ -1,4 +1,4 @@
-"""MCP resource definitions — 7 URI-based resources.
+"""MCP resource definitions — URI-based resources.
 
 URIs: ztlctl://context, ztlctl://self/identity, ztlctl://self/methodology,
 ztlctl://overview, ztlctl://work-queue, ztlctl://topics,
@@ -28,9 +28,17 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
 )
 
 
-def resource_catalog() -> tuple[dict[str, str], ...]:
+def resource_catalog(vault: Any | None = None) -> tuple[dict[str, str], ...]:
     """Return the MCP resource catalog for validation and docs."""
-    return _RESOURCE_CATALOG
+    catalog = list(_RESOURCE_CATALOG)
+    plugin_manager = getattr(vault, "plugin_manager", None) if vault is not None else None
+    if plugin_manager is None:
+        return tuple(catalog)
+
+    reserved = {entry["uri"] for entry in _RESOURCE_CATALOG}
+    for contribution in plugin_manager.mcp_resource_contributions(reserved_uris=reserved):
+        catalog.append({"uri": contribution.uri, "description": contribution.description})
+    return tuple(catalog)
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +120,7 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
     from ztlctl.mcp.tools import common_error_recovery, tool_catalog
 
     grouped: dict[str, list[dict[str, Any]]] = {}
-    for tool in tool_catalog():
+    for tool in tool_catalog(_vault):
         grouped.setdefault(tool["category"], []).append(
             {
                 "name": tool["name"],
@@ -283,7 +291,7 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
 
 
 def register_resources(server: Any, vault: Any) -> None:
-    """Register all 7 MCP resources on the FastMCP server."""
+    """Register core and plugin MCP resources on the FastMCP server."""
 
     @server.resource("ztlctl://context")  # type: ignore[untyped-decorator]
     def context_resource() -> str:
@@ -329,3 +337,25 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(agent_reference_impl(vault), indent=2)
+
+    plugin_manager = getattr(vault, "plugin_manager", None)
+    if plugin_manager is None:
+        return
+
+    reserved = {entry["uri"] for entry in _RESOURCE_CATALOG}
+    for contribution in plugin_manager.mcp_resource_contributions(reserved_uris=reserved):
+
+        def _plugin_resource(
+            uri: str = contribution.uri,
+            handler: Any = contribution.handler,
+        ) -> str:
+            import json
+
+            payload = handler(vault)
+            if isinstance(payload, str):
+                return payload
+            return json.dumps(payload, indent=2)
+
+        _plugin_resource.__name__ = contribution.uri.replace("://", "_").replace("/", "_")
+        _plugin_resource.__doc__ = contribution.description
+        server.resource(contribution.uri)(_plugin_resource)

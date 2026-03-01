@@ -23,6 +23,7 @@ from ztlctl.services.contracts import (
     ListItemsResultData,
     ListTagsResultData,
     SearchResultData,
+    TopicPacketData,
     VaultReviewResultData,
     dump_validated,
 )
@@ -208,7 +209,8 @@ class QueryService(BaseService):
                 vec_results = vec_svc.search_similar(query, limit=fetch_limit)
                 if vec_results:
                     w = self._vault.settings.search.semantic_weight
-                    items = self._merge_hybrid_scores(items, vec_results, w, limit)
+                    items, merge_warnings = self._merge_hybrid_results(items, vec_results, w, limit)
+                    warnings.extend(merge_warnings)
 
         # Round scores for final output and strip pagerank from response
         for item in items:
@@ -228,13 +230,12 @@ class QueryService(BaseService):
         return ServiceResult(**result_kwargs)
 
     @staticmethod
-    def _merge_hybrid_scores(
+    def _hybrid_score_map(
         fts_items: list[dict[str, Any]],
         vec_results: list[dict[str, Any]],
         semantic_weight: float,
-        limit: int,
-    ) -> list[dict[str, Any]]:
-        """Merge FTS5 BM25 and vector cosine scores with min-max normalization."""
+    ) -> dict[str, float]:
+        """Compute merged hybrid scores for FTS and vector results."""
         # Convert BM25 scores to positive (FTS5 BM25 is negative)
         bm25_scores = {item["id"]: abs(item["score"]) for item in fts_items}
 
@@ -264,19 +265,65 @@ class QueryService(BaseService):
                 (vec_scores.get(nid, 0.0) - vec_min) / vec_range if nid in vec_scores else 0.0
             )
             merged[nid] = (1.0 - semantic_weight) * bm25_norm + semantic_weight * vec_norm
+        return merged
 
-        # Re-rank FTS items by merged score, adding any vector-only results
+    @staticmethod
+    def _merge_hybrid_scores(
+        fts_items: list[dict[str, Any]],
+        vec_results: list[dict[str, Any]],
+        semantic_weight: float,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Merge FTS5 BM25 and vector cosine scores for existing FTS hits only."""
+        merged = QueryService._hybrid_score_map(fts_items, vec_results, semantic_weight)
+        result: list[dict[str, Any]] = []
+        for item in fts_items:
+            updated = item.copy()
+            updated["score"] = merged.get(item["id"], 0.0)
+            result.append(updated)
+        result.sort(key=lambda candidate: candidate["score"], reverse=True)
+        return result[:limit]
+
+    def _merge_hybrid_results(
+        self,
+        fts_items: list[dict[str, Any]],
+        vec_results: list[dict[str, Any]],
+        semantic_weight: float,
+        limit: int,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Merge FTS and vector scores, including vector-only hits with metadata."""
+        merged = self._hybrid_score_map(fts_items, vec_results, semantic_weight)
         fts_map = {item["id"]: item for item in fts_items}
         result: list[dict[str, Any]] = []
+        warnings: list[str] = []
+        vec_only_ids = [nid for nid in merged if nid not in fts_map]
+        meta_map = self._repo.get_nodes_metadata(vec_only_ids) if vec_only_ids else {}
         for nid, score in sorted(merged.items(), key=lambda x: x[1], reverse=True):
             if nid in fts_map:
                 item = fts_map[nid].copy()
                 item["score"] = score
                 result.append(item)
-            # Vector-only results need metadata — skip them for now
-            # (they'd need a DB join like semantic mode does)
+                continue
 
-        return result[:limit]
+            meta = meta_map.get(nid)
+            if meta is None:
+                warnings.append(f"Skipping semantic-only hit without metadata: {nid}")
+                continue
+            result.append(
+                {
+                    "id": meta["id"],
+                    "title": meta["title"],
+                    "type": meta["type"],
+                    "subtype": meta["subtype"],
+                    "status": meta["status"],
+                    "path": meta["path"],
+                    "created": meta["created"],
+                    "modified": meta["modified"],
+                    "score": score,
+                }
+            )
+
+        return result[:limit], warnings
 
     def _apply_time_decay(
         self,
@@ -635,6 +682,37 @@ class QueryService(BaseService):
                     "references": len(references),
                 },
             },
+        )
+
+    @traced
+    def topic_packet(
+        self,
+        topic: str,
+        *,
+        mode: str = "learn",
+        budget: int = 4000,
+    ) -> ServiceResult:
+        """Build a topic packet without requiring an active session."""
+        if mode not in {"learn", "review", "decision"}:
+            return ServiceResult(
+                ok=False,
+                op="topic_packet",
+                error=ServiceError(
+                    code="VALIDATION_FAILED",
+                    message=f"Unsupported topic packet mode: {mode}",
+                ),
+            )
+
+        from ztlctl.services.context import ContextAssembler
+
+        result = ContextAssembler(self._vault).build_topic_packet(topic, mode=mode, budget=budget)
+        if not result.ok:
+            return result
+        return ServiceResult(
+            ok=True,
+            op="topic_packet",
+            data=dump_validated(TopicPacketData, result.data),
+            warnings=result.warnings,
         )
 
     @traced

@@ -7,14 +7,16 @@ nav_order: 5
 
 ## Content Types
 
-ztlctl manages four content types, each with its own lifecycle:
+ztlctl manages three durable authored artifact types plus one operational session type:
 
 | Type | Purpose | Initial Status | ID Format |
 |------|---------|---------------|-----------|
 | **Note** | Ideas, knowledge, decisions | `draft` | `ztl_<hash>` |
 | **Reference** | External sources (articles, tools, specs) | `captured` | `ref_<hash>` |
-| **Task** | Actionable work items | `inbox` | `TSK-NNNN` |
-| **Log** | Session journals (JSONL) | `open` | `LOG-NNNN` |
+| **Task** | Actionable work items | `inbox` | `TASK-NNNN` |
+| **Log** | Session coordination state and session entries | `open` | `LOG-NNNN` |
+
+Notes, references, and tasks are the file-first durability contract. Sessions, session logs, generated `self/` files, and event/WAL state are internal or generated mechanisms that can be rebuilt or regenerated.
 
 ## Content Subtypes
 
@@ -44,21 +46,22 @@ Status transitions are enforced — you cannot skip states or make invalid trans
 my-vault/
 ├── ztlctl.toml          # Configuration
 ├── .ztlctl/
-│   └── ztlctl.db        # SQLite index + FTS5 + graph edges
+│   └── ztlctl.db        # SQLite index, session state, graph data, FTS5
 ├── self/
-│   ├── identity.md      # Agent identity (generated from config)
-│   └── methodology.md   # Agent methodology
+│   ├── identity.md      # Generated identity
+│   └── methodology.md   # Generated methodology
 ├── notes/
-│   ├── python/          # Topic subdirectories
+│   ├── python/
 │   │   └── ztl_a1b2c3d4.md
 │   └── architecture/
-│       └── ztl_e5f6g7h8.md
+│       ├── ztl_e5f6g7h8.md
+│       └── ref_deadbeef.md
 └── ops/
-    ├── logs/
-    │   └── LOG-0001.jsonl
     └── tasks/
         └── TSK-0001.md
 ```
+
+`ztlctl check --rebuild` reconstructs durable authored artifacts and derived indexes from the markdown files. It does not treat session rows or other operational state as part of the file-first guarantee.
 
 ## Tags
 

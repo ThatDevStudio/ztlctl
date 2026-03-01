@@ -25,8 +25,10 @@ from ztlctl.config.discovery import find_config
 from ztlctl.config.models import (
     AgentConfig,
     CheckConfig,
+    ExportsConfig,
     GardenConfig,
     GitConfig,
+    IngestConfig,
     McpConfig,
     PluginsConfig,
     ReweaveConfig,
@@ -109,9 +111,11 @@ class ZtlSettings(BaseSettings):
     session: SessionConfig = Field(default_factory=SessionConfig)
     tags: TagsConfig = Field(default_factory=TagsConfig)
     check: CheckConfig = Field(default_factory=CheckConfig)
+    ingest: IngestConfig = Field(default_factory=IngestConfig)
     plugins: PluginsConfig = Field(default_factory=PluginsConfig)
     git: GitConfig = Field(default_factory=GitConfig)
     mcp: McpConfig = Field(default_factory=McpConfig)
+    exports: ExportsConfig = Field(default_factory=ExportsConfig)
     workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
 
     # Retained for type-checker visibility; not used at runtime.

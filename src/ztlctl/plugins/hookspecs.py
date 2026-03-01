@@ -1,9 +1,4 @@
-"""Pluggy hook specifications for ztlctl lifecycle events and setup extensions.
-
-Eight lifecycle events are dispatched asynchronously via ThreadPoolExecutor.
-One setup-time hook allows plugins to register custom content subtypes.
-(DESIGN.md Section 15)
-"""
+"""Pluggy hook specifications for ztlctl lifecycle events and extensions."""
 
 from __future__ import annotations
 
@@ -13,6 +8,14 @@ import pluggy
 
 if TYPE_CHECKING:
     from ztlctl.domain.content import ContentModel
+    from ztlctl.plugins.contracts import (
+        CliCommandContribution,
+        McpPromptContribution,
+        McpResourceContribution,
+        McpToolContribution,
+        SourceProviderContribution,
+        WorkflowModuleContribution,
+    )
 
 hookspec = pluggy.HookspecMarker("ztlctl")
 
@@ -92,3 +95,27 @@ class ZtlctlHookSpec:
     @hookspec
     def register_content_models(self) -> dict[str, type[ContentModel]] | None:
         """Return subtype -> ContentModel mappings to extend CONTENT_REGISTRY."""
+
+    @hookspec
+    def register_cli_commands(self) -> list[CliCommandContribution] | None:
+        """Return plugin CLI command contributions."""
+
+    @hookspec
+    def register_mcp_tools(self) -> list[McpToolContribution] | None:
+        """Return plugin MCP tool contributions."""
+
+    @hookspec
+    def register_mcp_resources(self) -> list[McpResourceContribution] | None:
+        """Return plugin MCP resource contributions."""
+
+    @hookspec
+    def register_mcp_prompts(self) -> list[McpPromptContribution] | None:
+        """Return plugin MCP prompt contributions."""
+
+    @hookspec
+    def register_workflow_modules(self) -> list[WorkflowModuleContribution] | None:
+        """Return plugin workflow export modules."""
+
+    @hookspec
+    def register_source_providers(self) -> list[SourceProviderContribution] | None:
+        """Return plugin-provided source ingestion providers."""

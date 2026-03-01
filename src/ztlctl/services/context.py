@@ -16,7 +16,7 @@ from sqlalchemy import select
 from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services._helpers import estimate_tokens
-from ztlctl.services.contracts import AgentContextResultData, dump_validated
+from ztlctl.services.contracts import AgentContextResultData, TopicPacketData, dump_validated
 from ztlctl.services.result import ServiceResult
 from ztlctl.services.telemetry import trace_span, traced
 
@@ -222,6 +222,94 @@ class ContextAssembler:
             },
             warnings=warnings,
         )
+
+    @traced
+    def build_topic_packet(
+        self,
+        topic: str,
+        *,
+        mode: str = "learn",
+        budget: int = 4000,
+    ) -> ServiceResult:
+        """Build a topic packet for conversational learning and review."""
+        from ztlctl.services.graph import GraphService
+        from ztlctl.services.query import QueryService
+
+        warnings: list[str] = []
+        query = QueryService(self._vault)
+        graph = GraphService(self._vault)
+        total_tokens = 0
+
+        def _budget_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            nonlocal total_tokens
+            selected: list[dict[str, Any]] = []
+            for item in items:
+                item_tokens = estimate_tokens(json.dumps(item))
+                if total_tokens + item_tokens > budget:
+                    break
+                total_tokens += item_tokens
+                selected.append(item)
+            return selected
+
+        note_rank = "recency" if mode == "review" else "relevance"
+        notes_result = query.search(topic, content_type="note", rank_by=note_rank, limit=8)
+        ref_result = query.search(topic, content_type="reference", rank_by="relevance", limit=6)
+        decisions_result = query.list_items(
+            content_type="note",
+            subtype="decision",
+            topic=topic,
+            limit=5,
+        )
+        tasks_result = query.list_items(content_type="task", topic=topic, limit=5)
+
+        notes = _budget_items(notes_result.data.get("items", []) if notes_result.ok else [])
+        references = _budget_items(ref_result.data.get("items", []) if ref_result.ok else [])
+        decisions = _budget_items(
+            decisions_result.data.get("items", []) if decisions_result.ok else []
+        )
+        tasks = _budget_items(tasks_result.data.get("items", []) if tasks_result.ok else [])
+
+        adjacent = self._graph_adjacent(
+            [item["id"] for item in notes[:3] if item.get("id")],
+            max(budget - total_tokens, 0),
+            warnings,
+        )
+        graph_adjacent = _budget_items(adjacent)
+
+        gaps: list[dict[str, Any]] = []
+        bridges: list[dict[str, Any]] = []
+        if mode in {"review", "decision"}:
+            gaps_result = graph.gaps(top=5)
+            if gaps_result.ok:
+                gaps = _budget_items(gaps_result.data.get("items", []))
+            bridges_result = graph.bridges(top=5)
+            if bridges_result.ok:
+                bridges = _budget_items(bridges_result.data.get("items", []))
+
+        provenance = self._packet_provenance(
+            [item["id"] for item in references if item.get("id")],
+            warnings,
+        )
+
+        payload = dump_validated(
+            TopicPacketData,
+            {
+                "topic": topic,
+                "mode": mode,
+                "budget": budget,
+                "total_tokens": total_tokens,
+                "notes": notes,
+                "references": references,
+                "decisions": decisions,
+                "tasks": tasks,
+                "graph_adjacent": graph_adjacent,
+                "gaps": gaps,
+                "bridges": bridges,
+                "provenance": provenance,
+            },
+        )
+
+        return ServiceResult(ok=True, op="topic_packet", data=payload, warnings=warnings)
 
     # ------------------------------------------------------------------
     # Layer helpers
@@ -437,3 +525,37 @@ class ContextAssembler:
         except Exception:
             warnings.append("Failed to load background signals")
             return []
+
+    def _packet_provenance(
+        self,
+        content_ids: list[str],
+        warnings: list[str],
+    ) -> dict[str, list[str]]:
+        """Build a simple provenance map for reference-like items."""
+        provenance: dict[str, list[str]] = {}
+        try:
+            from ztlctl.services.query import QueryService
+
+            query = QueryService(self._vault)
+            for content_id in content_ids:
+                result = query.get(content_id)
+                if not result.ok:
+                    continue
+                item = result.data
+                entries: list[str] = []
+                if item.get("path"):
+                    entries.append(f"Path: {item['path']}")
+                if item.get("session"):
+                    entries.append(f"Session: {item['session']}")
+                body = str(item.get("body", ""))
+                marker = "## Provenance"
+                if marker in body:
+                    section = body.split(marker, 1)[1].strip()
+                    for line in section.splitlines():
+                        stripped = line.strip()
+                        if stripped:
+                            entries.append(stripped.lstrip("- ").strip())
+                provenance[content_id] = entries
+        except Exception:
+            warnings.append("Failed to build provenance map")
+        return provenance

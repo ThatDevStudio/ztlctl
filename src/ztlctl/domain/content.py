@@ -76,6 +76,12 @@ CANONICAL_KEY_ORDER: list[str] = [
     "supersedes",
     "superseded_by",
     "url",
+    "canonical_url",
+    "source_provider",
+    "source_type",
+    "retrieved_at",
+    "content_hash",
+    "language",
     "priority",
     "impact",
     "effort",
@@ -492,9 +498,16 @@ class ReferenceModel(ContentModel):
 
     subtype: str | None = None
     url: str | None = None
+    canonical_url: str | None = None
+    source_provider: str | None = None
+    source_type: str | None = None
+    retrieved_at: str | None = None
+    content_hash: str | None = None
+    language: str | None = None
     aliases: list[str] = Field(default_factory=list)
     topic: str | None = None
     links: dict[str, list[str]] = Field(default_factory=dict)
+    key_points: list[str] = Field(default_factory=list)
 
     @classmethod
     def status_transitions(cls) -> dict[str, list[str]]:

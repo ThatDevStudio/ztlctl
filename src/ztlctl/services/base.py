@@ -8,7 +8,7 @@ Services own their transaction boundaries via ``self._vault.transaction()``.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from ztlctl.infrastructure.vault import Vault
@@ -40,16 +40,17 @@ class BaseService:
         warnings: list[str],
         *,
         session_id: str | None = None,
-    ) -> None:
+    ) -> int | None:
         """Dispatch a lifecycle event. No-op if event bus not initialized.
 
         INVARIANT: Plugin failures are warnings, never errors.
         """
         bus = self._vault.event_bus
         if bus is None:
-            return
+            return None
         try:
-            bus.dispatch(hook_name, payload, session_id=session_id)
+            return cast(int, bus.dispatch(hook_name, payload, session_id=session_id))
         except Exception:
             logger.debug("Event dispatch failed for %s", hook_name, exc_info=True)
             warnings.append(f"Event dispatch failed for {hook_name}")
+            return None

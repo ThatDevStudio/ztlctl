@@ -65,6 +65,7 @@ class CreateService(BaseService):
         key_points: list[str] | None = None,
         links: dict[str, list[str]] | None = None,
         aliases: list[str] | None = None,
+        dispatch_post_create: bool = True,
     ) -> ServiceResult:
         """Create a new note (plain, knowledge, or decision subtype)."""
         extra: dict[str, Any] = {}
@@ -84,6 +85,7 @@ class CreateService(BaseService):
             topic=topic,
             session=session,
             maturity=maturity,
+            dispatch_post_create=dispatch_post_create,
             **extra,
         )
 
@@ -93,16 +95,56 @@ class CreateService(BaseService):
         title: str,
         *,
         url: str | None = None,
+        canonical_url: str | None = None,
         subtype: str | None = None,
         tags: list[str] | None = None,
         topic: str | None = None,
         session: str | None = None,
         aliases: list[str] | None = None,
+        links: dict[str, list[str]] | None = None,
+        key_points: list[str] | None = None,
+        body: str | None = None,
+        summary: str | None = None,
+        excerpts: list[str] | None = None,
+        notes: str | None = None,
+        provenance: list[str] | None = None,
+        source_provider: str | None = None,
+        source_type: str | None = None,
+        retrieved_at: str | None = None,
+        content_hash: str | None = None,
+        language: str | None = None,
+        dispatch_post_create: bool = True,
     ) -> ServiceResult:
         """Create a new reference to an external source."""
         extra: dict[str, Any] = {}
         if aliases is not None:
             extra["aliases"] = aliases
+        if links is not None:
+            extra["links"] = links
+        if key_points is not None:
+            extra["key_points"] = key_points
+        if body is not None:
+            extra["body"] = body
+        if summary is not None:
+            extra["summary"] = summary
+        if excerpts is not None:
+            extra["excerpts"] = excerpts
+        if notes is not None:
+            extra["notes"] = notes
+        if provenance is not None:
+            extra["provenance"] = provenance
+        if canonical_url is not None:
+            extra["canonical_url"] = canonical_url
+        if source_provider is not None:
+            extra["source_provider"] = source_provider
+        if source_type is not None:
+            extra["source_type"] = source_type
+        if retrieved_at is not None:
+            extra["retrieved_at"] = retrieved_at
+        if content_hash is not None:
+            extra["content_hash"] = content_hash
+        if language is not None:
+            extra["language"] = language
         return self._create_content(
             content_type="reference",
             title=title,
@@ -111,6 +153,7 @@ class CreateService(BaseService):
             topic=topic,
             session=session,
             url=url,
+            dispatch_post_create=dispatch_post_create,
             **extra,
         )
 
@@ -248,6 +291,7 @@ class CreateService(BaseService):
         tags: list[str] | None = None,
         topic: str | None = None,
         session: str | None = None,
+        dispatch_post_create: bool = True,
         **extra: Any,
     ) -> ServiceResult:
         """Shared creation pipeline.
@@ -271,18 +315,19 @@ class CreateService(BaseService):
 
         warnings = list(result.warnings)
 
-        with trace_span("dispatch_event"):
-            self._dispatch_event(
-                "post_create",
-                {
-                    "content_type": created.content_type,
-                    "content_id": created.content_id,
-                    "title": created.title,
-                    "path": created.path,
-                    "tags": created.tags,
-                },
-                warnings,
-            )
+        if dispatch_post_create:
+            with trace_span("dispatch_event"):
+                self._dispatch_event(
+                    "post_create",
+                    {
+                        "content_type": created.content_type,
+                        "content_id": created.content_id,
+                        "title": created.title,
+                        "path": created.path,
+                        "tags": created.tags,
+                    },
+                    warnings,
+                )
 
         self._vector_index_created(created, warnings)
 

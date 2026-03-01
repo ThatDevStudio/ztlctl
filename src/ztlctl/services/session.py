@@ -199,7 +199,7 @@ class SessionService(BaseService):
                 warnings.append("Graph metric materialization failed during session close")
 
         # -- EVENT DISPATCH --
-        self._dispatch_event(
+        close_event_id = self._dispatch_event(
             "post_session_close",
             {
                 "session_id": session_id,
@@ -215,8 +215,8 @@ class SessionService(BaseService):
 
         # Drain event bus as sync barrier
         bus = self._vault.event_bus
-        if bus is not None:
-            bus.drain()
+        if bus is not None and close_event_id is not None:
+            bus.drain(event_ids=[close_event_id])
 
         # -- REPORT --
         return ServiceResult(

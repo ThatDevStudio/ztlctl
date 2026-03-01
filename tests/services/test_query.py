@@ -98,6 +98,43 @@ class TestSearch:
         for item in result.data["items"]:
             assert "score" in item
 
+    def test_hybrid_search_includes_vector_only_hits(self, vault: Vault, monkeypatch) -> None:
+        created = CreateService(vault).create_note("Semantic Match", topic="search")
+        assert created.ok
+
+        class _VectorService:
+            def is_available(self) -> bool:
+                return True
+
+            def search_similar(self, query: str, limit: int = 20) -> list[dict[str, object]]:
+                return [{"node_id": created.data["id"], "distance": 0.1}]
+
+        monkeypatch.setattr(QueryService, "_get_vector_service", lambda self: _VectorService())
+
+        result = QueryService(vault).search("unmatchedquery", rank_by="hybrid")
+
+        assert result.ok
+        ids = [item["id"] for item in result.data["items"]]
+        assert created.data["id"] in ids
+
+    def test_hybrid_search_warns_when_vector_metadata_missing(
+        self, vault: Vault, monkeypatch
+    ) -> None:
+        class _VectorService:
+            def is_available(self) -> bool:
+                return True
+
+            def search_similar(self, query: str, limit: int = 20) -> list[dict[str, object]]:
+                return [{"node_id": "missing-node", "distance": 0.1}]
+
+        monkeypatch.setattr(QueryService, "_get_vector_service", lambda self: _VectorService())
+
+        result = QueryService(vault).search("unmatchedquery", rank_by="hybrid")
+
+        assert result.ok
+        assert result.data["count"] == 0
+        assert any("semantic-only hit" in warning for warning in result.warnings)
+
 
 # ---------------------------------------------------------------------------
 # get
@@ -257,6 +294,27 @@ class TestListItemsExtended:
         assert result.data["count"] >= 1
         for item in result.data["items"]:
             assert item["subtype"] == "decision"
+
+
+class TestTopicPacket:
+    def test_topic_packet_returns_structured_sections(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        svc.create_note("Packet Note", topic="architecture")
+        svc.create_reference("Packet Ref", topic="architecture", url="https://example.com")
+        svc.create_note("Decision Packet", subtype="decision", topic="architecture")
+        svc.create_task("Packet Task")
+
+        result = QueryService(vault).topic_packet("architecture", mode="learn", budget=4000)
+
+        assert result.ok
+        assert result.data["topic"] == "architecture"
+        assert result.data["mode"] == "learn"
+        assert "notes" in result.data
+        assert "references" in result.data
+        assert "decisions" in result.data
+        assert "tasks" in result.data
+        assert "graph_adjacent" in result.data
+        assert "provenance" in result.data
 
     def test_filter_by_subtype_no_match(self, vault: Vault) -> None:
         _seed_notes(vault)

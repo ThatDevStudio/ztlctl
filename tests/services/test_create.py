@@ -220,6 +220,19 @@ class TestCreateReference:
         content = path.read_text()
         assert "url: https://docs.python.org" in content
 
+    def test_reference_renders_structured_sections(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        result = svc.create_reference("Structured Ref")
+        assert result.ok
+
+        path = vault.root / result.data["path"]
+        content = path.read_text(encoding="utf-8")
+        assert "## Summary" in content
+        assert "## Key Points" in content
+        assert "## Excerpts" in content
+        assert "## Notes" in content
+        assert "## Provenance" in content
+
     def test_reference_status(self, vault: Vault) -> None:
         svc = CreateService(vault)
         result = svc.create_reference("Status Check")
