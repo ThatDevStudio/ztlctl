@@ -1,7 +1,8 @@
-"""MCP resource definitions — 6 URI-based resources.
+"""MCP resource definitions — 7 URI-based resources.
 
 URIs: ztlctl://context, ztlctl://self/identity, ztlctl://self/methodology,
-ztlctl://overview, ztlctl://work-queue, ztlctl://topics.
+ztlctl://overview, ztlctl://work-queue, ztlctl://topics,
+ztlctl://agent-reference.
 Each resource has a ``_<name>_impl`` function testable without the mcp package.
 (DESIGN.md Section 16)
 """
@@ -20,6 +21,10 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
     {"uri": "ztlctl://overview", "description": "Vault overview with counts and recent items."},
     {"uri": "ztlctl://work-queue", "description": "Current work queue (scored task list)."},
     {"uri": "ztlctl://topics", "description": "List of topic directories in the vault."},
+    {
+        "uri": "ztlctl://agent-reference",
+        "description": ("Agent reference: tool catalog, workflows, and error recovery."),
+    },
 )
 
 
@@ -99,13 +104,186 @@ def context_impl(vault: Any) -> dict[str, Any]:
     }
 
 
+def agent_reference_impl(_vault: Any) -> dict[str, Any]:
+    """Agent reference: onboarding flow, tool catalog, workflows, and errors.
+
+    Single-fetch onboarding payload for agents using the MCP server.
+    """
+    from ztlctl.mcp.tools import common_error_recovery, tool_catalog
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for tool in tool_catalog():
+        grouped.setdefault(tool["category"], []).append(
+            {
+                "name": tool["name"],
+                "description": tool["description"],
+                "when_to_use": tool["when_to_use"],
+                "avoid_when": tool["avoid_when"],
+                "side_effect": tool["side_effect"],
+                "common_errors": list(tool["common_errors"]),
+                "args_guidance": dict(tool["args_guidance"]),
+            }
+        )
+    tool_categories = {
+        cat: sorted(tools, key=lambda t: t["name"]) for cat, tools in sorted(grouped.items())
+    }
+
+    recommended_start = {
+        "when_unsure": {
+            "tool": "discover_tools",
+            "notes": "Start here to browse the available tool surface by category.",
+            "recommended_args": {},
+        },
+        "when_name_known_but_contract_unclear": {
+            "tool": "describe_tool",
+            "notes": "Use this before a first call, especially for write tools.",
+            "recommended_args": {"name": "create_note"},
+        },
+        "when_you_need_a_quick_read_only_snapshot": {
+            "tool": "agent_context",
+            "notes": "Use after discovery if you need vault state before taking action.",
+            "recommended_args": {"limit": 5},
+        },
+    }
+
+    workflow_examples = {
+        "capture": [
+            {
+                "tool": "garden_seed",
+                "notes": (
+                    "Fastest path for a raw idea. Domain/scope tags are recommended but "
+                    "not required."
+                ),
+                "recommended_args": {"title": "Quick idea"},
+            },
+            {
+                "tool": "reweave",
+                "notes": (
+                    "Preview link suggestions before writing them when the vault is already "
+                    "populated."
+                ),
+                "recommended_args": {"dry_run": True},
+            },
+        ],
+        "research_session": [
+            {
+                "tool": "create_log",
+                "notes": "Open a tracked session before recording sources and synthesis.",
+                "recommended_args": {"topic": "research-topic"},
+            },
+            {
+                "tool": "create_reference",
+                "notes": "Capture external sources as they are reviewed.",
+                "recommended_args": {"title": "Source title", "url": "https://example.com/source"},
+            },
+            {
+                "tool": "create_note",
+                "notes": "Synthesize findings into notes and use links to connect evidence.",
+                "recommended_args": {
+                    "title": "Synthesis note",
+                    "links": {"supports": ["REF-0001"]},
+                },
+            },
+            {
+                "tool": "reweave",
+                "notes": "Run after synthesis to add additional connections.",
+                "recommended_args": {},
+            },
+            {
+                "tool": "session_close",
+                "notes": "Close the session with a short summary when done.",
+                "recommended_args": {"summary": "Key findings and next actions."},
+            },
+        ],
+        "search_then_create": [
+            {
+                "tool": "search",
+                "notes": "Look for existing related content before creating anything new.",
+                "recommended_args": {"query": "topic keywords", "limit": 10},
+            },
+            {
+                "tool": "get_related",
+                "notes": "Inspect nearby graph context around a promising result.",
+                "recommended_args": {"content_id": "NOTE-0001", "depth": 2, "top": 10},
+            },
+            {
+                "tool": "create_note",
+                "notes": (
+                    "Create the new note only after checking for overlap. Use explicit links "
+                    "if you already know the evidence to connect."
+                ),
+                "recommended_args": {
+                    "title": "New note",
+                    "links": {"related": ["NOTE-0001"]},
+                },
+            },
+        ],
+        "vault_maintenance": [
+            {
+                "tool": "vault_review",
+                "notes": "Start with a broad health snapshot.",
+                "recommended_args": {"top": 10, "stale_days": 7},
+            },
+            {
+                "tool": "graph_gaps",
+                "notes": "Find disconnected areas that likely need linking.",
+                "recommended_args": {"top": 20},
+            },
+            {
+                "tool": "graph_bridges",
+                "notes": "Identify notes that already connect clusters well.",
+                "recommended_args": {"top": 20},
+            },
+            {
+                "tool": "reweave",
+                "notes": "Use preview mode first during maintenance sweeps.",
+                "recommended_args": {"dry_run": True},
+            },
+        ],
+        "decision_documentation": [
+            {
+                "tool": "search",
+                "notes": "Collect nearby evidence on the decision topic first.",
+                "recommended_args": {"query": "decision topic", "limit": 10},
+            },
+            {
+                "tool": "decision_support",
+                "notes": "Build topic-specific decision context from the vault.",
+                "recommended_args": {"topic": "decision topic"},
+            },
+            {
+                "tool": "create_note",
+                "notes": (
+                    "Store the decision as a structured note subtype and link supporting evidence."
+                ),
+                "recommended_args": {
+                    "title": "Decision: topic",
+                    "subtype": "decision",
+                },
+            },
+            {
+                "tool": "reweave",
+                "notes": "Connect the recorded decision back into the graph.",
+                "recommended_args": {},
+            },
+        ],
+    }
+
+    return {
+        "recommended_start": recommended_start,
+        "tool_categories": tool_categories,
+        "workflow_examples": workflow_examples,
+        "common_errors": common_error_recovery(),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
 
 
 def register_resources(server: Any, vault: Any) -> None:
-    """Register all 6 MCP resources on the FastMCP server."""
+    """Register all 7 MCP resources on the FastMCP server."""
 
     @server.resource("ztlctl://context")  # type: ignore[untyped-decorator]
     def context_resource() -> str:
@@ -144,3 +322,10 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(topics_impl(vault), indent=2)
+
+    @server.resource("ztlctl://agent-reference")  # type: ignore[untyped-decorator]
+    def agent_reference_resource() -> str:
+        """Agent reference: onboarding flow, tool catalog, workflows, and errors."""
+        import json
+
+        return json.dumps(agent_reference_impl(vault), indent=2)
