@@ -1,0 +1,9 @@
+Quick-capture a seed note with minimal friction.
+
+## Workflow
+
+1. Parse the first argument as the title.
+2. If tags are present in the arguments, pass them through.
+3. Call `session_status` to see whether a session is active.
+4. Call `garden_seed` with the title and any parsed tags.
+5. Return the new seed id and remind the user it should later become budding or evergreen work.

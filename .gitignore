@@ -43,6 +43,8 @@ Thumbs.db
 .ztlctl/
 !src/ztlctl/templates/workflow/.ztlctl/
 !src/ztlctl/templates/workflow/.ztlctl/**
+!src/ztlctl/templates/agent_workflow/codex/.ztlctl/
+!src/ztlctl/templates/agent_workflow/codex/.ztlctl/**
 notes/
 ops/
 

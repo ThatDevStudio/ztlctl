@@ -10,6 +10,24 @@ from __future__ import annotations
 
 from typing import Any
 
+_RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
+    {
+        "uri": "ztlctl://context",
+        "description": "Full vault context: identity, methodology, and overview.",
+    },
+    {"uri": "ztlctl://self/identity", "description": "The vault's identity document."},
+    {"uri": "ztlctl://self/methodology", "description": "The vault's methodology document."},
+    {"uri": "ztlctl://overview", "description": "Vault overview with counts and recent items."},
+    {"uri": "ztlctl://work-queue", "description": "Current work queue (scored task list)."},
+    {"uri": "ztlctl://topics", "description": "List of topic directories in the vault."},
+)
+
+
+def resource_catalog() -> tuple[dict[str, str], ...]:
+    """Return the MCP resource catalog for validation and docs."""
+    return _RESOURCE_CATALOG
+
+
 # ---------------------------------------------------------------------------
 # Resource implementations (testable without mcp)
 # ---------------------------------------------------------------------------

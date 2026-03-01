@@ -32,6 +32,8 @@ EXAMPLES_COMMANDS: list[tuple[list[str], list[str]]] = [
     (["workflow", "--examples"], ["ztlctl workflow init", "ztlctl workflow update"]),
     (["workflow", "init", "--examples"], ["--viewer obsidian"]),
     (["workflow", "update", "--examples"], ["--skill-set minimal"]),
+    (["workflow", "export", "--examples"], ["--client both"]),
+    (["workflow", "validate", "--examples"], ["--client claude"]),
     # -- agent --
     (["agent", "--examples"], ["ztlctl agent session start"]),
     (["agent", "session", "start", "--examples"], ["ztlctl agent session start"]),
@@ -90,6 +92,8 @@ class TestExamplesInHelp:
             ["workflow", "--help"],
             ["workflow", "init", "--help"],
             ["workflow", "update", "--help"],
+            ["workflow", "export", "--help"],
+            ["workflow", "validate", "--help"],
             ["check", "--help"],
             ["reweave", "--help"],
             ["update", "--help"],

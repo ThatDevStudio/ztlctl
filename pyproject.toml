@@ -53,7 +53,7 @@ dependencies = [
 Homepage = "https://github.com/ThatDevStudio/ztlctl"
 Documentation = "https://thatdevstudio.github.io/ztlctl/"
 Repository = "https://github.com/ThatDevStudio/ztlctl"
-Changelog = "https://github.com/ThatDevStudio/ztlctl/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/ThatDevStudio/ztlctl/blob/develop/CHANGELOG.md"
 "Bug Tracker" = "https://github.com/ThatDevStudio/ztlctl/issues"
 
 [project.scripts]

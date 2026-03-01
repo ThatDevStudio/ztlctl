@@ -1,0 +1,6 @@
+# SessionStart Orientation
+
+- The hook should emit compact machine-readable orientation, not long prose dumps.
+- Prefer `ztlctl --json agent brief` for session and vault summary.
+- Prefer `ztlctl --json query work-queue` for actionable follow-up tasks.
+- The hook must rely on ztlctl's own config discovery so it works from nested directories inside a vault.

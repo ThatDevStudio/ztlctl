@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# SessionStart hook: emit compact vault orientation via ztlctl itself.
+
+set -euo pipefail
+
+if ! command -v ztlctl >/dev/null 2>&1; then
+  exit 0
+fi
+
+BRIEF="$(ztlctl --json agent brief 2>/dev/null || true)"
+if [ -z "${BRIEF}" ]; then
+  exit 0
+fi
+
+echo "=== ztlctl Orientation ==="
+echo "${BRIEF}"
+
+WORK_QUEUE="$(ztlctl --json query work-queue 2>/dev/null || true)"
+if [ -n "${WORK_QUEUE}" ]; then
+  echo "--- Work Queue ---"
+  echo "${WORK_QUEUE}"
+fi
+
+echo "=== End ztlctl Orientation ==="

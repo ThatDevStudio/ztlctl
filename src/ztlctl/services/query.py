@@ -19,7 +19,13 @@ from typing import TYPE_CHECKING, Any
 from ztlctl.domain.content import parse_frontmatter
 from ztlctl.infrastructure.repositories import QueryRepository
 from ztlctl.services.base import BaseService
-from ztlctl.services.contracts import ListItemsResultData, SearchResultData, dump_validated
+from ztlctl.services.contracts import (
+    ListItemsResultData,
+    ListTagsResultData,
+    SearchResultData,
+    VaultReviewResultData,
+    dump_validated,
+)
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
 
@@ -54,6 +60,22 @@ class QueryService(BaseService):
         """Return total indexed item count."""
         count = self._repo.count_items(include_archived=include_archived)
         return ServiceResult(ok=True, op="count_items", data={"count": count})
+
+    @staticmethod
+    def _list_item_from_row(row: dict[str, Any]) -> dict[str, Any]:
+        """Normalize a repository row to the list-item payload shape."""
+        return {
+            "id": row["id"],
+            "title": row["title"],
+            "type": row["type"],
+            "subtype": row.get("subtype"),
+            "maturity": row.get("maturity"),
+            "status": row["status"],
+            "path": row["path"],
+            "topic": row.get("topic"),
+            "created": row["created"],
+            "modified": row["modified"],
+        }
 
     # ------------------------------------------------------------------
     # search — FTS5 full-text search
@@ -425,21 +447,7 @@ class QueryService(BaseService):
             limit=limit,
         )
 
-        items = [
-            {
-                "id": r["id"],
-                "title": r["title"],
-                "type": r["type"],
-                "subtype": r["subtype"],
-                "maturity": r["maturity"],
-                "status": r["status"],
-                "path": r["path"],
-                "topic": r["topic"],
-                "created": r["created"],
-                "modified": r["modified"],
-            }
-            for r in rows
-        ]
+        items = [self._list_item_from_row(r) for r in rows]
 
         if sort == "priority":
             return self._apply_priority_sort(items, limit=limit)
@@ -551,6 +559,25 @@ class QueryService(BaseService):
             warnings=warnings,
         )
 
+    @traced
+    def list_tags(self, *, prefix: str | None = None, limit: int = 100) -> ServiceResult:
+        """List active tags with usage counts."""
+        rows = self._repo.list_tags_rows(prefix=prefix, limit=limit)
+        items = [
+            {
+                "tag": row["tag"],
+                "count": int(row["count"]),
+                "domain": row["domain"],
+                "scope": row["scope"],
+            }
+            for row in rows
+        ]
+        return ServiceResult(
+            ok=True,
+            op="list_tags",
+            data=dump_validated(ListTagsResultData, {"count": len(items), "items": items}),
+        )
+
     # ------------------------------------------------------------------
     # decision_support — aggregated decision context
     # ------------------------------------------------------------------
@@ -609,3 +636,64 @@ class QueryService(BaseService):
                 },
             },
         )
+
+    @traced
+    def vault_review(self, *, top: int = 10, stale_days: int = 7) -> ServiceResult:
+        """Aggregate a review-ready snapshot of vault health and structure."""
+        from datetime import UTC, timedelta
+
+        from ztlctl.services.graph import GraphService
+
+        recent_result = self.list_items(sort="recency", limit=top)
+        recent_items = recent_result.data.get("items", []) if recent_result.ok else []
+
+        work_result = self.work_queue()
+        work_items = work_result.data.get("items", []) if work_result.ok else []
+
+        theme_result = GraphService(self._vault).themes()
+        themes = theme_result.data.get("communities", []) if theme_result.ok else []
+
+        gaps_result = GraphService(self._vault).gaps(top=top)
+        gaps = gaps_result.data.get("items", []) if gaps_result.ok else []
+
+        bridges_result = GraphService(self._vault).bridges(top=top)
+        bridges = bridges_result.data.get("items", []) if bridges_result.ok else []
+
+        rank_result = GraphService(self._vault).rank(top=top)
+        important_items = rank_result.data.get("items", []) if rank_result.ok else []
+
+        cutoff_iso = (datetime.now(UTC) - timedelta(days=stale_days)).date().isoformat()
+        stale_rows = self._repo.stale_seed_rows(cutoff_iso=cutoff_iso, limit=top)
+        orphan_rows = self._repo.orphan_note_rows(limit=top)
+
+        overview = {
+            "vault_name": self._vault.settings.vault.name,
+            "counts": self._repo.type_counts(),
+            "total": self._repo.count_items(),
+            "recent": recent_items,
+        }
+
+        payload = dump_validated(
+            VaultReviewResultData,
+            {
+                "overview": overview,
+                "recent": recent_items,
+                "work_queue": work_items,
+                "themes": themes,
+                "gaps": gaps,
+                "bridges": bridges,
+                "important_items": important_items,
+                "stale_seeds": [self._list_item_from_row(row) for row in stale_rows],
+                "orphan_notes": [self._list_item_from_row(row) for row in orphan_rows],
+            },
+        )
+
+        warnings = [
+            *recent_result.warnings,
+            *work_result.warnings,
+            *theme_result.warnings,
+            *gaps_result.warnings,
+            *bridges_result.warnings,
+            *rank_result.warnings,
+        ]
+        return ServiceResult(ok=True, op="vault_review", data=payload, warnings=warnings)

@@ -19,7 +19,7 @@ color_scheme: light
 
 footer_content: >-
   MIT License. Distributed under the
-  <a href="https://github.com/ThatDevStudio/ztlctl/blob/main/LICENSE">MIT License</a>.
+  <a href="https://github.com/ThatDevStudio/ztlctl/blob/develop/LICENSE">MIT License</a>.
 
 back_to_top: true
 back_to_top_text: "Back to top"

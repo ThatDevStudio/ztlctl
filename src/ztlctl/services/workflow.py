@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from importlib import resources
 from importlib.resources.abc import Traversable
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from copier import run_copy, run_recopy, run_update
 from copier.errors import CopierError
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
+from ztlctl.infrastructure.templates import build_template_environment
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
 
@@ -20,6 +22,7 @@ WorkflowMode = Literal["claude-driven", "agent-generic", "manual"]
 SkillSet = Literal["research", "engineering", "minimal"]
 SourceControl = Literal["git", "none"]
 Viewer = Literal["obsidian", "vanilla"]
+WorkflowAssetClient = Literal["claude", "codex", "both"]
 
 _ANSWERS_RELATIVE_PATH = Path(".ztlctl") / "workflow-answers.yml"
 _GENERATED_FILES = [
@@ -34,6 +37,7 @@ _SOURCE_CONTROL_VALUES = {"git", "none"}
 _VIEWER_VALUES = {"obsidian", "vanilla"}
 _WORKFLOW_VALUES = {"claude-driven", "agent-generic", "manual"}
 _SKILL_SET_VALUES = {"research", "engineering", "minimal"}
+_ASSET_CLIENT_VALUES = {"claude", "codex", "both"}
 
 
 @dataclass(frozen=True)
@@ -126,6 +130,65 @@ class WorkflowService:
         return resources.files("ztlctl").joinpath("templates/workflow")
 
     @staticmethod
+    def _agent_template_root() -> Traversable:
+        """Return the packaged cross-client workflow template root."""
+        return resources.files("ztlctl").joinpath("templates/agent_workflow")
+
+    @staticmethod
+    def _load_agent_manifest() -> dict[str, Any]:
+        """Load the packaged agent workflow manifest."""
+        manifest = WorkflowService._agent_template_root().joinpath("manifest.json")
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            msg = "Agent workflow manifest must be a JSON object"
+            raise ValueError(msg)
+        return cast(dict[str, Any], payload)
+
+    @staticmethod
+    def _selected_clients(client: WorkflowAssetClient) -> list[str]:
+        """Expand the client selector into concrete client names."""
+        if client not in _ASSET_CLIENT_VALUES:
+            msg = f"Unsupported client export target: {client}"
+            raise ValueError(msg)
+        return ["claude", "codex"] if client == "both" else [client]
+
+    @staticmethod
+    def _asset_context(vault_root: Path) -> dict[str, Any]:
+        """Build the render context for portable workflow assets."""
+        from ztlctl.mcp.prompts import prompt_catalog
+        from ztlctl.mcp.resources import resource_catalog
+        from ztlctl.mcp.tools import tool_catalog
+
+        env = build_template_environment("agent_workflow", vault_root=vault_root)
+        manifest = WorkflowService._load_agent_manifest()
+        tool_names = [entry["name"] for entry in tool_catalog()]
+        resource_names = [entry["uri"] for entry in resource_catalog()]
+        prompt_names = [entry["name"] for entry in prompt_catalog()]
+        context: dict[str, Any] = {
+            "tool_names": tool_names,
+            "resource_names": resource_names,
+            "prompt_names": prompt_names,
+            "tool_count": len(tool_names),
+            "resource_count": len(resource_names),
+            "prompt_count": len(prompt_names),
+            "vault_name": vault_root.name,
+        }
+        modules: dict[str, str] = {}
+        shared = manifest.get("shared_modules", {})
+        for module_name, template_name in shared.items():
+            modules[module_name] = env.get_template(str(template_name)).render(**context).strip()
+        context["modules"] = modules
+        return context
+
+    @staticmethod
+    def _write_asset(path: Path, content: str, *, executable: bool = False) -> None:
+        """Write a rendered asset file and apply executable permissions when needed."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content.rstrip() + "\n", encoding="utf-8")
+        if executable:
+            path.chmod(0o755)
+
+    @staticmethod
     def validate_init_target(vault_root: Path) -> ServiceResult | None:
         """Validate that a vault can accept initial workflow scaffolding."""
         vault_root = vault_root.resolve()
@@ -168,6 +231,12 @@ class WorkflowService:
             )
 
         return None
+
+    @staticmethod
+    def validate_export_target(vault_root: Path, *, op: str) -> ServiceResult | None:
+        """Validate that workflow assets can be exported or validated for a vault."""
+        vault_root = vault_root.resolve()
+        return WorkflowService._validate_vault_root(vault_root, op=op)
 
     @staticmethod
     def _run_copy(vault_root: Path, choices: WorkflowChoices) -> None:
@@ -275,3 +344,166 @@ class WorkflowService:
             "choices": final_choices.as_data() if final_choices is not None else {},
         }
         return ServiceResult(ok=True, op="workflow_update", data=data, warnings=warnings)
+
+    @staticmethod
+    @traced
+    def export_assets(vault_root: Path, *, client: WorkflowAssetClient = "both") -> ServiceResult:
+        """Render portable client workflow assets into a vault."""
+        vault_root = vault_root.resolve()
+        validation_error = WorkflowService.validate_export_target(vault_root, op="workflow_export")
+        if validation_error is not None:
+            return validation_error
+
+        manifest = WorkflowService._load_agent_manifest()
+        env = build_template_environment("agent_workflow", vault_root=vault_root)
+        context = WorkflowService._asset_context(vault_root)
+        files_written: list[str] = []
+        selected = WorkflowService._selected_clients(client)
+
+        for client_name in selected:
+            client_spec = manifest["clients"][client_name]
+            for file_spec in client_spec["files"]:
+                template = env.get_template(str(file_spec["template"]))
+                rendered = template.render(**context)
+                output_path = vault_root / str(file_spec["output"])
+                WorkflowService._write_asset(
+                    output_path,
+                    rendered,
+                    executable=bool(file_spec.get("executable", False)),
+                )
+                files_written.append(str(file_spec["output"]))
+
+        return ServiceResult(
+            ok=True,
+            op="workflow_export",
+            data={
+                "vault_path": str(vault_root),
+                "clients": selected,
+                "files_written": files_written,
+            },
+        )
+
+    @staticmethod
+    def _validate_json_schema(path: Path, schema_name: str, errors: list[str]) -> None:
+        """Validate a generated JSON config file against a minimal schema."""
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            errors.append(f"{path}: invalid JSON ({exc})")
+            return
+
+        if schema_name == "mcp_config":
+            server = payload.get("mcpServers", {}).get("ztlctl")
+            if not isinstance(server, dict):
+                errors.append(f"{path}: missing mcpServers.ztlctl")
+                return
+            if server.get("command") != "ztlctl":
+                errors.append(f"{path}: mcpServers.ztlctl.command must be 'ztlctl'")
+            args = server.get("args")
+            if not isinstance(args, list) or "serve" not in args:
+                errors.append(f"{path}: mcpServers.ztlctl.args must include 'serve'")
+            return
+
+        if schema_name == "claude_settings":
+            hooks = payload.get("hooks")
+            if not isinstance(hooks, dict):
+                errors.append(f"{path}: missing top-level 'hooks' object")
+                return
+            session_start = hooks.get("SessionStart")
+            if not isinstance(session_start, list) or not session_start:
+                errors.append(f"{path}: hooks.SessionStart must be a non-empty list")
+                return
+            first_rule = session_start[0]
+            rule_hooks = first_rule.get("hooks") if isinstance(first_rule, dict) else None
+            if not isinstance(rule_hooks, list) or not rule_hooks:
+                errors.append(f"{path}: hooks.SessionStart[0].hooks must be a non-empty list")
+                return
+            first_hook = rule_hooks[0]
+            if not isinstance(first_hook, dict) or first_hook.get("type") != "command":
+                errors.append(f"{path}: first SessionStart hook must be a command hook")
+                return
+            command = str(first_hook.get("command", ""))
+            if ".claude/hooks/session-context.sh" not in command:
+                errors.append(f"{path}: SessionStart hook must invoke session-context.sh")
+
+    @staticmethod
+    @traced
+    def validate_assets(vault_root: Path, *, client: WorkflowAssetClient = "both") -> ServiceResult:
+        """Validate the packaged workflow spec and generated client assets."""
+        vault_root = vault_root.resolve()
+        validation_error = WorkflowService.validate_export_target(
+            vault_root, op="workflow_validate"
+        )
+        if validation_error is not None:
+            return validation_error
+
+        from ztlctl.mcp.prompts import prompt_catalog
+        from ztlctl.mcp.resources import resource_catalog
+        from ztlctl.mcp.tools import tool_catalog
+
+        manifest = WorkflowService._load_agent_manifest()
+        available_tools = {entry["name"] for entry in tool_catalog()}
+        available_resources = {entry["uri"] for entry in resource_catalog()}
+        available_prompts = {entry["name"] for entry in prompt_catalog()}
+        selected = WorkflowService._selected_clients(client)
+
+        errors: list[str] = []
+        warnings: list[str] = []
+        validated_files = 0
+
+        for client_name in selected:
+            client_spec = manifest["clients"][client_name]
+            for file_spec in client_spec["files"]:
+                for tool_name in file_spec.get("tools", []):
+                    if tool_name not in available_tools:
+                        errors.append(f"{file_spec['output']}: unknown MCP tool '{tool_name}'")
+                for resource_uri in file_spec.get("resources", []):
+                    if resource_uri not in available_resources:
+                        errors.append(
+                            f"{file_spec['output']}: unknown MCP resource '{resource_uri}'"
+                        )
+                for prompt_name in file_spec.get("prompts", []):
+                    if prompt_name not in available_prompts:
+                        errors.append(f"{file_spec['output']}: unknown MCP prompt '{prompt_name}'")
+
+                template_path = WorkflowService._agent_template_root().joinpath(
+                    str(file_spec["template"])
+                )
+                if not template_path.is_file():
+                    errors.append(f"Missing packaged template: {file_spec['template']}")
+
+                output_path = vault_root / str(file_spec["output"])
+                if not output_path.exists():
+                    errors.append(f"Missing generated asset: {file_spec['output']}")
+                    continue
+
+                validated_files += 1
+                if output_path.read_text(encoding="utf-8").strip() == "":
+                    warnings.append(f"{file_spec['output']}: generated file is empty")
+
+                schema_name = file_spec.get("schema")
+                if isinstance(schema_name, str):
+                    WorkflowService._validate_json_schema(output_path, schema_name, errors)
+
+        if errors:
+            return ServiceResult(
+                ok=False,
+                op="workflow_validate",
+                error=ServiceError(
+                    code="WORKFLOW_VALIDATION_FAILED",
+                    message="Workflow assets failed validation",
+                    detail={"issues": errors},
+                ),
+                warnings=warnings,
+            )
+
+        return ServiceResult(
+            ok=True,
+            op="workflow_validate",
+            data={
+                "vault_path": str(vault_root),
+                "clients": selected,
+                "validated_files": validated_files,
+            },
+            warnings=warnings,
+        )

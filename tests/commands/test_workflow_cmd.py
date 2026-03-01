@@ -123,3 +123,41 @@ class TestWorkflowCommands:
         assert result.exit_code == 1
         assert "Source control" not in result.output
         assert "Workflow scaffolding already exists" in result.output
+
+    def test_workflow_export_both_generates_claude_and_codex_assets(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        self._init_vault(cli_runner, tmp_path)
+
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "--no-interact", "workflow", "export", str(tmp_path), "--client", "both"],
+        )
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["ok"] is True
+        assert "AGENTS.md" in payload["data"]["files_written"]
+        assert (tmp_path / "AGENTS.md").exists()
+        assert (tmp_path / ".claude" / "settings.json").exists()
+        assert (tmp_path / ".mcp.json").exists()
+
+    def test_workflow_validate_passes_after_export(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        self._init_vault(cli_runner, tmp_path)
+        export = cli_runner.invoke(
+            cli,
+            ["--no-interact", "workflow", "export", str(tmp_path), "--client", "both"],
+        )
+        assert export.exit_code == 0, export.output
+
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "--no-interact", "workflow", "validate", str(tmp_path), "--client", "both"],
+        )
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["ok"] is True
+        assert payload["data"]["validated_files"] >= 1

@@ -34,20 +34,34 @@ Add to your `claude_desktop_config.json`:
 
 ## Available Tools
 
-| Tool | Description |
-|------|-------------|
-| `create_note` | Create a note with title, tags, topic |
-| `create_reference` | Create a reference with URL |
-| `create_task` | Create a task with priority/impact/effort |
-| `create_log` | Start a new session |
-| `update_content` | Update content metadata |
-| `close_content` | Archive or close content |
-| `reweave` | Run link discovery |
-| `search` | Full-text search with ranking |
-| `get_document` | Retrieve content by ID |
-| `get_related` | Graph-based related content |
-| `agent_context` | Token-budgeted context payload |
-| `session_close` | Close session with enrichment |
+ztlctl currently exposes **25 MCP tools**:
+
+| Category | Tools |
+|----------|-------|
+| Discovery | `discover_tools`, `list_tags` |
+| Creation | `create_note`, `create_reference`, `create_task`, `create_log`, `garden_seed` |
+| Lifecycle | `update_content`, `close_content`, `reweave` |
+| Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue` |
+| Analysis | `decision_support`, `vault_review` |
+| Graph | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
+| Session | `session_close`, `session_status` |
+
+Notable workflow-specific additions:
+
+- `create_note` accepts authored `body`, `key_points`, `aliases`, and `links`
+- `create_reference` accepts `subtype` for `article`, `tool`, or `spec`
+- `vault_review` returns a review-ready aggregate snapshot
+- `session_status` lets clients reason about active-session state without inferring from errors
+
+## Generated Client Assets
+
+For project-local Claude and Codex setup, export generated workflow assets from the packaged templates:
+
+```bash
+ztlctl workflow export --client both
+```
+
+This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting files derived from the same portable workflow source.
 
 ## Available Resources
 

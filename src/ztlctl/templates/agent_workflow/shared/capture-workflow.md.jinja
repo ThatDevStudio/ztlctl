@@ -1,0 +1,13 @@
+# Capture Workflow
+
+1. Search first with `search` to avoid duplicates.
+2. Use `list_tags` to align with existing vocabulary.
+3. Choose the correct content type:
+   - `create_note` for ideas, synthesis, and decisions.
+   - `create_reference` for external sources with `subtype`.
+   - `create_task` for actionable follow-up work.
+   - `garden_seed` for quick capture.
+4. Prefer one-step creation with authored content:
+   - `create_note` accepts `body`, `key_points`, `aliases`, and `links`.
+   - `create_reference` accepts `subtype` in addition to `url`.
+5. Run `reweave` on important new content.

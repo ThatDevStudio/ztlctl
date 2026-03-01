@@ -12,6 +12,7 @@ from ztlctl.services.workflow import (
     SkillSet,
     SourceControl,
     Viewer,
+    WorkflowAssetClient,
     WorkflowChoices,
     WorkflowMode,
     WorkflowService,
@@ -24,6 +25,7 @@ _VIEWER_CHOICES = ["obsidian", "vanilla"]
 _WORKFLOW_CHOICES = ["claude-driven", "agent-generic", "manual"]
 _SKILL_CHOICES = ["research", "engineering", "minimal"]
 _SOURCE_CONTROL_CHOICES = ["git", "none"]
+_ASSET_CLIENT_CHOICES = ["claude", "codex", "both"]
 
 
 def _resolve_workflow_choices(
@@ -96,6 +98,8 @@ def _resolve_workflow_choices(
     examples="""\
   ztlctl workflow init
   ztlctl workflow init --viewer obsidian --workflow claude-driven
+  ztlctl workflow export --client both
+  ztlctl workflow validate --client claude
   ztlctl workflow update
   ztlctl workflow update --skill-set engineering""",
 )
@@ -218,3 +222,49 @@ def workflow_update(
             existing=current,
         )
     app.emit(WorkflowService.update_workflow(vault_root, choices=choices))
+
+
+@workflow.command(
+    "export",
+    cls=ZtlCommand,
+    examples="""\
+  ztlctl workflow export --client both
+  ztlctl workflow export . --client claude
+  ztlctl --json workflow export --client codex""",
+)
+@click.argument("path", required=False, default=".")
+@click.option(
+    "--client",
+    type=click.Choice(_ASSET_CLIENT_CHOICES, case_sensitive=False),
+    default="both",
+    show_default=True,
+    help="Client asset bundle to render.",
+)
+@click.pass_obj
+def workflow_export(app: AppContext, path: str, client: str) -> None:
+    """Export generated Claude and/or Codex workflow assets."""
+    vault_root = Path(path).resolve()
+    app.emit(WorkflowService.export_assets(vault_root, client=cast(WorkflowAssetClient, client)))
+
+
+@workflow.command(
+    "validate",
+    cls=ZtlCommand,
+    examples="""\
+  ztlctl workflow validate
+  ztlctl workflow validate --client claude
+  ztlctl --json workflow validate --client codex""",
+)
+@click.argument("path", required=False, default=".")
+@click.option(
+    "--client",
+    type=click.Choice(_ASSET_CLIENT_CHOICES, case_sensitive=False),
+    default="both",
+    show_default=True,
+    help="Client asset bundle to validate.",
+)
+@click.pass_obj
+def workflow_validate(app: AppContext, path: str, client: str) -> None:
+    """Validate generated workflow assets against the MCP catalog."""
+    vault_root = Path(path).resolve()
+    app.emit(WorkflowService.validate_assets(vault_root, client=cast(WorkflowAssetClient, client)))
