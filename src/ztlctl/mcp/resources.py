@@ -1,7 +1,8 @@
-"""MCP resource definitions — 6 URI-based resources.
+"""MCP resource definitions — 7 URI-based resources.
 
 URIs: ztlctl://context, ztlctl://self/identity, ztlctl://self/methodology,
-ztlctl://overview, ztlctl://work-queue, ztlctl://topics.
+ztlctl://overview, ztlctl://work-queue, ztlctl://topics,
+ztlctl://agent-reference.
 Each resource has a ``_<name>_impl`` function testable without the mcp package.
 (DESIGN.md Section 16)
 """
@@ -20,6 +21,10 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
     {"uri": "ztlctl://overview", "description": "Vault overview with counts and recent items."},
     {"uri": "ztlctl://work-queue", "description": "Current work queue (scored task list)."},
     {"uri": "ztlctl://topics", "description": "List of topic directories in the vault."},
+    {
+        "uri": "ztlctl://agent-reference",
+        "description": ("Agent reference: tool catalog, workflows, and error recovery."),
+    },
 )
 
 
@@ -99,13 +104,91 @@ def context_impl(vault: Any) -> dict[str, Any]:
     }
 
 
+def agent_reference_impl(_vault: Any) -> dict[str, Any]:
+    """Agent reference: tool catalog, workflows, and error recovery.
+
+    Single-fetch onboarding payload for agents using the MCP server.
+    """
+    from ztlctl.mcp.tools import tool_catalog
+
+    # --- tool_categories: group catalog by category ---
+    grouped: dict[str, list[dict[str, str]]] = {}
+    for tool in tool_catalog():
+        grouped.setdefault(tool["category"], []).append(
+            {
+                "name": tool["name"],
+                "description": tool["description"],
+                "when_to_use": tool["when_to_use"],
+                "avoid_when": tool["avoid_when"],
+            }
+        )
+    tool_categories = {
+        cat: sorted(tools, key=lambda t: t["name"]) for cat, tools in sorted(grouped.items())
+    }
+
+    # --- workflows: common multi-step patterns ---
+    workflows = {
+        "capture": [
+            "garden_seed",
+            "reweave",
+        ],
+        "research_session": [
+            "create_log",
+            "create_reference",
+            "create_note",
+            "reweave",
+            "session_close",
+        ],
+        "search_then_create": [
+            "search",
+            "get_related",
+            "create_note (with links)",
+        ],
+        "vault_maintenance": [
+            "vault_review",
+            "graph_gaps",
+            "graph_bridges",
+            "reweave (dry_run=true)",
+        ],
+        "decision_documentation": [
+            "search",
+            "decision_support",
+            "create_note (subtype=decision)",
+            "reweave",
+        ],
+    }
+
+    # --- error_recovery: map error codes to recovery ---
+    error_recovery = {
+        "NOT_FOUND": ("Verify the ID with search() or list_items()."),
+        "VALIDATION_FAILED": (
+            "Check required params; titles must be non-empty; tags use domain/scope format."
+        ),
+        "ID_COLLISION": (
+            "Use search(title) to find existing item; update it or choose different title."
+        ),
+        "NO_ACTIVE_SESSION": ("Start a session with create_log(topic) first."),
+        "INVALID_TRANSITION": ("Check current status with get_document(id)."),
+        "NO_PATH": ("Ensure both IDs exist and are connected; use get_related() to verify."),
+        "EMPTY_QUERY": (
+            "Provide a non-empty query string; use list_items() to browse without search."
+        ),
+    }
+
+    return {
+        "tool_categories": tool_categories,
+        "workflows": workflows,
+        "error_recovery": error_recovery,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
 
 
 def register_resources(server: Any, vault: Any) -> None:
-    """Register all 6 MCP resources on the FastMCP server."""
+    """Register all 7 MCP resources on the FastMCP server."""
 
     @server.resource("ztlctl://context")  # type: ignore[untyped-decorator]
     def context_resource() -> str:
@@ -144,3 +227,10 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(topics_impl(vault), indent=2)
+
+    @server.resource("ztlctl://agent-reference")  # type: ignore[untyped-decorator]
+    def agent_reference_resource() -> str:
+        """Agent reference: tool catalog, workflows, and error recovery."""
+        import json
+
+        return json.dumps(agent_reference_impl(vault), indent=2)

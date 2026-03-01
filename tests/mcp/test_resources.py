@@ -9,8 +9,10 @@ import pytest
 from ztlctl.config.settings import ZtlSettings
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.mcp.resources import (
+    agent_reference_impl,
     context_impl,
     overview_impl,
+    resource_catalog,
     self_identity_impl,
     self_methodology_impl,
     topics_impl,
@@ -91,3 +93,79 @@ class TestResources:
         assert "identity" in result
         assert "methodology" in result
         assert "overview" in result
+
+
+class TestResourceCatalog:
+    """Tests for resource catalog completeness."""
+
+    def test_catalog_has_7_resources(self):
+        assert len(resource_catalog()) == 7
+
+    def test_agent_reference_in_catalog(self):
+        uris = {r["uri"] for r in resource_catalog()}
+        assert "ztlctl://agent-reference" in uris
+
+
+class TestAgentReference:
+    """Tests for agent_reference_impl."""
+
+    def test_returns_three_sections(self, vault: Vault):
+        result = agent_reference_impl(vault)
+        assert "tool_categories" in result
+        assert "workflows" in result
+        assert "error_recovery" in result
+
+    def test_tool_categories_grouped(self, vault: Vault):
+        result = agent_reference_impl(vault)
+        cats = result["tool_categories"]
+        assert "discovery" in cats
+        assert "creation" in cats
+        assert "query" in cats
+        assert "graph" in cats
+        assert "analysis" in cats
+        assert "session" in cats
+        assert "lifecycle" in cats
+
+    def test_tool_categories_have_enriched_fields(self, vault: Vault):
+        result = agent_reference_impl(vault)
+        for cat, tools in result["tool_categories"].items():
+            for tool in tools:
+                assert "name" in tool, f"{cat}: missing name"
+                assert "when_to_use" in tool, f"{tool['name']}: missing when_to_use"
+                assert "avoid_when" in tool, f"{tool['name']}: missing avoid_when"
+
+    def test_workflows_have_5_patterns(self, vault: Vault):
+        result = agent_reference_impl(vault)
+        wf = result["workflows"]
+        expected = {
+            "capture",
+            "research_session",
+            "search_then_create",
+            "vault_maintenance",
+            "decision_documentation",
+        }
+        assert set(wf.keys()) == expected
+
+    def test_workflow_steps_are_lists(self, vault: Vault):
+        result = agent_reference_impl(vault)
+        for name, steps in result["workflows"].items():
+            assert isinstance(steps, list), f"{name}: not a list"
+            assert len(steps) >= 2, f"{name}: too few steps"
+
+    def test_error_recovery_has_7_codes(self, vault: Vault):
+        result = agent_reference_impl(vault)
+        expected_codes = {
+            "NOT_FOUND",
+            "VALIDATION_FAILED",
+            "ID_COLLISION",
+            "NO_ACTIVE_SESSION",
+            "INVALID_TRANSITION",
+            "NO_PATH",
+            "EMPTY_QUERY",
+        }
+        assert set(result["error_recovery"].keys()) == expected_codes
+
+    def test_error_recovery_values_non_empty(self, vault: Vault):
+        result = agent_reference_impl(vault)
+        for code, recovery in result["error_recovery"].items():
+            assert recovery.strip(), f"{code}: empty recovery"
