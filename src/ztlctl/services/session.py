@@ -501,6 +501,10 @@ class SessionService(BaseService):
             ).fetchall()
 
         if not all_rows:
+            # Pre-refactor sessions stored lifecycle events only in JSONL
+            # (not in session_logs DB). If zero log_entry() calls were made,
+            # the DB has no rows for this session. This is expected for
+            # legacy sessions — they have no extractable decision content.
             return ServiceResult(
                 ok=False,
                 op=op,
