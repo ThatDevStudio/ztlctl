@@ -154,5 +154,30 @@ git checkout develop && git pull origin develop
   - `output/` — Rich/JSON formatters (imports services)
   - `commands/` — Click command groups/commands (imports services, output, config)
   - `plugins/` — pluggy hook specs and built-in plugins
-  - `mcp/` — optional MCP adapter (guarded imports)
-  - `templates/` — Jinja2 templates for content creation
+  - `mcp/` — optional MCP adapter (25 tools, 6 resources, 4 prompts)
+  - `templates/` — Jinja2 templates (content/, self/, agent_workflow/, workflow/)
+- **Plugin reference bundle**: `plugin/` — Claude Code plugin (checked-in reference; canonical source is `src/ztlctl/templates/agent_workflow/`)
+- **Agent workflow export**: `ztlctl workflow export --client {claude|codex|both}` generates project-local agent assets from templates
+
+## Documentation Maintenance
+
+**When any feature or fix changes user-facing behavior, update docs in the same PR.** This is not optional — stale docs are bugs.
+
+### What to Update (by change type)
+
+| Change | Docs to update |
+|--------|----------------|
+| New/changed MCP tool | `_TOOL_CATALOG` in `tools.py` (source of truth), `DESIGN.md` Section 16 tools table + count, `docs/mcp.md` tools table |
+| New/changed MCP resource | `_RESOURCE_CATALOG` in `resources.py`, `DESIGN.md` Section 16 resources table, `docs/mcp.md` resources table |
+| New/changed CLI command | `docs/commands.md` commands table |
+| New/changed service method | `DESIGN.md` relevant section + implementation note |
+| Changed workflow templates | `plugin/` reference bundle (regenerate with `ztlctl workflow export`), `plugin/README.md` |
+| Architecture changes | `DESIGN.md` architecture diagram + package structure, `CLAUDE.md` Architecture section |
+| Config changes | `docs/configuration.md`, `DESIGN.md` Section 17 |
+
+### Documentation-as-Code Principles
+
+1. **Single source of truth**: `_TOOL_CATALOG`, `_RESOURCE_CATALOG`, `_PROMPT_CATALOG` in Python are authoritative. The `vault_orientation` prompt generates tool/resource lists dynamically from these catalogs — never hardcode tool lists in prose.
+2. **Counts must match reality**: When you see "Tools (N)" in DESIGN.md or "N tools" in README.md, verify N matches `len(_TOOL_CATALOG)`.
+3. **Plugin bundle tracks templates**: The `plugin/` directory is a reference bundle. When `src/ztlctl/templates/agent_workflow/` changes, the plugin should be updated to match.
+4. **Backlog entries are delivery records**: When a BL-NNNN item's scope changes (e.g., tool count increases), update its description in DESIGN.md Section 20.

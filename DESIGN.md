@@ -32,7 +32,7 @@ These rules apply across the entire codebase. Violating any of them is a bug.
 │   Pluggy event bus · Plugin system · Git plugin      │
 ├─────────────────────────────────────────────────────┤
 │                MCP Layer (Feature 15)                 │
-│   Tools (12) · Resources (6) · Prompts (4) · stdio   │
+│   Tools (25) · Resources (6) · Prompts (4) · stdio   │
 ├─────────────────────────────────────────────────────┤
 │               Presentation Layer                      │
 │   Click CLI · --json · --no-interact · Rich output   │
@@ -68,7 +68,7 @@ src/ztlctl/
 ├── output/                  # Presentation: Rich/JSON formatters
 ├── plugins/                 # Extension: hookspecs, manager, builtins/
 ├── services/                # Service: result contract + 6 service classes
-└── templates/               # Bundled Jinja2 templates (content/ + self/)
+└── templates/               # Bundled Jinja2 templates (content/ + self/ + agent_workflow/ + workflow/)
 ```
 
 ### Design Principles
@@ -1144,7 +1144,7 @@ pip install ztlctl            # Core + event bus + plugins + git + templates
 pip install ztlctl[mcp]       # Adds MCP adapter
 ```
 
-Claude Code plugin ships as a separate artifact (plugin.json + skills/ + hooks/) with an independent release cycle.
+Claude Code plugin assets are generated from `src/ztlctl/templates/agent_workflow/` via `ztlctl workflow export --client claude`. The `plugin/` directory in the repo is a checked-in reference bundle.
 
 > **Implementation note (Phase 6+9, follow-up):** EventBus is implemented with WAL-backed async dispatch (`ThreadPoolExecutor`, configurable `max_workers=2`). Events persist to `event_wal` table before dispatch, retry on failure (configurable `max_retries=3`), and transition to `dead_letter` status after exhausting retries. `--sync` flag forces synchronous dispatch for deterministic testing. `drain()` retries all pending/failed events synchronously — called as a sync barrier at session close. PluginManager uses `pluggy.load_setuptools_entrypoints("ztlctl.plugins")` for discovery; built-in GitPlugin is registered explicitly via `register_plugin()` in `Vault.init_event_bus()`. GitPlugin implements all 8 lifecycle hooks with subprocess-based git operations; all calls are wrapped in `try/except (OSError, CalledProcessError)` so a missing git binary silently degrades. `BaseService._dispatch_event()` is the fire-and-forget helper — plugin failures are captured as warnings in the ServiceResult, never propagated. Local directory plugin discovery (Phase 9, PR #56): `PluginManager.discover_and_load(local_dir=...)` scans `.ztlctl/plugins/*.py` for classes with `@hookimpl`-decorated methods; files are loaded via `importlib.util.spec_from_file_location()` with module name `ztlctl_local_plugin_{stem}`. Underscore-prefixed files are excluded. Load errors are warnings, not failures. Plugin setup-time hook `register_content_models()` can extend `CONTENT_REGISTRY` with custom subtypes; conflicts with built-in names are warnings, not startup failures.
 
@@ -1156,14 +1156,17 @@ Optional extra (`pip install ztlctl[mcp]`). Thin adapter over the service layer.
 
 The MCP module uses `try/except ImportError` with a module-level `mcp_available` flag. When the `mcp` extra is not installed, the module loads without error but `create_server()` raises `RuntimeError` with install instructions.
 
-### Tools (12)
+### Tools (25)
 
-| Category | Tools |
-|----------|-------|
-| Creation | `create_note`, `create_reference`, `create_log`, `create_task` |
-| Lifecycle | `update_content`, `close_content`, `reweave` |
-| Query | `search`, `get_document`, `get_related`, `agent_context` |
-| Session | `session_close` |
+| Category | Count | Tools |
+|----------|-------|-------|
+| Discovery | 2 | `discover_tools`, `list_tags` |
+| Creation | 5 | `create_note`, `create_reference`, `create_task`, `create_log`, `garden_seed` |
+| Lifecycle | 3 | `update_content`, `close_content`, `reweave` |
+| Query | 6 | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue` |
+| Analysis | 2 | `decision_support`, `vault_review` |
+| Graph | 5 | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
+| Session | 2 | `session_close`, `session_status` |
 
 ### Resources (6)
 
@@ -1192,9 +1195,9 @@ Three transport options:
 
 ### Tool Proliferation Guard
 
-At 15+ tools (from plugin registration), activate `discover_tools` meta-tool for progressive discovery by category.
+`discover_tools` meta-tool is implemented for progressive discovery by category. With 25 tools across 7 categories, it enables agents to explore the tool surface incrementally rather than loading all tool descriptions at once.
 
-> **Implementation note (Phase 6+9):** All 12 tools, 6 resources, and 4 prompts are implemented as thin service adapters. Each has a `_<name>_impl(vault, **params) -> dict` function that is testable without the `mcp` package installed. `register_tools()`, `register_resources()`, and `register_prompts()` wrap these with `@server.tool()` / `@server.resource()` / `@server.prompt()` FastMCP decorators. `create_server(vault_root, host, port)` creates a `ZtlSettings` + `Vault` from the vault root and registers all components. `ztlctl serve --transport {stdio|sse|streamable-http}` is the CLI entry point with `--host` and `--port` options for HTTP transports (Phase 9, PR #56). Transport is passed to `server.run(transport=...)` at runtime. The tool proliferation guard (discover_tools meta-tool) is deferred.
+> **Implementation note (Phase 6+9, v1.2.0):** All 25 tools, 6 resources, and 4 prompts are implemented as thin service adapters. Each has a `_<name>_impl(vault, **params) -> dict` function that is testable without the `mcp` package installed. `register_tools()`, `register_resources()`, and `register_prompts()` wrap these with `@server.tool()` / `@server.resource()` / `@server.prompt()` FastMCP decorators. `create_server(vault_root, host, port)` creates a `ZtlSettings` + `Vault` from the vault root and registers all components. `ztlctl serve --transport {stdio|sse|streamable-http}` is the CLI entry point with `--host` and `--port` options for HTTP transports. Transport is passed to `server.run(transport=...)` at runtime. The `discover_tools` meta-tool provides category-based progressive tool discovery. `tool_catalog()`, `resource_catalog()`, `prompt_catalog()` expose the catalogs for validation by `workflow validate`. Agent workflow templates (Claude + Codex) are generated via `ztlctl workflow export --client {claude|codex|both}` from `src/ztlctl/templates/agent_workflow/`.
 
 ---
 
@@ -1440,7 +1443,7 @@ Decisions made during the design process (CONV-0017):
 | BL-0030 | CLI Interface (F12) | high | **done** | Rich rendering (tables, styled text, icons), 3 verbosity modes, structured JSON errors, ZtlCommand/ZtlGroup base classes, all service operations have CLI commands. Consolidated `_helpers.py` for shared service utilities |
 | BL-0031 | Init & Self-Generation (F13) | high | **done** | Init flow, Jinja2 templates, Obsidian scaffolding, agent regenerate, Copier-backed workflow scaffold |
 | BL-0032 | Event System & Plugins (F14) | high | **done** | WAL-backed EventBus, pluggy hookspecs, PluginManager with entry-point + local directory discovery, Git plugin (all 8 lifecycle hooks), plugin-registered custom content models |
-| BL-0033 | MCP Adapter (F15) | high | **done** | 12 tools, 6 resources, 4 prompts, `ztlctl serve` with stdio/sse/streamable-http transports. Deferred: tool proliferation guard |
+| BL-0033 | MCP Adapter (F15) | high | **done** | 25 tools (7 categories), 6 resources, 4 prompts, `ztlctl serve` with stdio/sse/streamable-http transports. `discover_tools` meta-tool for progressive discovery. Agent workflow export (`workflow export --client`). Claude Code plugin reference bundle |
 | BL-0034 | Verbose Telemetry (F16) | medium | **done** | structlog dual-output, `@traced` decorator, `trace_span()` context manager, `--verbose`/`--log-json` CLI flags |
 | BL-0035 | Semantic Search (F17) | high | **done** | EmbeddingProvider, VectorService, sqlite-vec vec0 table, hybrid BM25+cosine ranking, `vector` CLI group |
 
@@ -1620,14 +1623,20 @@ Phase 6 — Extension (complete):
     - Vault.init_event_bus() called from AppContext on vault creation
     - Event dispatch integrated into all 6 service modules (create, update, reweave, session, check, init)
   F15 MCP Adapter:
-    - 12 tools: create (note, reference, task, log), lifecycle (update, close, reweave),
-      query (search, get_document, get_related, agent_context), session (session_close)
+    - 25 tools across 7 categories: discovery (discover_tools, list_tags),
+      creation (create_note, create_reference, create_task, create_log, garden_seed),
+      lifecycle (update_content, close_content, reweave),
+      query (search, get_document, get_related, agent_context, list_items, work_queue),
+      analysis (decision_support, vault_review),
+      graph (graph_themes, graph_rank, graph_path, graph_gaps, graph_bridges),
+      session (session_close, session_status)
     - 6 resources: context, self/identity, self/methodology, overview, work-queue, topics
     - 4 prompts: research_session, knowledge_capture, vault_orientation, decision_record
     - _impl function pattern: testable without mcp package installed
     - register_tools/resources/prompts wraps _impl functions with FastMCP decorators
-    - `ztlctl serve --transport stdio` command with mcp install guard
-    - Deferred: tool proliferation guard (discover_tools meta-tool), streamable HTTP transport
+    - `ztlctl serve --transport {stdio|sse|streamable-http}` command
+    - discover_tools meta-tool for progressive category-based tool discovery
+    - Agent workflow templates: `workflow export --client {claude|codex|both}`
 
   882 tests, mypy strict, ruff clean.
 
