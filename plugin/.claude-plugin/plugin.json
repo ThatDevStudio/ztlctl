@@ -1,0 +1,15 @@
+{
+  "name": "ztlctl",
+  "version": "1.0.0",
+  "description": "Agentic research assistant for ztlctl knowledge vaults",
+  "author": {
+    "name": "ThatDev Studio",
+    "url": "https://github.com/ThatDevStudio/ztlctl"
+  },
+  "repository": "https://github.com/ThatDevStudio/ztlctl",
+  "license": "MIT",
+  "keywords": ["zettelkasten", "knowledge-management", "research", "notes", "agentic"],
+  "commands": "./commands",
+  "agents": ["./agents"],
+  "hooks": "./hooks/hooks.json"
+}
