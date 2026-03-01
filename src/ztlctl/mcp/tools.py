@@ -1,6 +1,6 @@
-"""MCP tool definitions — 25 tools across 7 categories.
+"""MCP tool definitions — 26 tools across 7 categories.
 
-Categories: Discovery (2), Creation (5), Lifecycle (3), Query (6), Graph (5),
+Categories: Discovery (3), Creation (5), Lifecycle (3), Query (6), Graph (5),
 Session (2), Analysis (2).
 Each tool has a ``_<name>_impl`` function testable without the mcp package.
 ``register_tools()`` wraps them with FastMCP decorators.
@@ -23,111 +23,210 @@ _TOOL_CATALOG: tuple[dict[str, str], ...] = (
         "name": "discover_tools",
         "category": "discovery",
         "description": "List available MCP tools grouped by category.",
+        "when_to_use": (
+            "Starting a session or unsure which tools exist. Filter by category to narrow."
+        ),
+        "avoid_when": ("You already know the tool name — use describe_tool for detail."),
     },
     {
         "name": "list_tags",
         "category": "discovery",
         "description": "List known tags with usage counts.",
+        "when_to_use": (
+            "Before creating content, to discover existing tag conventions and avoid duplicates."
+        ),
+        "avoid_when": ("You already know the tag hierarchy or are searching by content."),
     },
-    {"name": "create_note", "category": "creation", "description": "Create a new note."},
+    {
+        "name": "create_note",
+        "category": "creation",
+        "description": "Create a new note.",
+        "when_to_use": ("Capturing a synthesized idea, knowledge, decision, or observation."),
+        "avoid_when": (
+            "Raw idea capture (use garden_seed). Source logging (use create_reference)."
+        ),
+    },
     {
         "name": "create_reference",
         "category": "creation",
         "description": "Create a new reference.",
+        "when_to_use": ("Logging an external source (article, paper, spec) with URL and metadata."),
+        "avoid_when": (
+            "Capturing own ideas (use create_note). Source already exists (search first)."
+        ),
     },
-    {"name": "create_task", "category": "creation", "description": "Create a new task."},
-    {"name": "create_log", "category": "creation", "description": "Start a new session."},
+    {
+        "name": "create_task",
+        "category": "creation",
+        "description": "Create a new task.",
+        "when_to_use": ("Tracking actionable work with priority/impact/effort scoring."),
+        "avoid_when": ("Capturing knowledge (use create_note). Task exists (check work_queue)."),
+    },
+    {
+        "name": "create_log",
+        "category": "creation",
+        "description": "Start a new session.",
+        "when_to_use": ("Beginning a focused work session. Creates a log and starts tracking."),
+        "avoid_when": ("A session is already active (check session_status first)."),
+    },
     {
         "name": "update_content",
         "category": "lifecycle",
         "description": "Update a content item.",
+        "when_to_use": (
+            "Modifying title, tags, topic, body, status, or fields on an existing item."
+        ),
+        "avoid_when": ("Archiving/closing (use close_content). Creating new content."),
     },
     {
         "name": "close_content",
         "category": "lifecycle",
         "description": "Archive/close a content item.",
+        "when_to_use": ("Marking an item as completed/archived. Irreversible status transition."),
+        "avoid_when": ("Updating fields without archiving (use update_content)."),
     },
     {
         "name": "reweave",
         "category": "lifecycle",
         "description": "Run reweave on content.",
+        "when_to_use": (
+            "After creating/updating content, to discover"
+            " and create links. Use dry_run=true to preview."
+        ),
+        "avoid_when": ("Vault has very few items — needs existing content for meaningful links."),
     },
-    {"name": "search", "category": "query", "description": "Full-text search."},
+    {
+        "name": "search",
+        "category": "query",
+        "description": "Full-text search.",
+        "when_to_use": ("Finding content by keywords. Supports type/tag/space filters."),
+        "avoid_when": ("You have an exact ID (use get_document). Browsing (use list_items)."),
+    },
     {
         "name": "get_document",
         "category": "query",
         "description": "Get a document by ID.",
+        "when_to_use": ("Retrieving full content of a known item by its ID."),
+        "avoid_when": ("You don't have an ID yet (use search or list_items to find it)."),
     },
     {
         "name": "get_related",
         "category": "query",
         "description": "Get related content via graph traversal.",
+        "when_to_use": ("Exploring graph connections from a specific item at configurable depth."),
+        "avoid_when": ("Searching by keywords (use search). No known starting point."),
     },
     {
         "name": "agent_context",
         "category": "query",
         "description": "Build agent context from vault state.",
+        "when_to_use": (
+            "Getting a comprehensive snapshot: recent items, search results, work queue."
+        ),
+        "avoid_when": (
+            "You need a specific item (use get_document). You only need the work queue."
+        ),
     },
     {
         "name": "session_close",
         "category": "session",
         "description": "Close the active session.",
+        "when_to_use": ("Ending a work session. Triggers enrichment pipeline."),
+        "avoid_when": "No session is active (check session_status).",
     },
     {
         "name": "session_status",
         "category": "session",
         "description": "Get the active session, if any.",
+        "when_to_use": ("Checking whether a session is active and its topic/log entries."),
+        "avoid_when": (
+            "Starting a session (use create_log). Need full context (use agent_context)."
+        ),
     },
-    # --- Tier 1 additions ---
     {
         "name": "list_items",
         "category": "query",
-        "description": "List vault items with filtering by type/status/tag/topic/maturity.",
+        "description": ("List vault items with filtering by type/status/tag/topic/maturity."),
+        "when_to_use": ("Browsing or filtering the vault by type/status/tag/topic/maturity/sort."),
+        "avoid_when": ("Searching by keywords (use search). Getting a single known document."),
     },
     {
         "name": "work_queue",
         "category": "query",
         "description": "Get prioritized actionable tasks.",
+        "when_to_use": (
+            "Finding what to work on next. Returns scored tasks by priority/impact/effort."
+        ),
+        "avoid_when": ("Looking for notes or references (use list_items or search)."),
     },
     {
         "name": "decision_support",
         "category": "analysis",
         "description": "Aggregate decision context for a topic.",
+        "when_to_use": (
+            "Preparing to make or document a decision. Aggregates context for a topic."
+        ),
+        "avoid_when": ("Simple search suffices. The topic has no existing vault content."),
     },
     {
         "name": "vault_review",
         "category": "analysis",
         "description": "Build a review-ready vault health snapshot.",
+        "when_to_use": (
+            "Periodic maintenance. Shows stale items, orphans, tag distribution, health metrics."
+        ),
+        "avoid_when": "Looking for specific content (use search).",
     },
     {
         "name": "graph_themes",
         "category": "graph",
         "description": "Detect knowledge communities via graph clustering.",
+        "when_to_use": ("Discovering emergent topic clusters via Louvain community detection."),
+        "avoid_when": ("Vault has <10 connected items. Needs meaningful graph density."),
     },
     {
         "name": "graph_rank",
         "category": "graph",
         "description": "Rank content by importance via PageRank.",
+        "when_to_use": "Finding the most central items via PageRank.",
+        "avoid_when": "Vault has very few items or no edges.",
     },
     {
         "name": "graph_path",
         "category": "graph",
         "description": "Find connection path between two items.",
+        "when_to_use": ("Tracing how two items are connected through intermediate notes."),
+        "avoid_when": ("You don't have two specific IDs. Use get_related for general connections."),
     },
     {
         "name": "graph_gaps",
         "category": "graph",
         "description": "Identify structural holes in the knowledge graph.",
+        "when_to_use": ("Finding areas where knowledge is sparse or disconnected."),
+        "avoid_when": "Vault is small or newly created.",
     },
     {
         "name": "graph_bridges",
         "category": "graph",
         "description": "Find bridge notes via betweenness centrality.",
+        "when_to_use": ("Identifying bridge notes connecting otherwise separate clusters."),
+        "avoid_when": ("Vault has <10 connected items. Bridges need multiple communities."),
     },
     {
         "name": "garden_seed",
         "category": "creation",
         "description": "Quick-capture a seed note with minimal ceremony.",
+        "when_to_use": (
+            "Capturing a raw idea or fleeting thought. Minimal metadata, fastest path."
+        ),
+        "avoid_when": ("The idea is well-formed (use create_note with full metadata)."),
+    },
+    {
+        "name": "describe_tool",
+        "category": "discovery",
+        "description": ("Get detailed usage guidance for a single tool by name."),
+        "when_to_use": ("You know a tool name and need usage guidance before calling it."),
+        "avoid_when": ("You already understand the tool. Just call it directly."),
     },
 )
 
@@ -155,7 +254,7 @@ def _to_mcp_response(result: ServiceResult) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Discovery tools (2)
+# Discovery tools (3)
 # ---------------------------------------------------------------------------
 
 
@@ -214,6 +313,35 @@ def list_tags_impl(
 
     result = QueryService(vault).list_tags(prefix=prefix, limit=limit)
     return _to_mcp_response(result)
+
+
+def describe_tool_impl(_vault: Any, *, name: str) -> dict[str, Any]:
+    """Get detailed usage guidance for a single tool by name.
+
+    Pure catalog lookup — no service call needed.
+    """
+    tool_name = name.lower().strip()
+    for tool in _TOOL_CATALOG:
+        if tool["name"] == tool_name:
+            return {
+                "ok": True,
+                "op": "describe_tool",
+                "data": {
+                    "name": tool["name"],
+                    "category": tool["category"],
+                    "description": tool["description"],
+                    "when_to_use": tool["when_to_use"],
+                    "avoid_when": tool["avoid_when"],
+                },
+            }
+    return {
+        "ok": False,
+        "op": "describe_tool",
+        "error": {
+            "code": "NOT_FOUND",
+            "message": f"No tool named '{name}'. Use discover_tools() to list available tools.",
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -606,6 +734,11 @@ def register_tools(server: Any, vault: Any) -> None:
     def list_tags(prefix: str | None = None, limit: int = 100) -> dict[str, Any]:
         """List known tags with usage counts."""
         return list_tags_impl(vault, prefix=prefix, limit=limit)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def describe_tool(name: str) -> dict[str, Any]:
+        """Get detailed usage guidance for a single tool by name."""
+        return describe_tool_impl(vault, name=name)
 
     @server.tool()  # type: ignore[untyped-decorator]
     def create_note(

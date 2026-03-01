@@ -16,6 +16,7 @@ from ztlctl.mcp.tools import (
     create_reference_impl,
     create_task_impl,
     decision_support_impl,
+    describe_tool_impl,
     discover_tools_impl,
     garden_seed_impl,
     get_document_impl,
@@ -32,6 +33,7 @@ from ztlctl.mcp.tools import (
     search_impl,
     session_close_impl,
     session_status_impl,
+    tool_catalog,
     update_content_impl,
     vault_review_impl,
     work_queue_impl,
@@ -131,6 +133,28 @@ class TestCreateTools:
 
 
 # ---------------------------------------------------------------------------
+# Tests — Catalog completeness
+# ---------------------------------------------------------------------------
+
+
+class TestCatalogCompleteness:
+    """Tests that all catalog entries have enriched fields."""
+
+    def test_all_entries_have_when_to_use(self):
+        for tool in tool_catalog():
+            assert "when_to_use" in tool, f"{tool['name']} missing when_to_use"
+            assert tool["when_to_use"].strip(), f"{tool['name']} has empty when_to_use"
+
+    def test_all_entries_have_avoid_when(self):
+        for tool in tool_catalog():
+            assert "avoid_when" in tool, f"{tool['name']} missing avoid_when"
+            assert tool["avoid_when"].strip(), f"{tool['name']} has empty avoid_when"
+
+    def test_catalog_has_26_tools(self):
+        assert len(tool_catalog()) == 26
+
+
+# ---------------------------------------------------------------------------
 # Tests — Discovery tools
 # ---------------------------------------------------------------------------
 
@@ -142,7 +166,7 @@ class TestDiscoveryTools:
         resp = discover_tools_impl(vault)
         assert resp["ok"] is True
         assert resp["op"] == "discover_tools"
-        assert resp["data"]["count"] >= 25
+        assert resp["data"]["count"] == 26
         categories = {entry["name"] for entry in resp["data"]["categories"]}
         assert "discovery" in categories
         assert "creation" in categories
@@ -161,6 +185,20 @@ class TestDiscoveryTools:
         assert "create_note" in names
         assert "create_reference" in names
 
+    def test_discover_tools_excludes_enriched_fields(self, vault: Vault):
+        """Progressive disclosure: discover_tools must NOT expose when_to_use/avoid_when."""
+        resp = discover_tools_impl(vault)
+        for cat in resp["data"]["categories"]:
+            for tool in cat["tools"]:
+                assert "when_to_use" not in tool
+                assert "avoid_when" not in tool
+
+    def test_discover_tools_discovery_category_has_3(self, vault: Vault):
+        resp = discover_tools_impl(vault, category="discovery")
+        assert resp["data"]["count"] == 3
+        names = {t["name"] for t in resp["data"]["categories"][0]["tools"]}
+        assert names == {"discover_tools", "list_tags", "describe_tool"}
+
     def test_register_tools_includes_discover_tools(self, vault: Vault):
         class DummyServer:
             def __init__(self) -> None:
@@ -176,6 +214,47 @@ class TestDiscoveryTools:
         server = DummyServer()
         register_tools(server, vault)
         assert "discover_tools" in server.tools
+        assert "describe_tool" in server.tools
+
+
+# ---------------------------------------------------------------------------
+# Tests — describe_tool
+# ---------------------------------------------------------------------------
+
+
+class TestDescribeTool:
+    """Tests for describe_tool_impl."""
+
+    def test_describe_known_tool(self, vault: Vault):
+        resp = describe_tool_impl(vault, name="create_note")
+        assert resp["ok"] is True
+        assert resp["op"] == "describe_tool"
+        assert resp["data"]["name"] == "create_note"
+        assert resp["data"]["category"] == "creation"
+        assert resp["data"]["when_to_use"]
+        assert resp["data"]["avoid_when"]
+
+    def test_describe_nonexistent_returns_not_found(self, vault: Vault):
+        resp = describe_tool_impl(vault, name="nonexistent")
+        assert resp["ok"] is False
+        assert resp["error"]["code"] == "NOT_FOUND"
+        assert "discover_tools()" in resp["error"]["message"]
+
+    def test_describe_tool_case_insensitive(self, vault: Vault):
+        resp = describe_tool_impl(vault, name="CREATE_NOTE")
+        assert resp["ok"] is True
+        assert resp["data"]["name"] == "create_note"
+
+    def test_describe_tool_trims_whitespace(self, vault: Vault):
+        resp = describe_tool_impl(vault, name="  search  ")
+        assert resp["ok"] is True
+        assert resp["data"]["name"] == "search"
+
+    def test_describe_tool_returns_all_fields(self, vault: Vault):
+        resp = describe_tool_impl(vault, name="describe_tool")
+        assert resp["ok"] is True
+        expected_fields = {"name", "category", "description", "when_to_use", "avoid_when"}
+        assert set(resp["data"].keys()) == expected_fields
 
 
 # ---------------------------------------------------------------------------
