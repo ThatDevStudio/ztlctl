@@ -12,6 +12,18 @@ from ztlctl.services.workflow import WorkflowChoices, WorkflowService
 
 
 class TestWorkflowService:
+    def test_agent_workflow_templates_are_packaged(self) -> None:
+        agent_root = WorkflowService._agent_template_root()
+
+        assert agent_root.joinpath("manifest.json").is_file()
+        assert agent_root.joinpath("claude/.claude/settings.json.jinja").is_file()
+        assert agent_root.joinpath("codex/AGENTS.md.jinja").is_file()
+        assert agent_root.joinpath("codex/.ztlctl/codex/skills/methodology.md.jinja").is_file()
+        assert agent_root.joinpath("codex/.ztlctl/codex/skills/session-workflow.md.jinja").is_file()
+        assert agent_root.joinpath(
+            "codex/.ztlctl/codex/skills/graph-intelligence.md.jinja"
+        ).is_file()
+
     def test_init_workflow_creates_answers_and_notes(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
 
