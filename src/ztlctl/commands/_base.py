@@ -7,6 +7,7 @@ This keeps ``--help`` concise while making examples available on demand.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import click
@@ -58,3 +59,40 @@ class ZtlGroup(click.Group):
         self.examples = examples
         if examples:
             _add_examples_option(self, examples)
+
+
+class RootZtlGroup(ZtlGroup):
+    """Root command group with lazy dynamic subcommand support."""
+
+    def __init__(
+        self,
+        *args: Any,
+        dynamic_loader: Callable[[click.Context], dict[str, click.Command]] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.dynamic_loader = dynamic_loader
+
+    def _dynamic_commands(self, ctx: click.Context) -> dict[str, click.Command]:
+        cached = ctx.meta.get("_ztl_dynamic_commands")
+        if isinstance(cached, dict):
+            return cached
+        if self.dynamic_loader is None:
+            ctx.meta["_ztl_dynamic_commands"] = {}
+            return {}
+        commands = self.dynamic_loader(ctx)
+        ctx.meta["_ztl_dynamic_commands"] = commands
+        return commands
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        names = list(super().list_commands(ctx))
+        for name in self._dynamic_commands(ctx):
+            if name not in names:
+                names.append(name)
+        return sorted(names)
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        command = super().get_command(ctx, cmd_name)
+        if command is not None:
+            return command
+        return self._dynamic_commands(ctx).get(cmd_name)

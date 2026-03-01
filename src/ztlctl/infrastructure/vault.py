@@ -306,6 +306,7 @@ class Vault:
         self._engine: Engine = init_database(self.root)
         self._graph = GraphEngine(self._engine)
         self._event_bus: Any | None = None
+        self._plugin_manager: Any | None = None
 
     @property
     def root(self) -> Path:
@@ -332,6 +333,11 @@ class Vault:
         """The plugin event bus (None if not initialized)."""
         return self._event_bus
 
+    @property
+    def plugin_manager(self) -> Any | None:
+        """The loaded plugin manager (None if not initialized)."""
+        return self._plugin_manager
+
     def close(self, *, wait_for_events: bool = True) -> None:
         """Release background workers and DB resources.
 
@@ -347,6 +353,7 @@ class Vault:
                 logger.debug("Event bus shutdown failed", exc_info=True)
             finally:
                 self._event_bus = None
+                self._plugin_manager = None
 
         self._graph.invalidate()
         self._engine.dispose()
@@ -377,6 +384,7 @@ class Vault:
         reweave_plugin = ReweavePlugin(vault=self)
         pm.register_plugin(reweave_plugin, name="reweave-builtin")
 
+        self._plugin_manager = pm
         self._event_bus = EventBus(self._engine, pm, sync=sync)
 
     def find_content(self, *, content_type: str | None = None) -> list[Path]:

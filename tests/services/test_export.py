@@ -404,3 +404,45 @@ class TestExportGraph:
         d3 = json.loads(result.data["content"])
         assert [node["id"] for node in d3["nodes"]] == [note["id"]]
         assert d3["links"] == []
+
+
+class TestExportDashboard:
+    """Tests for ExportService.export_dashboard()."""
+
+    def test_dashboard_export_writes_expected_artifacts(self, vault: Vault, tmp_path: Path) -> None:
+        from tests.conftest import create_decision, create_note, create_task
+
+        create_task(vault, "Queued Task", priority="high")
+        create_decision(vault, "Decision Note", topic="architecture")
+        create_note(vault, "Seed Note", maturity="seed", topic="architecture")
+
+        output = tmp_path / "dashboard"
+        result = ExportService(vault).export_dashboard(output, viewer="obsidian")
+
+        assert result.ok
+        assert "dashboard.md" in result.data["files_created"]
+        assert (output / "work-queue.json").is_file()
+        assert (output / "recent-decisions.json").is_file()
+        assert (output / "garden-backlog.json").is_file()
+        assert (output / "topic-review-summary.json").is_file()
+
+    def test_dashboard_export_obsidian_uses_wikilinks(self, vault: Vault, tmp_path: Path) -> None:
+        from tests.conftest import create_task
+
+        task = create_task(vault, "Viewer Task")
+        output = tmp_path / "dashboard-obsidian"
+
+        ExportService(vault).export_dashboard(output, viewer="obsidian")
+
+        content = (output / "dashboard.md").read_text(encoding="utf-8")
+        assert f"[[{task['id']}]]" in content
+
+    def test_dashboard_export_vanilla_avoids_obsidian_internal_files(
+        self, vault: Vault, tmp_path: Path
+    ) -> None:
+        output = tmp_path / "dashboard-vanilla"
+
+        result = ExportService(vault).export_dashboard(output, viewer="vanilla")
+
+        assert result.ok
+        assert not (output / ".obsidian").exists()

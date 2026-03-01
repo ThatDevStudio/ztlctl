@@ -54,7 +54,7 @@ class EventBus:
         self._executor: ThreadPoolExecutor | None = (
             None if sync else ThreadPoolExecutor(max_workers=max_workers)
         )
-        self._futures: list[Future[None]] = []
+        self._futures: list[tuple[int, Future[None]]] = []
 
     # ------------------------------------------------------------------
     # Public API
@@ -78,26 +78,37 @@ class EventBus:
         else:
             assert self._executor is not None
             future = self._executor.submit(self._execute_hook, event_id, hook_name, payload)
-            self._futures.append(future)
+            self._futures.append((event_id, future))
 
         return event_id
 
-    def drain(self) -> list[dict[str, Any]]:
+    def drain(
+        self,
+        *,
+        event_ids: list[int] | None = None,
+        session_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Retry pending/failed events synchronously. Sync barrier at session close.
 
         Returns a summary list of ``{id, hook_name, status}`` for each retried event.
         """
-        # Wait for any in-flight async tasks first.
-        self._wait_futures()
+        # Wait only for the target futures when requested.
+        future_ids = set(event_ids or ())
+        self._wait_futures(event_ids=future_ids if future_ids else None)
 
         results: list[dict[str, Any]] = []
 
         with self._engine.connect() as conn:
-            rows = conn.execute(
+            stmt = (
                 select(event_wal.c.id, event_wal.c.hook_name, event_wal.c.payload)
                 .where(event_wal.c.status.in_(["pending", "failed"]))
                 .order_by(event_wal.c.id)
-            ).fetchall()
+            )
+            if future_ids:
+                stmt = stmt.where(event_wal.c.id.in_(future_ids))
+            if session_id is not None:
+                stmt = stmt.where(event_wal.c.session_id == session_id)
+            rows = conn.execute(stmt).fetchall()
 
         for row in rows:
             event_id = row.id
@@ -207,11 +218,15 @@ class EventBus:
                 )
             )
 
-    def _wait_futures(self) -> None:
+    def _wait_futures(self, *, event_ids: set[int] | None = None) -> None:
         """Wait for all in-flight async futures to complete."""
-        for future in self._futures:
+        remaining: list[tuple[int, Future[None]]] = []
+        for event_id, future in self._futures:
+            if event_ids is not None and event_id not in event_ids:
+                remaining.append((event_id, future))
+                continue
             try:
                 future.result(timeout=30)
             except Exception:
                 pass  # Errors already handled in _execute_hook
-        self._futures.clear()
+        self._futures = remaining

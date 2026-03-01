@@ -1,1 +1,54 @@
-{{ body | default('') }}
+## Summary
+{% if summary is defined and summary %}
+{{ summary }}
+{% elif body is defined and body %}
+{{ body }}
+{% endif %}
+
+## Key Points
+{% if key_points is defined and key_points %}
+{% for item in key_points %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+
+## Excerpts
+{% if excerpts is defined and excerpts %}
+{% for excerpt in excerpts %}
+> {{ excerpt | replace('\n', '\n> ') }}
+
+{% endfor %}
+{% endif %}
+
+## Notes
+{% if notes is defined and notes %}
+{{ notes }}
+{% endif %}
+
+## Provenance
+{% if url is defined and url %}
+- URL: {{ url }}
+{% endif %}
+{% if canonical_url is defined and canonical_url and canonical_url != url %}
+- Canonical URL: {{ canonical_url }}
+{% endif %}
+{% if source_provider is defined and source_provider %}
+- Provider: {{ source_provider }}
+{% endif %}
+{% if source_type is defined and source_type %}
+- Source Type: {{ source_type }}
+{% endif %}
+{% if retrieved_at is defined and retrieved_at %}
+- Retrieved At: {{ retrieved_at }}
+{% endif %}
+{% if content_hash is defined and content_hash %}
+- Content Hash: {{ content_hash }}
+{% endif %}
+{% if language is defined and language %}
+- Language: {{ language }}
+{% endif %}
+{% if provenance is defined and provenance %}
+{% for item in provenance %}
+- {{ item }}
+{% endfor %}
+{% endif %}

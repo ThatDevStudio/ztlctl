@@ -7,7 +7,9 @@
    - `create_reference` for external sources with `subtype`.
    - `create_task` for actionable follow-up work.
    - `garden_seed` for quick capture.
+   - `ingest_source` for raw text, markdown files, and provider-backed URL capture.
 4. Prefer one-step creation with authored content:
    - `create_note` accepts `body`, `key_points`, `aliases`, and `links`.
    - `create_reference` accepts `subtype` in addition to `url`.
+   - `ingest_source` creates structured references with provenance when the source needs to stay attached.
 5. Run `reweave` on important new content.

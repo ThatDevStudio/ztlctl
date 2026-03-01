@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://thatdevstudio.github.io/ztlctl/)
 
-**ZettelControl** (`ztlctl`) is a CLI utility and agentic note-taking ecosystem that combines zettelkasten, second-brain, and knowledge-garden paradigms into a single tool designed for both human users and AI agents.
+**ZettelControl** (`ztlctl`) is a local knowledge operating system for human users and AI agents. It separates agent-assisted **capture and synthesis** from human-led **enrichment**, so research capture, durable notes, and garden work can coexist without sharing the same workflow.
 
-ztlctl manages your knowledge vault as structured markdown files backed by a SQLite index, connected through a weighted knowledge graph, and accessible via CLI, MCP server, or direct Python API.
+ztlctl manages durable knowledge artifacts as structured markdown files backed by a SQLite index and a weighted knowledge graph. Operational state such as sessions, logs, generated `self/` documents, and event dispatch is internal and rebuildable rather than part of the file-first durability contract.
 
 ## Installation
 
@@ -59,14 +59,16 @@ ztlctl agent session close --summary "Mapped async patterns, identified refactor
 
 ## Features
 
-- **4 content types** with enforced lifecycle state machines — notes, references, tasks, and session logs ([Core Concepts](docs/concepts.md))
+- **Two explicit working layers**: capture/synthesis for agent-assisted research and enrichment for garden work ([Knowledge Paradigms](docs/paradigms.md))
+- **File-first durable artifacts** for notes, references, and tasks, with rebuildable indexes and operational state ([Core Concepts](docs/concepts.md))
 - **Knowledge graph** with 4-signal reweave scoring (BM25, tag overlap, graph proximity, topic match) for automated link discovery ([Tutorial](docs/tutorial.md))
 - **Session-based agentic workflows** with token-budgeted 5-layer context assembly ([Agentic Workflows](docs/agentic-workflows.md))
 - **Digital garden maturity** tracking — seed, budding, and evergreen stages ([Knowledge Paradigms](docs/paradigms.md))
-- **Full-text + semantic search** with BM25/vector hybrid ranking and three ranking modes ([Command Reference](docs/commands.md))
-- **MCP server** with 25 tools, 6 resources, and 4 prompts for AI client integration ([MCP Server](docs/mcp.md))
+- **Text-first ingestion** for raw text, markdown files, and provider-backed URL capture ([Command Reference](docs/commands.md))
+- **Full-text + semantic search** with BM25/vector hybrid ranking, topic packets, and review-oriented retrieval ([Command Reference](docs/commands.md))
+- **MCP server** with discovery-first tooling, portable prompts, and exported client assets for AI integration ([MCP Server](docs/mcp.md))
 - **Generated Claude and Codex workflow assets** via `ztlctl workflow export` for portable agent setup
-- **Export** to markdown, indexes, and graph formats (DOT, JSON) ([Tutorial](docs/tutorial.md#step-8-export-and-share))
+- **Export** to markdown, indexes, graph formats, and dashboard artifacts ([Tutorial](docs/tutorial.md#step-8-export-and-share))
 - **Plugin system** via pluggy event bus with built-in git integration ([Development](docs/development.md))
 - **Structured JSON output** on every command for scripting and agent consumption (`--json` flag)
 - **Vault integrity** checking, auto-fix, full rebuild, and rollback ([Troubleshooting](docs/troubleshooting.md))
@@ -82,7 +84,7 @@ ztlctl agent session close --summary "Mapped async patterns, identified refactor
 | [Command Reference](docs/commands.md) | All CLI commands, options, and filters |
 | [Configuration](docs/configuration.md) | `ztlctl.toml` settings and environment variables |
 | [Agentic Workflows](docs/agentic-workflows.md) | Sessions, context assembly, batch, scripting |
-| [Knowledge Paradigms](docs/paradigms.md) | Zettelkasten, second brain, digital garden |
+| [Knowledge Paradigms](docs/paradigms.md) | Capture/synthesis and enrichment, mapped to note-taking paradigms |
 | [MCP Server](docs/mcp.md) | Model Context Protocol integration |
 | [Development](docs/development.md) | Contributing, architecture, local setup |
 | [Troubleshooting](docs/troubleshooting.md) | Common issues and solutions |

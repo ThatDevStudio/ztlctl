@@ -26,7 +26,9 @@ from ztlctl.mcp.tools import (
     graph_path_impl,
     graph_rank_impl,
     graph_themes_impl,
+    ingest_source_impl,
     list_items_impl,
+    list_source_providers_impl,
     list_tags_impl,
     register_tools,
     reweave_impl,
@@ -34,6 +36,7 @@ from ztlctl.mcp.tools import (
     session_close_impl,
     session_status_impl,
     tool_catalog,
+    topic_packet_impl,
     update_content_impl,
     vault_review_impl,
     work_queue_impl,
@@ -131,6 +134,28 @@ class TestCreateTools:
         resp = garden_seed_impl(vault, "Tagged seed", tags=["research/ai"])
         assert resp["ok"] is True
 
+    def test_ingest_source_text_returns_ok(self, vault: Vault):
+        resp = ingest_source_impl(
+            vault,
+            input_kind="text",
+            content="Structured source body",
+            target_type="reference",
+            title="Captured Source",
+        )
+        assert resp["ok"] is True
+        assert resp["op"] == "ingest_text"
+
+    def test_list_source_providers_returns_ok(self, vault: Vault):
+        resp = list_source_providers_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "ingest_providers"
+
+    def test_topic_packet_returns_ok(self, vault: Vault):
+        create_note_impl(vault, "Topic Note", topic="architecture")
+        resp = topic_packet_impl(vault, topic="architecture", mode="learn")
+        assert resp["ok"] is True
+        assert resp["op"] == "topic_packet"
+
 
 # ---------------------------------------------------------------------------
 # Tests — Catalog completeness
@@ -166,8 +191,8 @@ class TestCatalogCompleteness:
         for tool in tool_catalog():
             assert "args_guidance" in tool, f"{tool['name']} missing args_guidance"
 
-    def test_catalog_has_26_tools(self):
-        assert len(tool_catalog()) == 26
+    def test_catalog_has_29_tools(self):
+        assert len(tool_catalog()) == 29
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +207,7 @@ class TestDiscoveryTools:
         resp = discover_tools_impl(vault)
         assert resp["ok"] is True
         assert resp["op"] == "discover_tools"
-        assert resp["data"]["count"] == 26
+        assert resp["data"]["count"] == 29
         categories = {entry["name"] for entry in resp["data"]["categories"]}
         assert "discovery" in categories
         assert "creation" in categories
@@ -193,7 +218,7 @@ class TestDiscoveryTools:
     def test_discover_tools_filters_by_category(self, vault: Vault):
         resp = discover_tools_impl(vault, category="creation")
         assert resp["ok"] is True
-        assert resp["data"]["count"] == 5
+        assert resp["data"]["count"] == 6
         categories = resp["data"]["categories"]
         assert len(categories) == 1
         assert categories[0]["name"] == "creation"
@@ -214,9 +239,14 @@ class TestDiscoveryTools:
 
     def test_discover_tools_discovery_category_has_3(self, vault: Vault):
         resp = discover_tools_impl(vault, category="discovery")
-        assert resp["data"]["count"] == 3
+        assert resp["data"]["count"] == 4
         names = {t["name"] for t in resp["data"]["categories"][0]["tools"]}
-        assert names == {"discover_tools", "list_tags", "describe_tool"}
+        assert names == {
+            "describe_tool",
+            "discover_tools",
+            "list_source_providers",
+            "list_tags",
+        }
 
     def test_register_tools_includes_discover_tools(self, vault: Vault):
         class DummyServer:

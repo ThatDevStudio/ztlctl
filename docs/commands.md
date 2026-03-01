@@ -37,6 +37,7 @@ Most commands also support `--examples` to show usage examples.
 | `query list` | List with filters |
 | `query work-queue` | Prioritized task queue |
 | `query decision-support` | Decision context aggregation |
+| `query packet` | Topic-scoped learning/review packet |
 | `graph related ID` | Find related content |
 | `graph themes` | Discover topic clusters |
 | `graph rank` | PageRank importance |
@@ -62,7 +63,12 @@ Most commands also support `--examples` to show usage examples.
 | `export markdown` | Export as portable markdown |
 | `export indexes` | Generate type/topic indexes |
 | `export graph` | Export graph (DOT or JSON) |
+| `export dashboard` | Export dashboard note and JSON review indexes |
 | `garden seed TITLE` | Quick-capture seed note |
+| `ingest text TITLE` | Ingest raw text into a note or reference |
+| `ingest file PATH` | Ingest a markdown or text file |
+| `ingest url URL` | Ingest a URL through an installed source provider |
+| `ingest providers` | List installed source providers |
 | `serve` | Start MCP server |
 | `upgrade` | Run database migrations |
 | `vector status` | Check semantic search availability |
@@ -74,13 +80,15 @@ Most commands also support `--examples` to show usage examples.
 
 ## Search Ranking Modes
 
-The `--rank-by` option on `query search` supports three modes:
+The `--rank-by` option on `query search` supports five modes:
 
 | Mode | Algorithm | Best For |
 |------|-----------|----------|
-| `relevance` | BM25 with time decay | General search |
-| `recency` | Modified date descending | Finding recent work |
+| `relevance` | BM25 | General lexical search |
+| `recency` | BM25 with time decay | Recent-but-relevant work |
 | `graph` | BM25 x PageRank boost | Finding well-connected content |
+| `semantic` | Vector similarity | Meaning-based retrieval |
+| `hybrid` | BM25 + vector merge | Mixed lexical and semantic discovery |
 
 ## Query Filters
 
@@ -100,3 +108,16 @@ The `query list` command supports composable filters:
 --sort recency|title|type|priority
 --limit 50
 ```
+
+## Ingestion
+
+Use ingestion when the source material should be normalized into a durable artifact:
+
+```bash
+ztlctl ingest text "OAuth Notes" --stdin --as reference
+ztlctl ingest file ./source.md --as note
+ztlctl ingest providers
+ztlctl ingest url https://example.com/spec --provider my-provider --as reference
+```
+
+URL ingestion is provider-backed. If no source provider is installed, `ingest url` returns `NO_PROVIDER` and suggests `ztlctl ingest providers`.

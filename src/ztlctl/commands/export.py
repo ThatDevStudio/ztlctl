@@ -18,7 +18,8 @@ _EXPORT_EXAMPLES = """\
   ztlctl export markdown --output /tmp/export
   ztlctl export indexes --output /tmp/indexes
   ztlctl export graph --format dot
-  ztlctl export graph --format json --output graph.json"""
+  ztlctl export graph --format json --output graph.json
+  ztlctl export dashboard --viewer obsidian --output /tmp/dashboard"""
 
 
 @click.group(cls=ZtlGroup, examples=_EXPORT_EXAMPLES)
@@ -217,3 +218,28 @@ def graph(
     else:
         # Pipe-friendly: raw content to stdout
         click.echo(result.data["content"], nl=False)
+
+
+@export.command(
+    examples="""\
+  ztlctl export dashboard --viewer obsidian --output /tmp/dashboard
+  ztlctl export dashboard --viewer vanilla --output ~/vault-dashboard"""
+)
+@click.option(
+    "--viewer",
+    type=click.Choice(["obsidian", "vanilla"], case_sensitive=False),
+    default="obsidian",
+    help="Viewer style for rendered markdown links.",
+)
+@click.option(
+    "--output",
+    required=True,
+    type=click.Path(),
+    help="Output directory for dashboard artifacts.",
+)
+@click.pass_obj
+def dashboard(app: AppContext, viewer: str, output: str) -> None:
+    """Export a dashboard note and JSON review indexes."""
+    from ztlctl.services.export import ExportService
+
+    app.emit(ExportService(app.vault).export_dashboard(Path(output), viewer=viewer))

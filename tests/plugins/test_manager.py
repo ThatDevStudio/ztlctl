@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
+import click
 import pluggy
 import pytest
 
 from ztlctl.domain.content import CONTENT_REGISTRY, NoteModel, get_content_model
+from ztlctl.plugins.contracts import (
+    CliCommandContribution,
+    McpPromptContribution,
+    McpResourceContribution,
+    McpToolContribution,
+    SourceFetchResult,
+    SourceProviderContribution,
+    WorkflowModuleContribution,
+)
 from ztlctl.plugins.manager import PluginManager
 
 hookimpl = pluggy.HookimplMarker("ztlctl")
@@ -39,6 +49,90 @@ class _ConflictingContentModelPlugin:
     @hookimpl
     def register_content_models(self) -> dict[str, type[NoteModel]]:
         return {"decision": _CustomSubtypeModel}
+
+
+class _ContributionPlugin:
+    @hookimpl
+    def register_cli_commands(self) -> list[CliCommandContribution]:
+        return [CliCommandContribution(name="plugin-hello", command=click.Command("plugin-hello"))]
+
+    @hookimpl
+    def register_mcp_tools(self) -> list[McpToolContribution]:
+        return [
+            McpToolContribution(
+                name="plugin_tool",
+                handler=lambda vault: {
+                    "ok": True,
+                    "op": "plugin_tool",
+                    "data": {"root": str(vault.root)},
+                },
+                catalog_entry={
+                    "name": "plugin_tool",
+                    "category": "query",
+                    "description": "Plugin tool.",
+                    "when_to_use": "Testing plugin MCP tool registration.",
+                    "avoid_when": "The core surface is sufficient.",
+                    "side_effect": "read",
+                    "common_errors": (),
+                    "args_guidance": {},
+                },
+            )
+        ]
+
+    @hookimpl
+    def register_mcp_resources(self) -> list[McpResourceContribution]:
+        return [
+            McpResourceContribution(
+                uri="ztlctl://plugin/resource",
+                description="Plugin resource.",
+                handler=lambda vault: {"vault": str(vault.root)},
+            )
+        ]
+
+    @hookimpl
+    def register_mcp_prompts(self) -> list[McpPromptContribution]:
+        return [
+            McpPromptContribution(
+                name="plugin_prompt",
+                description="Plugin prompt.",
+                handler=lambda vault: f"Vault: {vault.root}",
+            )
+        ]
+
+    @hookimpl
+    def register_workflow_modules(self) -> list[WorkflowModuleContribution]:
+        return [
+            WorkflowModuleContribution(
+                name="plugin_module",
+                render=lambda context: f"# Plugin Module\n\nVault: {context['vault_name']}",
+            )
+        ]
+
+    @hookimpl
+    def register_source_providers(self) -> list[SourceProviderContribution]:
+        return [
+            SourceProviderContribution(
+                name="mock-provider",
+                description="Mock provider.",
+                schemes=("https",),
+                fetch=lambda request: SourceFetchResult(
+                    body_text=request.content,
+                    title="Fetched",
+                ),
+            )
+        ]
+
+
+class _DuplicateContributionPlugin:
+    @hookimpl
+    def register_cli_commands(self) -> list[CliCommandContribution]:
+        return [CliCommandContribution(name="plugin-hello", command=click.Command("plugin-hello"))]
+
+
+class _MalformedContributionPlugin:
+    @hookimpl
+    def register_source_providers(self) -> list[object]:
+        return ["bad-provider"]
 
 
 class TestPluginManager:
@@ -155,3 +249,45 @@ class TestPluginManager:
         plugins = [p for p in pm.get_plugins() if pm._pm.get_name(p) == "class-based"]
         assert len(plugins) == 1
         assert isinstance(plugins[0], _ClassBasedPlugin)
+
+    def test_collects_public_contributions(self) -> None:
+        pm = PluginManager()
+        pm.register_plugin(_ContributionPlugin(), name="contrib")
+        pm.discover_and_load(local_dir=None)
+
+        cli = pm.cli_command_contributions()
+        tools = pm.mcp_tool_contributions()
+        resources = pm.mcp_resource_contributions()
+        prompts = pm.mcp_prompt_contributions()
+        modules = pm.workflow_module_contributions()
+        providers = pm.source_provider_contributions()
+
+        assert any(item.name == "plugin-hello" for item in cli)
+        assert any(item.name == "plugin_tool" for item in tools)
+        assert any(item.uri == "ztlctl://plugin/resource" for item in resources)
+        assert any(item.name == "plugin_prompt" for item in prompts)
+        assert any(item.name == "plugin_module" for item in modules)
+        assert any(item.name == "mock-provider" for item in providers)
+
+    def test_duplicate_contributions_warn_and_skip(self, caplog: pytest.LogCaptureFixture) -> None:
+        pm = PluginManager()
+        pm.register_plugin(_ContributionPlugin(), name="contrib-a")
+        pm.register_plugin(_DuplicateContributionPlugin(), name="contrib-b")
+        pm.discover_and_load(local_dir=None)
+
+        with caplog.at_level("WARNING"):
+            commands = pm.cli_command_contributions()
+
+        assert [item.name for item in commands].count("plugin-hello") == 1
+        assert "Skipping duplicate plugin contribution" in caplog.text
+
+    def test_malformed_contribution_warns_and_skips(self, caplog: pytest.LogCaptureFixture) -> None:
+        pm = PluginManager()
+        pm.register_plugin(_MalformedContributionPlugin(), name="bad")
+        pm.discover_and_load(local_dir=None)
+
+        with caplog.at_level("WARNING"):
+            providers = pm.source_provider_contributions()
+
+        assert providers == []
+        assert "Skipping invalid register_source_providers contribution" in caplog.text

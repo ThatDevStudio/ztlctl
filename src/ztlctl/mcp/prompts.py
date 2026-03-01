@@ -1,4 +1,4 @@
-"""MCP prompt definitions — 4 portable workflow prompts.
+"""MCP prompt definitions — portable workflow prompts.
 
 Prompts: research_session, knowledge_capture, vault_orientation,
 decision_record. Available to any MCP client. (DESIGN.md Section 16)
@@ -7,6 +7,7 @@ Each prompt has a ``_<name>_impl`` function testable without the mcp package.
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 _PROMPT_CATALOG: tuple[dict[str, str], ...] = (
@@ -20,9 +21,17 @@ _PROMPT_CATALOG: tuple[dict[str, str], ...] = (
 )
 
 
-def prompt_catalog() -> tuple[dict[str, str], ...]:
+def prompt_catalog(vault: Any | None = None) -> tuple[dict[str, str], ...]:
     """Return the MCP prompt catalog for validation and docs."""
-    return _PROMPT_CATALOG
+    catalog = list(_PROMPT_CATALOG)
+    plugin_manager = getattr(vault, "plugin_manager", None) if vault is not None else None
+    if plugin_manager is None:
+        return tuple(catalog)
+
+    reserved = {entry["name"] for entry in _PROMPT_CATALOG}
+    for contribution in plugin_manager.mcp_prompt_contributions(reserved_names=reserved):
+        catalog.append({"name": contribution.name, "description": contribution.description})
+    return tuple(catalog)
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +98,7 @@ def vault_orientation_impl(vault: Any) -> str:
     counts = overview.get("counts", {})
     total = overview.get("total", 0)
     grouped_tools: dict[str, list[str]] = {}
-    for entry in tool_catalog():
+    for entry in tool_catalog(vault):
         grouped_tools.setdefault(entry["category"], []).append(entry["name"])
 
     tool_lines = "\n".join(
@@ -97,7 +106,7 @@ def vault_orientation_impl(vault: Any) -> str:
         for category, names in sorted(grouped_tools.items())
     )
     resource_lines = "\n".join(
-        f"- `{entry['uri']}` — {entry['description']}" for entry in resource_catalog()
+        f"- `{entry['uri']}` — {entry['description']}" for entry in resource_catalog(vault)
     )
 
     return f"""## Vault Orientation
@@ -166,7 +175,7 @@ You are documenting a decision about "{topic}".
 
 
 def register_prompts(server: Any, vault: Any) -> None:
-    """Register all 4 MCP prompts on the FastMCP server."""
+    """Register core and plugin MCP prompts on the FastMCP server."""
 
     @server.prompt()  # type: ignore[untyped-decorator]
     def research_session(topic: str) -> str:
@@ -187,3 +196,18 @@ def register_prompts(server: Any, vault: Any) -> None:
     def decision_record(topic: str) -> str:
         """Document a decision with structured context."""
         return decision_record_impl(topic)
+
+    plugin_manager = getattr(vault, "plugin_manager", None)
+    if plugin_manager is None:
+        return
+
+    reserved = {entry["name"] for entry in _PROMPT_CATALOG}
+    for contribution in plugin_manager.mcp_prompt_contributions(reserved_names=reserved):
+        handler = (
+            partial(contribution.handler, vault)
+            if contribution.takes_vault
+            else contribution.handler
+        )
+        handler.__name__ = contribution.name
+        handler.__doc__ = contribution.description
+        server.prompt()(handler)

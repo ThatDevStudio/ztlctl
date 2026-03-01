@@ -14,6 +14,12 @@ from copier.errors import CopierError
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
+from ztlctl.catalogs import (
+    mcp_prompt_catalog,
+    mcp_resource_catalog,
+    mcp_tool_catalog,
+    workflow_asset_manifest,
+)
 from ztlctl.infrastructure.templates import build_template_environment
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
@@ -137,12 +143,54 @@ class WorkflowService:
     @staticmethod
     def _load_agent_manifest() -> dict[str, Any]:
         """Load the packaged agent workflow manifest."""
-        manifest = WorkflowService._agent_template_root().joinpath("manifest.json")
-        payload = json.loads(manifest.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            msg = "Agent workflow manifest must be a JSON object"
-            raise ValueError(msg)
-        return cast(dict[str, Any], payload)
+        return cast(dict[str, Any], workflow_asset_manifest())
+
+    @staticmethod
+    def _load_plugin_manager(vault_root: Path) -> Any | None:
+        """Load plugin contributions for workflow export and validation."""
+        from ztlctl.plugins.manager import PluginManager
+
+        pm = PluginManager()
+        pm.discover_and_load(local_dir=vault_root / ".ztlctl" / "plugins")
+        return pm
+
+    @staticmethod
+    def _surface_catalogs(vault_root: Path) -> dict[str, Any]:
+        """Build plugin-aware public surface catalogs for a vault root."""
+        plugin_manager = WorkflowService._load_plugin_manager(vault_root)
+
+        tools = list(mcp_tool_catalog())
+        resources_catalog = list(mcp_resource_catalog())
+        prompts = list(mcp_prompt_catalog())
+        workflow_modules: dict[str, Any] = {}
+
+        if plugin_manager is not None:
+            tool_reserved = {entry["name"] for entry in tools}
+            resource_reserved = {entry["uri"] for entry in resources_catalog}
+            prompt_reserved = {entry["name"] for entry in prompts}
+            for contribution in plugin_manager.mcp_tool_contributions(reserved_names=tool_reserved):
+                tools.append(contribution.catalog_entry)
+            for contribution in plugin_manager.mcp_resource_contributions(
+                reserved_uris=resource_reserved
+            ):
+                resources_catalog.append(
+                    {"uri": contribution.uri, "description": contribution.description}
+                )
+            for contribution in plugin_manager.mcp_prompt_contributions(
+                reserved_names=prompt_reserved
+            ):
+                prompts.append({"name": contribution.name, "description": contribution.description})
+            workflow_modules = {
+                contribution.name: contribution.render
+                for contribution in plugin_manager.workflow_module_contributions()
+            }
+
+        return {
+            "tools": tools,
+            "resources": resources_catalog,
+            "prompts": prompts,
+            "workflow_modules": workflow_modules,
+        }
 
     @staticmethod
     def _selected_clients(client: WorkflowAssetClient) -> list[str]:
@@ -155,15 +203,12 @@ class WorkflowService:
     @staticmethod
     def _asset_context(vault_root: Path) -> dict[str, Any]:
         """Build the render context for portable workflow assets."""
-        from ztlctl.mcp.prompts import prompt_catalog
-        from ztlctl.mcp.resources import resource_catalog
-        from ztlctl.mcp.tools import tool_catalog
-
         env = build_template_environment("agent_workflow", vault_root=vault_root)
         manifest = WorkflowService._load_agent_manifest()
-        tool_names = [entry["name"] for entry in tool_catalog()]
-        resource_names = [entry["uri"] for entry in resource_catalog()]
-        prompt_names = [entry["name"] for entry in prompt_catalog()]
+        surfaces = WorkflowService._surface_catalogs(vault_root)
+        tool_names = [entry["name"] for entry in surfaces["tools"]]
+        resource_names = [entry["uri"] for entry in surfaces["resources"]]
+        prompt_names = [entry["name"] for entry in surfaces["prompts"]]
         context: dict[str, Any] = {
             "tool_names": tool_names,
             "resource_names": resource_names,
@@ -177,6 +222,10 @@ class WorkflowService:
         shared = manifest.get("shared_modules", {})
         for module_name, template_name in shared.items():
             modules[module_name] = env.get_template(str(template_name)).render(**context).strip()
+        for module_name, render in surfaces["workflow_modules"].items():
+            if module_name in modules:
+                continue
+            modules[module_name] = str(render(context)).strip()
         context["modules"] = modules
         return context
 
@@ -437,23 +486,25 @@ class WorkflowService:
         if validation_error is not None:
             return validation_error
 
-        from ztlctl.mcp.prompts import prompt_catalog
-        from ztlctl.mcp.resources import resource_catalog
-        from ztlctl.mcp.tools import tool_catalog
-
         manifest = WorkflowService._load_agent_manifest()
-        available_tools = {entry["name"] for entry in tool_catalog()}
-        available_resources = {entry["uri"] for entry in resource_catalog()}
-        available_prompts = {entry["name"] for entry in prompt_catalog()}
+        surfaces = WorkflowService._surface_catalogs(vault_root)
+        available_tools = {entry["name"] for entry in surfaces["tools"]}
+        available_resources = {entry["uri"] for entry in surfaces["resources"]}
+        available_prompts = {entry["name"] for entry in surfaces["prompts"]}
         selected = WorkflowService._selected_clients(client)
 
         errors: list[str] = []
         warnings: list[str] = []
         validated_files = 0
+        seen_outputs: set[str] = set()
 
         for client_name in selected:
             client_spec = manifest["clients"][client_name]
             for file_spec in client_spec["files"]:
+                output_name = str(file_spec["output"])
+                if output_name in seen_outputs:
+                    errors.append(f"Duplicate generated asset output: {output_name}")
+                seen_outputs.add(output_name)
                 for tool_name in file_spec.get("tools", []):
                     if tool_name not in available_tools:
                         errors.append(f"{file_spec['output']}: unknown MCP tool '{tool_name}'")

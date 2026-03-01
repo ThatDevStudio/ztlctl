@@ -81,6 +81,17 @@ class SearchConfig(BaseModel):
     semantic_weight: float = 0.5
 
 
+class IngestConfig(BaseModel):
+    """[ingest] section."""
+
+    model_config = {"frozen": True}
+
+    enabled: bool = True
+    auto_reweave: bool = True
+    default_target_type: str = "reference"
+    providers: dict[str, Any] = Field(default_factory=dict)
+
+
 class SessionConfig(BaseModel):
     """[session] section."""
 
@@ -147,3 +158,21 @@ class WorkflowConfig(BaseModel):
 
     template: str = "claude-driven"
     skill_set: str = "research"
+
+
+class DashboardExportConfig(BaseModel):
+    """[exports.dashboard] section."""
+
+    model_config = {"frozen": True}
+
+    include_work_queue: bool = True
+    include_recent_decisions: bool = True
+    include_garden_backlog: bool = True
+
+
+class ExportsConfig(BaseModel):
+    """[exports] section."""
+
+    model_config = {"frozen": True}
+
+    dashboard: DashboardExportConfig = Field(default_factory=DashboardExportConfig)

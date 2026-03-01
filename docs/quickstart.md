@@ -21,8 +21,11 @@ ztlctl agent session start "Learning Python async patterns"
 ztlctl create note "Asyncio Event Loop" --tags "lang/python,concept/concurrency"
 ztlctl create note "Async vs Threading" --tags "lang/python,concept/concurrency"
 
-# 5. Create references to external sources
+# 5. Capture a source
 ztlctl create reference "Python asyncio docs" --url "https://docs.python.org/3/library/asyncio.html"
+
+# Or ingest raw source notes when you already have the text locally
+# ztlctl ingest text "Asyncio source notes" --stdin --as reference
 
 # 6. Track tasks that emerge
 ztlctl create task "Refactor API to use async" --priority high --impact high
@@ -41,4 +44,5 @@ ztlctl agent session close --summary "Mapped async patterns, identified refactor
 
 - [Tutorial](tutorial.md) — Full step-by-step guide to building a knowledge vault
 - [Core Concepts](concepts.md) — Understand content types, lifecycle states, and the knowledge graph
+- [Knowledge Paradigms](paradigms.md) — Understand capture/synthesis vs enrichment
 - [Command Reference](commands.md) — All available commands and options

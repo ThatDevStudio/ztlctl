@@ -19,7 +19,8 @@ _QUERY_EXAMPLES = """\
   ztlctl query list --type note --sort recency
   ztlctl query list --space ops --sort priority --limit 10
   ztlctl query work-queue --space ops
-  ztlctl query decision-support --topic architecture"""
+  ztlctl query decision-support --topic architecture
+  ztlctl query packet --topic architecture --mode learn"""
 
 
 @click.group(cls=ZtlGroup, examples=_QUERY_EXAMPLES)
@@ -196,3 +197,25 @@ def work_queue(app: AppContext, space: str | None) -> None:
 def decision_support(app: AppContext, topic: str | None, space: str | None) -> None:
     """Aggregate context for decision-making."""
     app.emit(QueryService(app.vault).decision_support(topic=topic, space=space))
+
+
+@query.command(
+    name="packet",
+    examples="""\
+  ztlctl query packet --topic architecture
+  ztlctl query packet --topic auth --mode review --budget 6000
+  ztlctl --json query packet --topic search --mode decision""",
+)
+@click.option("--topic", required=True, help="Topic to assemble into a packet.")
+@click.option(
+    "--mode",
+    type=click.Choice(["learn", "review", "decision"]),
+    default="learn",
+    show_default=True,
+    help="Packet mode.",
+)
+@click.option("--budget", type=int, default=4000, show_default=True, help="Token budget.")
+@click.pass_obj
+def packet(app: AppContext, topic: str, mode: str, budget: int) -> None:
+    """Build a topic packet for learning, review, or decision support."""
+    app.emit(QueryService(app.vault).topic_packet(topic, mode=mode, budget=budget))

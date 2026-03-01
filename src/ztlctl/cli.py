@@ -5,12 +5,17 @@ from __future__ import annotations
 import click
 
 from ztlctl import __version__
-from ztlctl.commands import register_commands
+from ztlctl.commands import load_plugin_commands, register_commands
+from ztlctl.commands._base import RootZtlGroup
 from ztlctl.commands._context import AppContext
 from ztlctl.config.settings import ZtlSettings
 
 
-@click.group(invoke_without_command=True)
+@click.group(
+    invoke_without_command=True,
+    cls=RootZtlGroup,
+    dynamic_loader=load_plugin_commands,
+)
 @click.version_option(version=__version__, prog_name="ztlctl")
 @click.option("--json", "json_output", is_flag=True, help="Structured JSON output.")
 @click.option("-q", "--quiet", is_flag=True, help="Minimal output.")

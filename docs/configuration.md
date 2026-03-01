@@ -12,7 +12,7 @@ ztlctl uses a `ztlctl.toml` file at the vault root. Settings can be overridden v
 ```toml
 [vault]
 name = "my-vault"
-client = "obsidian"  # or "vanilla"
+client = "obsidian"  # viewer preference: obsidian or vanilla
 
 [agent]
 tone = "research-partner"  # or "assistant", "minimal"
@@ -38,6 +38,15 @@ evergreen_min_bidirectional_links = 3
 
 [search]
 half_life_days = 30.0      # Time-decay half-life for recency ranking
+semantic_weight = 0.5      # Hybrid lexical/semantic weighting
+
+[ingest]
+enabled = true
+auto_reweave = true
+default_target_type = "reference"
+
+[ingest.providers]
+# Provider-specific overrides live here when installed plugins support them
 
 [session]
 close_reweave = true       # Reweave on session close
@@ -56,6 +65,11 @@ commit_style = "conventional"
 [mcp]
 enabled = true
 transport = "stdio"
+
+[exports.dashboard]
+include_work_queue = true
+include_recent_decisions = true
+include_garden_backlog = true
 ```
 
 ## Environment Variables
@@ -68,3 +82,8 @@ ZTLCTL_AGENT__CONTEXT__DEFAULT_BUDGET=16000 ztlctl agent context
 ```
 
 Nested keys use double underscores (`__`) as separators.
+
+## Notes
+
+- `vault.client = "obsidian"` does not mean ztlctl owns your full `.obsidian/` state. It is a viewer preference used by templates and workflow exports.
+- URL ingestion is provider-backed. Base ztlctl supports text and markdown ingestion directly; remote fetching comes from installed source-provider plugins.

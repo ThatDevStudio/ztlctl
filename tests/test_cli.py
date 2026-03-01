@@ -72,6 +72,8 @@ EXPECTED_GROUPS = [
     "agent",
     "garden",
     "export",
+    "ingest",
+    "vector",
     "workflow",
 ]
 

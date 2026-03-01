@@ -265,3 +265,59 @@ class VaultReviewResultData(BaseModel):
     important_items: list[GraphRankItem] = Field(default_factory=list)
     stale_seeds: list[ListItem] = Field(default_factory=list)
     orphan_notes: list[ListItem] = Field(default_factory=list)
+
+
+class SourceProviderItem(BaseModel):
+    """One registered source provider."""
+
+    name: str
+    description: str
+    schemes: list[str] = Field(default_factory=list)
+
+
+class SourceProvidersResultData(BaseModel):
+    """Payload contract for source provider discovery."""
+
+    count: int
+    items: list[SourceProviderItem] = Field(default_factory=list)
+
+
+class IngestPreviewData(BaseModel):
+    """Payload contract for dry-run ingestion output."""
+
+    input_kind: str
+    target_type: str
+    title: str
+    body_preview: str
+    provider: str | None = None
+    provenance: list[str] = Field(default_factory=list)
+    key_points: list[str] = Field(default_factory=list)
+
+
+class IngestResultData(BaseModel):
+    """Payload contract for ingestion output."""
+
+    id: str
+    path: str
+    title: str
+    type: str
+    input_kind: str
+    provider: str | None = None
+    dry_run: bool = False
+
+
+class TopicPacketData(BaseModel):
+    """Payload contract for topic packet queries."""
+
+    topic: str
+    mode: Literal["learn", "review", "decision"]
+    budget: int
+    total_tokens: int
+    notes: list[ContextContentItem] = Field(default_factory=list)
+    references: list[ContextContentItem] = Field(default_factory=list)
+    decisions: list[ContextContentItem] = Field(default_factory=list)
+    tasks: list[ContextContentItem] = Field(default_factory=list)
+    graph_adjacent: list[ContextContentItem] = Field(default_factory=list)
+    gaps: list[ContextContentItem] = Field(default_factory=list)
+    bridges: list[ContextContentItem] = Field(default_factory=list)
+    provenance: dict[str, list[str]] = Field(default_factory=dict)

@@ -5,7 +5,7 @@ nav_order: 10
 
 # MCP Server
 
-The MCP (Model Context Protocol) server exposes ztlctl's full functionality to AI clients.
+The MCP (Model Context Protocol) server exposes ztlctl's discovery-first tool surface to AI clients.
 
 ## Setup
 
@@ -32,22 +32,31 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-## Available Tools
+## Discovery Pattern
 
-ztlctl currently exposes **25 MCP tools**:
+The intended call sequence is:
+
+1. `discover_tools` to narrow the surface by category
+2. `describe_tool` to inspect a specific contract
+3. `ztlctl://agent-reference` when the client needs a single onboarding payload
+
+## Tool Categories
 
 | Category | Tools |
 |----------|-------|
-| Discovery | `discover_tools`, `list_tags` |
-| Creation | `create_note`, `create_reference`, `create_task`, `create_log`, `garden_seed` |
+| Discovery | `discover_tools`, `describe_tool`, `list_tags`, `list_source_providers` |
+| Creation | `create_note`, `create_reference`, `create_task`, `create_log`, `garden_seed`, `ingest_source` |
 | Lifecycle | `update_content`, `close_content`, `reweave` |
-| Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue` |
+| Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue`, `topic_packet` |
 | Analysis | `decision_support`, `vault_review` |
 | Graph | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
 | Session | `session_close`, `session_status` |
 
-Notable workflow-specific additions:
+Notable additions for agent workflows:
 
+- `ingest_source` normalizes text, files, and provider-backed URLs into notes or references
+- `list_source_providers` lets clients discover installed URL-ingestion providers
+- `topic_packet` assembles topic-scoped learning, review, and decision bundles
 - `create_note` accepts authored `body`, `key_points`, `aliases`, and `links`
 - `create_reference` accepts `subtype` for `article`, `tool`, or `spec`
 - `vault_review` returns a review-ready aggregate snapshot
@@ -61,18 +70,19 @@ For project-local Claude and Codex setup, export generated workflow assets from 
 ztlctl workflow export --client both
 ```
 
-This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting files derived from the same portable workflow source.
+This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting files derived from the same portable workflow source. The exported guidance treats MCP as canonical when available and the CLI as the fallback contract.
 
 ## Available Resources
 
 | Resource | Description |
 |----------|-------------|
-| `self/identity` | Agent identity document |
-| `self/methodology` | Agent methodology document |
-| `vault/overview` | Vault statistics and structure |
-| `vault/work-queue` | Prioritized task list |
-| `vault/topics` | Available topic directories |
-| `vault/context` | Full assembled context |
+| `ztlctl://self/identity` | Agent identity document |
+| `ztlctl://self/methodology` | Agent methodology document |
+| `ztlctl://overview` | Vault statistics and structure |
+| `ztlctl://work-queue` | Prioritized task list |
+| `ztlctl://topics` | Available topic directories |
+| `ztlctl://context` | Full assembled context |
+| `ztlctl://agent-reference` | Onboarding payload with tool guidance and workflow examples |
 
 ## Available Prompts
 

@@ -5,7 +5,7 @@ nav_order: 4
 
 # Tutorial: Building Your Knowledge Vault
 
-This tutorial walks through creating and managing a complete knowledge vault from scratch.
+This tutorial walks through creating and managing a knowledge vault from capture through enrichment.
 
 ## Step 1: Initialize Your Vault
 
@@ -14,11 +14,11 @@ ztlctl init research-vault --name "Research Notes" --topics "ml,systems,papers"
 cd research-vault
 ```
 
-This creates the directory structure, config file, SQLite database, and agent identity files. The `--topics` flag pre-creates subdirectories under `notes/`.
+This creates the directory structure, config file, SQLite database, and generated identity files. The `--topics` flag pre-creates subdirectories under `notes/`.
 
 **Options:**
 - `--name TEXT` — Vault display name
-- `--client [obsidian|vanilla]` — Client integration (Obsidian adds `.obsidian/` config)
+- `--client [obsidian|vanilla]` — Viewer preference used by templates and workflow exports
 - `--tone [research-partner|assistant|minimal]` — Agent personality for self/ files
 - `--topics TEXT` — Comma-separated topic directories
 - `--no-workflow` — Skip workflow template setup
@@ -33,13 +33,19 @@ ztlctl create note "Transformer Architecture" \
   --topic ml
 ```
 
-**Create a reference** — link to an external source:
+**Create a reference** — capture an external source:
 
 ```bash
 ztlctl create reference "Attention Is All You Need" \
   --url "https://arxiv.org/abs/1706.03762" \
   --subtype article \
   --tags "ml/transformers,papers/seminal"
+```
+
+**Ingest text directly** — useful when an agent or another tool already has the source text:
+
+```bash
+ztlctl ingest text "Transformer reading notes" --stdin --as reference
 ```
 
 **Quick capture with garden seed** — when you want minimal friction:
@@ -121,6 +127,7 @@ ztlctl query get ztl_a1b2c3d4
 
 ```bash
 ztlctl query decision-support --topic architecture
+ztlctl query packet --topic architecture --mode learn
 ```
 
 ## Step 6: Analyze the Graph
@@ -204,6 +211,12 @@ ztlctl export graph --format dot --output graph.dot  # For Graphviz
 ztlctl export graph --format json --output graph.json # For D3.js / vis.js
 ```
 
+**Export a dashboard** for enrichment work:
+
+```bash
+ztlctl export dashboard --viewer obsidian --output ./dashboard/
+```
+
 ## Step 9: Maintain Integrity
 
 **Check vault health:**
@@ -235,4 +248,4 @@ ztlctl check --rollback
 
 - [Core Concepts](concepts.md) — Deeper understanding of content types and lifecycle
 - [Agentic Workflows](agentic-workflows.md) — Using ztlctl with AI agents
-- [Knowledge Paradigms](paradigms.md) — Zettelkasten, second brain, and garden approaches
+- [Knowledge Paradigms](paradigms.md) — Capture/synthesis and enrichment across those paradigms

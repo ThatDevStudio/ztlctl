@@ -5,9 +5,9 @@ nav_order: 1
 
 # ZettelControl Documentation
 
-**ZettelControl** (`ztlctl`) is a CLI utility and agentic note-taking ecosystem that combines zettelkasten, second-brain, and knowledge-garden paradigms into a single tool designed for both human users and AI agents.
+**ZettelControl** (`ztlctl`) is a local knowledge operating system for human users and AI agents. It separates agent-assisted capture and synthesis from human-led enrichment so research workflows and garden workflows stay distinct.
 
-ztlctl manages your knowledge vault as structured markdown files backed by a SQLite index, connected through a weighted knowledge graph, and accessible via CLI, MCP server, or direct Python API.
+ztlctl stores durable notes, references, and tasks as markdown files, indexes them in SQLite, and exposes them through a CLI, MCP server, and generated workflow assets. Sessions and other operational state are internal coordination mechanisms rather than part of the file-first durability contract.
 
 ## Getting Started
 
@@ -18,13 +18,13 @@ ztlctl manages your knowledge vault as structured markdown files backed by a SQL
 ## Understanding ztlctl
 
 - [Core Concepts](concepts.md) — Content types, lifecycle states, vault structure, knowledge graph
-- [Knowledge Paradigms](paradigms.md) — Zettelkasten, second brain, and digital garden approaches
+- [Knowledge Paradigms](paradigms.md) — Capture/synthesis and enrichment, mapped to Zettelkasten, second-brain, and garden approaches
 
 ## Reference
 
 - [Command Reference](commands.md) — All CLI commands, options, and filters
 - [Configuration](configuration.md) — `ztlctl.toml` settings and environment variables
-- [MCP Server](mcp.md) — Model Context Protocol tools, resources, and prompts
+- [MCP Server](mcp.md) — Model Context Protocol discovery tools, resources, prompts, and client exports
 
 ## For Developers and Agents
 
