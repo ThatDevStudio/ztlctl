@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "ztlctl-plugins",
+  "description": "Agentic note-taking plugins for ztlctl",
+  "owner": {
+    "name": "ThatDev Studio"
+  },
+  "plugins": [
+    {
+      "name": "ztlctl",
+      "description": "Research assistant for ztlctl knowledge vaults",
+      "version": "1.0.0",
+      "source": "./plugin",
+      "category": "productivity"
+    }
+  ]
+}
