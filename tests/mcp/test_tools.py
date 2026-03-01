@@ -15,14 +15,22 @@ from ztlctl.mcp.tools import (
     create_note_impl,
     create_reference_impl,
     create_task_impl,
+    decision_support_impl,
     discover_tools_impl,
+    garden_seed_impl,
     get_document_impl,
     get_related_impl,
+    graph_gaps_impl,
+    graph_path_impl,
+    graph_rank_impl,
+    graph_themes_impl,
+    list_items_impl,
     register_tools,
     reweave_impl,
     search_impl,
     session_close_impl,
     update_content_impl,
+    work_queue_impl,
 )
 
 # ---------------------------------------------------------------------------
@@ -85,6 +93,16 @@ class TestCreateTools:
         resp = create_note_impl(vault, "Topic Note", topic="math")
         assert resp["ok"] is True
 
+    def test_garden_seed_returns_ok(self, vault: Vault):
+        resp = garden_seed_impl(vault, "Quick idea")
+        assert resp["ok"] is True
+        assert resp["op"] == "create_note"
+        assert "id" in resp["data"]
+
+    def test_garden_seed_with_tags(self, vault: Vault):
+        resp = garden_seed_impl(vault, "Tagged seed", tags=["research/ai"])
+        assert resp["ok"] is True
+
 
 # ---------------------------------------------------------------------------
 # Tests — Discovery tools
@@ -98,16 +116,18 @@ class TestDiscoveryTools:
         resp = discover_tools_impl(vault)
         assert resp["ok"] is True
         assert resp["op"] == "discover_tools"
-        assert resp["data"]["count"] >= 13
+        assert resp["data"]["count"] >= 21
         categories = {entry["name"] for entry in resp["data"]["categories"]}
         assert "discovery" in categories
         assert "creation" in categories
         assert "query" in categories
+        assert "graph" in categories
+        assert "analysis" in categories
 
     def test_discover_tools_filters_by_category(self, vault: Vault):
         resp = discover_tools_impl(vault, category="creation")
         assert resp["ok"] is True
-        assert resp["data"]["count"] == 4
+        assert resp["data"]["count"] == 5
         categories = resp["data"]["categories"]
         assert len(categories) == 1
         assert categories[0]["name"] == "creation"
@@ -228,6 +248,101 @@ class TestQueryTools:
         assert items
         ids = {item["id"] for item in items}
         assert created["data"]["id"] in ids
+
+
+# ---------------------------------------------------------------------------
+# Tests — List/Work-queue/Decision-support tools
+# ---------------------------------------------------------------------------
+
+
+class TestListQueryTools:
+    """Tests for list_items, work_queue, decision_support _impl functions."""
+
+    def test_list_items_returns_ok(self, vault: Vault):
+        create_note_impl(vault, "List Item A")
+        create_note_impl(vault, "List Item B")
+        resp = list_items_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "list_items"
+        assert resp["data"]["count"] >= 2
+
+    def test_list_items_filter_by_type(self, vault: Vault):
+        create_note_impl(vault, "Note for filter")
+        create_task_impl(vault, "Task for filter")
+        resp = list_items_impl(vault, content_type="note")
+        assert resp["ok"] is True
+        for item in resp["data"]["items"]:
+            assert item["type"] == "note"
+
+    def test_list_items_with_limit(self, vault: Vault):
+        for i in range(5):
+            create_note_impl(vault, f"Limit note {i}")
+        resp = list_items_impl(vault, limit=3)
+        assert resp["ok"] is True
+        assert len(resp["data"]["items"]) <= 3
+
+    def test_work_queue_returns_ok(self, vault: Vault):
+        create_task_impl(vault, "Queued task", priority="high")
+        resp = work_queue_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "work_queue"
+
+    def test_work_queue_includes_tasks(self, vault: Vault):
+        create_task_impl(vault, "Priority task", priority="critical")
+        resp = work_queue_impl(vault)
+        assert resp["ok"] is True
+        assert resp["data"]["count"] >= 1
+
+    def test_decision_support_returns_ok(self, vault: Vault):
+        create_note_impl(vault, "Decision note", topic="architecture")
+        resp = decision_support_impl(vault, topic="architecture")
+        assert resp["ok"] is True
+        assert resp["op"] == "decision_support"
+
+    def test_decision_support_has_counts(self, vault: Vault):
+        resp = decision_support_impl(vault)
+        assert resp["ok"] is True
+        assert "counts" in resp["data"]
+
+
+# ---------------------------------------------------------------------------
+# Tests — Graph tools
+# ---------------------------------------------------------------------------
+
+
+class TestGraphTools:
+    """Tests for graph_themes, graph_rank, graph_path, graph_gaps _impl functions."""
+
+    def test_graph_themes_empty_vault(self, vault: Vault):
+        resp = graph_themes_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "themes"
+        assert resp["data"]["count"] == 0
+
+    def test_graph_rank_empty_vault(self, vault: Vault):
+        resp = graph_rank_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "rank"
+        assert resp["data"]["count"] == 0
+
+    def test_graph_rank_with_top(self, vault: Vault):
+        resp = graph_rank_impl(vault, top=5)
+        assert resp["ok"] is True
+
+    def test_graph_path_not_found(self, vault: Vault):
+        resp = graph_path_impl(vault, "NONEXISTENT_A", "NONEXISTENT_B")
+        assert resp["ok"] is False
+        assert "error" in resp
+
+    def test_graph_gaps_empty_vault(self, vault: Vault):
+        resp = graph_gaps_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "gaps"
+        assert resp["data"]["count"] == 0
+
+    def test_graph_gaps_with_top(self, vault: Vault):
+        resp = graph_gaps_impl(vault, top=10)
+        assert resp["ok"] is True
 
 
 # ---------------------------------------------------------------------------

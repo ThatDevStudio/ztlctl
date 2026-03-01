@@ -1,6 +1,7 @@
-"""MCP tool definitions — 13 tools across 5 categories.
+"""MCP tool definitions — 21 tools across 7 categories.
 
-Categories: Discovery (1), Creation (4), Lifecycle (3), Query (4), Session (1).
+Categories: Discovery (1), Creation (5), Lifecycle (3), Query (6), Graph (4),
+Session (1), Analysis (1).
 Each tool has a ``_<name>_impl`` function testable without the mcp package.
 ``register_tools()`` wraps them with FastMCP decorators.
 (DESIGN.md Section 16)
@@ -66,6 +67,47 @@ _TOOL_CATALOG: tuple[dict[str, str], ...] = (
         "name": "session_close",
         "category": "session",
         "description": "Close the active session.",
+    },
+    # --- Tier 1 additions ---
+    {
+        "name": "list_items",
+        "category": "query",
+        "description": "List vault items with filtering by type/status/tag/topic/maturity.",
+    },
+    {
+        "name": "work_queue",
+        "category": "query",
+        "description": "Get prioritized actionable tasks.",
+    },
+    {
+        "name": "decision_support",
+        "category": "analysis",
+        "description": "Aggregate decision context for a topic.",
+    },
+    {
+        "name": "graph_themes",
+        "category": "graph",
+        "description": "Detect knowledge communities via graph clustering.",
+    },
+    {
+        "name": "graph_rank",
+        "category": "graph",
+        "description": "Rank content by importance via PageRank.",
+    },
+    {
+        "name": "graph_path",
+        "category": "graph",
+        "description": "Find connection path between two items.",
+    },
+    {
+        "name": "graph_gaps",
+        "category": "graph",
+        "description": "Identify structural holes in the knowledge graph.",
+    },
+    {
+        "name": "garden_seed",
+        "category": "creation",
+        "description": "Quick-capture a seed note with minimal ceremony.",
     },
 )
 
@@ -194,6 +236,20 @@ def create_log_impl(vault: Any, topic: str) -> dict[str, Any]:
     from ztlctl.services.session import SessionService
 
     result = SessionService(vault).start(topic)
+    return _to_mcp_response(result)
+
+
+def garden_seed_impl(
+    vault: Any,
+    title: str,
+    *,
+    tags: list[str] | None = None,
+    topic: str | None = None,
+) -> dict[str, Any]:
+    """Quick-capture a seed note with minimal ceremony."""
+    from ztlctl.services.create import CreateService
+
+    result = CreateService(vault).create_note(title, maturity="seed", tags=tags, topic=topic)
     return _to_mcp_response(result)
 
 
@@ -333,6 +389,106 @@ def agent_context_impl(
     return {"ok": True, "op": "agent_context", "data": payload}
 
 
+def list_items_impl(
+    vault: Any,
+    *,
+    content_type: str | None = None,
+    status: str | None = None,
+    tag: str | None = None,
+    topic: str | None = None,
+    subtype: str | None = None,
+    maturity: str | None = None,
+    space: str | None = None,
+    since: str | None = None,
+    include_archived: bool = False,
+    sort: str = "recency",
+    limit: int = 20,
+) -> dict[str, Any]:
+    """List vault items with filtering."""
+    from ztlctl.services.query import QueryService
+
+    result = QueryService(vault).list_items(
+        content_type=content_type,
+        status=status,
+        tag=tag,
+        topic=topic,
+        subtype=subtype,
+        maturity=maturity,
+        space=space,
+        since=since,
+        include_archived=include_archived,
+        sort=sort,
+        limit=limit,
+    )
+    return _to_mcp_response(result)
+
+
+def work_queue_impl(
+    vault: Any,
+    *,
+    space: str | None = None,
+) -> dict[str, Any]:
+    """Get prioritized actionable tasks."""
+    from ztlctl.services.query import QueryService
+
+    result = QueryService(vault).work_queue(space=space)
+    return _to_mcp_response(result)
+
+
+def decision_support_impl(
+    vault: Any,
+    *,
+    topic: str | None = None,
+    space: str | None = None,
+) -> dict[str, Any]:
+    """Aggregate decision context for a topic."""
+    from ztlctl.services.query import QueryService
+
+    result = QueryService(vault).decision_support(topic=topic, space=space)
+    return _to_mcp_response(result)
+
+
+# ---------------------------------------------------------------------------
+# Graph tools (4)
+# ---------------------------------------------------------------------------
+
+
+def graph_themes_impl(vault: Any) -> dict[str, Any]:
+    """Detect knowledge communities via graph clustering."""
+    from ztlctl.services.graph import GraphService
+
+    result = GraphService(vault).themes()
+    return _to_mcp_response(result)
+
+
+def graph_rank_impl(vault: Any, *, top: int = 20) -> dict[str, Any]:
+    """Rank content by importance via PageRank."""
+    from ztlctl.services.graph import GraphService
+
+    result = GraphService(vault).rank(top=top)
+    return _to_mcp_response(result)
+
+
+def graph_path_impl(
+    vault: Any,
+    source_id: str,
+    target_id: str,
+) -> dict[str, Any]:
+    """Find connection path between two items."""
+    from ztlctl.services.graph import GraphService
+
+    result = GraphService(vault).path(source_id, target_id)
+    return _to_mcp_response(result)
+
+
+def graph_gaps_impl(vault: Any, *, top: int = 20) -> dict[str, Any]:
+    """Identify structural holes in the knowledge graph."""
+    from ztlctl.services.graph import GraphService
+
+    result = GraphService(vault).gaps(top=top)
+    return _to_mcp_response(result)
+
+
 # ---------------------------------------------------------------------------
 # Session tools (1)
 # ---------------------------------------------------------------------------
@@ -398,6 +554,15 @@ def register_tools(server: Any, vault: Any) -> None:
         return create_log_impl(vault, topic)
 
     @server.tool()  # type: ignore[untyped-decorator]
+    def garden_seed(
+        title: str,
+        tags: list[str] | None = None,
+        topic: str | None = None,
+    ) -> dict[str, Any]:
+        """Quick-capture a seed note with minimal ceremony."""
+        return garden_seed_impl(vault, title, tags=tags, topic=topic)
+
+    @server.tool()  # type: ignore[untyped-decorator]
     def update_content(content_id: str, changes: dict[str, Any]) -> dict[str, Any]:
         """Update a content item's fields."""
         return update_content_impl(vault, content_id, changes=changes)
@@ -461,3 +626,66 @@ def register_tools(server: Any, vault: Any) -> None:
     def session_close(summary: str | None = None) -> dict[str, Any]:
         """Close the active session with optional summary."""
         return session_close_impl(vault, summary=summary)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def list_items(
+        content_type: str | None = None,
+        status: str | None = None,
+        tag: str | None = None,
+        topic: str | None = None,
+        subtype: str | None = None,
+        maturity: str | None = None,
+        space: str | None = None,
+        since: str | None = None,
+        include_archived: bool = False,
+        sort: str = "recency",
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """List vault items with filtering by type/status/tag/topic/maturity."""
+        return list_items_impl(
+            vault,
+            content_type=content_type,
+            status=status,
+            tag=tag,
+            topic=topic,
+            subtype=subtype,
+            maturity=maturity,
+            space=space,
+            since=since,
+            include_archived=include_archived,
+            sort=sort,
+            limit=limit,
+        )
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def work_queue(space: str | None = None) -> dict[str, Any]:
+        """Get prioritized actionable tasks."""
+        return work_queue_impl(vault, space=space)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def decision_support(
+        topic: str | None = None,
+        space: str | None = None,
+    ) -> dict[str, Any]:
+        """Aggregate decision context for a topic."""
+        return decision_support_impl(vault, topic=topic, space=space)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def graph_themes() -> dict[str, Any]:
+        """Detect knowledge communities via graph clustering."""
+        return graph_themes_impl(vault)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def graph_rank(top: int = 20) -> dict[str, Any]:
+        """Rank content by importance via PageRank."""
+        return graph_rank_impl(vault, top=top)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def graph_path(source_id: str, target_id: str) -> dict[str, Any]:
+        """Find connection path between two items."""
+        return graph_path_impl(vault, source_id, target_id)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def graph_gaps(top: int = 20) -> dict[str, Any]:
+        """Identify structural holes in the knowledge graph."""
+        return graph_gaps_impl(vault, top=top)
