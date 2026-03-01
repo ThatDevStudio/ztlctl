@@ -9,7 +9,6 @@ Each tool has a ``_<name>_impl`` function testable without the mcp package.
 from __future__ import annotations
 
 from collections.abc import Callable
-from functools import partial
 from typing import Any, Literal, TypedDict
 
 from ztlctl.services.contracts import (
@@ -542,6 +541,20 @@ def _register_tool(
     resolved_entry = entry or _catalog_entry(fn.__name__, vault)
     fn.__doc__ = _render_tool_doc(resolved_entry)
     server.tool()(fn)
+
+
+def _plugin_tool_wrapper(
+    vault: Any,
+    name: str,
+    handler: Callable[..., dict[str, Any]],
+) -> Callable[..., dict[str, Any]]:
+    """Bind a plugin tool handler to the current vault."""
+
+    def wrapped(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return handler(vault, *args, **kwargs)
+
+    wrapped.__name__ = name
+    return wrapped
 
 
 def _to_mcp_response(result: ServiceResult) -> dict[str, Any]:
@@ -1379,6 +1392,5 @@ def register_tools(server: Any, vault: Any) -> None:
 
     reserved = {entry["name"] for entry in _TOOL_CATALOG}
     for contribution in plugin_manager.mcp_tool_contributions(reserved_names=reserved):
-        bound = partial(contribution.handler, vault)
-        bound.__name__ = contribution.name
+        bound = _plugin_tool_wrapper(vault, contribution.name, contribution.handler)
         _register_tool(server, bound, entry=contribution.catalog_entry, vault=vault)

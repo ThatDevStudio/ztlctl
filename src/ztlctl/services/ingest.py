@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlparse
 
 from ztlctl.plugins.contracts import SourceFetchRequest, SourceProviderContribution
@@ -213,7 +214,7 @@ class IngestService(BaseService):
         pm = self._vault.plugin_manager
         if pm is None:
             return []
-        return pm.source_provider_contributions()
+        return cast(list[SourceProviderContribution], pm.source_provider_contributions())
 
     def _select_provider(
         self,

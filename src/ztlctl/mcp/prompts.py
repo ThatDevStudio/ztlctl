@@ -7,8 +7,7 @@ Each prompt has a ``_<name>_impl`` function testable without the mcp package.
 
 from __future__ import annotations
 
-from functools import partial
-from typing import Any
+from typing import Any, cast
 
 _PROMPT_CATALOG: tuple[dict[str, str], ...] = (
     {"name": "research_session", "description": "Start a structured research session on a topic."},
@@ -19,6 +18,28 @@ _PROMPT_CATALOG: tuple[dict[str, str], ...] = (
     },
     {"name": "decision_record", "description": "Document a decision with structured context."},
 )
+
+
+def _plugin_prompt_wrapper(
+    vault: Any,
+    name: str,
+    handler: Any,
+    *,
+    takes_vault: bool,
+) -> Any:
+    """Bind a plugin prompt handler to the current vault."""
+
+    if takes_vault:
+
+        def wrapped(*args: Any, **kwargs: Any) -> str:
+            return cast(str, handler(vault, *args, **kwargs))
+    else:
+
+        def wrapped(*args: Any, **kwargs: Any) -> str:
+            return cast(str, handler(*args, **kwargs))
+
+    wrapped.__name__ = name
+    return wrapped
 
 
 def prompt_catalog(vault: Any | None = None) -> tuple[dict[str, str], ...]:
@@ -203,10 +224,11 @@ def register_prompts(server: Any, vault: Any) -> None:
 
     reserved = {entry["name"] for entry in _PROMPT_CATALOG}
     for contribution in plugin_manager.mcp_prompt_contributions(reserved_names=reserved):
-        handler = (
-            partial(contribution.handler, vault)
-            if contribution.takes_vault
-            else contribution.handler
+        handler = _plugin_prompt_wrapper(
+            vault,
+            contribution.name,
+            contribution.handler,
+            takes_vault=contribution.takes_vault,
         )
         handler.__name__ = contribution.name
         handler.__doc__ = contribution.description

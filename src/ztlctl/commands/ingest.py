@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,7 +23,7 @@ _INGEST_EXAMPLES = """\
   ztlctl ingest providers"""
 
 
-def _common_target_options(func: click.Command) -> click.Command:
+def _common_target_options[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     func = click.option(
         "--no-reweave",
         "skip_reweave",

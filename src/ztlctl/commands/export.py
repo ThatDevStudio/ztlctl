@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, cast
 
 import click
 
@@ -13,6 +13,8 @@ from ztlctl.services.export import ArchivedMode, ExportFilters
 
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
+
+DashboardViewer = Literal["obsidian", "vanilla"]
 
 _EXPORT_EXAMPLES = """\
   ztlctl export markdown --output /tmp/export
@@ -242,4 +244,8 @@ def dashboard(app: AppContext, viewer: str, output: str) -> None:
     """Export a dashboard note and JSON review indexes."""
     from ztlctl.services.export import ExportService
 
-    app.emit(ExportService(app.vault).export_dashboard(Path(output), viewer=viewer))
+    app.emit(
+        ExportService(app.vault).export_dashboard(
+            Path(output), viewer=cast(DashboardViewer, viewer)
+        )
+    )

@@ -122,14 +122,14 @@ def mcp_resource_catalog(vault: object | None = None) -> tuple[ResourceCatalogEn
     """Return the authoritative MCP resource catalog."""
     from ztlctl.mcp.resources import resource_catalog
 
-    return resource_catalog(vault)
+    return cast(tuple[ResourceCatalogEntry, ...], resource_catalog(vault))
 
 
 def mcp_prompt_catalog(vault: object | None = None) -> tuple[PromptCatalogEntry, ...]:
     """Return the authoritative MCP prompt catalog."""
     from ztlctl.mcp.prompts import prompt_catalog
 
-    return prompt_catalog(vault)
+    return cast(tuple[PromptCatalogEntry, ...], prompt_catalog(vault))
 
 
 def workflow_asset_manifest() -> WorkflowAssetManifest:
