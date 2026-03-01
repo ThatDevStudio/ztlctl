@@ -123,6 +123,22 @@ class WorkQueueItem(BaseModel):
     modified: str
 
 
+class TagSummaryItem(BaseModel):
+    """Aggregated tag row used by discovery and workflow tooling."""
+
+    tag: str
+    count: int
+    domain: str
+    scope: str
+
+
+class ListTagsResultData(BaseModel):
+    """Payload contract for ``QueryService.list_tags``."""
+
+    count: int
+    items: list[TagSummaryItem]
+
+
 class LogEntryContextItem(BaseModel):
     """Session log entry in context layer 1."""
 
@@ -177,3 +193,75 @@ class AgentContextFallbackData(BaseModel):
     recent: list[ListItem] = Field(default_factory=list)
     search_results: list[SearchItem] = Field(default_factory=list)
     work_queue: list[WorkQueueItem] = Field(default_factory=list)
+
+
+class SessionStatusResultData(BaseModel):
+    """Payload contract for ``SessionService.status``."""
+
+    session: SessionLayerSummary | None = None
+
+
+class ThemeCommunityMember(BaseModel):
+    """One member of a graph theme community."""
+
+    id: str
+    title: str
+    type: str
+
+
+class ThemeCommunity(BaseModel):
+    """One graph community returned by ``GraphService.themes``."""
+
+    community_id: int
+    size: int
+    members: list[ThemeCommunityMember] = Field(default_factory=list)
+
+
+class GraphRankItem(BaseModel):
+    """Graph score row used for rank output."""
+
+    id: str
+    title: str
+    type: str
+    score: float
+
+
+class GraphGapItem(BaseModel):
+    """Graph structural hole row used for gaps output."""
+
+    id: str
+    title: str
+    type: str
+    constraint: float
+
+
+class GraphBridgeItem(BaseModel):
+    """Graph bridge row used for bridge output."""
+
+    id: str
+    title: str
+    type: str
+    centrality: float
+
+
+class VaultOverviewData(BaseModel):
+    """Compact vault overview embedded in review payloads."""
+
+    vault_name: str | None = None
+    counts: dict[str, int] = Field(default_factory=dict)
+    total: int = 0
+    recent: list[ListItem] = Field(default_factory=list)
+
+
+class VaultReviewResultData(BaseModel):
+    """Payload contract for ``QueryService.vault_review``."""
+
+    overview: VaultOverviewData
+    recent: list[ListItem] = Field(default_factory=list)
+    work_queue: list[WorkQueueItem] = Field(default_factory=list)
+    themes: list[ThemeCommunity] = Field(default_factory=list)
+    gaps: list[GraphGapItem] = Field(default_factory=list)
+    bridges: list[GraphBridgeItem] = Field(default_factory=list)
+    important_items: list[GraphRankItem] = Field(default_factory=list)
+    stale_seeds: list[ListItem] = Field(default_factory=list)
+    orphan_notes: list[ListItem] = Field(default_factory=list)

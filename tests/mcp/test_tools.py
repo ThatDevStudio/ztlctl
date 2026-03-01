@@ -20,16 +20,20 @@ from ztlctl.mcp.tools import (
     garden_seed_impl,
     get_document_impl,
     get_related_impl,
+    graph_bridges_impl,
     graph_gaps_impl,
     graph_path_impl,
     graph_rank_impl,
     graph_themes_impl,
     list_items_impl,
+    list_tags_impl,
     register_tools,
     reweave_impl,
     search_impl,
     session_close_impl,
+    session_status_impl,
     update_content_impl,
+    vault_review_impl,
     work_queue_impl,
 )
 
@@ -73,6 +77,16 @@ class TestCreateTools:
         assert resp["ok"] is True
         assert resp["op"] == "create_reference"
 
+    def test_create_reference_with_subtype(self, vault: Vault):
+        resp = create_reference_impl(
+            vault,
+            "Spec Ref",
+            url="https://example.com/spec",
+            subtype="spec",
+        )
+        assert resp["ok"] is True
+        assert resp["data"]["type"] == "reference"
+
     def test_create_task_returns_ok(self, vault: Vault):
         resp = create_task_impl(vault, "Test Task", priority="high")
         assert resp["ok"] is True
@@ -92,6 +106,18 @@ class TestCreateTools:
     def test_create_note_with_topic(self, vault: Vault):
         resp = create_note_impl(vault, "Topic Note", topic="math")
         assert resp["ok"] is True
+
+    def test_create_note_with_body_and_key_points(self, vault: Vault):
+        resp = create_note_impl(
+            vault,
+            "Knowledge Note",
+            subtype="knowledge",
+            body="Detailed synthesis body",
+            key_points=["alpha", "beta"],
+        )
+        assert resp["ok"] is True
+        get_resp = get_document_impl(vault, resp["data"]["id"])
+        assert "Detailed synthesis body" in get_resp["data"]["body"]
 
     def test_garden_seed_returns_ok(self, vault: Vault):
         resp = garden_seed_impl(vault, "Quick idea")
@@ -116,7 +142,7 @@ class TestDiscoveryTools:
         resp = discover_tools_impl(vault)
         assert resp["ok"] is True
         assert resp["op"] == "discover_tools"
-        assert resp["data"]["count"] >= 21
+        assert resp["data"]["count"] >= 25
         categories = {entry["name"] for entry in resp["data"]["categories"]}
         assert "discovery" in categories
         assert "creation" in categories
@@ -304,6 +330,13 @@ class TestListQueryTools:
         assert resp["ok"] is True
         assert "counts" in resp["data"]
 
+    def test_list_tags_returns_usage_counts(self, vault: Vault):
+        create_note_impl(vault, "Tagged Note", tags=["ai/ml"])
+        resp = list_tags_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "list_tags"
+        assert resp["data"]["count"] >= 1
+
 
 # ---------------------------------------------------------------------------
 # Tests — Graph tools
@@ -344,6 +377,11 @@ class TestGraphTools:
         resp = graph_gaps_impl(vault, top=10)
         assert resp["ok"] is True
 
+    def test_graph_bridges_empty_vault(self, vault: Vault):
+        resp = graph_bridges_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "bridges"
+
 
 # ---------------------------------------------------------------------------
 # Tests — Session tools
@@ -362,6 +400,27 @@ class TestSessionTools:
     def test_session_close_no_active(self, vault: Vault):
         resp = session_close_impl(vault)
         assert resp["ok"] is False
+
+    def test_session_status_no_active(self, vault: Vault):
+        resp = session_status_impl(vault)
+        assert resp["ok"] is True
+        assert resp["data"]["session"] is None
+
+    def test_session_status_active(self, vault: Vault):
+        create_log_impl(vault, "active-status")
+        resp = session_status_impl(vault)
+        assert resp["ok"] is True
+        assert resp["data"]["session"]["topic"] == "active-status"
+
+
+class TestAnalysisTools:
+    def test_vault_review_returns_snapshot(self, vault: Vault):
+        create_note_impl(vault, "Review A", tags=["topic/review"])
+        create_task_impl(vault, "Review Task", priority="high")
+        resp = vault_review_impl(vault)
+        assert resp["ok"] is True
+        assert resp["op"] == "vault_review"
+        assert "overview" in resp["data"]
 
 
 # ---------------------------------------------------------------------------

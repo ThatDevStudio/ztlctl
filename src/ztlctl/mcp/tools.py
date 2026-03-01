@@ -1,7 +1,7 @@
-"""MCP tool definitions — 21 tools across 7 categories.
+"""MCP tool definitions — 25 tools across 7 categories.
 
-Categories: Discovery (1), Creation (5), Lifecycle (3), Query (6), Graph (4),
-Session (1), Analysis (1).
+Categories: Discovery (2), Creation (5), Lifecycle (3), Query (6), Graph (5),
+Session (2), Analysis (2).
 Each tool has a ``_<name>_impl`` function testable without the mcp package.
 ``register_tools()`` wraps them with FastMCP decorators.
 (DESIGN.md Section 16)
@@ -23,6 +23,11 @@ _TOOL_CATALOG: tuple[dict[str, str], ...] = (
         "name": "discover_tools",
         "category": "discovery",
         "description": "List available MCP tools grouped by category.",
+    },
+    {
+        "name": "list_tags",
+        "category": "discovery",
+        "description": "List known tags with usage counts.",
     },
     {"name": "create_note", "category": "creation", "description": "Create a new note."},
     {
@@ -68,6 +73,11 @@ _TOOL_CATALOG: tuple[dict[str, str], ...] = (
         "category": "session",
         "description": "Close the active session.",
     },
+    {
+        "name": "session_status",
+        "category": "session",
+        "description": "Get the active session, if any.",
+    },
     # --- Tier 1 additions ---
     {
         "name": "list_items",
@@ -83,6 +93,11 @@ _TOOL_CATALOG: tuple[dict[str, str], ...] = (
         "name": "decision_support",
         "category": "analysis",
         "description": "Aggregate decision context for a topic.",
+    },
+    {
+        "name": "vault_review",
+        "category": "analysis",
+        "description": "Build a review-ready vault health snapshot.",
     },
     {
         "name": "graph_themes",
@@ -105,11 +120,21 @@ _TOOL_CATALOG: tuple[dict[str, str], ...] = (
         "description": "Identify structural holes in the knowledge graph.",
     },
     {
+        "name": "graph_bridges",
+        "category": "graph",
+        "description": "Find bridge notes via betweenness centrality.",
+    },
+    {
         "name": "garden_seed",
         "category": "creation",
         "description": "Quick-capture a seed note with minimal ceremony.",
     },
 )
+
+
+def tool_catalog() -> tuple[dict[str, str], ...]:
+    """Return the MCP tool catalog for validation and docs."""
+    return _TOOL_CATALOG
 
 
 def _to_mcp_response(result: ServiceResult) -> dict[str, Any]:
@@ -130,7 +155,7 @@ def _to_mcp_response(result: ServiceResult) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Discovery tools (1)
+# Discovery tools (2)
 # ---------------------------------------------------------------------------
 
 
@@ -178,8 +203,21 @@ def _tool_name_key(tool: dict[str, str]) -> str:
     return tool["name"]
 
 
+def list_tags_impl(
+    vault: Any,
+    *,
+    prefix: str | None = None,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """List active tags with usage counts."""
+    from ztlctl.services.query import QueryService
+
+    result = QueryService(vault).list_tags(prefix=prefix, limit=limit)
+    return _to_mcp_response(result)
+
+
 # ---------------------------------------------------------------------------
-# Creation tools (4)
+# Creation tools (5)
 # ---------------------------------------------------------------------------
 
 
@@ -190,11 +228,24 @@ def create_note_impl(
     subtype: str | None = None,
     tags: list[str] | None = None,
     topic: str | None = None,
+    body: str | None = None,
+    key_points: list[str] | None = None,
+    links: dict[str, list[str]] | None = None,
+    aliases: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create a new note."""
     from ztlctl.services.create import CreateService
 
-    result = CreateService(vault).create_note(title, subtype=subtype, tags=tags, topic=topic)
+    result = CreateService(vault).create_note(
+        title,
+        subtype=subtype,
+        tags=tags,
+        topic=topic,
+        body=body,
+        key_points=key_points,
+        links=links,
+        aliases=aliases,
+    )
     return _to_mcp_response(result)
 
 
@@ -203,13 +254,20 @@ def create_reference_impl(
     title: str,
     *,
     url: str | None = None,
+    subtype: str | None = None,
     tags: list[str] | None = None,
     topic: str | None = None,
 ) -> dict[str, Any]:
     """Create a new reference."""
     from ztlctl.services.create import CreateService
 
-    result = CreateService(vault).create_reference(title, url=url, tags=tags, topic=topic)
+    result = CreateService(vault).create_reference(
+        title,
+        url=url,
+        subtype=subtype,
+        tags=tags,
+        topic=topic,
+    )
     return _to_mcp_response(result)
 
 
@@ -293,7 +351,7 @@ def reweave_impl(
 
 
 # ---------------------------------------------------------------------------
-# Query tools (4)
+# Query tools (6)
 # ---------------------------------------------------------------------------
 
 
@@ -448,8 +506,21 @@ def decision_support_impl(
     return _to_mcp_response(result)
 
 
+def vault_review_impl(
+    vault: Any,
+    *,
+    top: int = 10,
+    stale_days: int = 7,
+) -> dict[str, Any]:
+    """Aggregate a review-ready vault snapshot."""
+    from ztlctl.services.query import QueryService
+
+    result = QueryService(vault).vault_review(top=top, stale_days=stale_days)
+    return _to_mcp_response(result)
+
+
 # ---------------------------------------------------------------------------
-# Graph tools (4)
+# Graph tools (5)
 # ---------------------------------------------------------------------------
 
 
@@ -489,8 +560,16 @@ def graph_gaps_impl(vault: Any, *, top: int = 20) -> dict[str, Any]:
     return _to_mcp_response(result)
 
 
+def graph_bridges_impl(vault: Any, *, top: int = 20) -> dict[str, Any]:
+    """Find bridge notes via betweenness centrality."""
+    from ztlctl.services.graph import GraphService
+
+    result = GraphService(vault).bridges(top=top)
+    return _to_mcp_response(result)
+
+
 # ---------------------------------------------------------------------------
-# Session tools (1)
+# Session tools (2)
 # ---------------------------------------------------------------------------
 
 
@@ -499,6 +578,14 @@ def session_close_impl(vault: Any, *, summary: str | None = None) -> dict[str, A
     from ztlctl.services.session import SessionService
 
     result = SessionService(vault).close(summary=summary)
+    return _to_mcp_response(result)
+
+
+def session_status_impl(vault: Any) -> dict[str, Any]:
+    """Get the active session, if any."""
+    from ztlctl.services.session import SessionService
+
+    result = SessionService(vault).status()
     return _to_mcp_response(result)
 
 
@@ -516,24 +603,51 @@ def register_tools(server: Any, vault: Any) -> None:
         return discover_tools_impl(vault, category=category)
 
     @server.tool()  # type: ignore[untyped-decorator]
+    def list_tags(prefix: str | None = None, limit: int = 100) -> dict[str, Any]:
+        """List known tags with usage counts."""
+        return list_tags_impl(vault, prefix=prefix, limit=limit)
+
+    @server.tool()  # type: ignore[untyped-decorator]
     def create_note(
         title: str,
         subtype: str | None = None,
         tags: list[str] | None = None,
         topic: str | None = None,
+        body: str | None = None,
+        key_points: list[str] | None = None,
+        links: dict[str, list[str]] | None = None,
+        aliases: list[str] | None = None,
     ) -> dict[str, Any]:
         """Create a new note in the vault."""
-        return create_note_impl(vault, title, subtype=subtype, tags=tags, topic=topic)
+        return create_note_impl(
+            vault,
+            title,
+            subtype=subtype,
+            tags=tags,
+            topic=topic,
+            body=body,
+            key_points=key_points,
+            links=links,
+            aliases=aliases,
+        )
 
     @server.tool()  # type: ignore[untyped-decorator]
     def create_reference(
         title: str,
         url: str | None = None,
+        subtype: str | None = None,
         tags: list[str] | None = None,
         topic: str | None = None,
     ) -> dict[str, Any]:
         """Create a new reference to an external source."""
-        return create_reference_impl(vault, title, url=url, tags=tags, topic=topic)
+        return create_reference_impl(
+            vault,
+            title,
+            url=url,
+            subtype=subtype,
+            tags=tags,
+            topic=topic,
+        )
 
     @server.tool()  # type: ignore[untyped-decorator]
     def create_task(
@@ -628,6 +742,11 @@ def register_tools(server: Any, vault: Any) -> None:
         return session_close_impl(vault, summary=summary)
 
     @server.tool()  # type: ignore[untyped-decorator]
+    def session_status() -> dict[str, Any]:
+        """Get the active session, if any."""
+        return session_status_impl(vault)
+
+    @server.tool()  # type: ignore[untyped-decorator]
     def list_items(
         content_type: str | None = None,
         status: str | None = None,
@@ -671,6 +790,11 @@ def register_tools(server: Any, vault: Any) -> None:
         return decision_support_impl(vault, topic=topic, space=space)
 
     @server.tool()  # type: ignore[untyped-decorator]
+    def vault_review(top: int = 10, stale_days: int = 7) -> dict[str, Any]:
+        """Build a review-ready vault health snapshot."""
+        return vault_review_impl(vault, top=top, stale_days=stale_days)
+
+    @server.tool()  # type: ignore[untyped-decorator]
     def graph_themes() -> dict[str, Any]:
         """Detect knowledge communities via graph clustering."""
         return graph_themes_impl(vault)
@@ -689,3 +813,8 @@ def register_tools(server: Any, vault: Any) -> None:
     def graph_gaps(top: int = 20) -> dict[str, Any]:
         """Identify structural holes in the knowledge graph."""
         return graph_gaps_impl(vault, top=top)
+
+    @server.tool()  # type: ignore[untyped-decorator]
+    def graph_bridges(top: int = 20) -> dict[str, Any]:
+        """Find bridge notes via betweenness centrality."""
+        return graph_bridges_impl(vault, top=top)

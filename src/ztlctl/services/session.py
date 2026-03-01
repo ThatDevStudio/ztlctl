@@ -15,6 +15,7 @@ from ztlctl.infrastructure.database.counters import next_sequential_id
 from ztlctl.infrastructure.database.schema import edges, nodes, session_logs
 from ztlctl.services._helpers import now_iso, today_iso
 from ztlctl.services.base import BaseService
+from ztlctl.services.contracts import SessionStatusResultData, dump_validated
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import trace_span, traced
 
@@ -301,6 +302,31 @@ class SessionService(BaseService):
                 "id": session_id,
                 "status": "open",
             },
+        )
+
+    @traced
+    def status(self) -> ServiceResult:
+        """Return the active session summary, if any."""
+        with self._vault.engine.connect() as conn:
+            active = self._find_active_session(conn)
+
+        payload: dict[str, Any]
+        if active is None:
+            payload = {"session": None}
+        else:
+            payload = {
+                "session": {
+                    "session_id": str(active.id),
+                    "topic": str(active.topic or ""),
+                    "status": str(active.status),
+                    "started": str(active.created_at or active.created),
+                }
+            }
+
+        return ServiceResult(
+            ok=True,
+            op="session_status",
+            data=dump_validated(SessionStatusResultData, payload),
         )
 
     @traced

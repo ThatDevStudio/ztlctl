@@ -9,6 +9,22 @@ from __future__ import annotations
 
 from typing import Any
 
+_PROMPT_CATALOG: tuple[dict[str, str], ...] = (
+    {"name": "research_session", "description": "Start a structured research session on a topic."},
+    {"name": "knowledge_capture", "description": "Capture knowledge into the vault."},
+    {
+        "name": "vault_orientation",
+        "description": "Get oriented in this vault (reads identity + methodology + overview).",
+    },
+    {"name": "decision_record", "description": "Document a decision with structured context."},
+)
+
+
+def prompt_catalog() -> tuple[dict[str, str], ...]:
+    """Return the MCP prompt catalog for validation and docs."""
+    return _PROMPT_CATALOG
+
+
 # ---------------------------------------------------------------------------
 # Prompt implementations (testable without mcp)
 # ---------------------------------------------------------------------------

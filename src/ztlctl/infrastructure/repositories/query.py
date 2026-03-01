@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import func, select, text
 from sqlalchemy.engine import Engine
 
-from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
+from ztlctl.infrastructure.database.schema import edges, node_tags, nodes, tags_registry
 
 
 class QueryRepository:
@@ -196,6 +196,43 @@ class QueryRepository:
             rows = conn.execute(stmt).mappings().all()
         return [dict(row) for row in rows]
 
+    def type_counts(self) -> dict[str, int]:
+        """Return non-archived node counts grouped by type."""
+        stmt = (
+            select(nodes.c.type, func.count(nodes.c.id).label("count"))
+            .where(nodes.c.archived == 0)
+            .group_by(nodes.c.type)
+        )
+
+        with self._engine.connect() as conn:
+            rows = conn.execute(stmt).all()
+        return {str(row.type): int(row.count) for row in rows}
+
+    def list_tags_rows(
+        self, *, prefix: str | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Return tag counts joined to the registry for active items."""
+        stmt = (
+            select(
+                node_tags.c.tag,
+                tags_registry.c.domain,
+                tags_registry.c.scope,
+                func.count(func.distinct(node_tags.c.node_id)).label("count"),
+            )
+            .select_from(node_tags.join(nodes, node_tags.c.node_id == nodes.c.id))
+            .join(tags_registry, tags_registry.c.tag == node_tags.c.tag)
+            .where(nodes.c.archived == 0)
+            .group_by(node_tags.c.tag, tags_registry.c.domain, tags_registry.c.scope)
+            .order_by(func.count(func.distinct(node_tags.c.node_id)).desc(), node_tags.c.tag.asc())
+            .limit(limit)
+        )
+        if prefix:
+            stmt = stmt.where(node_tags.c.tag.like(f"{prefix}%"))
+
+        with self._engine.connect() as conn:
+            rows = conn.execute(stmt).mappings().all()
+        return [dict(row) for row in rows]
+
     def decision_support_rows(
         self,
         *,
@@ -224,6 +261,63 @@ class QueryRepository:
             stmt = stmt.where(nodes.c.path.like(f"{space}/%"))
 
         stmt = stmt.order_by(nodes.c.modified.desc())
+
+        with self._engine.connect() as conn:
+            rows = conn.execute(stmt).mappings().all()
+        return [dict(row) for row in rows]
+
+    def stale_seed_rows(self, *, cutoff_iso: str, limit: int = 20) -> list[dict[str, Any]]:
+        """Return seed notes whose modified date is older than *cutoff_iso*."""
+        stmt = (
+            select(
+                nodes.c.id,
+                nodes.c.title,
+                nodes.c.type,
+                nodes.c.subtype,
+                nodes.c.maturity,
+                nodes.c.status,
+                nodes.c.path,
+                nodes.c.topic,
+                nodes.c.created,
+                nodes.c.modified,
+            )
+            .where(
+                nodes.c.archived == 0,
+                nodes.c.type == "note",
+                nodes.c.maturity == "seed",
+                nodes.c.modified < cutoff_iso,
+            )
+            .order_by(nodes.c.modified.asc())
+            .limit(limit)
+        )
+
+        with self._engine.connect() as conn:
+            rows = conn.execute(stmt).mappings().all()
+        return [dict(row) for row in rows]
+
+    def orphan_note_rows(self, *, limit: int = 20) -> list[dict[str, Any]]:
+        """Return non-archived notes with no outgoing edges."""
+        stmt = (
+            select(
+                nodes.c.id,
+                nodes.c.title,
+                nodes.c.type,
+                nodes.c.subtype,
+                nodes.c.maturity,
+                nodes.c.status,
+                nodes.c.path,
+                nodes.c.topic,
+                nodes.c.created,
+                nodes.c.modified,
+            )
+            .where(
+                nodes.c.archived == 0,
+                nodes.c.type == "note",
+                ~nodes.c.id.in_(select(edges.c.source_id)),
+            )
+            .order_by(nodes.c.modified.desc())
+            .limit(limit)
+        )
 
         with self._engine.connect() as conn:
             rows = conn.execute(stmt).mappings().all()

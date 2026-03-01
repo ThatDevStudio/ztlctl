@@ -1,0 +1,40 @@
+# AGENTS.md for {{ vault_name }}
+
+This vault is managed by `ztlctl`. Treat the `ztlctl` service and MCP surface as the canonical workflow contract.
+
+## Core Rules
+
+- Prefer `ztlctl` workflows over ad hoc markdown editing when content lifecycle matters.
+- Use one active session at a time and check `session_status` before starting a new one.
+- Search before creating.
+- Reuse existing tags via `list_tags` when possible.
+- Prefer one-step note creation with authored `body`, `key_points`, `aliases`, and `links` when creating synthesis or knowledge notes.
+- Run `reweave` after important note creation.
+- Use `vault_review` for health checks and periodic reviews.
+
+## Methodology
+
+{{ modules.methodology }}
+
+## Session Workflow
+
+{{ modules.session_lifecycle }}
+
+## Capture Workflow
+
+{{ modules.capture_workflow }}
+
+## Review Workflow
+
+{{ modules.review_workflow }}
+
+## Graph Analysis
+
+{{ modules.graph_analysis }}
+
+## Tooling
+
+- Available MCP tools: {{ tool_count }}
+- Available MCP resources: {{ resource_count }}
+- Available MCP prompts: {{ prompt_count }}
+- Keep Claude-specific slash-command syntax out of Codex interactions.

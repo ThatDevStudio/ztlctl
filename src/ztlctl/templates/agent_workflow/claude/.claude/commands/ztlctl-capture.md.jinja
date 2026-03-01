@@ -1,0 +1,17 @@
+Guide the user through capturing new knowledge in the vault.
+
+## Workflow
+
+1. Use the user argument as the working topic if present.
+2. Search with `search` before creating anything.
+3. Use `list_tags` to suggest existing tag vocabulary.
+4. Choose the correct creation tool:
+   - `create_note`
+   - `create_reference`
+   - `create_task`
+   - `garden_seed`
+5. After important note or reference creation, call `reweave`.
+
+## Guidance
+
+{{ modules.capture_workflow }}

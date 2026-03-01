@@ -144,6 +144,36 @@ class TestCreateKnowledge:
         assert result.ok
         assert any("key_points" in w for w in result.warnings)
 
+    def test_knowledge_note_with_body_key_points_and_links(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        target = svc.create_note("Linked Target")
+        assert target.ok
+
+        result = svc.create_note(
+            "Knowledge Body",
+            subtype="knowledge",
+            body="Synthesized body content",
+            key_points=["one", "two"],
+            links={"relates": [target.data["id"]]},
+            aliases=["kb"],
+        )
+
+        assert result.ok
+        content = (vault.root / result.data["path"]).read_text(encoding="utf-8")
+        assert "Synthesized body content" in content
+        assert "key_points:" in content
+
+        with vault.engine.connect() as conn:
+            edge_rows = conn.execute(
+                select(edges).where(edges.c.source_id == result.data["id"])
+            ).all()
+            alias_row = conn.execute(
+                select(nodes.c.aliases).where(nodes.c.id == result.data["id"])
+            ).one()
+
+        assert any(row.target_id == target.data["id"] for row in edge_rows)
+        assert alias_row.aliases == json.dumps(["kb"])
+
 
 # ---------------------------------------------------------------------------
 # Decision subtype
@@ -196,6 +226,16 @@ class TestCreateReference:
         with vault.engine.connect() as conn:
             row = conn.execute(select(nodes.c.status).where(nodes.c.id == result.data["id"])).one()
             assert row.status == "captured"
+
+    def test_reference_subtype_persisted(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        result = svc.create_reference("Tooling", subtype="tool")
+        assert result.ok
+
+        with vault.engine.connect() as conn:
+            row = conn.execute(select(nodes.c.subtype).where(nodes.c.id == result.data["id"])).one()
+
+        assert row.subtype == "tool"
 
 
 # ---------------------------------------------------------------------------

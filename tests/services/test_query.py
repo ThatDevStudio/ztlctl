@@ -757,3 +757,57 @@ class TestSearchGraphRank:
         assert result.ok
         assert result.warnings
         assert any("materialize" in w for w in result.warnings)
+
+
+class TestListTags:
+    def test_list_tags_returns_registry_rows(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_tags()
+        assert result.ok
+        assert result.data["count"] >= 1
+        tags = {item["tag"] for item in result.data["items"]}
+        assert "ai/ml" in tags
+
+    def test_list_tags_prefix_filter(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.list_tags(prefix="lang/")
+        assert result.ok
+        assert result.data["count"] >= 1
+        assert all(item["tag"].startswith("lang/") for item in result.data["items"])
+
+
+class TestVaultReview:
+    def test_vault_review_returns_core_sections(self, vault: Vault) -> None:
+        _seed_notes(vault)
+        svc = QueryService(vault)
+        result = svc.vault_review()
+        assert result.ok
+        assert "overview" in result.data
+        assert "work_queue" in result.data
+        assert "important_items" in result.data
+        assert "bridges" in result.data
+
+    def test_vault_review_includes_stale_seeds_and_orphans(self, vault: Vault) -> None:
+        from sqlalchemy import text as sa_text
+
+        cs = CreateService(vault)
+        stale = cs.create_note("Stale Seed", maturity="seed")
+        bridge_a = cs.create_note("Bridge A")
+        bridge_b = cs.create_note("Bridge B", links={"relates": [bridge_a.data["id"]]})
+        bridge_c = cs.create_note("Bridge C", links={"relates": [bridge_b.data["id"]]})
+        assert stale.ok and bridge_a.ok and bridge_b.ok and bridge_c.ok
+
+        with vault.engine.begin() as conn:
+            conn.execute(
+                sa_text("UPDATE nodes SET modified = '2025-01-01' WHERE id = :id"),
+                {"id": stale.data["id"]},
+            )
+
+        result = QueryService(vault).vault_review()
+        assert result.ok
+        stale_ids = {item["id"] for item in result.data["stale_seeds"]}
+        orphan_ids = {item["id"] for item in result.data["orphan_notes"]}
+        assert stale.data["id"] in stale_ids
+        assert bridge_a.data["id"] in orphan_ids or stale.data["id"] in orphan_ids

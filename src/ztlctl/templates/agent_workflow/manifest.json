@@ -1,0 +1,103 @@
+{
+  "shared_modules": {
+    "methodology": "shared/methodology.md.jinja",
+    "session_lifecycle": "shared/session-lifecycle.md.jinja",
+    "capture_workflow": "shared/capture-workflow.md.jinja",
+    "review_workflow": "shared/review-workflow.md.jinja",
+    "graph_analysis": "shared/graph-analysis.md.jinja",
+    "synthesis_agent": "shared/synthesis-agent.md.jinja",
+    "vault_analyst": "shared/vault-analyst.md.jinja",
+    "hook_orientation": "shared/hook-orientation.md.jinja"
+  },
+  "clients": {
+    "claude": {
+      "files": [
+        {
+          "template": "claude/.mcp.json.jinja",
+          "output": ".mcp.json",
+          "schema": "mcp_config"
+        },
+        {
+          "template": "claude/.claude/settings.json.jinja",
+          "output": ".claude/settings.json",
+          "schema": "claude_settings"
+        },
+        {
+          "template": "claude/.claude/hooks/session-context.sh.jinja",
+          "output": ".claude/hooks/session-context.sh",
+          "executable": true
+        },
+        {
+          "template": "claude/.claude/commands/ztlctl-session.md.jinja",
+          "output": ".claude/commands/ztlctl-session.md",
+          "resources": ["ztlctl://context"],
+          "tools": ["session_status", "create_log", "list_items", "work_queue"]
+        },
+        {
+          "template": "claude/.claude/commands/ztlctl-capture.md.jinja",
+          "output": ".claude/commands/ztlctl-capture.md",
+          "tools": ["search", "list_tags", "create_note", "create_reference", "create_task", "garden_seed", "reweave"]
+        },
+        {
+          "template": "claude/.claude/commands/ztlctl-review.md.jinja",
+          "output": ".claude/commands/ztlctl-review.md",
+          "tools": ["vault_review"]
+        },
+        {
+          "template": "claude/.claude/commands/ztlctl-seed.md.jinja",
+          "output": ".claude/commands/ztlctl-seed.md",
+          "tools": ["garden_seed", "session_status"]
+        },
+        {
+          "template": "claude/.claude/agents/knowledge-synthesizer.md.jinja",
+          "output": ".claude/agents/knowledge-synthesizer.md",
+          "tools": ["search", "get_document", "get_related", "graph_themes", "graph_path", "list_items", "create_note", "reweave"]
+        },
+        {
+          "template": "claude/.claude/agents/vault-analyst.md.jinja",
+          "output": ".claude/agents/vault-analyst.md",
+          "tools": ["vault_review", "graph_bridges", "decision_support", "work_queue"]
+        },
+        {
+          "template": "claude/.claude/skills/vault-methodology/SKILL.md.jinja",
+          "output": ".claude/skills/vault-methodology/SKILL.md",
+          "tools": ["create_note", "create_reference", "create_task", "garden_seed", "list_tags", "reweave"]
+        },
+        {
+          "template": "claude/.claude/skills/session-workflow/SKILL.md.jinja",
+          "output": ".claude/skills/session-workflow/SKILL.md",
+          "tools": ["session_status", "create_log", "work_queue", "session_close", "graph_themes", "graph_gaps", "graph_bridges"]
+        },
+        {
+          "template": "claude/.claude/skills/graph-intelligence/SKILL.md.jinja",
+          "output": ".claude/skills/graph-intelligence/SKILL.md",
+          "tools": ["graph_themes", "graph_rank", "graph_path", "graph_gaps", "graph_bridges", "get_related"]
+        }
+      ]
+    },
+    "codex": {
+      "files": [
+        {
+          "template": "codex/AGENTS.md.jinja",
+          "output": "AGENTS.md",
+          "tools": ["session_status", "create_log", "session_close", "create_note", "create_reference", "create_task", "garden_seed", "reweave", "vault_review", "list_tags", "search", "get_document", "get_related", "graph_themes", "graph_rank", "graph_path", "graph_gaps", "graph_bridges", "decision_support", "work_queue"]
+        },
+        {
+          "template": "codex/.ztlctl/codex/skills/methodology.md.jinja",
+          "output": ".ztlctl/codex/skills/methodology.md",
+          "tools": ["create_note", "create_reference", "create_task", "garden_seed", "list_tags", "reweave"]
+        },
+        {
+          "template": "codex/.ztlctl/codex/skills/session-workflow.md.jinja",
+          "output": ".ztlctl/codex/skills/session-workflow.md",
+          "tools": ["session_status", "create_log", "work_queue", "session_close", "graph_themes", "graph_gaps", "graph_bridges"]
+        },
+        {
+          "template": "codex/.ztlctl/codex/skills/graph-intelligence.md.jinja",
+          "output": ".ztlctl/codex/skills/graph-intelligence.md",
+          "tools": ["graph_themes", "graph_rank", "graph_path", "graph_gaps", "graph_bridges", "get_related"]
+        }
+      ]
+    }
+  }
+}

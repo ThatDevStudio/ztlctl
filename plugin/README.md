@@ -1,6 +1,14 @@
-# ztlctl — Claude Code Plugin
+# ztlctl — Claude Code Reference Bundle
 
-Agentic research assistant for [ztlctl](https://github.com/ThatDevStudio/ztlctl) knowledge vaults. Gives Claude the methodology, workflows, and guardrails to be a competent research partner.
+Reference assets for Claude Code integration with [ztlctl](https://github.com/ThatDevStudio/ztlctl) knowledge vaults.
+
+The supported path is to generate project-local assets from the packaged workflow source:
+
+```bash
+ztlctl workflow export --client claude
+```
+
+This directory remains as a checked-in reference bundle, but the package source of truth now lives under `src/ztlctl/templates/agent_workflow`.
 
 ## What This Plugin Provides
 
@@ -10,7 +18,7 @@ Agentic research assistant for [ztlctl](https://github.com/ThatDevStudio/ztlctl)
 | **4 Commands** | `/ztlctl:session`, `/ztlctl:capture`, `/ztlctl:review`, `/ztlctl:seed` |
 | **2 Agents** | Knowledge synthesizer, vault analyst |
 | **1 Hook** | SessionStart context injection |
-| **MCP Server** | 21 tools via `ztlctl serve` |
+| **MCP Server** | 25 tools via `ztlctl serve` |
 
 ## Prerequisites
 
@@ -27,14 +35,14 @@ Agentic research assistant for [ztlctl](https://github.com/ThatDevStudio/ztlctl)
    ztlctl init
    ```
 
-3. **Enable the plugin** in Claude Code settings or via the plugin browser.
+3. **Export the Claude bundle** with `ztlctl workflow export --client claude`.
 
 ## How It Works
 
-The plugin connects two layers:
+The Claude bundle connects two layers:
 
-- **MCP Server** (`ztlctl serve`) — provides 21 tools for vault operations (create, query, search, graph analysis, session management)
-- **Plugin Components** — skills teach Claude *how* to think about knowledge management; commands provide structured entry points; agents handle complex autonomous tasks; hooks inject context automatically
+- **MCP Server** (`ztlctl serve`) — provides 25 tools for vault operations and workflow state
+- **Project Assets** — skills teach Claude *how* to think about knowledge management; commands provide structured entry points; agents handle complex autonomous tasks; hooks inject context automatically
 
 The MCP server auto-discovers the vault from `ztlctl.toml` in the working directory or `$ZTLCTL_VAULT` environment variable.
 
@@ -47,7 +55,7 @@ cd my-vault
 claude
 ```
 
-The SessionStart hook automatically injects vault context. Then:
+The SessionStart hook automatically injects compact vault context. Then:
 
 - `/ztlctl:session "Topic"` — start a structured research session
 - `/ztlctl:capture` — guided knowledge capture with duplicate checking
@@ -56,17 +64,13 @@ The SessionStart hook automatically injects vault context. Then:
 
 Ask Claude to "analyze knowledge gaps" or "synthesize connections about X" to trigger the autonomous agents.
 
-## Plugin Structure
+## Bundle Structure
 
 ```
-plugin/
-├── .claude-plugin/plugin.json    # Plugin manifest
-├── .mcp.json                     # MCP server config
+.claude/
+├── settings.json                 # Claude hooks config
 ├── commands/                     # Slash commands
 ├── skills/                       # Domain knowledge
-│   ├── vault-methodology/        # Content types, lifecycle, linking
-│   ├── session-workflow/         # Research session patterns
-│   └── graph-intelligence/       # Graph analysis guidance
-├── agents/                       # Autonomous subagents
-└── hooks/                        # Event-driven automation
+└── agents/                       # Autonomous subagents
+.mcp.json                         # MCP server config
 ```

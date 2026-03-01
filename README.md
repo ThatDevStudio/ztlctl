@@ -64,7 +64,8 @@ ztlctl agent session close --summary "Mapped async patterns, identified refactor
 - **Session-based agentic workflows** with token-budgeted 5-layer context assembly ([Agentic Workflows](docs/agentic-workflows.md))
 - **Digital garden maturity** tracking — seed, budding, and evergreen stages ([Knowledge Paradigms](docs/paradigms.md))
 - **Full-text + semantic search** with BM25/vector hybrid ranking and three ranking modes ([Command Reference](docs/commands.md))
-- **MCP server** with 12 tools, 6 resources, and 4 prompts for AI client integration ([MCP Server](docs/mcp.md))
+- **MCP server** with 25 tools, 6 resources, and 4 prompts for AI client integration ([MCP Server](docs/mcp.md))
+- **Generated Claude and Codex workflow assets** via `ztlctl workflow export` for portable agent setup
 - **Export** to markdown, indexes, and graph formats (DOT, JSON) ([Tutorial](docs/tutorial.md#step-8-export-and-share))
 - **Plugin system** via pluggy event bus with built-in git integration ([Development](docs/development.md))
 - **Structured JSON output** on every command for scripting and agent consumption (`--json` flag)

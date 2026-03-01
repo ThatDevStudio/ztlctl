@@ -1,0 +1,14 @@
+Start or continue a structured `ztlctl` research session.
+
+## Workflow
+
+1. Call `session_status`.
+2. If a session is already open, show it and ask whether to continue it or close it later.
+3. If no session is open, call `create_log` with the user topic.
+4. Call `list_items` with `sort=recency`, `limit=5` for recent activity.
+5. Call `work_queue` for actionable tasks.
+6. Summarize the current session id, recent activity, and likely next moves.
+
+## Guidance
+
+{{ modules.session_lifecycle }}

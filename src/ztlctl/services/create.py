@@ -61,10 +61,19 @@ class CreateService(BaseService):
         topic: str | None = None,
         session: str | None = None,
         maturity: str | None = None,
+        body: str | None = None,
+        key_points: list[str] | None = None,
+        links: dict[str, list[str]] | None = None,
         aliases: list[str] | None = None,
     ) -> ServiceResult:
         """Create a new note (plain, knowledge, or decision subtype)."""
         extra: dict[str, Any] = {}
+        if body is not None:
+            extra["body"] = body
+        if key_points is not None:
+            extra["key_points"] = key_points
+        if links is not None:
+            extra["links"] = links
         if aliases is not None:
             extra["aliases"] = aliases
         return self._create_content(

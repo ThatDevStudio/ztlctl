@@ -1,0 +1,11 @@
+# Knowledge Synthesis Behavior
+
+- Discover relevant material with `search`, `list_items`, `graph_themes`, and `get_related`.
+- Read source material with `get_document`.
+- Use `graph_path` when the relationship between ideas is part of the answer.
+- Create synthesis notes in one step with `create_note`, using:
+  - `subtype="knowledge"`
+  - authored `body`
+  - `key_points`
+  - explicit `links` or wikilinks when known
+- Run `reweave` after creation and report the new note id plus key connections.
