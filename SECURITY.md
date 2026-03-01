@@ -12,11 +12,12 @@ If you discover a security vulnerability in ztlctl, please report it through [Gi
 
 **Please do not open a public issue for security vulnerabilities.**
 
-### What to Expect
+### What to Include
 
-- **Acknowledgment**: Within 48 hours of your report
-- **Assessment**: Within 7 days, we'll provide an initial severity assessment
-- **Disclosure**: We follow a 90-day coordinated disclosure timeline
+- Description of the vulnerability
+- Steps to reproduce
+- Affected versions
+- Any potential impact or severity assessment
 
 ### Scope
 
