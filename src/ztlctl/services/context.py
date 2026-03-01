@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy import select
 
+from ztlctl.domain.content import parse_frontmatter
 from ztlctl.infrastructure.database.schema import nodes
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services._helpers import estimate_tokens
@@ -251,9 +252,15 @@ class ContextAssembler:
                 selected.append(item)
             return selected
 
-        note_rank = "recency" if mode == "review" else "relevance"
+        note_rank = "review" if mode == "review" else "garden" if mode == "decision" else "hybrid"
+        reference_rank = "review" if mode == "review" else "garden"
         notes_result = query.search(topic, content_type="note", rank_by=note_rank, limit=8)
-        ref_result = query.search(topic, content_type="reference", rank_by="relevance", limit=6)
+        ref_result = query.search(
+            topic,
+            content_type="reference",
+            rank_by=reference_rank,
+            limit=6,
+        )
         decisions_result = query.list_items(
             content_type="note",
             subtype="decision",
@@ -262,33 +269,89 @@ class ContextAssembler:
         )
         tasks_result = query.list_items(content_type="task", topic=topic, limit=5)
 
-        notes = _budget_items(notes_result.data.get("items", []) if notes_result.ok else [])
-        references = _budget_items(ref_result.data.get("items", []) if ref_result.ok else [])
-        decisions = _budget_items(
-            decisions_result.data.get("items", []) if decisions_result.ok else []
-        )
-        tasks = _budget_items(tasks_result.data.get("items", []) if tasks_result.ok else [])
+        notes = notes_result.data.get("items", []) if notes_result.ok else []
+        references = ref_result.data.get("items", []) if ref_result.ok else []
+        decisions = decisions_result.data.get("items", []) if decisions_result.ok else []
+        tasks = tasks_result.data.get("items", []) if tasks_result.ok else []
 
         adjacent = self._graph_adjacent(
             [item["id"] for item in notes[:3] if item.get("id")],
             max(budget - total_tokens, 0),
             warnings,
         )
-        graph_adjacent = _budget_items(adjacent)
+        graph_adjacent = adjacent
 
         gaps: list[dict[str, Any]] = []
         bridges: list[dict[str, Any]] = []
-        if mode in {"review", "decision"}:
-            gaps_result = graph.gaps(top=5)
-            if gaps_result.ok:
-                gaps = _budget_items(gaps_result.data.get("items", []))
-            bridges_result = graph.bridges(top=5)
-            if bridges_result.ok:
-                bridges = _budget_items(bridges_result.data.get("items", []))
+        gaps_result = graph.gaps(top=5)
+        if gaps_result.ok:
+            gaps = gaps_result.data.get("items", [])
+        bridges_result = graph.bridges(top=5)
+        if bridges_result.ok:
+            bridges = bridges_result.data.get("items", [])
 
-        provenance = self._packet_provenance(
-            [item["id"] for item in references if item.get("id")],
+        all_items = [*notes, *references, *decisions, *tasks, *graph_adjacent, *bridges]
+        stale_seed_result = query.list_items(topic=topic, limit=20)
+        stale_seed_items = stale_seed_result.data.get("items", []) if stale_seed_result.ok else []
+        all_items.extend(stale_seed_items)
+        detail_map = self._packet_detail_map(
+            [str(item["id"]) for item in all_items if item.get("id")],
             warnings,
+        )
+        notes = self._decorate_packet_items(notes, detail_map)
+        references = self._decorate_packet_items(references, detail_map)
+        decisions = self._decorate_packet_items(decisions, detail_map)
+        tasks = self._decorate_packet_items(tasks, detail_map)
+        graph_adjacent = self._decorate_packet_items(graph_adjacent, detail_map)
+
+        bridge_candidates = self._decorate_packet_items(bridges[:3], detail_map)
+        stale_items = self._stale_topic_items(topic, warnings)
+        stale_items = self._decorate_packet_items(stale_items, detail_map)
+
+        notes = _budget_items(notes)
+        references = _budget_items(references)
+        decisions = _budget_items(decisions)
+        tasks = _budget_items(tasks)
+        graph_adjacent = _budget_items(graph_adjacent)
+        gaps = _budget_items(gaps)
+        bridges = _budget_items(bridges)
+        bridge_candidates = _budget_items(bridge_candidates)
+        stale_items = _budget_items(stale_items)
+
+        packet_ids = {
+            str(item["id"])
+            for item in [*notes, *references, *decisions, *tasks, *graph_adjacent]
+            if item.get("id")
+        }
+        evidence = _budget_items(
+            self._packet_evidence([*references, *notes, *decisions], detail_map)
+        )
+        supporting_links, conflicts = self._packet_links(packet_ids, detail_map)
+        supporting_links = _budget_items(supporting_links)
+        conflicts = _budget_items(conflicts)
+
+        provenance = self._packet_provenance_from_details(detail_map, packet_ids)
+        ranking_explanations = self._packet_ranking_explanations(
+            notes,
+            references,
+            decisions,
+            tasks,
+            graph_adjacent,
+            stale_items,
+            bridge_candidates,
+        )
+        suggested_actions = _budget_items(
+            self._suggested_actions(
+                topic,
+                mode=mode,
+                notes=notes,
+                references=references,
+                decisions=decisions,
+                tasks=tasks,
+                stale_items=stale_items,
+                bridge_candidates=bridge_candidates,
+                conflicts=conflicts,
+            )
         )
 
         payload = dump_validated(
@@ -302,10 +365,18 @@ class ContextAssembler:
                 "references": references,
                 "decisions": decisions,
                 "tasks": tasks,
+                "evidence": evidence,
                 "graph_adjacent": graph_adjacent,
                 "gaps": gaps,
                 "bridges": bridges,
+                "bridge_candidates": bridge_candidates,
+                "stale_items": stale_items,
+                "supporting_links": supporting_links,
+                "conflicts": conflicts,
+                "suggested_actions": suggested_actions,
+                "ranking_explanations": ranking_explanations,
                 "provenance": provenance,
+                "provenance_map": provenance,
             },
         )
 
@@ -526,36 +597,352 @@ class ContextAssembler:
             warnings.append("Failed to load background signals")
             return []
 
-    def _packet_provenance(
+    @staticmethod
+    def _section_map(markdown: str) -> dict[str, str]:
+        """Split markdown into second-level sections."""
+        sections: dict[str, list[str]] = {}
+        current: str | None = None
+        for line in markdown.splitlines():
+            if line.startswith("## "):
+                current = line[3:].strip()
+                sections.setdefault(current, [])
+                continue
+            if current is not None:
+                sections[current].append(line)
+        return {name: "\n".join(lines).strip() for name, lines in sections.items()}
+
+    @staticmethod
+    def _bullet_lines(section_text: str) -> list[str]:
+        """Extract markdown bullet lines from a section."""
+        return [
+            line.strip().lstrip("- ").strip()
+            for line in section_text.splitlines()
+            if line.strip().startswith("-")
+        ]
+
+    @staticmethod
+    def _excerpt_lines(section_text: str) -> list[str]:
+        """Extract blockquote lines from an excerpts section."""
+        excerpts: list[str] = []
+        current: list[str] = []
+        for line in section_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(">"):
+                current.append(stripped.lstrip("> ").strip())
+                continue
+            if current:
+                excerpts.append(" ".join(current).strip())
+                current = []
+        if current:
+            excerpts.append(" ".join(current).strip())
+        return [excerpt for excerpt in excerpts if excerpt]
+
+    @staticmethod
+    def _first_summary(body: str) -> str | None:
+        """Return the first non-empty paragraph-like line."""
+        for line in body.splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                return stripped
+        return None
+
+    def _packet_detail_map(
         self,
         content_ids: list[str],
         warnings: list[str],
-    ) -> dict[str, list[str]]:
-        """Build a simple provenance map for reference-like items."""
-        provenance: dict[str, list[str]] = {}
+    ) -> dict[str, dict[str, Any]]:
+        """Load packet item details from files and get() payloads."""
+        details: dict[str, dict[str, Any]] = {}
         try:
             from ztlctl.services.query import QueryService
 
             query = QueryService(self._vault)
             for content_id in content_ids:
+                if content_id in details:
+                    continue
                 result = query.get(content_id)
                 if not result.ok:
                     continue
                 item = result.data
-                entries: list[str] = []
-                if item.get("path"):
-                    entries.append(f"Path: {item['path']}")
-                if item.get("session"):
-                    entries.append(f"Session: {item['session']}")
-                body = str(item.get("body", ""))
-                marker = "## Provenance"
-                if marker in body:
-                    section = body.split(marker, 1)[1].strip()
-                    for line in section.splitlines():
-                        stripped = line.strip()
-                        if stripped:
-                            entries.append(stripped.lstrip("- ").strip())
-                provenance[content_id] = entries
+                raw_path = self._vault.root / str(item.get("path", ""))
+                sections: dict[str, str] = {}
+                if raw_path.is_file():
+                    raw = raw_path.read_text(encoding="utf-8")
+                    _, body = parse_frontmatter(raw)
+                    sections = self._section_map(body)
+                summary = sections.get("Summary") or self._first_summary(str(item.get("body", "")))
+                details[content_id] = {
+                    "summary": summary,
+                    "key_points": self._bullet_lines(sections.get("Key Points", "")),
+                    "excerpts": self._excerpt_lines(sections.get("Excerpts", "")),
+                    "provenance": self._bullet_lines(sections.get("Provenance", "")),
+                    "links_out": list(item.get("links_out", [])),
+                    "links_in": list(item.get("links_in", [])),
+                    "type": item.get("type"),
+                    "title": item.get("title"),
+                    "path": item.get("path"),
+                    "status": item.get("status"),
+                    "topic": item.get("topic"),
+                }
         except Exception:
-            warnings.append("Failed to build provenance map")
+            warnings.append("Failed to load packet item details")
+        return details
+
+    def _decorate_packet_items(
+        self,
+        items: list[dict[str, Any]],
+        detail_map: dict[str, dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Attach summary and evidence hints to packet items."""
+        decorated: list[dict[str, Any]] = []
+        for item in items:
+            updated = item.copy()
+            detail = detail_map.get(str(item.get("id", "")), {})
+            if detail.get("summary"):
+                updated["summary"] = detail["summary"]
+            if detail.get("key_points"):
+                updated["key_points"] = detail["key_points"][:5]
+            if detail.get("excerpts"):
+                updated["excerpts"] = detail["excerpts"][:3]
+            if detail.get("provenance"):
+                updated["provenance_count"] = len(detail["provenance"])
+            decorated.append(updated)
+        return decorated
+
+    def _packet_evidence(
+        self,
+        items: list[dict[str, Any]],
+        detail_map: dict[str, dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Build evidence excerpts from packet references and notes."""
+        evidence: list[dict[str, Any]] = []
+        for item in items:
+            content_id = str(item.get("id", ""))
+            if not content_id:
+                continue
+            detail = detail_map.get(content_id, {})
+            title = str(item.get("title", content_id))
+            source_type = str(item.get("type", "note"))
+            excerpts = list(detail.get("excerpts", []))
+            if excerpts:
+                for excerpt in excerpts[:2]:
+                    evidence.append(
+                        {
+                            "content_id": content_id,
+                            "title": title,
+                            "source_type": source_type,
+                            "text": excerpt,
+                            "locator": "excerpts",
+                        }
+                    )
+                continue
+            summary = detail.get("summary")
+            if summary:
+                evidence.append(
+                    {
+                        "content_id": content_id,
+                        "title": title,
+                        "source_type": source_type,
+                        "text": str(summary),
+                        "locator": "summary",
+                    }
+                )
+        return evidence
+
+    def _packet_links(
+        self,
+        packet_ids: set[str],
+        detail_map: dict[str, dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Extract supporting and conflicting typed links across packet items."""
+        supporting_types = {"relates", "supports", "supersedes", "implements"}
+        conflict_types = {"contradicts", "opposes", "conflicts"}
+        supporting: list[dict[str, Any]] = []
+        conflicts: list[dict[str, Any]] = []
+        seen: set[tuple[str, str, str, str]] = set()
+
+        def _append_link(
+            source_id: str,
+            target_id: str,
+            edge_type: str,
+            direction: str,
+        ) -> None:
+            key = (source_id, target_id, edge_type, direction)
+            if key in seen or target_id not in packet_ids:
+                return
+            seen.add(key)
+            payload = {
+                "source_id": source_id,
+                "target_id": target_id,
+                "edge_type": edge_type,
+                "direction": direction,
+            }
+            if edge_type in supporting_types:
+                supporting.append(payload)
+            if edge_type in conflict_types:
+                conflicts.append(payload)
+
+        for source_id, detail in detail_map.items():
+            if source_id not in packet_ids:
+                continue
+            for link in detail.get("links_out", []):
+                _append_link(
+                    source_id,
+                    str(link.get("id", "")),
+                    str(link.get("edge_type", "relates")),
+                    "outgoing",
+                )
+            for link in detail.get("links_in", []):
+                _append_link(
+                    str(link.get("id", "")),
+                    source_id,
+                    str(link.get("edge_type", "relates")),
+                    "incoming",
+                )
+        return supporting, conflicts
+
+    def _stale_topic_items(
+        self,
+        topic: str,
+        warnings: list[str],
+    ) -> list[dict[str, Any]]:
+        """Find older topic items that should be revisited."""
+        try:
+            from ztlctl.services.query import QueryService
+
+            result = QueryService(self._vault).list_items(topic=topic, limit=20)
+            if not result.ok:
+                return []
+            items = list(result.data.get("items", []))
+            items.sort(key=lambda item: str(item.get("modified", "")))
+            stale: list[dict[str, Any]] = []
+            for item in items:
+                age_days = self._age_days(item.get("modified"))
+                if age_days < 14:
+                    continue
+                stale.append({**item, "stale_days": round(age_days, 1)})
+            return stale[:5]
+        except Exception:
+            warnings.append("Failed to build stale topic items")
+            return []
+
+    def _packet_ranking_explanations(
+        self,
+        *collections: list[dict[str, Any]],
+    ) -> dict[str, dict[str, Any]]:
+        """Collect ranking explanations from packet item collections."""
+        explanations: dict[str, dict[str, Any]] = {}
+        for items in collections:
+            for item in items:
+                item_id = str(item.get("id", ""))
+                ranking = item.get("ranking")
+                if item_id and isinstance(ranking, dict):
+                    explanations[item_id] = ranking
+        return explanations
+
+    def _suggested_actions(
+        self,
+        topic: str,
+        *,
+        mode: str,
+        notes: list[dict[str, Any]],
+        references: list[dict[str, Any]],
+        decisions: list[dict[str, Any]],
+        tasks: list[dict[str, Any]],
+        stale_items: list[dict[str, Any]],
+        bridge_candidates: list[dict[str, Any]],
+        conflicts: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Generate follow-up actions from packet structure."""
+        actions: list[dict[str, Any]] = []
+        if references and not notes:
+            actions.append(
+                {
+                    "type": "note",
+                    "title": f"Synthesize notes for {topic}",
+                    "rationale": (
+                        "There are references for this topic but little durable synthesis."
+                    ),
+                    "related_ids": [str(item.get("id", "")) for item in references[:3]],
+                }
+            )
+        if not decisions and mode == "decision":
+            actions.append(
+                {
+                    "type": "decision",
+                    "title": f"Draft a decision for {topic}",
+                    "rationale": "The packet surfaced evidence but no recorded decision.",
+                    "related_ids": [str(item.get("id", "")) for item in notes[:2] + references[:2]],
+                }
+            )
+        if stale_items:
+            first_stale = stale_items[0]
+            actions.append(
+                {
+                    "type": "review",
+                    "title": f"Refresh {first_stale.get('title', topic)}",
+                    "rationale": "This item is stale enough to revisit during enrichment.",
+                    "related_ids": [str(first_stale.get("id", ""))],
+                }
+            )
+        if bridge_candidates:
+            actions.append(
+                {
+                    "type": "link",
+                    "title": f"Review bridge candidates for {topic}",
+                    "rationale": "Bridge-like items may connect this topic to nearby clusters.",
+                    "related_ids": [str(item.get("id", "")) for item in bridge_candidates[:3]],
+                }
+            )
+        if conflicts:
+            actions.append(
+                {
+                    "type": "note",
+                    "title": f"Resolve conflicting evidence in {topic}",
+                    "rationale": "Conflicting links suggest the topic needs explicit synthesis.",
+                    "related_ids": [str(link.get("source_id", "")) for link in conflicts[:3]],
+                }
+            )
+        if mode == "review" and not tasks:
+            actions.append(
+                {
+                    "type": "task",
+                    "title": f"Create review task for {topic}",
+                    "rationale": "The topic has review signals but no explicit task queue.",
+                    "related_ids": [str(item.get("id", "")) for item in stale_items[:2]],
+                }
+            )
+        return actions
+
+    @staticmethod
+    def _packet_provenance_from_details(
+        detail_map: dict[str, dict[str, Any]],
+        packet_ids: set[str],
+    ) -> dict[str, list[str]]:
+        """Build a simple provenance map for packet items."""
+        provenance: dict[str, list[str]] = {}
+        for content_id in packet_ids:
+            detail = detail_map.get(content_id, {})
+            entries: list[str] = []
+            if detail.get("path"):
+                entries.append(f"Path: {detail['path']}")
+            for item in detail.get("provenance", []):
+                if item:
+                    entries.append(str(item))
+            provenance[content_id] = entries
         return provenance
+
+    @staticmethod
+    def _age_days(timestamp: Any) -> float:
+        """Compute age in days from an ISO timestamp-like value."""
+        if timestamp is None:
+            return 0.0
+        from datetime import UTC, datetime
+
+        try:
+            dt = datetime.fromisoformat(str(timestamp))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+        except ValueError:
+            return 0.0
+        return max((datetime.now(UTC) - dt).total_seconds() / 86400, 0.0)

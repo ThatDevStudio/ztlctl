@@ -252,3 +252,41 @@ class TestGraphRankCLI:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
+
+    def test_search_rank_by_review_cli(self, cli_runner: CliRunner) -> None:
+        _seed_via_cli(cli_runner)
+        result = cli_runner.invoke(
+            cli, ["--json", "query", "search", "Note", "--rank-by", "review"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+
+
+@pytest.mark.usefixtures("_isolated_vault")
+class TestDraftCommand:
+    def test_query_draft_returns_body(self, cli_runner: CliRunner) -> None:
+        cli_runner.invoke(cli, ["create", "note", "Draft Note", "--topic", "architecture"])
+        cli_runner.invoke(
+            cli,
+            [
+                "create",
+                "reference",
+                "Draft Ref",
+                "--url",
+                "https://example.com",
+                "--topic",
+                "architecture",
+            ],
+        )
+
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "query", "draft", "--topic", "architecture", "--target", "note"],
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
+        assert data["data"]["target"] == "note"
+        assert "## Evidence" in data["data"]["body"]

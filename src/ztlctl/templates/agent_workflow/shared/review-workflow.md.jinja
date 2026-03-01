@@ -1,6 +1,9 @@
 # Review Workflow
 
 - Use `vault_review` for the default review path. It already aggregates overview, recent activity, work queue, themes, gaps, bridges, stale seeds, orphan notes, and important items.
+- Use `topic_packet` with `mode="review"` when the user wants a conversational, topic-scoped review bundle.
+- Use `draft_from_topic` when review findings should become a note, task, or decision draft before any write happens.
+- Read `ztlctl://review/dashboard`, `ztlctl://garden/backlog`, and `ztlctl://decision-queue` when the MCP client supports resources.
 - Use `decision_support` when the user needs evidence around a single topic or decision.
 - Recommend concrete actions after review:
   - notes to create

@@ -11,8 +11,11 @@ from ztlctl.infrastructure.vault import Vault
 from ztlctl.mcp.resources import (
     agent_reference_impl,
     context_impl,
+    decision_queue_impl,
+    garden_backlog_impl,
     overview_impl,
     resource_catalog,
+    review_dashboard_impl,
     self_identity_impl,
     self_methodology_impl,
     topics_impl,
@@ -76,6 +79,19 @@ class TestResources:
         result = work_queue_impl(vault)
         assert "items" in result
 
+    def test_review_dashboard_returns_data(self, vault: Vault):
+        result = review_dashboard_impl(vault)
+        assert isinstance(result, dict)
+
+    def test_garden_backlog_returns_data(self, vault: Vault):
+        result = garden_backlog_impl(vault)
+        assert "items" in result
+
+    def test_decision_queue_returns_sections(self, vault: Vault):
+        result = decision_queue_impl(vault)
+        assert "decisions" in result
+        assert "work_queue" in result
+
     def test_topics_lists_directories(self, vault: Vault):
         (vault.root / "notes" / "math").mkdir()
         (vault.root / "notes" / "physics").mkdir()
@@ -98,8 +114,8 @@ class TestResources:
 class TestResourceCatalog:
     """Tests for resource catalog completeness."""
 
-    def test_catalog_has_7_resources(self):
-        assert len(resource_catalog()) == 7
+    def test_catalog_has_10_resources(self):
+        assert len(resource_catalog()) == 10
 
     def test_agent_reference_in_catalog(self):
         uris = {r["uri"] for r in resource_catalog()}

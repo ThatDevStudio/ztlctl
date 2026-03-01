@@ -321,11 +321,13 @@ class ExportService(BaseService):
         *,
         viewer: Literal["obsidian", "vanilla"] = "obsidian",
     ) -> ServiceResult:
-        """Export a viewer-friendly dashboard plus JSON review indexes."""
+        """Export a viewer-friendly dashboard plus review and dossier artifacts."""
         from ztlctl.services.query import QueryService
 
         output_dir = output_dir.resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
+        topics_dir = output_dir / "topics"
+        topics_dir.mkdir(parents=True, exist_ok=True)
 
         query = QueryService(self._vault)
         export_cfg = self._vault.settings.exports.dashboard
@@ -367,6 +369,9 @@ class ExportService(BaseService):
             {"topic": topic, "count": count}
             for topic, count in sorted(by_topic.items(), key=lambda item: (-item[1], item[0]))
         ]
+        dossier_topics = [
+            str(summary["topic"]) for summary in topic_summaries if summary["topic"] != "unscoped"
+        ][: export_cfg.topic_dossier_limit]
 
         files_created: list[str] = []
 
@@ -411,10 +416,24 @@ class ExportService(BaseService):
                     ),
                 ]
             )
+        dashboard_sections.extend(
+            [
+                "",
+                "## Review Queue",
+                f"- Gaps: {len(review_data.get('gaps', []))}",
+                f"- Bridges: {len(review_data.get('bridges', []))}",
+                f"- Stale Seeds: {len(review_data.get('stale_seeds', []))}",
+                f"- Orphan Notes: {len(review_data.get('orphan_notes', []))}",
+            ]
+        )
         topic_lines = [
             f"- {summary['topic']}: {summary['count']}" for summary in topic_summaries[:10]
         ] or ["- No recent topic activity."]
         dashboard_sections.extend(["", "## Topic Review Summary", *topic_lines])
+        dossier_lines = [
+            f"- {self._topic_dossier_link(topic, viewer=viewer)}" for topic in dossier_topics
+        ] or ["- No scoped topics available for dossier export."]
+        dashboard_sections.extend(["", "## Topic Dossiers", *dossier_lines])
         dashboard_path.write_text("\n".join(dashboard_sections) + "\n", encoding="utf-8")
         files_created.append("dashboard.md")
 
@@ -437,11 +456,37 @@ class ExportService(BaseService):
             )
             files_created.append("garden-backlog.json")
 
+        (output_dir / "review-queue.json").write_text(
+            json.dumps(review_data, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        files_created.append("review-queue.json")
+
+        (output_dir / "decision-queue.json").write_text(
+            json.dumps({"items": recent_decisions, "work_queue": work_queue}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        files_created.append("decision-queue.json")
+
         (output_dir / "topic-review-summary.json").write_text(
             json.dumps({"items": topic_summaries}, indent=2) + "\n",
             encoding="utf-8",
         )
         files_created.append("topic-review-summary.json")
+
+        for topic in dossier_topics:
+            packet_result = query.topic_packet(topic, mode="review", budget=5000)
+            packet = packet_result.data if packet_result.ok else {"topic": topic}
+            slug = self._topic_slug(topic)
+            dossier_md = topics_dir / f"{slug}.md"
+            dossier_json = topics_dir / f"{slug}.json"
+            dossier_md.write_text(
+                self._topic_dossier_markdown(topic, packet, viewer=viewer),
+                encoding="utf-8",
+            )
+            dossier_json.write_text(json.dumps(packet, indent=2) + "\n", encoding="utf-8")
+            files_created.append(str(dossier_md.relative_to(output_dir)))
+            files_created.append(str(dossier_json.relative_to(output_dir)))
 
         return ServiceResult(
             ok=True,
@@ -472,14 +517,104 @@ class ExportService(BaseService):
             title = str(item.get("title", item_id))
             status = str(item.get("status", ""))
             topic = str(item.get("topic") or "")
-            if viewer == "obsidian":
-                label = f"[[{item_id}]] {title}"
-            else:
-                label = f"{item_id} - {title}"
+            label = ExportService._viewer_item_label(item_id, title, viewer=viewer)
             suffix_parts = [part for part in (status, topic) if part]
             suffix = f" ({', '.join(suffix_parts)})" if suffix_parts else ""
             lines.append(f"- {label}{suffix}")
         return lines
+
+    @staticmethod
+    def _viewer_item_label(
+        item_id: str,
+        title: str,
+        *,
+        viewer: Literal["obsidian", "vanilla"],
+    ) -> str:
+        """Render an item label appropriate for the target viewer."""
+        if viewer == "obsidian":
+            return f"[[{item_id}]] {title}"
+        return f"{item_id} - {title}"
+
+    @staticmethod
+    def _topic_slug(topic: str) -> str:
+        """Normalize a topic into a filename-safe slug."""
+        safe = "".join(ch.lower() if ch.isalnum() else "-" for ch in topic.strip())
+        while "--" in safe:
+            safe = safe.replace("--", "-")
+        return safe.strip("-") or "topic"
+
+    @classmethod
+    def _topic_dossier_link(
+        cls,
+        topic: str,
+        *,
+        viewer: Literal["obsidian", "vanilla"],
+    ) -> str:
+        """Render a dashboard link to a topic dossier."""
+        slug = cls._topic_slug(topic)
+        if viewer == "obsidian":
+            return f"[[topics/{slug}|{topic} dossier]]"
+        return f"[{topic} dossier](topics/{slug}.md)"
+
+    @classmethod
+    def _topic_dossier_markdown(
+        cls,
+        topic: str,
+        packet: dict[str, Any],
+        *,
+        viewer: Literal["obsidian", "vanilla"],
+    ) -> str:
+        """Render a markdown topic dossier from a packet payload."""
+        lines = [
+            f"# Topic Dossier: {topic}",
+            "",
+            f"- Mode: {packet.get('mode', 'review')}",
+            f"- Budget: {packet.get('budget', 0)}",
+            "",
+            "## Suggested Actions",
+        ]
+        actions = packet.get("suggested_actions", [])
+        if actions:
+            for action in actions[:8]:
+                lines.append(f"- {action.get('title')}: {action.get('rationale')}")
+        else:
+            lines.append("- No suggested actions.")
+
+        lines.extend(["", "## Evidence"])
+        evidence = packet.get("evidence", [])
+        if evidence:
+            for item in evidence[:10]:
+                lines.append(f"- {item.get('title')}: {item.get('text')}")
+        else:
+            lines.append("- No evidence excerpts.")
+
+        lines.extend(["", "## Stale Items"])
+        stale_items = packet.get("stale_items", [])
+        if stale_items:
+            for item in stale_items[:10]:
+                label = cls._viewer_item_label(
+                    str(item.get("id", "")),
+                    str(item.get("title", item.get("id", ""))),
+                    viewer=viewer,
+                )
+                lines.append(f"- {label}")
+        else:
+            lines.append("- No stale items.")
+
+        lines.extend(["", "## Bridge Candidates"])
+        bridge_candidates = packet.get("bridge_candidates", [])
+        if bridge_candidates:
+            for item in bridge_candidates[:10]:
+                label = cls._viewer_item_label(
+                    str(item.get("id", "")),
+                    str(item.get("title", item.get("id", ""))),
+                    viewer=viewer,
+                )
+                lines.append(f"- {label}")
+        else:
+            lines.append("- No bridge candidates.")
+
+        return "\n".join(lines).strip() + "\n"
 
     def _select_filtered_node_rows(
         self,

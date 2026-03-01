@@ -229,7 +229,10 @@ _TOOL_CATALOG: tuple[ToolCatalogEntry, ...] = (
             "content_type": "Optional filter such as note, reference, task, or log.",
             "tag": "Optional tag filter.",
             "space": "Optional space filter if the vault uses spaces.",
-            "rank_by": "Ranking mode such as relevance, recency, graph, semantic, or hybrid.",
+            "rank_by": (
+                "Ranking mode such as relevance, recency, graph, semantic, hybrid, "
+                "review, or garden."
+            ),
             "limit": "Maximum number of results to return.",
         },
     ),
@@ -437,6 +440,15 @@ _TOOL_CATALOG: tuple[ToolCatalogEntry, ...] = (
             "topic": "Optional topic directory under notes/.",
             "tags": "Optional tags applied to the created artifact.",
             "summary": "Optional capture summary hint for the created reference.",
+            "source_kind": "Optional source classification such as web, pdf, image, or audio.",
+            "modalities": "Optional list of evidence modalities captured by the agent.",
+            "capture_agent": "Agent or tool name that performed the acquisition.",
+            "capture_method": "Short note about how the content was captured or extracted.",
+            "citations": "Optional citation strings preserved with the captured reference.",
+            "excerpts": "Optional excerpt strings preserved as evidence snippets.",
+            "artifacts": (
+                "Optional artifact metadata for original files, screenshots, transcripts, or media."
+            ),
             "dry_run": "Set true to preview normalized capture without writing files.",
         },
     ),
@@ -465,6 +477,20 @@ _TOOL_CATALOG: tuple[ToolCatalogEntry, ...] = (
             "topic": "Topic name or query anchor for the packet.",
             "mode": "Packet mode: learn, review, or decision.",
             "budget": "Approximate token budget for assembled results.",
+        },
+    ),
+    _tool_entry(
+        name="draft_from_topic",
+        category="query",
+        description="Generate a note, task, or decision draft from a topic packet.",
+        when_to_use="You want a durable draft derived from topic evidence and review signals.",
+        avoid_when="You only need the packet itself and are not drafting a next artifact yet.",
+        side_effect="read",
+        args_guidance={
+            "topic": "Topic name or query anchor for the draft context.",
+            "target": "Draft target type: note, task, or decision.",
+            "mode": "Packet mode used to gather evidence before drafting.",
+            "budget": "Approximate token budget for packet assembly before drafting.",
         },
     ),
 )
@@ -737,6 +763,13 @@ def ingest_source_impl(
     session: str | None = None,
     provider: str | None = None,
     summary: str | None = None,
+    source_kind: str | None = None,
+    modalities: list[str] | None = None,
+    capture_agent: str | None = None,
+    capture_method: str | None = None,
+    citations: list[str] | None = None,
+    excerpts: list[str] | None = None,
+    artifacts: list[dict[str, Any]] | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Ingest normalized text, file, or URL content into the vault."""
@@ -756,6 +789,13 @@ def ingest_source_impl(
             tags=tags,
             session=session,
             summary=summary,
+            source_kind=source_kind,
+            modalities=modalities,
+            capture_agent=capture_agent,
+            capture_method=capture_method,
+            citations=citations,
+            excerpts=excerpts,
+            artifacts=artifacts,
             dry_run=dry_run,
         )
         return _to_mcp_response(result)
@@ -768,6 +808,13 @@ def ingest_source_impl(
             tags=tags,
             session=session,
             summary=summary,
+            source_kind=source_kind,
+            modalities=modalities,
+            capture_agent=capture_agent,
+            capture_method=capture_method,
+            citations=citations,
+            excerpts=excerpts,
+            artifacts=artifacts,
             dry_run=dry_run,
         )
         return _to_mcp_response(result)
@@ -781,6 +828,13 @@ def ingest_source_impl(
             tags=tags,
             session=session,
             summary=summary,
+            source_kind=source_kind,
+            modalities=modalities,
+            capture_agent=capture_agent,
+            capture_method=capture_method,
+            citations=citations,
+            excerpts=excerpts,
+            artifacts=artifacts,
             dry_run=dry_run,
         )
         return _to_mcp_response(result)
@@ -1018,6 +1072,21 @@ def topic_packet_impl(
     return _to_mcp_response(result)
 
 
+def draft_from_topic_impl(
+    vault: Any,
+    *,
+    topic: str,
+    target: str = "note",
+    mode: str = "learn",
+    budget: int = 4000,
+) -> dict[str, Any]:
+    """Generate a draft from a topic packet."""
+    from ztlctl.services.query import QueryService
+
+    result = QueryService(vault).draft_from_topic(topic, target=target, mode=mode, budget=budget)
+    return _to_mcp_response(result)
+
+
 def work_queue_impl(
     vault: Any,
     *,
@@ -1223,6 +1292,13 @@ def register_tools(server: Any, vault: Any) -> None:
         session: str | None = None,
         provider: str | None = None,
         summary: str | None = None,
+        source_kind: str | None = None,
+        modalities: list[str] | None = None,
+        capture_agent: str | None = None,
+        capture_method: str | None = None,
+        citations: list[str] | None = None,
+        excerpts: list[str] | None = None,
+        artifacts: list[dict[str, Any]] | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
         return ingest_source_impl(
@@ -1236,6 +1312,13 @@ def register_tools(server: Any, vault: Any) -> None:
             session=session,
             provider=provider,
             summary=summary,
+            source_kind=source_kind,
+            modalities=modalities,
+            capture_agent=capture_agent,
+            capture_method=capture_method,
+            citations=citations,
+            excerpts=excerpts,
+            artifacts=artifacts,
             dry_run=dry_run,
         )
 
@@ -1329,6 +1412,14 @@ def register_tools(server: Any, vault: Any) -> None:
     ) -> dict[str, Any]:
         return topic_packet_impl(vault, topic=topic, mode=mode, budget=budget)
 
+    def draft_from_topic(
+        topic: str,
+        target: str = "note",
+        mode: str = "learn",
+        budget: int = 4000,
+    ) -> dict[str, Any]:
+        return draft_from_topic_impl(vault, topic=topic, target=target, mode=mode, budget=budget)
+
     def decision_support(
         topic: str | None = None,
         space: str | None = None,
@@ -1376,6 +1467,7 @@ def register_tools(server: Any, vault: Any) -> None:
         list_items,
         work_queue,
         topic_packet,
+        draft_from_topic,
         decision_support,
         vault_review,
         graph_themes,

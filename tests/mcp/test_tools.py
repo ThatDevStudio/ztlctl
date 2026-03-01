@@ -18,6 +18,7 @@ from ztlctl.mcp.tools import (
     decision_support_impl,
     describe_tool_impl,
     discover_tools_impl,
+    draft_from_topic_impl,
     garden_seed_impl,
     get_document_impl,
     get_related_impl,
@@ -156,6 +157,12 @@ class TestCreateTools:
         assert resp["ok"] is True
         assert resp["op"] == "topic_packet"
 
+    def test_draft_from_topic_returns_ok(self, vault: Vault):
+        create_note_impl(vault, "Topic Note", topic="architecture")
+        resp = draft_from_topic_impl(vault, topic="architecture", target="note")
+        assert resp["ok"] is True
+        assert resp["op"] == "draft_from_topic"
+
 
 # ---------------------------------------------------------------------------
 # Tests — Catalog completeness
@@ -191,8 +198,8 @@ class TestCatalogCompleteness:
         for tool in tool_catalog():
             assert "args_guidance" in tool, f"{tool['name']} missing args_guidance"
 
-    def test_catalog_has_29_tools(self):
-        assert len(tool_catalog()) == 29
+    def test_catalog_has_30_tools(self):
+        assert len(tool_catalog()) == 30
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +214,7 @@ class TestDiscoveryTools:
         resp = discover_tools_impl(vault)
         assert resp["ok"] is True
         assert resp["op"] == "discover_tools"
-        assert resp["data"]["count"] == 29
+        assert resp["data"]["count"] == 30
         categories = {entry["name"] for entry in resp["data"]["categories"]}
         assert "discovery" in categories
         assert "creation" in categories

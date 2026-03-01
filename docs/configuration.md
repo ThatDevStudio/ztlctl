@@ -70,6 +70,7 @@ transport = "stdio"
 include_work_queue = true
 include_recent_decisions = true
 include_garden_backlog = true
+topic_dossier_limit = 5
 ```
 
 ## Environment Variables
@@ -87,3 +88,4 @@ Nested keys use double underscores (`__`) as separators.
 
 - `vault.client = "obsidian"` does not mean ztlctl owns your full `.obsidian/` state. It is a viewer preference used by templates and workflow exports.
 - URL ingestion is provider-backed. Base ztlctl supports text and markdown ingestion directly; remote fetching comes from installed source-provider plugins.
+- Dashboard export writes markdown and JSON workbench artifacts, including topic dossiers, but it still avoids mutating `.obsidian/*`.

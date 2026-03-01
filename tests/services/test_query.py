@@ -313,8 +313,38 @@ class TestTopicPacket:
         assert "references" in result.data
         assert "decisions" in result.data
         assert "tasks" in result.data
+        assert "evidence" in result.data
+        assert "supporting_links" in result.data
+        assert "conflicts" in result.data
+        assert "suggested_actions" in result.data
+        assert "ranking_explanations" in result.data
         assert "graph_adjacent" in result.data
         assert "provenance" in result.data
+        assert "provenance_map" in result.data
+
+    def test_search_review_mode_attaches_ranking_explanations(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        svc.create_note("Review Candidate", topic="architecture", body="architecture review body")
+
+        result = QueryService(vault).search("architecture", rank_by="review")
+
+        assert result.ok
+        assert result.data["items"]
+        ranking = result.data["items"][0]["ranking"]
+        assert ranking["mode"] == "review"
+        assert "signals" in ranking
+
+    def test_draft_from_topic_returns_structured_draft(self, vault: Vault) -> None:
+        svc = CreateService(vault)
+        svc.create_note("Packet Note", topic="architecture", body="Useful packet summary")
+        svc.create_reference("Packet Ref", topic="architecture", url="https://example.com")
+
+        result = QueryService(vault).draft_from_topic("architecture", target="note", mode="learn")
+
+        assert result.ok
+        assert result.data["target"] == "note"
+        assert result.data["topic"] == "architecture"
+        assert "## Evidence" in result.data["body"]
 
     def test_filter_by_subtype_no_match(self, vault: Vault) -> None:
         _seed_notes(vault)

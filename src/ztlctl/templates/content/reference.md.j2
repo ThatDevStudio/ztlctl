@@ -38,6 +38,18 @@
 {% if source_type is defined and source_type %}
 - Source Type: {{ source_type }}
 {% endif %}
+{% if source_kind is defined and source_kind %}
+- Source Kind: {{ source_kind }}
+{% endif %}
+{% if modalities is defined and modalities %}
+- Modalities: {{ modalities | join(', ') }}
+{% endif %}
+{% if capture_agent is defined and capture_agent %}
+- Capture Agent: {{ capture_agent }}
+{% endif %}
+{% if capture_method is defined and capture_method %}
+- Capture Method: {{ capture_method }}
+{% endif %}
 {% if retrieved_at is defined and retrieved_at %}
 - Retrieved At: {{ retrieved_at }}
 {% endif %}
@@ -50,5 +62,15 @@
 {% if provenance is defined and provenance %}
 {% for item in provenance %}
 - {{ item }}
+{% endfor %}
+{% endif %}
+{% if citations is defined and citations %}
+{% for citation in citations %}
+- Citation: {{ citation }}
+{% endfor %}
+{% endif %}
+{% if artifacts is defined and artifacts %}
+{% for artifact in artifacts %}
+- Artifact{% if artifact.label is defined and artifact.label %} {{ artifact.label }}{% endif %}{% if artifact.kind is defined and artifact.kind %} ({{ artifact.kind }}){% endif %}{% if artifact.uri is defined and artifact.uri %}: {{ artifact.uri }}{% endif %}
 {% endfor %}
 {% endif %}

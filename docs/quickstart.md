@@ -5,7 +5,7 @@ nav_order: 3
 
 # Quick Start
 
-Get a knowledge vault running in 9 commands:
+Get a knowledge vault running in 10 commands:
 
 ```bash
 # 1. Initialize a new vault
@@ -36,7 +36,10 @@ ztlctl reweave --auto-link-related
 # 8. Search your knowledge
 ztlctl query search "async patterns" --rank-by relevance
 
-# 9. Close the session when done
+# 9. Build a review packet
+ztlctl query packet --topic architecture --mode review
+
+# 10. Close the session when done
 ztlctl agent session close --summary "Mapped async patterns, identified refactoring task"
 ```
 

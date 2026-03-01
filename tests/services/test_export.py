@@ -424,7 +424,11 @@ class TestExportDashboard:
         assert (output / "work-queue.json").is_file()
         assert (output / "recent-decisions.json").is_file()
         assert (output / "garden-backlog.json").is_file()
+        assert (output / "review-queue.json").is_file()
+        assert (output / "decision-queue.json").is_file()
         assert (output / "topic-review-summary.json").is_file()
+        assert (output / "topics" / "architecture.md").is_file()
+        assert (output / "topics" / "architecture.json").is_file()
 
     def test_dashboard_export_obsidian_uses_wikilinks(self, vault: Vault, tmp_path: Path) -> None:
         from tests.conftest import create_task

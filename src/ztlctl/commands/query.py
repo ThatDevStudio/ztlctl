@@ -20,7 +20,8 @@ _QUERY_EXAMPLES = """\
   ztlctl query list --space ops --sort priority --limit 10
   ztlctl query work-queue --space ops
   ztlctl query decision-support --topic architecture
-  ztlctl query packet --topic architecture --mode learn"""
+  ztlctl query packet --topic architecture --mode learn
+  ztlctl query draft --topic architecture --target note"""
 
 
 @click.group(cls=ZtlGroup, examples=_QUERY_EXAMPLES)
@@ -48,7 +49,7 @@ def query(app: AppContext) -> None:
 )
 @click.option(
     "--rank-by",
-    type=click.Choice(["relevance", "recency", "graph", "semantic", "hybrid"]),
+    type=click.Choice(["relevance", "recency", "graph", "semantic", "hybrid", "review", "garden"]),
     default="relevance",
     help="Ranking mode.",
 )
@@ -219,3 +220,34 @@ def decision_support(app: AppContext, topic: str | None, space: str | None) -> N
 def packet(app: AppContext, topic: str, mode: str, budget: int) -> None:
     """Build a topic packet for learning, review, or decision support."""
     app.emit(QueryService(app.vault).topic_packet(topic, mode=mode, budget=budget))
+
+
+@query.command(
+    name="draft",
+    examples="""\
+  ztlctl query draft --topic architecture --target note
+  ztlctl query draft --topic auth --mode review --target task
+  ztlctl --json query draft --topic search --mode decision --target decision""",
+)
+@click.option("--topic", required=True, help="Topic to draft from.")
+@click.option(
+    "--target",
+    type=click.Choice(["note", "task", "decision"]),
+    default="note",
+    show_default=True,
+    help="Draft target type.",
+)
+@click.option(
+    "--mode",
+    type=click.Choice(["learn", "review", "decision"]),
+    default="learn",
+    show_default=True,
+    help="Packet mode used to build the draft context.",
+)
+@click.option("--budget", type=int, default=4000, show_default=True, help="Token budget.")
+@click.pass_obj
+def draft(app: AppContext, topic: str, target: str, mode: str, budget: int) -> None:
+    """Build a note, task, or decision draft from a topic packet."""
+    app.emit(
+        QueryService(app.vault).draft_from_topic(topic, target=target, mode=mode, budget=budget)
+    )

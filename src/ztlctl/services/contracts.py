@@ -32,6 +32,9 @@ class SearchItem(BaseModel):
     created: str
     modified: str
     score: float
+    topic: str | None = None
+    maturity: str | None = None
+    ranking: RankingExplanation | None = None
 
 
 class SearchResultData(BaseModel):
@@ -160,6 +163,72 @@ class ContextContentItem(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     id: str | None = None
+    title: str | None = None
+    type: str | None = None
+    subtype: str | None = None
+    status: str | None = None
+    path: str | None = None
+    topic: str | None = None
+    score: float | None = None
+    ranking: RankingExplanation | None = None
+
+
+class RankingExplanation(BaseModel):
+    """Why an item was selected or ranked highly."""
+
+    mode: str
+    reasons: list[str] = Field(default_factory=list)
+    signals: dict[str, float] = Field(default_factory=dict)
+
+
+class PacketLink(BaseModel):
+    """Typed relationship between packet items."""
+
+    source_id: str
+    target_id: str
+    edge_type: str
+    direction: Literal["outgoing", "incoming"]
+    note: str | None = None
+
+
+class EvidenceExcerpt(BaseModel):
+    """Excerpt or summary fragment used as evidence."""
+
+    content_id: str
+    title: str
+    source_type: str
+    text: str
+    locator: str | None = None
+
+
+class SuggestedAction(BaseModel):
+    """Follow-up action derived from a topic packet."""
+
+    type: Literal["note", "task", "decision", "link", "review"]
+    title: str
+    rationale: str
+    related_ids: list[str] = Field(default_factory=list)
+
+
+class DraftSourceItem(BaseModel):
+    """Source reference included in a generated draft."""
+
+    id: str
+    title: str
+    type: str
+    path: str | None = None
+
+
+class TopicDraftData(BaseModel):
+    """Payload contract for draft generation from a topic packet."""
+
+    topic: str
+    mode: Literal["learn", "review", "decision"]
+    target: Literal["note", "task", "decision"]
+    title: str
+    body: str
+    sources: list[DraftSourceItem] = Field(default_factory=list)
+    packet: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentContextLayers(BaseModel):
@@ -290,8 +359,14 @@ class IngestPreviewData(BaseModel):
     title: str
     body_preview: str
     provider: str | None = None
+    source_kind: str | None = None
+    modalities: list[str] = Field(default_factory=list)
+    capture_agent: str | None = None
+    capture_method: str | None = None
     provenance: list[str] = Field(default_factory=list)
     key_points: list[str] = Field(default_factory=list)
+    citations: list[str] = Field(default_factory=list)
+    excerpts: list[str] = Field(default_factory=list)
 
 
 class IngestResultData(BaseModel):
@@ -304,6 +379,20 @@ class IngestResultData(BaseModel):
     input_kind: str
     provider: str | None = None
     dry_run: bool = False
+    source_kind: str | None = None
+    modalities: list[str] = Field(default_factory=list)
+    capture_agent: str | None = None
+    capture_method: str | None = None
+
+
+class SourceArtifactItem(BaseModel):
+    """Agent-supplied source artifact metadata."""
+
+    kind: str
+    label: str | None = None
+    uri: str | None = None
+    mime_type: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class TopicPacketData(BaseModel):
@@ -317,7 +406,15 @@ class TopicPacketData(BaseModel):
     references: list[ContextContentItem] = Field(default_factory=list)
     decisions: list[ContextContentItem] = Field(default_factory=list)
     tasks: list[ContextContentItem] = Field(default_factory=list)
+    evidence: list[EvidenceExcerpt] = Field(default_factory=list)
     graph_adjacent: list[ContextContentItem] = Field(default_factory=list)
     gaps: list[ContextContentItem] = Field(default_factory=list)
     bridges: list[ContextContentItem] = Field(default_factory=list)
+    bridge_candidates: list[ContextContentItem] = Field(default_factory=list)
+    stale_items: list[ContextContentItem] = Field(default_factory=list)
+    supporting_links: list[PacketLink] = Field(default_factory=list)
+    conflicts: list[PacketLink] = Field(default_factory=list)
+    suggested_actions: list[SuggestedAction] = Field(default_factory=list)
+    ranking_explanations: dict[str, RankingExplanation] = Field(default_factory=dict)
     provenance: dict[str, list[str]] = Field(default_factory=dict)
+    provenance_map: dict[str, list[str]] = Field(default_factory=dict)

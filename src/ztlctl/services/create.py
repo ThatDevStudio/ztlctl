@@ -110,6 +110,12 @@ class CreateService(BaseService):
         provenance: list[str] | None = None,
         source_provider: str | None = None,
         source_type: str | None = None,
+        source_kind: str | None = None,
+        modalities: list[str] | None = None,
+        capture_agent: str | None = None,
+        capture_method: str | None = None,
+        citations: list[str] | None = None,
+        artifacts: list[dict[str, Any]] | None = None,
         retrieved_at: str | None = None,
         content_hash: str | None = None,
         language: str | None = None,
@@ -139,6 +145,18 @@ class CreateService(BaseService):
             extra["source_provider"] = source_provider
         if source_type is not None:
             extra["source_type"] = source_type
+        if source_kind is not None:
+            extra["source_kind"] = source_kind
+        if modalities is not None:
+            extra["modalities"] = modalities
+        if capture_agent is not None:
+            extra["capture_agent"] = capture_agent
+        if capture_method is not None:
+            extra["capture_method"] = capture_method
+        if citations is not None:
+            extra["citations"] = citations
+        if artifacts is not None:
+            extra["artifacts"] = artifacts
         if retrieved_at is not None:
             extra["retrieved_at"] = retrieved_at
         if content_hash is not None:

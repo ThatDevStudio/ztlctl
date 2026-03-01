@@ -1,7 +1,8 @@
 """MCP resource definitions — URI-based resources.
 
 URIs: ztlctl://context, ztlctl://self/identity, ztlctl://self/methodology,
-ztlctl://overview, ztlctl://work-queue, ztlctl://topics,
+ztlctl://overview, ztlctl://work-queue, ztlctl://review/dashboard,
+ztlctl://garden/backlog, ztlctl://decision-queue, ztlctl://topics,
 ztlctl://agent-reference.
 Each resource has a ``_<name>_impl`` function testable without the mcp package.
 (DESIGN.md Section 16)
@@ -20,6 +21,18 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
     {"uri": "ztlctl://self/methodology", "description": "The vault's methodology document."},
     {"uri": "ztlctl://overview", "description": "Vault overview with counts and recent items."},
     {"uri": "ztlctl://work-queue", "description": "Current work queue (scored task list)."},
+    {
+        "uri": "ztlctl://review/dashboard",
+        "description": "Review-oriented dashboard snapshot with work, gaps, and bridges.",
+    },
+    {
+        "uri": "ztlctl://garden/backlog",
+        "description": "Garden backlog focused on stale seeds and orphan notes.",
+    },
+    {
+        "uri": "ztlctl://decision-queue",
+        "description": "Recent decision notes and related review queue.",
+    },
     {"uri": "ztlctl://topics", "description": "List of topic directories in the vault."},
     {
         "uri": "ztlctl://agent-reference",
@@ -93,6 +106,52 @@ def work_queue_impl(vault: Any) -> dict[str, Any]:
     if result.ok:
         return result.data
     return {"items": [], "count": 0}
+
+
+def review_dashboard_impl(vault: Any) -> dict[str, Any]:
+    """Return a review-oriented enrichment dashboard payload."""
+    from ztlctl.services.query import QueryService
+
+    review = QueryService(vault).vault_review(top=10)
+    if review.ok:
+        return review.data
+    return {}
+
+
+def garden_backlog_impl(vault: Any) -> dict[str, Any]:
+    """Return stale and orphan items that make up the garden backlog."""
+    from ztlctl.services.query import QueryService
+
+    review = QueryService(vault).vault_review(top=10)
+    if not review.ok:
+        return {"items": [], "count": 0}
+
+    backlog = [
+        *review.data.get("stale_seeds", []),
+        *review.data.get("orphan_notes", []),
+    ]
+    seen: set[str] = set()
+    items: list[dict[str, Any]] = []
+    for item in backlog:
+        item_id = str(item.get("id", ""))
+        if not item_id or item_id in seen:
+            continue
+        seen.add(item_id)
+        items.append(item)
+    return {"items": items, "count": len(items)}
+
+
+def decision_queue_impl(vault: Any) -> dict[str, Any]:
+    """Return recent decision items plus the current work queue."""
+    from ztlctl.services.query import QueryService
+
+    svc = QueryService(vault)
+    decisions = svc.list_items(content_type="note", subtype="decision", sort="recency", limit=10)
+    work_queue = svc.work_queue()
+    return {
+        "decisions": decisions.data.get("items", []) if decisions.ok else [],
+        "work_queue": work_queue.data.get("items", []) if work_queue.ok else [],
+    }
 
 
 def topics_impl(vault: Any) -> list[str]:
@@ -172,6 +231,11 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
                 ),
                 "recommended_args": {"dry_run": True},
             },
+            {
+                "tool": "topic_packet",
+                "notes": "Use after capture to turn source material into a conversational bundle.",
+                "recommended_args": {"topic": "research-topic", "mode": "learn"},
+            },
         ],
         "research_session": [
             {
@@ -224,6 +288,11 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
                     "title": "New note",
                     "links": {"related": ["NOTE-0001"]},
                 },
+            },
+            {
+                "tool": "draft_from_topic",
+                "notes": "Draft a synthesis artifact once the topic packet is strong enough.",
+                "recommended_args": {"topic": "topic keywords", "target": "note"},
             },
         ],
         "vault_maintenance": [
@@ -323,6 +392,27 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(work_queue_impl(vault), indent=2)
+
+    @server.resource("ztlctl://review/dashboard")  # type: ignore[untyped-decorator]
+    def review_dashboard_resource() -> str:
+        """Review-oriented dashboard snapshot with work, gaps, and bridges."""
+        import json
+
+        return json.dumps(review_dashboard_impl(vault), indent=2)
+
+    @server.resource("ztlctl://garden/backlog")  # type: ignore[untyped-decorator]
+    def garden_backlog_resource() -> str:
+        """Garden backlog focused on stale seeds and orphan notes."""
+        import json
+
+        return json.dumps(garden_backlog_impl(vault), indent=2)
+
+    @server.resource("ztlctl://decision-queue")  # type: ignore[untyped-decorator]
+    def decision_queue_resource() -> str:
+        """Recent decision notes and related review queue."""
+        import json
+
+        return json.dumps(decision_queue_impl(vault), indent=2)
 
     @server.resource("ztlctl://topics")  # type: ignore[untyped-decorator]
     def topics_resource() -> str:

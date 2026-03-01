@@ -79,6 +79,12 @@ CANONICAL_KEY_ORDER: list[str] = [
     "canonical_url",
     "source_provider",
     "source_type",
+    "source_kind",
+    "modalities",
+    "capture_agent",
+    "capture_method",
+    "citations",
+    "artifacts",
     "retrieved_at",
     "content_hash",
     "language",
@@ -501,6 +507,12 @@ class ReferenceModel(ContentModel):
     canonical_url: str | None = None
     source_provider: str | None = None
     source_type: str | None = None
+    source_kind: str | None = None
+    modalities: list[str] = Field(default_factory=list)
+    capture_agent: str | None = None
+    capture_method: str | None = None
+    citations: list[str] = Field(default_factory=list)
+    artifacts: list[dict[str, Any]] = Field(default_factory=list)
     retrieved_at: str | None = None
     content_hash: str | None = None
     language: str | None = None

@@ -47,7 +47,7 @@ The intended call sequence is:
 | Discovery | `discover_tools`, `describe_tool`, `list_tags`, `list_source_providers` |
 | Creation | `create_note`, `create_reference`, `create_task`, `create_log`, `garden_seed`, `ingest_source` |
 | Lifecycle | `update_content`, `close_content`, `reweave` |
-| Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue`, `topic_packet` |
+| Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue`, `topic_packet`, `draft_from_topic` |
 | Analysis | `decision_support`, `vault_review` |
 | Graph | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
 | Session | `session_close`, `session_status` |
@@ -55,8 +55,10 @@ The intended call sequence is:
 Notable additions for agent workflows:
 
 - `ingest_source` normalizes text, files, and provider-backed URLs into notes or references
+- `ingest_source` can also preserve agent-supplied capture metadata such as modalities, excerpts, citations, and original artifacts
 - `list_source_providers` lets clients discover installed URL-ingestion providers
 - `topic_packet` assembles topic-scoped learning, review, and decision bundles
+- `draft_from_topic` turns a topic packet into a note, task, or decision draft without writing to the vault
 - `create_note` accepts authored `body`, `key_points`, `aliases`, and `links`
 - `create_reference` accepts `subtype` for `article`, `tool`, or `spec`
 - `vault_review` returns a review-ready aggregate snapshot
@@ -80,6 +82,9 @@ This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting file
 | `ztlctl://self/methodology` | Agent methodology document |
 | `ztlctl://overview` | Vault statistics and structure |
 | `ztlctl://work-queue` | Prioritized task list |
+| `ztlctl://review/dashboard` | Review-oriented dashboard snapshot |
+| `ztlctl://garden/backlog` | Stale/orphan garden backlog |
+| `ztlctl://decision-queue` | Recent decisions plus active work queue |
 | `ztlctl://topics` | Available topic directories |
 | `ztlctl://context` | Full assembled context |
 | `ztlctl://agent-reference` | Onboarding payload with tool guidance and workflow examples |
@@ -92,3 +97,6 @@ This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting file
 | `knowledge_capture` | Guided knowledge capture workflow |
 | `vault_orientation` | Orient to the current vault state |
 | `decision_record` | Record an architectural decision |
+| `topic_learn` | Gather and learn from a topic packet |
+| `topic_review` | Review a topic for stale and weakly connected knowledge |
+| `topic_decision` | Prepare a decision-ready topic packet and draft |
