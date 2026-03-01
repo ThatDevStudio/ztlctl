@@ -92,7 +92,8 @@ class TestSessionLifecycle:
         cost_result = svc.cost()
         assert cost_result.ok
         assert cost_result.data["total_cost"] == 800
-        assert cost_result.data["entry_count"] == 2
+        # session_start (cost=0) + 2 log entries = 3 rows
+        assert cost_result.data["entry_count"] == 3
 
         # Context assembly
         ctx = svc.context(topic="Architecture")

@@ -84,7 +84,7 @@ class TestMutationRenderer:
             "session_start",
             id="LOG-0001",
             topic="Research",
-            path="ops/logs/LOG-0001.jsonl",
+            path="ops/logs/LOG-0001",
             status="open",
         )
         output = render_result(result)

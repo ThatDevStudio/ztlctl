@@ -71,21 +71,8 @@ class SessionService(BaseService):
 
             session_id = next_sequential_id(txn.conn, "LOG-")
 
-            # Create JSONL file with initial entry
-            path = txn.resolve_path("log", session_id)
-            initial_entry = json.dumps(
-                {
-                    "type": "session_start",
-                    "session_id": session_id,
-                    "topic": topic,
-                    "timestamp": now,
-                },
-                separators=(",", ":"),
-            )
-            txn.write_file(path, initial_entry + "\n")
-
-            # Insert nodes row
-            rel_path = str(path.relative_to(self._vault.root))
+            # Synthetic path (no file created — DB is sole store)
+            rel_path = f"ops/logs/{session_id}"
             txn.conn.execute(
                 insert(nodes).values(
                     id=session_id,
@@ -103,6 +90,19 @@ class SessionService(BaseService):
 
             # FTS5 entry
             txn.upsert_fts(session_id, f"Session: {topic}", topic)
+
+            # Lifecycle DB entry
+            txn.conn.execute(
+                insert(session_logs).values(
+                    session_id=session_id,
+                    timestamp=now,
+                    type="session_start",
+                    summary=f"Session started: {topic}",
+                    cost=0,
+                    pinned=0,
+                    metadata=json.dumps({"topic": topic}),
+                )
+            )
 
         # Dispatch event
         warnings: list[str] = []
@@ -155,19 +155,17 @@ class SessionService(BaseService):
                 .values(status="closed", modified=today, modified_at=now)
             )
 
-            # Append close entry to JSONL
-            file_path = self._vault.root / active.path
-            close_entry = json.dumps(
-                {
-                    "type": "session_close",
-                    "session_id": session_id,
-                    "summary": summary or "",
-                    "timestamp": now,
-                },
-                separators=(",", ":"),
+            # Lifecycle DB entry
+            txn.conn.execute(
+                insert(session_logs).values(
+                    session_id=session_id,
+                    timestamp=now,
+                    type="session_close",
+                    summary=summary or "Session closed",
+                    cost=0,
+                    pinned=0,
+                )
             )
-            existing = txn.read_file(file_path)
-            txn.write_file(file_path, existing + close_entry + "\n")
 
         # -- CROSS-SESSION REWEAVE --
         with trace_span("cross_session_reweave") as span:
@@ -284,18 +282,17 @@ class SessionService(BaseService):
                 .values(status="open", modified=today, modified_at=now)
             )
 
-            # Append reopen entry to JSONL
-            file_path = self._vault.root / session.path
-            reopen_entry = json.dumps(
-                {
-                    "type": "session_reopen",
-                    "session_id": session_id,
-                    "timestamp": now,
-                },
-                separators=(",", ":"),
+            # Lifecycle DB entry
+            txn.conn.execute(
+                insert(session_logs).values(
+                    session_id=session_id,
+                    timestamp=now,
+                    type="session_reopen",
+                    summary="Session reopened",
+                    cost=0,
+                    pinned=0,
+                )
             )
-            existing = txn.read_file(file_path)
-            txn.write_file(file_path, existing + reopen_entry + "\n")
 
         return ServiceResult(
             ok=True,
@@ -319,11 +316,7 @@ class SessionService(BaseService):
         references: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> ServiceResult:
-        """Append a log entry to the active session.
-
-        Writes to both the JSONL file (for portability) and the
-        session_logs DB table (for querying and budget tracking).
-        """
+        """Append a log entry to the active session."""
         op = "log_entry"
         today = today_iso()
         timestamp = now_iso()
@@ -343,22 +336,6 @@ class SessionService(BaseService):
                 )
 
             session_id = str(active.id)
-
-            # Append to JSONL
-            file_path = self._vault.root / active.path
-            jsonl_entry = json.dumps(
-                {
-                    "type": entry_type,
-                    "session_id": session_id,
-                    "message": message,
-                    "pinned": pin,
-                    "cost": cost,
-                    "timestamp": timestamp,
-                },
-                separators=(",", ":"),
-            )
-            existing = txn.read_file(file_path)
-            txn.write_file(file_path, existing + jsonl_entry + "\n")
 
             # Insert into session_logs DB table
             result = txn.conn.execute(
@@ -515,41 +492,37 @@ class SessionService(BaseService):
                 ),
             )
 
-        # Read the JSONL file and collect entries
-        file_path = self._vault.root / session_row.path
-        if not file_path.exists():
+        # Query log entries from DB
+        with self._vault.engine.connect() as conn:
+            all_rows = conn.execute(
+                select(session_logs)
+                .where(session_logs.c.session_id == session_id)
+                .order_by(session_logs.c.timestamp.asc())
+            ).fetchall()
+
+        if not all_rows:
             return ServiceResult(
                 ok=False,
                 op=op,
                 error=ServiceError(
-                    code="FILE_NOT_FOUND",
-                    message=f"Session log file not found: {session_row.path}",
+                    code="NO_ENTRIES",
+                    message=f"No log entries for session: {session_id}",
                 ),
             )
 
-        raw_lines = file_path.read_text(encoding="utf-8").strip().split("\n")
-        all_entries: list[dict[str, Any]] = []
-        for line in raw_lines:
-            if line.strip():
-                all_entries.append(json.loads(line))
-
         # Collect pinned and decision-type entries
-        pinned = [
-            e
-            for e in all_entries
-            if e.get("pinned") or e.get("type") in ("decision_made", "decision")
-        ]
-        entries = pinned if pinned else all_entries
+        pinned = [r for r in all_rows if r.pinned or str(r.type) in ("decision_made", "decision")]
+        entries = pinned if pinned else all_rows
 
         # Build decision body from entries
         session_topic = str(session_row.topic or "unknown")
         decision_title = title or f"Decision: {session_topic}"
 
         body_lines = [f"## Extracted from {session_id}\n"]
-        for entry in entries:
-            ts = entry.get("timestamp", "")
-            msg = entry.get("message") or entry.get("summary") or entry.get("topic", "")
-            entry_type = entry.get("type", "")
+        for row in entries:
+            ts = str(row.timestamp)
+            msg = str(row.summary)
+            entry_type = str(row.type)
             if msg:
                 body_lines.append(f"- **[{ts}]** ({entry_type}) {msg}")
         body_lines.append("")
