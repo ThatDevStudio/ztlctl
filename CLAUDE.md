@@ -34,10 +34,22 @@ uv run cz check --message "feat: msg"   # validate a commit message
 
 ## Git Workflow
 
+### Roles
+
+**Claude (you):**
+- Create `feature/*` or `fix/*` branches from `develop`
+- Write code and commit with conventional commit messages
+- Push branches and create PRs targeting `develop`
+- PR titles MUST use conventional commit format (see below)
+- Address review feedback on open PRs
+
+**User (human):**
+- Reviews PRs, approves, and merges (squash-merge)
+
 **Automation (CI/CD):**
 - Runs lint, test, typecheck, security, commit-lint on every PR
 - On merge to `develop`: if version-bumping commits exist, bumps version, updates changelog, creates tag + GitHub Release
-- On GitHub Release: builds and publishes to PyPI
+- On GitHub Release: builds and publishes to PyPI (manual approval)
 
 ### Branching Model
 
@@ -97,7 +109,9 @@ All commit messages AND PR titles MUST follow the conventional commits format:
    git push -u origin feature/<name>
    gh pr create --base develop --title "feat(scope): description"
    ```
-6. **Address review feedback** — push additional commits to the same branch if needed
+   Provide the PR link for the user to review.
+6. **Address review feedback** — push additional commits to the same branch
+7. Wait for user to review, approve, and squash-merge
 
 **Do NOT use git worktrees** — work directly on feature/fix branches in the main repo checkout.
 
@@ -117,7 +131,7 @@ git checkout develop && git pull origin develop
 - **Don't manually edit version numbers** — `cz bump` manages `pyproject.toml` and `src/ztlctl/__init__.py`
 - **Don't manually edit CHANGELOG.md** — `cz bump --changelog` generates it
 - **Don't create git tags manually** — the release workflow creates annotated tags
-- **Don't merge PRs** — create PRs and let them be merged via squash-merge
+- **Don't merge PRs** — the user reviews and merges; Claude only creates PRs and addresses feedback
 - **Don't use git worktrees** — work directly on feature/fix branches
 - **Don't use `uv pip install`** — always use `uv add` (or `uv add --group <group>` for dev deps)
 
@@ -127,7 +141,7 @@ git checkout develop && git pull origin develop
 |---|---|---|
 | `ci.yml` | PR/push to `develop` | Lint, test, typecheck, security audit, commit lint |
 | `release.yml` | Push to `develop` | Auto version bump, changelog, tag, GitHub Release (if version-bumping commits) |
-| `publish.yml` | GitHub Release published | Build and publish to PyPI via OIDC |
+| `publish.yml` | GitHub Release published | Build and publish to PyPI via OIDC (manual approval) |
 
 ## Architecture
 
@@ -140,30 +154,5 @@ git checkout develop && git pull origin develop
   - `output/` — Rich/JSON formatters (imports services)
   - `commands/` — Click command groups/commands (imports services, output, config)
   - `plugins/` — pluggy hook specs and built-in plugins
-  - `mcp/` — optional MCP adapter (25 tools, 6 resources, 4 prompts)
-  - `templates/` — Jinja2 templates (content/, self/, agent_workflow/, workflow/)
-- **Plugin reference bundle**: `plugin/` — Claude Code plugin (checked-in reference; canonical source is `src/ztlctl/templates/agent_workflow/`)
-- **Agent workflow export**: `ztlctl workflow export --client {claude|codex|both}` generates project-local agent assets from templates
-
-## Documentation Maintenance
-
-**When any feature or fix changes user-facing behavior, update docs in the same PR.** This is not optional — stale docs are bugs.
-
-### What to Update (by change type)
-
-| Change | Docs to update |
-|--------|----------------|
-| New/changed MCP tool | `_TOOL_CATALOG` in `tools.py` (source of truth), `DESIGN.md` Section 16 tools table + count, `docs/mcp.md` tools table |
-| New/changed MCP resource | `_RESOURCE_CATALOG` in `resources.py`, `DESIGN.md` Section 16 resources table, `docs/mcp.md` resources table |
-| New/changed CLI command | `docs/commands.md` commands table |
-| New/changed service method | `DESIGN.md` relevant section + implementation note |
-| Changed workflow templates | `plugin/` reference bundle (regenerate with `ztlctl workflow export`), `plugin/README.md` |
-| Architecture changes | `DESIGN.md` architecture diagram + package structure, `CLAUDE.md` Architecture section |
-| Config changes | `docs/configuration.md`, `DESIGN.md` Section 17 |
-
-### Documentation-as-Code Principles
-
-1. **Single source of truth**: `_TOOL_CATALOG`, `_RESOURCE_CATALOG`, `_PROMPT_CATALOG` in Python are authoritative. The `vault_orientation` prompt generates tool/resource lists dynamically from these catalogs — never hardcode tool lists in prose.
-2. **Counts must match reality**: When you see "Tools (N)" in DESIGN.md or "N tools" in README.md, verify N matches `len(_TOOL_CATALOG)`.
-3. **Plugin bundle tracks templates**: The `plugin/` directory is a reference bundle. When `src/ztlctl/templates/agent_workflow/` changes, the plugin should be updated to match.
-4. **Backlog entries are delivery records**: When a BL-NNNN item's scope changes (e.g., tool count increases), update its description in DESIGN.md Section 20.
+  - `mcp/` — optional MCP adapter (guarded imports)
+  - `templates/` — Jinja2 templates for content creation
