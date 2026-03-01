@@ -18,6 +18,8 @@ ztlctl manages three durable authored artifact types plus one operational sessio
 
 Notes, references, and tasks are the file-first durability contract. Sessions, session logs, generated `self/` files, and event/WAL state are internal or generated mechanisms that can be rebuilt or regenerated.
 
+Ingested references may also carry a durable source bundle under `sources/<reference-id>/`. That bundle is an attached source artifact for the reference, not a separate top-level knowledge item.
+
 ## Content Subtypes
 
 Notes and references can be further classified:
@@ -56,6 +58,10 @@ my-vault/
 │   └── architecture/
 │       ├── ztl_e5f6g7h8.md
 │       └── ref_deadbeef.md
+├── sources/
+│   └── ref_deadbeef/
+│       ├── bundle.json
+│       └── normalized.md
 └── ops/
     └── tasks/
         └── TSK-0001.md

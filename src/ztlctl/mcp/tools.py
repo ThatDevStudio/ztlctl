@@ -449,6 +449,10 @@ _TOOL_CATALOG: tuple[ToolCatalogEntry, ...] = (
             "artifacts": (
                 "Optional artifact metadata for original files, screenshots, transcripts, or media."
             ),
+            "source_bundle": (
+                "Optional nested source bundle with capture metadata, structured citations, "
+                "excerpts, artifacts, and additional capture metadata."
+            ),
             "dry_run": "Set true to preview normalized capture without writing files.",
         },
     ),
@@ -770,6 +774,7 @@ def ingest_source_impl(
     citations: list[str] | None = None,
     excerpts: list[str] | None = None,
     artifacts: list[dict[str, Any]] | None = None,
+    source_bundle: dict[str, Any] | None = None,
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Ingest normalized text, file, or URL content into the vault."""
@@ -796,6 +801,7 @@ def ingest_source_impl(
             citations=citations,
             excerpts=excerpts,
             artifacts=artifacts,
+            source_bundle=source_bundle,
             dry_run=dry_run,
         )
         return _to_mcp_response(result)
@@ -815,6 +821,7 @@ def ingest_source_impl(
             citations=citations,
             excerpts=excerpts,
             artifacts=artifacts,
+            source_bundle=source_bundle,
             dry_run=dry_run,
         )
         return _to_mcp_response(result)
@@ -835,6 +842,7 @@ def ingest_source_impl(
             citations=citations,
             excerpts=excerpts,
             artifacts=artifacts,
+            source_bundle=source_bundle,
             dry_run=dry_run,
         )
         return _to_mcp_response(result)
@@ -1299,6 +1307,7 @@ def register_tools(server: Any, vault: Any) -> None:
         citations: list[str] | None = None,
         excerpts: list[str] | None = None,
         artifacts: list[dict[str, Any]] | None = None,
+        source_bundle: dict[str, Any] | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
         return ingest_source_impl(
@@ -1319,6 +1328,7 @@ def register_tools(server: Any, vault: Any) -> None:
             citations=citations,
             excerpts=excerpts,
             artifacts=artifacts,
+            source_bundle=source_bundle,
             dry_run=dry_run,
         )
 

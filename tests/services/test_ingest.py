@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pluggy
@@ -52,6 +53,13 @@ class TestIngestService:
         assert "## Notes" in content
         assert "Primary source body" in content
         assert "## Provenance" in content
+        expected_bundle_path = f"sources/{result.data['id']}/bundle.json"
+        assert result.data["source_bundle_path"] == expected_bundle_path
+        bundle_path = vault.root / expected_bundle_path
+        assert bundle_path.is_file()
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+        assert bundle["normalized_text"]["path"] == f"sources/{result.data['id']}/normalized.md"
+        assert (vault.root / bundle["normalized_text"]["path"]).is_file()
 
     def test_ingest_file_creates_note(self, vault, tmp_path: Path) -> None:
         source = tmp_path / "capture.md"
@@ -106,3 +114,29 @@ class TestIngestService:
         assert frontmatter.get("language") is None
         assert "Citation: example" in body
         assert "Fetched source body" in body
+
+    def test_ingest_text_lifts_flat_capture_fields_into_bundle(self, vault) -> None:
+        result = IngestService(vault).ingest_text(
+            "Agent Capture",
+            "Normalized source body",
+            target_type="reference",
+            source_kind="pdf",
+            modalities=["text", "image"],
+            capture_agent="codex",
+            capture_method="ocr plus transcription",
+            citations=["Page 2"],
+            excerpts=["Figure caption excerpt"],
+            artifacts=[{"kind": "pdf", "label": "original", "uri": "file:///tmp/source.pdf"}],
+        )
+
+        assert result.ok
+        bundle = json.loads(
+            (vault.root / result.data["source_bundle_path"]).read_text(encoding="utf-8")
+        )
+        assert bundle["source_kind"] == "pdf"
+        assert bundle["modalities"] == ["text", "image"]
+        assert bundle["capture_agent"] == "codex"
+        assert bundle["capture_method"] == "ocr plus transcription"
+        assert bundle["citations"][0]["text"] == "Page 2"
+        assert bundle["excerpts"][0]["text"] == "Figure caption excerpt"
+        assert bundle["artifacts"][0]["kind"] == "pdf"

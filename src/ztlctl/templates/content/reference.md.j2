@@ -74,3 +74,6 @@
 - Artifact{% if artifact.label is defined and artifact.label %} {{ artifact.label }}{% endif %}{% if artifact.kind is defined and artifact.kind %} ({{ artifact.kind }}){% endif %}{% if artifact.uri is defined and artifact.uri %}: {{ artifact.uri }}{% endif %}
 {% endfor %}
 {% endif %}
+{% if source_bundle_path is defined and source_bundle_path %}
+- Source Bundle: {{ source_bundle_path }}
+{% endif %}

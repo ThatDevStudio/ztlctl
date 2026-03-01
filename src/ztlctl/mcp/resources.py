@@ -2,8 +2,8 @@
 
 URIs: ztlctl://context, ztlctl://self/identity, ztlctl://self/methodology,
 ztlctl://overview, ztlctl://work-queue, ztlctl://review/dashboard,
-ztlctl://garden/backlog, ztlctl://decision-queue, ztlctl://topics,
-ztlctl://agent-reference.
+ztlctl://garden/backlog, ztlctl://decision-queue, ztlctl://capture/spec,
+ztlctl://topics, ztlctl://agent-reference.
 Each resource has a ``_<name>_impl`` function testable without the mcp package.
 (DESIGN.md Section 16)
 """
@@ -32,6 +32,10 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
     {
         "uri": "ztlctl://decision-queue",
         "description": "Recent decision notes and related review queue.",
+    },
+    {
+        "uri": "ztlctl://capture/spec",
+        "description": "Agent capture contract for source bundles and ingest_source.",
     },
     {"uri": "ztlctl://topics", "description": "List of topic directories in the vault."},
     {
@@ -154,6 +158,71 @@ def decision_queue_impl(vault: Any) -> dict[str, Any]:
     }
 
 
+def capture_spec_impl(_vault: Any) -> dict[str, Any]:
+    """Return the agent-facing capture contract for source bundle ingest."""
+    return {
+        "version": 1,
+        "workflow": [
+            "Fetch or extract the source outside ztlctl.",
+            "Normalize the capture into plain text plus a source_bundle object.",
+            (
+                "Call ingest_source with input_kind=text or url, "
+                "content=<normalized text>, and source_bundle=<bundle>."
+            ),
+            (
+                "Use topic_packet or draft_from_topic after ingest to review "
+                "or synthesize the captured material."
+            ),
+        ],
+        "bundle_fields": {
+            "title": "Optional display title for the captured source.",
+            "source_kind": "Optional source class such as web, pdf, image, audio, or video.",
+            "modalities": "Optional list of evidence modalities present in the capture.",
+            "capture_agent": "Agent, model, or tool that performed the acquisition.",
+            "capture_method": "Short note on how the source was fetched or extracted.",
+            "captured_at": "Optional ISO timestamp for the acquisition event.",
+            "summary_hint": "Optional top-level summary of the captured source.",
+            "key_points": "Optional distilled bullet points extracted by the agent.",
+            "provenance": "Optional provenance lines preserved alongside the reference.",
+            "source_title": (
+                "Optional canonical source title if different from the reference title."
+            ),
+            "url": "Optional original source URL.",
+            "canonical_url": "Optional canonical URL after redirects or cleanup.",
+            "provider": "Optional fetch or extraction provider identifier.",
+            "source_type": "Optional source or mime classification such as article or transcript.",
+            "language": "Optional language code for the captured text.",
+            "citations": "Optional list of strings or {text, locator, source} objects.",
+            "excerpts": "Optional list of strings or {text, locator, modality, citation} objects.",
+            "artifacts": "Optional list of {kind, label, uri, mime_type, metadata} objects.",
+            "metadata": "Optional freeform JSON object for agent-specific details.",
+        },
+        "minimal_example": {
+            "input_kind": "text",
+            "content": "Normalized body text from the source.",
+            "target_type": "reference",
+            "title": "Example Source",
+            "topic": "example-topic",
+            "source_bundle": {
+                "source_kind": "web",
+                "modalities": ["text", "image"],
+                "capture_agent": "codex",
+                "capture_method": "browser fetch plus screenshot review",
+                "canonical_url": "https://example.com/article",
+                "citations": [{"text": "Example quote", "locator": "paragraph 4"}],
+                "excerpts": [{"text": "Important excerpt", "locator": "paragraph 4"}],
+                "artifacts": [
+                    {
+                        "kind": "screenshot",
+                        "label": "header",
+                        "uri": "https://example.com/header.png",
+                    }
+                ],
+            },
+        },
+    }
+
+
 def topics_impl(vault: Any) -> list[str]:
     """List topic subdirectories under notes/."""
     notes_dir = vault.root / "notes"
@@ -224,12 +293,20 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
                 "recommended_args": {"title": "Quick idea"},
             },
             {
-                "tool": "reweave",
+                "tool": "ingest_source",
                 "notes": (
-                    "Preview link suggestions before writing them when the vault is already "
-                    "populated."
+                    "When an agent fetched or extracted a source externally, normalize it into "
+                    "a source bundle and ingest it as a structured reference."
                 ),
-                "recommended_args": {"dry_run": True},
+                "recommended_args": {
+                    "input_kind": "text",
+                    "content": "Normalized source text",
+                    "target_type": "reference",
+                    "source_bundle": {
+                        "source_kind": "web",
+                        "capture_agent": "agent-name",
+                    },
+                },
             },
             {
                 "tool": "topic_packet",
@@ -247,6 +324,19 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
                 "tool": "create_reference",
                 "notes": "Capture external sources as they are reviewed.",
                 "recommended_args": {"title": "Source title", "url": "https://example.com/source"},
+            },
+            {
+                "tool": "ingest_source",
+                "notes": (
+                    "Prefer this when the agent already has normalized text and structured "
+                    "bundle metadata from web or multimodal capture."
+                ),
+                "recommended_args": {
+                    "input_kind": "text",
+                    "content": "Normalized source text",
+                    "target_type": "reference",
+                    "source_bundle": {"source_kind": "pdf"},
+                },
             },
             {
                 "tool": "create_note",
@@ -413,6 +503,13 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(decision_queue_impl(vault), indent=2)
+
+    @server.resource("ztlctl://capture/spec")  # type: ignore[untyped-decorator]
+    def capture_spec_resource() -> str:
+        """Agent capture contract for source bundles and ingest_source."""
+        import json
+
+        return json.dumps(capture_spec_impl(vault), indent=2)
 
     @server.resource("ztlctl://topics")  # type: ignore[untyped-decorator]
     def topics_resource() -> str:

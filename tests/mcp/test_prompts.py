@@ -8,7 +8,11 @@ import pytest
 
 from ztlctl.config.settings import ZtlSettings
 from ztlctl.infrastructure.vault import Vault
-from ztlctl.mcp.prompts import vault_orientation_impl
+from ztlctl.mcp.prompts import (
+    capture_multimodal_source_impl,
+    capture_web_source_impl,
+    vault_orientation_impl,
+)
 from ztlctl.mcp.resources import resource_catalog
 from ztlctl.mcp.tools import tool_catalog
 
@@ -47,3 +51,16 @@ class TestVaultOrientation:
         prompt = vault_orientation_impl(vault)
         assert "start with `discover_tools`" in prompt
         assert "call `describe_tool`" in prompt
+
+
+class TestCapturePrompts:
+    def test_capture_web_prompt_mentions_capture_spec_and_source_bundle(self) -> None:
+        prompt = capture_web_source_impl("https://example.com", topic="architecture")
+        assert "ztlctl://capture/spec" in prompt
+        assert "source_bundle" in prompt
+        assert 'topic="architecture"' in prompt
+
+    def test_capture_multimodal_prompt_mentions_modality(self) -> None:
+        prompt = capture_multimodal_source_impl("slides.pdf", modality="image")
+        assert "source_bundle" in prompt
+        assert "image" in prompt

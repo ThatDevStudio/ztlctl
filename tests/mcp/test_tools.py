@@ -145,6 +145,28 @@ class TestCreateTools:
         )
         assert resp["ok"] is True
         assert resp["op"] == "ingest_text"
+        assert resp["data"]["source_bundle_path"] == f"sources/{resp['data']['id']}/bundle.json"
+
+    def test_ingest_source_accepts_nested_source_bundle(self, vault: Vault):
+        resp = ingest_source_impl(
+            vault,
+            input_kind="text",
+            content="Structured source body",
+            target_type="reference",
+            title="Captured Source",
+            source_bundle={
+                "source_kind": "web",
+                "capture_agent": "codex",
+                "citations": [{"text": "Quoted source", "locator": "paragraph 1"}],
+                "excerpts": [{"text": "Structured excerpt", "locator": "paragraph 1"}],
+            },
+        )
+
+        assert resp["ok"] is True
+        doc = get_document_impl(vault, resp["data"]["id"])
+        assert doc["data"]["source_bundle_path"] == resp["data"]["source_bundle_path"]
+        assert doc["data"]["capture_agent"] == "codex"
+        assert "Quoted source [paragraph 1]" in doc["data"]["citations"]
 
     def test_list_source_providers_returns_ok(self, vault: Vault):
         resp = list_source_providers_impl(vault)

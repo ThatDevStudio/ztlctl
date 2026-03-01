@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from ztlctl.plugins.contracts import SourceFetchRequest, SourceProviderContribution
@@ -16,7 +16,17 @@ from ztlctl.services.contracts import (
     SourceProvidersResultData,
     dump_validated,
 )
+from ztlctl.services.create import CreateService
 from ztlctl.services.result import ServiceError, ServiceResult
+from ztlctl.services.source_bundles import (
+    bundle_artifacts,
+    bundle_citation_lines,
+    bundle_excerpt_lines,
+    bundle_paths,
+    bundle_provenance_lines,
+    normalize_source_bundle,
+    persist_source_bundle,
+)
 
 
 class IngestService(BaseService):
@@ -56,6 +66,7 @@ class IngestService(BaseService):
         citations: list[str] | None = None,
         excerpts: list[str] | None = None,
         artifacts: list[dict[str, object]] | None = None,
+        source_bundle: dict[str, Any] | None = None,
         dry_run: bool = False,
         no_reweave: bool = False,
     ) -> ServiceResult:
@@ -84,6 +95,7 @@ class IngestService(BaseService):
             citations=citations,
             excerpts=excerpts,
             artifacts=artifacts,
+            source_bundle=source_bundle,
             dry_run=dry_run,
             no_reweave=no_reweave,
             provenance=["Input Kind: text"],
@@ -107,6 +119,7 @@ class IngestService(BaseService):
         citations: list[str] | None = None,
         excerpts: list[str] | None = None,
         artifacts: list[dict[str, object]] | None = None,
+        source_bundle: dict[str, Any] | None = None,
         dry_run: bool = False,
         no_reweave: bool = False,
     ) -> ServiceResult:
@@ -153,6 +166,7 @@ class IngestService(BaseService):
             citations=citations,
             excerpts=excerpts,
             artifacts=artifacts,
+            source_bundle=source_bundle,
             dry_run=dry_run,
             no_reweave=no_reweave,
             provenance=[
@@ -180,6 +194,7 @@ class IngestService(BaseService):
         citations: list[str] | None = None,
         excerpts: list[str] | None = None,
         artifacts: list[dict[str, object]] | None = None,
+        source_bundle: dict[str, Any] | None = None,
         dry_run: bool = False,
         no_reweave: bool = False,
     ) -> ServiceResult:
@@ -246,6 +261,7 @@ class IngestService(BaseService):
             citations=(citations or []) + list(fetched.citations),
             excerpts=excerpts,
             artifacts=artifacts,
+            source_bundle=source_bundle,
             modalities=modalities,
             capture_agent=capture_agent,
             capture_method=capture_method,
@@ -298,6 +314,7 @@ class IngestService(BaseService):
         citations: list[str] | None = None,
         excerpts: list[str] | None = None,
         artifacts: list[dict[str, object]] | None = None,
+        source_bundle: dict[str, Any] | None = None,
         modalities: list[str] | None = None,
         capture_agent: str | None = None,
         capture_method: str | None = None,
@@ -318,6 +335,7 @@ class IngestService(BaseService):
         content_hash = hashlib.sha256(normalized_body.encode("utf-8")).hexdigest()[:16]
         provenance_items = provenance or [f"Input Kind: {input_kind}"]
         provider_warnings = warnings or []
+        bundle_requested = target == "reference"
 
         if dry_run:
             preview = normalized_body[:280]
@@ -337,6 +355,8 @@ class IngestService(BaseService):
                     "key_points": key_points or [],
                     "citations": citations or [],
                     "excerpts": excerpts or [],
+                    "source_bundle_version": 1 if bundle_requested else None,
+                    "source_bundle_path": None,
                 },
             )
             return ServiceResult(
@@ -346,8 +366,6 @@ class IngestService(BaseService):
                 warnings=provider_warnings,
             )
 
-        from ztlctl.services.create import CreateService
-
         create = CreateService(self._vault)
         dispatch_post_create = not (
             no_reweave
@@ -356,6 +374,21 @@ class IngestService(BaseService):
         )
 
         if target == "note":
+            note_warnings = list(provider_warnings)
+            if self._source_bundle_requested(
+                source_bundle=source_bundle,
+                source_kind=source_kind,
+                modalities=modalities,
+                capture_agent=capture_agent,
+                capture_method=capture_method,
+                citations=citations,
+                excerpts=excerpts,
+                artifacts=artifacts,
+            ):
+                note_warnings.append(
+                    "Source bundles are only persisted for reference captures; "
+                    "note ingest kept the normalized text only."
+                )
             result = create.create_note(
                 title,
                 subtype=subtype,
@@ -365,55 +398,234 @@ class IngestService(BaseService):
                 body=normalized_body,
                 dispatch_post_create=dispatch_post_create,
             )
-        else:
-            result = create.create_reference(
-                title,
+            if not result.ok:
+                return result
+            payload = dump_validated(
+                IngestResultData,
+                {
+                    "id": result.data["id"],
+                    "path": result.data["path"],
+                    "title": result.data["title"],
+                    "type": result.data["type"],
+                    "input_kind": input_kind,
+                    "provider": provider_name,
+                    "dry_run": False,
+                    "source_kind": source_kind,
+                    "modalities": modalities or [],
+                    "capture_agent": capture_agent,
+                    "capture_method": capture_method,
+                    "source_bundle_version": None,
+                    "source_bundle_path": None,
+                },
+            )
+            return ServiceResult(
+                ok=True,
+                op=f"ingest_{input_kind}",
+                data=payload,
+                warnings=[*result.warnings, *note_warnings],
+            )
+        return self._create_reference_with_bundle(
+            title=title,
+            normalized_body=normalized_body,
+            input_kind=input_kind,
+            subtype=subtype,
+            tags=tags,
+            topic=topic,
+            session=session,
+            summary=summary,
+            provider_name=provider_name,
+            source_type=source_type or input_kind,
+            source_kind=source_kind,
+            canonical_url=canonical_url,
+            language=language,
+            key_points=key_points,
+            provenance_items=provenance_items,
+            citations=citations,
+            excerpts=excerpts,
+            artifacts=artifacts,
+            source_bundle=source_bundle,
+            modalities=modalities,
+            capture_agent=capture_agent,
+            capture_method=capture_method,
+            content_hash=content_hash,
+            dispatch_post_create=dispatch_post_create,
+            provider_warnings=provider_warnings,
+        )
+
+    @staticmethod
+    def _source_bundle_requested(
+        *,
+        source_bundle: dict[str, Any] | None,
+        source_kind: str | None,
+        modalities: list[str] | None,
+        capture_agent: str | None,
+        capture_method: str | None,
+        citations: list[str] | None,
+        excerpts: list[str] | None,
+        artifacts: list[dict[str, object]] | None,
+    ) -> bool:
+        return any(
+            (
+                source_bundle,
+                source_kind,
+                modalities,
+                capture_agent,
+                capture_method,
+                citations,
+                excerpts,
+                artifacts,
+            )
+        )
+
+    def _create_reference_with_bundle(
+        self,
+        *,
+        title: str,
+        normalized_body: str,
+        input_kind: str,
+        subtype: str | None,
+        tags: list[str] | None,
+        topic: str | None,
+        session: str | None,
+        summary: str | None,
+        provider_name: str | None,
+        source_type: str | None,
+        source_kind: str | None,
+        canonical_url: str | None,
+        language: str | None,
+        key_points: list[str] | None,
+        provenance_items: list[str],
+        citations: list[str] | None,
+        excerpts: list[str] | None,
+        artifacts: list[dict[str, object]] | None,
+        source_bundle: dict[str, Any] | None,
+        modalities: list[str] | None,
+        capture_agent: str | None,
+        capture_method: str | None,
+        content_hash: str,
+        dispatch_post_create: bool,
+        provider_warnings: list[str],
+    ) -> ServiceResult:
+        create = CreateService(self._vault)
+        warnings: list[str] = []
+        bundle_path_value: str | None = None
+        bundle_version = 1
+
+        with self._vault.transaction() as txn:
+            pending_paths = bundle_paths("pending")
+            normalized_bundle = normalize_source_bundle(
+                input_kind=input_kind,
+                title=title,
+                normalized_text_path=pending_paths.normalized_text_path,
+                normalized_text=normalized_body,
+                content_hash=content_hash,
+                captured_at=now_iso(),
+                summary_hint=summary,
+                source_type=source_type,
+                source_kind=source_kind,
+                canonical_url=canonical_url,
+                provider_name=provider_name,
+                language=language,
+                key_points=key_points,
+                provenance=provenance_items,
+                citations=citations,
+                excerpts=excerpts,
+                artifacts=artifacts,
+                modalities=modalities,
+                capture_agent=capture_agent,
+                capture_method=capture_method,
+                source_bundle=source_bundle,
+            )
+
+            result, created = create._create_content_in_txn(
+                txn,
+                content_type="reference",
+                title=title,
                 subtype=subtype,
                 tags=tags,
                 topic=topic,
                 session=session,
-                key_points=key_points or [],
-                summary=summary,
+                key_points=list(normalized_bundle.get("key_points", [])),
+                summary=normalized_bundle.get("summary_hint"),
                 notes=normalized_body,
-                excerpts=excerpts,
-                provenance=provenance_items,
-                canonical_url=canonical_url,
-                source_provider=provider_name,
-                source_type=source_type or input_kind,
-                source_kind=source_kind,
-                modalities=modalities,
-                capture_agent=capture_agent,
-                capture_method=capture_method,
-                citations=citations,
-                artifacts=[dict(item) for item in (artifacts or [])],
-                retrieved_at=now_iso(),
+                excerpts=bundle_excerpt_lines(normalized_bundle),
+                provenance=bundle_provenance_lines(normalized_bundle, include_paths=False),
+                canonical_url=(
+                    normalized_bundle.get("canonical_source", {}).get("canonical_url")
+                    or normalized_bundle.get("canonical_source", {}).get("url")
+                ),
+                source_provider=normalized_bundle.get("canonical_source", {}).get("provider"),
+                source_type=normalized_bundle.get("canonical_source", {}).get("source_type"),
+                source_kind=normalized_bundle.get("source_kind"),
+                modalities=list(normalized_bundle.get("modalities", [])),
+                capture_agent=normalized_bundle.get("capture_agent"),
+                capture_method=normalized_bundle.get("capture_method"),
+                citations=bundle_citation_lines(normalized_bundle),
+                artifacts=bundle_artifacts(normalized_bundle),
+                retrieved_at=str(normalized_bundle.get("captured_at") or now_iso()),
                 content_hash=content_hash,
-                language=language,
-                dispatch_post_create=dispatch_post_create,
+                language=normalized_bundle.get("canonical_source", {}).get("language"),
+            )
+            if not result.ok or created is None:
+                return result
+
+            reference_id = str(result.data["id"])
+            reference_relpath = str(result.data["path"])
+            actual_paths = bundle_paths(reference_id)
+            normalized_bundle["normalized_text"]["path"] = actual_paths.normalized_text_path
+            persist_source_bundle(txn, reference_id, normalized_bundle, normalized_body)
+            bundle_path_value = actual_paths.bundle_path
+
+            content_path = self._vault.root / reference_relpath
+            frontmatter, body = txn.read_content(content_path)
+            frontmatter["source_bundle_path"] = bundle_path_value
+            body_suffix = [
+                f"- Source Bundle: {bundle_path_value}",
+                f"- Normalized Text: {actual_paths.normalized_text_path}",
+            ]
+            updated_body = body.rstrip()
+            if updated_body:
+                updated_body += "\n"
+            updated_body += "\n".join(body_suffix) + "\n"
+            txn.write_content(content_path, frontmatter, updated_body)
+            txn.upsert_fts(reference_id, created.title, updated_body)
+            warnings.extend(result.warnings)
+
+        if dispatch_post_create:
+            create._dispatch_event(
+                "post_create",
+                {
+                    "content_type": created.content_type,
+                    "content_id": created.content_id,
+                    "title": created.title,
+                    "path": created.path,
+                    "tags": created.tags,
+                },
+                warnings,
             )
 
-        if not result.ok:
-            return result
-
+        create._vector_index_created(created, warnings)
         payload = dump_validated(
             IngestResultData,
             {
-                "id": result.data["id"],
-                "path": result.data["path"],
-                "title": result.data["title"],
-                "type": result.data["type"],
+                "id": created.content_id,
+                "path": created.path,
+                "title": created.title,
+                "type": created.content_type,
                 "input_kind": input_kind,
                 "provider": provider_name,
                 "dry_run": False,
                 "source_kind": source_kind,
-                "modalities": modalities or [],
-                "capture_agent": capture_agent,
-                "capture_method": capture_method,
+                "modalities": list(normalized_bundle.get("modalities", [])),
+                "capture_agent": normalized_bundle.get("capture_agent"),
+                "capture_method": normalized_bundle.get("capture_method"),
+                "source_bundle_version": bundle_version,
+                "source_bundle_path": bundle_path_value,
             },
         )
         return ServiceResult(
             ok=True,
             op=f"ingest_{input_kind}",
             data=payload,
-            warnings=[*result.warnings, *provider_warnings],
+            warnings=[*warnings, *provider_warnings],
         )

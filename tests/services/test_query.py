@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.create import CreateService
+from ztlctl.services.ingest import IngestService
 from ztlctl.services.query import QueryService
 
 # ---------------------------------------------------------------------------
@@ -345,6 +346,49 @@ class TestTopicPacket:
         assert result.data["target"] == "note"
         assert result.data["topic"] == "architecture"
         assert "## Evidence" in result.data["body"]
+
+    def test_topic_packet_prefers_bundle_excerpts_and_provenance(self, vault: Vault) -> None:
+        ingest = IngestService(vault)
+        result = ingest.ingest_text(
+            "Captured Architecture Source",
+            "Normalized architecture source text",
+            target_type="reference",
+            topic="architecture",
+            source_bundle={
+                "source_kind": "web",
+                "capture_agent": "codex",
+                "capture_method": "browser fetch",
+                "canonical_url": "https://example.com/architecture",
+                "citations": [{"text": "Architecture quote", "locator": "paragraph 3"}],
+                "excerpts": [{"text": "Bundle excerpt", "locator": "paragraph 3"}],
+                "artifacts": [
+                    {
+                        "kind": "screenshot",
+                        "label": "header",
+                        "uri": "https://example.com/header.png",
+                    }
+                ],
+            },
+        )
+        assert result.ok
+
+        packet = QueryService(vault).topic_packet("architecture", mode="learn", budget=4000)
+
+        assert packet.ok
+        reference = next(
+            item for item in packet.data["references"] if item["id"] == result.data["id"]
+        )
+        assert reference["source_bundle_path"] == result.data["source_bundle_path"]
+        assert "Architecture quote [paragraph 3]" in reference["citations"]
+        assert reference["artifacts"][0]["kind"] == "screenshot"
+        assert any(
+            item["content_id"] == result.data["id"] and item["locator"] == "paragraph 3"
+            for item in packet.data["evidence"]
+        )
+        assert any(
+            line.startswith("Source Bundle:")
+            for line in packet.data["provenance_map"][result.data["id"]]
+        )
 
     def test_filter_by_subtype_no_match(self, vault: Vault) -> None:
         _seed_notes(vault)
