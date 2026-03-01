@@ -50,6 +50,8 @@ ztlctl ingest providers --json
 
 URL ingestion is provider-backed by design. The core tool does not ship a built-in remote fetcher in the base install.
 
+For early multimodal workflows, agents can fetch or extract content externally and hand the normalized result to MCP `ingest_source` with fields such as `source_kind`, `modalities`, `capture_agent`, `capture_method`, `citations`, `excerpts`, and `artifacts`.
+
 ## Context Assembly (5-Layer System)
 
 The `agent context` command builds a token-budgeted payload with 5 layers:
@@ -85,7 +87,15 @@ ztlctl query packet --topic architecture --mode review --json
 ztlctl query packet --topic architecture --mode decision --json
 ```
 
-Packets combine topic-matched notes, references, decisions, tasks, graph-adjacent material, and provenance so an agent can continue reasoning from captured knowledge rather than only from recent session state.
+Packets combine topic-matched notes, references, decisions, tasks, graph-adjacent material, evidence excerpts, supporting/conflicting links, stale items, bridge candidates, suggested actions, ranking explanations, and provenance maps so an agent can continue reasoning from captured knowledge rather than only from recent session state.
+
+When a packet should become durable work, draft from it directly:
+
+```bash
+ztlctl query draft --topic architecture --target note --json
+ztlctl query draft --topic architecture --mode review --target task --json
+ztlctl query draft --topic architecture --mode decision --target decision --json
+```
 
 ## Session Close Enrichment Pipeline
 
@@ -129,6 +139,14 @@ Use the discovery flow in MCP clients:
 1. `discover_tools`
 2. `describe_tool`
 3. `ztlctl://agent-reference`
+
+For enrichment-focused agents, the most useful read models are:
+
+- `ztlctl://review/dashboard`
+- `ztlctl://garden/backlog`
+- `ztlctl://decision-queue`
+
+The MCP prompt layer now also includes `topic_learn`, `topic_review`, and `topic_decision`.
 
 See the [MCP Server](mcp.md) page for tool categories, resources, prompts, and exported client assets.
 

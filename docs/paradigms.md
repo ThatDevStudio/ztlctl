@@ -24,6 +24,7 @@ ztlctl agent session start "oauth architecture"
 ztlctl ingest text "OAuth RFC Notes" --stdin --as reference
 ztlctl create note "Token exchange trade-offs" --topic auth
 ztlctl query packet --topic auth --mode learn
+ztlctl query draft --topic auth --target note
 ztlctl reweave
 ```
 
@@ -66,4 +67,5 @@ The intended flow is:
 
 1. Capture sources and rough synthesis quickly.
 2. Use search, packets, and reweave to stabilize the foundation knowledge layer.
-3. Enrich that foundation through slower, human-led garden work.
+3. Use packets, drafts, and dashboard dossiers to turn captured evidence into reviewable work.
+4. Enrich that foundation through slower, human-led garden work.

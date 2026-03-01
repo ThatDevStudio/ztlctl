@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ztlctl.domain.content import parse_frontmatter
@@ -23,6 +24,7 @@ from ztlctl.services.contracts import (
     ListItemsResultData,
     ListTagsResultData,
     SearchResultData,
+    TopicDraftData,
     TopicPacketData,
     VaultReviewResultData,
     dump_validated,
@@ -42,6 +44,7 @@ _PRIORITY_SCORES: dict[str, float] = {
 }
 _IMPACT_SCORES: dict[str, float] = {"high": 3.0, "medium": 2.0, "low": 1.0}
 _EFFORT_SCORES: dict[str, float] = {"high": 3.0, "medium": 2.0, "low": 1.0}
+_MATURITY_SCORES: dict[str, float] = {"seed": 0.4, "budding": 0.7, "evergreen": 1.0}
 
 
 class QueryService(BaseService):
@@ -108,7 +111,8 @@ class QueryService(BaseService):
             space: Filter by vault space (notes, ops, self).
             rank_by: Sort mode — "relevance" (BM25), "recency" (BM25*decay),
                 "graph" (BM25*PageRank), "semantic" (vector cosine similarity),
-                or "hybrid" (BM25 + cosine weighted merge).
+                "hybrid" (BM25 + cosine weighted merge), "review" (topic review
+                prioritization), or "garden" (enrichment prioritization).
             limit: Maximum results to return.
         """
         if not query.strip():
@@ -123,7 +127,11 @@ class QueryService(BaseService):
         use_graph_rank = rank_by == "graph"
         use_semantic = rank_by == "semantic"
         use_hybrid = rank_by == "hybrid"
-        needs_rerank = use_time_decay or use_graph_rank or use_hybrid
+        use_review_rank = rank_by == "review"
+        use_garden_rank = rank_by == "garden"
+        needs_rerank = (
+            use_time_decay or use_graph_rank or use_hybrid or use_review_rank or use_garden_rank
+        )
         fetch_limit = min(limit * 3, 1000) if needs_rerank else limit
 
         warnings: list[str] = []
@@ -152,20 +160,23 @@ class QueryService(BaseService):
                                     "title": r["title"],
                                     "type": r["type"],
                                     "subtype": r["subtype"],
+                                    "maturity": r.get("maturity"),
                                     "status": r["status"],
                                     "path": r["path"],
+                                    "topic": r.get("topic"),
                                     "created": r["created"],
                                     "modified": r["modified"],
                                     "score": round(similarity, 4),
                                 }
                             )
 
+                annotated_items = self._annotate_search_items(items, mode="semantic")
                 result_kwargs: dict[str, Any] = {
                     "ok": True,
                     "op": "search",
                     "data": dump_validated(
                         SearchResultData,
-                        {"query": query, "count": len(items), "items": items},
+                        {"query": query, "count": len(annotated_items), "items": annotated_items},
                     ),
                 }
                 if warnings:
@@ -186,8 +197,10 @@ class QueryService(BaseService):
                 "title": row["title"],
                 "type": row["type"],
                 "subtype": row["subtype"],
+                "maturity": row.get("maturity"),
                 "status": row["status"],
                 "path": row["path"],
+                "topic": row.get("topic"),
                 "created": row["created"],
                 "modified": row["modified"],
                 "pagerank": float(row.get("pagerank") or 0.0),
@@ -211,11 +224,17 @@ class QueryService(BaseService):
                     w = self._vault.settings.search.semantic_weight
                     items, merge_warnings = self._merge_hybrid_results(items, vec_results, w, limit)
                     warnings.extend(merge_warnings)
+        elif use_review_rank:
+            items = self._apply_enrichment_rank(items, mode="review", limit=limit)
+        elif use_garden_rank:
+            items = self._apply_enrichment_rank(items, mode="garden", limit=limit)
 
         # Round scores for final output and strip pagerank from response
         for item in items:
             item["score"] = round(item["score"], 4)
             item.pop("pagerank", None)
+
+        items = self._annotate_search_items(items, mode=rank_by)
 
         result_kwargs = {
             "ok": True,
@@ -315,8 +334,10 @@ class QueryService(BaseService):
                     "title": meta["title"],
                     "type": meta["type"],
                     "subtype": meta["subtype"],
+                    "maturity": meta.get("maturity"),
                     "status": meta["status"],
                     "path": meta["path"],
+                    "topic": meta.get("topic"),
                     "created": meta["created"],
                     "modified": meta["modified"],
                     "score": score,
@@ -391,6 +412,216 @@ class QueryService(BaseService):
 
         items.sort(key=lambda x: x["score"], reverse=True)
         return items[:limit], warnings
+
+    def _apply_enrichment_rank(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        mode: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Re-rank items for review or garden-oriented workflows."""
+        if not items:
+            return []
+
+        signals = self._build_enrichment_signals(items)
+        raw_scores = [abs(float(item.get("score", 0.0))) for item in items]
+        raw_max = max(raw_scores) or 1.0
+
+        for item in items:
+            item_id = str(item.get("id", ""))
+            signal = signals.get(item_id, {})
+            lexical = abs(float(item.get("score", 0.0))) / raw_max
+            staleness = float(signal.get("staleness", 0.0))
+            graph_gap = float(signal.get("graph_gap", 0.0))
+            bridge_value = float(signal.get("bridge_value", 0.0))
+            provenance_support = float(signal.get("provenance_support", 0.0))
+            maturity = float(signal.get("maturity_score", 0.0))
+
+            if mode == "review":
+                item["score"] = (
+                    0.35 * lexical + 0.30 * staleness + 0.20 * graph_gap + 0.15 * bridge_value
+                )
+            else:
+                item["score"] = (
+                    0.30 * lexical
+                    + 0.25 * provenance_support
+                    + 0.20 * maturity
+                    + 0.15 * bridge_value
+                    + 0.10 * staleness
+                )
+
+        items.sort(key=lambda candidate: candidate["score"], reverse=True)
+        return items[:limit]
+
+    def _annotate_search_items(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        mode: str,
+    ) -> list[dict[str, Any]]:
+        """Attach reusable ranking explanations to search-like result rows."""
+        if not items:
+            return []
+
+        signals = self._build_enrichment_signals(items)
+        annotated: list[dict[str, Any]] = []
+        for item in items:
+            updated = item.copy()
+            updated["ranking"] = self._ranking_explanation_for_item(updated, mode, signals)
+            annotated.append(updated)
+        return annotated
+
+    def _build_enrichment_signals(self, items: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+        """Collect normalized enrichment signals for ranked items."""
+        node_ids = [str(item.get("id", "")) for item in items if item.get("id")]
+        repo_signals = self._repo.get_node_signal_rows(node_ids)
+
+        features_map: dict[str, dict[str, float]] = {}
+        for item in items:
+            item_id = str(item.get("id", ""))
+            path = item.get("path")
+            file_features = self._content_features(path) if isinstance(path, str) else {}
+            signal_row = repo_signals.get(item_id, {})
+            outgoing = float(signal_row.get("outgoing_count", 0.0) or 0.0)
+            incoming = float(signal_row.get("incoming_count", 0.0) or 0.0)
+            total_edges = outgoing + incoming
+            age_days = self._age_days(item.get("modified"))
+            staleness = min(age_days / 30.0, 1.0)
+            graph_gap = 1.0 / (1.0 + total_edges)
+            bridge_value = min((total_edges / 6.0), 1.0)
+            provenance_support = min(
+                (
+                    float(file_features.get("provenance_count", 0.0))
+                    + float(file_features.get("excerpt_count", 0.0))
+                    + float(file_features.get("key_point_count", 0.0))
+                )
+                / 6.0,
+                1.0,
+            )
+            maturity_name = (
+                str(item.get("maturity") or signal_row.get("maturity") or "").strip().lower()
+            )
+            maturity_score = _MATURITY_SCORES.get(maturity_name, 0.0)
+            features_map[item_id] = {
+                "age_days": age_days,
+                "staleness": staleness,
+                "graph_gap": graph_gap,
+                "bridge_value": bridge_value,
+                "provenance_support": provenance_support,
+                "maturity_score": maturity_score,
+                "provenance_count": float(file_features.get("provenance_count", 0.0)),
+                "excerpt_count": float(file_features.get("excerpt_count", 0.0)),
+                "key_point_count": float(file_features.get("key_point_count", 0.0)),
+            }
+        return features_map
+
+    def _ranking_explanation_for_item(
+        self,
+        item: dict[str, Any],
+        mode: str,
+        signals: dict[str, dict[str, float]],
+    ) -> dict[str, Any]:
+        """Render a compact explanation payload for a ranked item."""
+        item_id = str(item.get("id", ""))
+        signal = signals.get(item_id, {})
+        reasons: list[str] = []
+        signal_values = {
+            "score": round(float(item.get("score", 0.0)), 4),
+            "staleness": round(float(signal.get("staleness", 0.0)), 4),
+            "graph_gap": round(float(signal.get("graph_gap", 0.0)), 4),
+            "bridge_value": round(float(signal.get("bridge_value", 0.0)), 4),
+            "provenance_support": round(float(signal.get("provenance_support", 0.0)), 4),
+            "maturity_score": round(float(signal.get("maturity_score", 0.0)), 4),
+        }
+
+        if mode in {"relevance", "semantic", "hybrid"}:
+            reasons.append("Strong query match.")
+        if mode == "recency":
+            reasons.append("Recent activity boosted this result.")
+        if mode == "graph":
+            reasons.append("Graph centrality boosted this result.")
+        if mode == "review":
+            if signal_values["staleness"] >= 0.4:
+                reasons.append("Item is stale enough to review.")
+            if signal_values["graph_gap"] >= 0.3:
+                reasons.append("Sparse graph context makes this a review candidate.")
+        if mode == "garden":
+            if signal_values["provenance_support"] >= 0.3:
+                reasons.append("Source-backed evidence makes this useful for enrichment.")
+            if signal_values["maturity_score"] > 0.0:
+                reasons.append("Garden maturity increases enrichment value.")
+        if signal_values["bridge_value"] >= 0.5:
+            reasons.append("Graph position suggests bridging potential.")
+        if not reasons:
+            reasons.append("Selected by ranking heuristics.")
+
+        return {"mode": mode, "reasons": reasons, "signals": signal_values}
+
+    @staticmethod
+    def _section_map(markdown: str) -> dict[str, str]:
+        """Split markdown into second-level sections."""
+        sections: dict[str, list[str]] = {}
+        current: str | None = None
+        for line in markdown.splitlines():
+            if line.startswith("## "):
+                current = line[3:].strip()
+                sections.setdefault(current, [])
+                continue
+            if current is not None:
+                sections[current].append(line)
+        return {name: "\n".join(lines).strip() for name, lines in sections.items()}
+
+    def _content_features(self, relative_path: str) -> dict[str, float]:
+        """Extract lightweight enrichment features from a markdown file."""
+        path = self._vault.root / Path(relative_path)
+        if not path.is_file():
+            return {}
+
+        try:
+            raw = path.read_text(encoding="utf-8")
+            frontmatter, body = parse_frontmatter(raw)
+        except Exception:
+            return {}
+
+        sections = self._section_map(body)
+        key_points = frontmatter.get("key_points", [])
+        if not isinstance(key_points, list):
+            key_points = []
+        if not key_points:
+            key_points = [
+                line.strip().lstrip("- ").strip()
+                for line in sections.get("Key Points", "").splitlines()
+                if line.strip().startswith("-")
+            ]
+        provenance_lines = [
+            line
+            for line in sections.get("Provenance", "").splitlines()
+            if line.strip().startswith("-")
+        ]
+        excerpt_lines = [
+            line
+            for line in sections.get("Excerpts", "").splitlines()
+            if line.strip().startswith(">")
+        ]
+        return {
+            "provenance_count": float(len(provenance_lines)),
+            "excerpt_count": float(len(excerpt_lines)),
+            "key_point_count": float(len(key_points)),
+        }
+
+    @staticmethod
+    def _age_days(timestamp: Any) -> float:
+        """Compute age in days from an ISO timestamp-like value."""
+        if timestamp is None:
+            return 0.0
+        try:
+            dt = datetime.fromisoformat(str(timestamp))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+        except ValueError:
+            return 0.0
+        return max((datetime.now(UTC) - dt).total_seconds() / 86400, 0.0)
 
     # ------------------------------------------------------------------
     # get — single item retrieval
@@ -714,6 +945,161 @@ class QueryService(BaseService):
             data=dump_validated(TopicPacketData, result.data),
             warnings=result.warnings,
         )
+
+    @traced
+    def draft_from_topic(
+        self,
+        topic: str,
+        *,
+        target: str = "note",
+        mode: str = "learn",
+        budget: int = 4000,
+    ) -> ServiceResult:
+        """Generate a draft note/task/decision from a topic packet."""
+        if target not in {"note", "task", "decision"}:
+            return ServiceResult(
+                ok=False,
+                op="draft_from_topic",
+                error=ServiceError(
+                    code="VALIDATION_FAILED",
+                    message=f"Unsupported draft target: {target}",
+                ),
+            )
+
+        packet_result = self.topic_packet(topic, mode=mode, budget=budget)
+        if not packet_result.ok:
+            return packet_result
+
+        packet = packet_result.data
+        source_items = [
+            *packet.get("references", []),
+            *packet.get("notes", []),
+            *packet.get("decisions", []),
+        ]
+        unique_sources: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for item in source_items:
+            item_id = str(item.get("id", ""))
+            if not item_id or item_id in seen:
+                continue
+            seen.add(item_id)
+            unique_sources.append(
+                {
+                    "id": item_id,
+                    "title": str(item.get("title", item_id)),
+                    "type": str(item.get("type", "note")),
+                    "path": item.get("path"),
+                }
+            )
+
+        title, body = self._draft_body(topic, target=target, mode=mode, packet=packet)
+        return ServiceResult(
+            ok=True,
+            op="draft_from_topic",
+            data=dump_validated(
+                TopicDraftData,
+                {
+                    "topic": topic,
+                    "mode": mode,
+                    "target": target,
+                    "title": title,
+                    "body": body,
+                    "sources": unique_sources[:8],
+                    "packet": packet,
+                },
+            ),
+            warnings=packet_result.warnings,
+        )
+
+    @staticmethod
+    def _draft_body(
+        topic: str,
+        *,
+        target: str,
+        mode: str,
+        packet: dict[str, Any],
+    ) -> tuple[str, str]:
+        """Build a simple structured draft from a topic packet."""
+        evidence = packet.get("evidence", [])[:5]
+        actions = packet.get("suggested_actions", [])[:5]
+        notes = packet.get("notes", [])[:5]
+        decisions = packet.get("decisions", [])[:5]
+
+        if target == "task":
+            title = f"Review {topic}"
+            lines = [
+                f"# {title}",
+                "",
+                "## Why",
+                f"- Review packet mode: {mode}",
+            ]
+            if actions:
+                lines.extend(["", "## Actions"])
+                for action in actions:
+                    lines.append(f"- {action['title']}: {action['rationale']}")
+            if evidence:
+                lines.extend(["", "## Evidence"])
+                for item in evidence:
+                    lines.append(f"- {item['title']}: {item['text']}")
+            return title, "\n".join(lines).strip() + "\n"
+
+        if target == "decision":
+            title = f"Decision: {topic}"
+            lines = [
+                f"# {title}",
+                "",
+                "## Context",
+                f"- Topic packet mode: {mode}",
+            ]
+            if evidence:
+                lines.append("- Evidence available from packet references and notes.")
+            lines.extend(
+                [
+                    "",
+                    "## Choice",
+                    "- TODO: record the preferred option.",
+                    "",
+                    "## Rationale",
+                ]
+            )
+            for item in evidence[:3]:
+                lines.append(f"- {item['title']}: {item['text']}")
+            lines.extend(
+                [
+                    "",
+                    "## Alternatives",
+                    "- TODO: document alternatives.",
+                    "",
+                    "## Consequences",
+                    "- TODO: document likely consequences.",
+                ]
+            )
+            return title, "\n".join(lines).strip() + "\n"
+
+        title = f"{topic.title()} synthesis"
+        lines = [
+            f"# {title}",
+            "",
+            "## Summary",
+            f"- Topic packet mode: {mode}",
+        ]
+        for item in notes[:3]:
+            lines.append(f"- {item['title']}")
+        lines.extend(["", "## Evidence"])
+        if evidence:
+            for item in evidence:
+                lines.append(f"- {item['title']}: {item['text']}")
+        else:
+            lines.append("- No evidence excerpts captured yet.")
+        if decisions:
+            lines.extend(["", "## Related Decisions"])
+            for item in decisions[:3]:
+                lines.append(f"- {item['title']}")
+        if actions:
+            lines.extend(["", "## Next Actions"])
+            for action in actions:
+                lines.append(f"- {action['title']}: {action['rationale']}")
+        return title, "\n".join(lines).strip() + "\n"
 
     @traced
     def vault_review(self, *, top: int = 10, stale_days: int = 7) -> ServiceResult:

@@ -538,7 +538,7 @@ Shared across all content-returning commands:
 --sort relevance|recency|graph|priority
 ```
 
-> **Implementation note (Phase 4+5):** The `list` command implements all core filters: `--type`, `--status`, `--tag`, `--topic`, `--subtype`, `--maturity`, `--since`, `--include-archived`, `--space`, `--sort` (recency|title|type|priority), and `--limit`. Priority sort scores tasks using the existing weighted formula (priority×2 + impact×1.5 + (4−effort)), sorts in Python after DB fetch, and applies limit post-sort. The `search` command implements `--type`, `--tag`, `--space`, `--rank-by` (relevance|recency|graph), and `--limit`. The `--space` filter is shared across search, list, work-queue, and decision-support (Phase 5). The `graph` ranking mode multiplies BM25 scores by materialized PageRank values (Phase 5). The `recency` ranking uses BM25 × exponential time-decay with configurable `half_life_days` (Phase 5).
+> **Implementation note (Phase 4+5 + enrichment follow-up):** The `list` command implements all core filters: `--type`, `--status`, `--tag`, `--topic`, `--subtype`, `--maturity`, `--since`, `--include-archived`, `--space`, `--sort` (recency|title|type|priority), and `--limit`. Priority sort scores tasks using the existing weighted formula (priority×2 + impact×1.5 + (4−effort)), sorts in Python after DB fetch, and applies limit post-sort. The `search` command implements `--type`, `--tag`, `--space`, `--rank-by` (relevance|recency|graph|semantic|hybrid|review|garden), and `--limit`. The `--space` filter is shared across search, list, work-queue, and decision-support (Phase 5). The `graph` ranking mode multiplies BM25 scores by materialized PageRank values (Phase 5). The `recency` ranking uses BM25 × exponential time-decay with configurable `half_life_days` (Phase 5). The `review` and `garden` modes re-rank search results with enrichment signals and attach ranking explanations.
 
 ### Agent Context Protocol
 
@@ -593,10 +593,14 @@ The `--ignore-checkpoints` flag reads full history when needed.
 ### Search
 
 - **Default:** FTS5 BM25 full-text search
-- **Ranking:** Configurable via `--rank-by relevance|graph|recency`
+- **Ranking:** Configurable via `--rank-by relevance|graph|recency|semantic|hybrid|review|garden`
   - `relevance`: BM25 score
   - `graph`: BM25 × PageRank
   - `recency`: BM25 × time decay
+  - `semantic`: vector similarity only
+  - `hybrid`: BM25 + vector similarity
+  - `review`: lexical/semantic recall re-ranked for stale or weakly connected items
+  - `garden`: lexical/semantic recall re-ranked for provenance-rich enrichment work
 - **Semantic search:** Optional, feature-flagged (`[search] semantic_enabled = false`)
 
 ### Semantic Search
@@ -630,7 +634,7 @@ ztlctl vector reindex   # rebuild vector index for all content
 
 **Configuration:** See `[search]` section in Configuration Reference (→ Section 17).
 
-> **Implementation note (Phase 3+5+9):** Search supports `--rank-by relevance|recency|graph`. The `relevance` mode uses raw BM25 ordering. The `recency` mode applies BM25 × exponential time-decay (`exp(-age_days * ln2 / half_life_days)`) with configurable `half_life_days` in SearchConfig (Phase 5). The `graph` mode multiplies BM25 by materialized PageRank values from the nodes table (Phase 5). `GraphService.materialize_metrics()` computes and persists PageRank, degree centrality, and betweenness to the nodes table. `ztlctl graph materialize` triggers on demand; `ztlctl check --rebuild` also refreshes metrics. Semantic search (Phase 9, PR #57): `EmbeddingProvider` lazy-loads `all-MiniLM-L6-v2` model on first call (avoids startup cost when disabled). `VectorService` serializes vectors as compact binary (`struct.pack` float32) for sqlite-vec KNN queries. Integration points: `CreateService` auto-indexes via `VectorService.index_node()` when available; `QueryService` calls `VectorService.search_similar()` for hybrid ranking. Both `sqlite-vec` and `sentence-transformers` are optional dependencies in the `[semantic]` extra.
+> **Implementation note (Phase 3+5+9 + conversational enrichment follow-up):** Search supports `--rank-by relevance|recency|graph|semantic|hybrid|review|garden`. The `relevance` mode uses raw BM25 ordering. The `recency` mode applies BM25 × exponential time-decay (`exp(-age_days * ln2 / half_life_days)`) with configurable `half_life_days` in SearchConfig (Phase 5). The `graph` mode multiplies BM25 by materialized PageRank values from the nodes table (Phase 5). `GraphService.materialize_metrics()` computes and persists PageRank, degree centrality, and betweenness to the nodes table. `ztlctl graph materialize` triggers on demand; `ztlctl check --rebuild` also refreshes metrics. Semantic search (Phase 9, PR #57): `EmbeddingProvider` lazy-loads `all-MiniLM-L6-v2` model on first call (avoids startup cost when disabled). `VectorService` serializes vectors as compact binary (`struct.pack` float32) for sqlite-vec KNN queries. Integration points: `CreateService` auto-indexes via `VectorService.index_node()` when available; `QueryService` calls `VectorService.search_similar()` for hybrid ranking. Review/garden ranking adds enrichment signals such as staleness, graph gap, bridge value, maturity, and provenance support, and responses carry a `ranking` explanation block. Both `sqlite-vec` and `sentence-transformers` are optional dependencies in the `[semantic]` extra.
 
 ---
 
@@ -1164,12 +1168,12 @@ The MCP module uses `try/except ImportError` with a module-level `mcp_available`
 | Discovery | `discover_tools`, `describe_tool`, `list_tags`, `list_source_providers` |
 | Creation | `create_note`, `create_reference`, `create_log`, `create_task`, `garden_seed`, `ingest_source` |
 | Lifecycle | `update_content`, `close_content`, `reweave` |
-| Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue`, `topic_packet` |
+| Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue`, `topic_packet`, `draft_from_topic` |
 | Graph | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
 | Session | `session_close`, `session_status` |
 | Analysis | `decision_support`, `vault_review` |
 
-### Resources (7)
+### Resources (10)
 
 | URI | Content |
 |-----|---------|
@@ -1178,12 +1182,15 @@ The MCP module uses `try/except ImportError` with a module-level `mcp_available`
 | `ztlctl://self/methodology` | Vault methodology |
 | `ztlctl://overview` | Vault statistics |
 | `ztlctl://work-queue` | Prioritized tasks |
+| `ztlctl://review/dashboard` | Review-oriented dashboard snapshot |
+| `ztlctl://garden/backlog` | Stale/orphan backlog for enrichment |
+| `ztlctl://decision-queue` | Recent decisions plus current work queue |
 | `ztlctl://topics` | Topic listing |
 | `ztlctl://agent-reference` | One-shot onboarding guide with workflows and recovery guidance |
 
-### Prompts (4)
+### Prompts (7)
 
-`research_session`, `knowledge_capture`, `vault_orientation`, `decision_record` — portable workflows for any MCP client.
+`research_session`, `knowledge_capture`, `vault_orientation`, `decision_record`, `topic_learn`, `topic_review`, `topic_decision` — portable workflows for any MCP client.
 
 ### Transport
 

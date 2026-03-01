@@ -1,7 +1,8 @@
 """MCP prompt definitions — portable workflow prompts.
 
 Prompts: research_session, knowledge_capture, vault_orientation,
-decision_record. Available to any MCP client. (DESIGN.md Section 16)
+decision_record, topic_learn, topic_review, topic_decision. Available
+to any MCP client. (DESIGN.md Section 16)
 Each prompt has a ``_<name>_impl`` function testable without the mcp package.
 """
 
@@ -17,6 +18,12 @@ _PROMPT_CATALOG: tuple[dict[str, str], ...] = (
         "description": "Get oriented in this vault (reads identity + methodology + overview).",
     },
     {"name": "decision_record", "description": "Document a decision with structured context."},
+    {"name": "topic_learn", "description": "Learn a topic from packet-based evidence."},
+    {
+        "name": "topic_review",
+        "description": "Review a topic for stale, weak, or disconnected knowledge.",
+    },
+    {"name": "topic_decision", "description": "Prepare a decision-ready topic packet and draft."},
 )
 
 
@@ -190,6 +197,54 @@ You are documenting a decision about "{topic}".
 """
 
 
+def topic_learn_impl(topic: str) -> str:
+    """Generate instructions for topic learning from packet evidence."""
+    return f"""## Topic Learn: {topic}
+
+1. Use `topic_packet` with `topic="{topic}"` and `mode="learn"`.
+2. Read the `evidence`, `references`, and `ranking_explanations` sections first.
+3. Use `get_document` on the strongest evidence items when you need full source context.
+4. Use `draft_from_topic` with `target="note"` when the packet is strong enough to synthesize.
+
+Focus on:
+- recurring ideas across evidence
+- gaps between references and durable notes
+- which items are most source-backed
+"""
+
+
+def topic_review_impl(topic: str) -> str:
+    """Generate instructions for review-mode enrichment."""
+    return f"""## Topic Review: {topic}
+
+1. Use `topic_packet` with `topic="{topic}"` and `mode="review"`.
+2. Inspect `stale_items`, `bridge_candidates`, `supporting_links`, and `conflicts`.
+3. Read `ztlctl://review/dashboard` and `ztlctl://garden/backlog` for broader context.
+4. Use `draft_from_topic` with `target="task"` if the review should become tracked work.
+
+Focus on:
+- stale items that need refreshing
+- weakly connected notes that deserve links or synthesis
+- evidence conflicts that should be made explicit
+"""
+
+
+def topic_decision_impl(topic: str) -> str:
+    """Generate instructions for a decision-oriented topic workflow."""
+    return f"""## Topic Decision: {topic}
+
+1. Use `topic_packet` with `topic="{topic}"` and `mode="decision"`.
+2. Review `decisions`, `evidence`, and `conflicts` before drafting anything.
+3. Read `ztlctl://decision-queue` to understand current decision pressure.
+4. Use `draft_from_topic` with `target="decision"` to build a structured draft.
+
+Focus on:
+- whether a decision already exists
+- which evidence supports or conflicts with likely choices
+- what consequences or alternatives still need to be written down
+"""
+
+
 # ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
@@ -217,6 +272,21 @@ def register_prompts(server: Any, vault: Any) -> None:
     def decision_record(topic: str) -> str:
         """Document a decision with structured context."""
         return decision_record_impl(topic)
+
+    @server.prompt()  # type: ignore[untyped-decorator]
+    def topic_learn(topic: str) -> str:
+        """Learn a topic from packet-based evidence."""
+        return topic_learn_impl(topic)
+
+    @server.prompt()  # type: ignore[untyped-decorator]
+    def topic_review(topic: str) -> str:
+        """Review a topic for stale, weak, or disconnected knowledge."""
+        return topic_review_impl(topic)
+
+    @server.prompt()  # type: ignore[untyped-decorator]
+    def topic_decision(topic: str) -> str:
+        """Prepare a decision-ready topic packet and draft."""
+        return topic_decision_impl(topic)
 
     plugin_manager = getattr(vault, "plugin_manager", None)
     if plugin_manager is None:

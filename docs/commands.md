@@ -38,6 +38,7 @@ Most commands also support `--examples` to show usage examples.
 | `query work-queue` | Prioritized task queue |
 | `query decision-support` | Decision context aggregation |
 | `query packet` | Topic-scoped learning/review packet |
+| `query draft` | Draft a note, task, or decision from a topic packet |
 | `graph related ID` | Find related content |
 | `graph themes` | Discover topic clusters |
 | `graph rank` | PageRank importance |
@@ -63,7 +64,7 @@ Most commands also support `--examples` to show usage examples.
 | `export markdown` | Export as portable markdown |
 | `export indexes` | Generate type/topic indexes |
 | `export graph` | Export graph (DOT or JSON) |
-| `export dashboard` | Export dashboard note and JSON review indexes |
+| `export dashboard` | Export dashboard note, review queues, and topic dossier artifacts |
 | `garden seed TITLE` | Quick-capture seed note |
 | `ingest text TITLE` | Ingest raw text into a note or reference |
 | `ingest file PATH` | Ingest a markdown or text file |
@@ -80,7 +81,7 @@ Most commands also support `--examples` to show usage examples.
 
 ## Search Ranking Modes
 
-The `--rank-by` option on `query search` supports five modes:
+The `--rank-by` option on `query search` supports seven modes:
 
 | Mode | Algorithm | Best For |
 |------|-----------|----------|
@@ -89,6 +90,10 @@ The `--rank-by` option on `query search` supports five modes:
 | `graph` | BM25 x PageRank boost | Finding well-connected content |
 | `semantic` | Vector similarity | Meaning-based retrieval |
 | `hybrid` | BM25 + vector merge | Mixed lexical and semantic discovery |
+| `review` | Enrichment rerank over search results | Stale, weakly connected, review-worthy items |
+| `garden` | Enrichment rerank with provenance/maturity signals | Human-led enrichment and garden work |
+
+Search results in JSON mode now include a `ranking` block with reasons and signal scores so agents can explain why an item surfaced.
 
 ## Query Filters
 
@@ -121,3 +126,25 @@ ztlctl ingest url https://example.com/spec --provider my-provider --as reference
 ```
 
 URL ingestion is provider-backed. If no source provider is installed, `ingest url` returns `NO_PROVIDER` and suggests `ztlctl ingest providers`.
+
+For richer agent-driven capture, the MCP `ingest_source` tool also accepts optional evidence-envelope fields such as `source_kind`, `modalities`, `capture_agent`, `capture_method`, `citations`, `excerpts`, and `artifacts`.
+
+## Topic Packets and Drafts
+
+Use packets when you want a conversational bundle rather than a flat result list:
+
+```bash
+ztlctl query packet --topic architecture --mode learn
+ztlctl query packet --topic architecture --mode review
+ztlctl query packet --topic architecture --mode decision
+```
+
+Packets now include evidence excerpts, supporting/conflicting links, stale items, bridge candidates, suggested actions, and ranking explanations.
+
+Use drafts when you want the next durable artifact sketched from the packet:
+
+```bash
+ztlctl query draft --topic architecture --target note
+ztlctl query draft --topic architecture --mode review --target task
+ztlctl query draft --topic architecture --mode decision --target decision
+```

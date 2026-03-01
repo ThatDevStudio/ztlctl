@@ -12,6 +12,8 @@ This vault is managed by `ztlctl`. Treat the MCP surface as canonical when it is
 - Prefer one-step note creation with authored `body`, `key_points`, `aliases`, and `links` when creating synthesis or knowledge notes.
 - Run `reweave` after important note creation.
 - Use `vault_review` for health checks and periodic reviews.
+- Use `draft_from_topic` when a topic packet is strong enough to become a note, task, or decision draft.
+- Read `ztlctl://review/dashboard`, `ztlctl://garden/backlog`, and `ztlctl://decision-queue` for enrichment-oriented context.
 
 ## Methodology
 
@@ -40,3 +42,4 @@ This vault is managed by `ztlctl`. Treat the MCP surface as canonical when it is
 - Available MCP prompts: {{ prompt_count }}
 - Keep Claude-specific slash-command syntax out of Codex interactions.
 - Prefer `topic_packet` when you need a topic-scoped learning or review bundle outside an active session.
+- Prefer `topic_learn`, `topic_review`, and `topic_decision` prompts when the MCP client exposes prompts.

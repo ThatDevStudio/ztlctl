@@ -106,6 +106,8 @@ Reweave uses a 4-signal scoring algorithm:
 ztlctl query search "transformer attention" --rank-by relevance
 ztlctl query search "python async" --rank-by recency --type note
 ztlctl query search "architecture" --rank-by graph  # PageRank-boosted
+ztlctl query search "architecture" --rank-by review # review-oriented rerank
+ztlctl query search "oauth" --rank-by garden        # enrichment-oriented rerank
 ```
 
 **List with filters:**
@@ -128,6 +130,7 @@ ztlctl query get ztl_a1b2c3d4
 ```bash
 ztlctl query decision-support --topic architecture
 ztlctl query packet --topic architecture --mode learn
+ztlctl query draft --topic architecture --target note
 ```
 
 ## Step 6: Analyze the Graph
@@ -216,6 +219,15 @@ ztlctl export graph --format json --output graph.json # For D3.js / vis.js
 ```bash
 ztlctl export dashboard --viewer obsidian --output ./dashboard/
 ```
+
+This export now includes:
+
+- `dashboard.md`
+- `review-queue.json`
+- `decision-queue.json`
+- `garden-backlog.json`
+- `topic-review-summary.json`
+- `topics/<topic>.md` and `topics/<topic>.json` dossiers for the busiest recent topics
 
 ## Step 9: Maintain Integrity
 

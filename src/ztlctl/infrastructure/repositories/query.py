@@ -35,8 +35,10 @@ class QueryRepository:
             nodes.c.title,
             nodes.c.type,
             nodes.c.subtype,
+            nodes.c.maturity,
             nodes.c.status,
             nodes.c.path,
+            nodes.c.topic,
             nodes.c.created,
             nodes.c.modified,
         ).where(nodes.c.id.in_(node_ids), nodes.c.archived == 0)
@@ -44,6 +46,37 @@ class QueryRepository:
         with self._engine.connect() as conn:
             rows = conn.execute(stmt).mappings().all()
 
+        return {str(row["id"]): dict(row) for row in rows}
+
+    def get_node_signal_rows(self, node_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch graph and enrichment-oriented signals for a set of node ids."""
+        if not node_ids:
+            return {}
+
+        outgoing_count = (
+            select(func.count(edges.c.target_id))
+            .where(edges.c.source_id == nodes.c.id)
+            .scalar_subquery()
+        )
+        incoming_count = (
+            select(func.count(edges.c.source_id))
+            .where(edges.c.target_id == nodes.c.id)
+            .scalar_subquery()
+        )
+
+        stmt = select(
+            nodes.c.id,
+            nodes.c.topic,
+            nodes.c.maturity,
+            nodes.c.subtype,
+            nodes.c.status,
+            nodes.c.pagerank,
+            outgoing_count.label("outgoing_count"),
+            incoming_count.label("incoming_count"),
+        ).where(nodes.c.id.in_(node_ids), nodes.c.archived == 0)
+
+        with self._engine.connect() as conn:
+            rows = conn.execute(stmt).mappings().all()
         return {str(row["id"]): dict(row) for row in rows}
 
     def search_fts_rows(
@@ -57,8 +90,8 @@ class QueryRepository:
     ) -> list[dict[str, Any]]:
         """Execute FTS5 search query and return row dicts."""
         sql = """
-            SELECT n.id, n.title, n.type, n.subtype, n.status, n.path,
-                   n.created, n.modified, n.pagerank, bm25(nodes_fts) AS score
+            SELECT n.id, n.title, n.type, n.subtype, n.maturity, n.status, n.path,
+                   n.topic, n.created, n.modified, n.pagerank, bm25(nodes_fts) AS score
             FROM nodes_fts AS fts
             JOIN nodes AS n ON fts.id = n.id
             WHERE nodes_fts MATCH :query

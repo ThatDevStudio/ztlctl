@@ -168,6 +168,7 @@ class DashboardExportConfig(BaseModel):
     include_work_queue: bool = True
     include_recent_decisions: bool = True
     include_garden_backlog: bool = True
+    topic_dossier_limit: int = 5
 
 
 class ExportsConfig(BaseModel):
