@@ -1156,17 +1156,17 @@ Optional extra (`pip install ztlctl[mcp]`). Thin adapter over the service layer.
 
 The MCP module uses `try/except ImportError` with a module-level `mcp_available` flag. When the `mcp` extra is not installed, the module loads without error but `create_server()` raises `RuntimeError` with install instructions.
 
-### Tools (25)
+### Tools (26)
 
-| Category | Count | Tools |
-|----------|-------|-------|
-| Discovery | 3 | `discover_tools`, `describe_tool`, `list_tags` |
-| Creation | 5 | `create_note`, `create_reference`, `create_task`, `create_log`, `garden_seed` |
-| Lifecycle | 3 | `update_content`, `close_content`, `reweave` |
-| Query | 6 | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue` |
-| Analysis | 2 | `decision_support`, `vault_review` |
-| Graph | 5 | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
-| Session | 2 | `session_close`, `session_status` |
+| Category | Tools |
+|----------|-------|
+| Discovery | `discover_tools`, `describe_tool`, `list_tags` |
+| Creation | `create_note`, `create_reference`, `create_log`, `create_task`, `garden_seed` |
+| Lifecycle | `update_content`, `close_content`, `reweave` |
+| Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue` |
+| Graph | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
+| Session | `session_close`, `session_status` |
+| Analysis | `decision_support`, `vault_review` |
 
 ### Resources (7)
 

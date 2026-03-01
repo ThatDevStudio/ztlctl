@@ -109,11 +109,12 @@ class TestResourceCatalog:
 class TestAgentReference:
     """Tests for agent_reference_impl."""
 
-    def test_returns_three_sections(self, vault: Vault):
+    def test_returns_four_sections(self, vault: Vault):
         result = agent_reference_impl(vault)
+        assert "recommended_start" in result
         assert "tool_categories" in result
-        assert "workflows" in result
-        assert "error_recovery" in result
+        assert "workflow_examples" in result
+        assert "common_errors" in result
 
     def test_tool_categories_grouped(self, vault: Vault):
         result = agent_reference_impl(vault)
@@ -133,10 +134,13 @@ class TestAgentReference:
                 assert "name" in tool, f"{cat}: missing name"
                 assert "when_to_use" in tool, f"{tool['name']}: missing when_to_use"
                 assert "avoid_when" in tool, f"{tool['name']}: missing avoid_when"
+                assert "side_effect" in tool, f"{tool['name']}: missing side_effect"
+                assert "common_errors" in tool, f"{tool['name']}: missing common_errors"
+                assert "args_guidance" in tool, f"{tool['name']}: missing args_guidance"
 
-    def test_workflows_have_5_patterns(self, vault: Vault):
+    def test_workflow_examples_have_5_patterns(self, vault: Vault):
         result = agent_reference_impl(vault)
-        wf = result["workflows"]
+        wf = result["workflow_examples"]
         expected = {
             "capture",
             "research_session",
@@ -148,24 +152,41 @@ class TestAgentReference:
 
     def test_workflow_steps_are_lists(self, vault: Vault):
         result = agent_reference_impl(vault)
-        for name, steps in result["workflows"].items():
+        for name, steps in result["workflow_examples"].items():
             assert isinstance(steps, list), f"{name}: not a list"
             assert len(steps) >= 2, f"{name}: too few steps"
 
-    def test_error_recovery_has_7_codes(self, vault: Vault):
+    def test_workflow_examples_use_real_tool_names(self, vault: Vault):
+        result = agent_reference_impl(vault)
+        valid_tool_names = {
+            tool["name"] for tools in result["tool_categories"].values() for tool in tools
+        }
+        for steps in result["workflow_examples"].values():
+            for step in steps:
+                assert step["tool"] in valid_tool_names
+                assert "notes" in step
+                assert "recommended_args" in step
+
+    def test_common_errors_has_expected_codes(self, vault: Vault):
         result = agent_reference_impl(vault)
         expected_codes = {
             "NOT_FOUND",
             "VALIDATION_FAILED",
             "ID_COLLISION",
             "NO_ACTIVE_SESSION",
+            "ACTIVE_SESSION_EXISTS",
             "INVALID_TRANSITION",
+            "UNKNOWN_TYPE",
             "NO_PATH",
             "EMPTY_QUERY",
         }
-        assert set(result["error_recovery"].keys()) == expected_codes
+        assert expected_codes.issubset(result["common_errors"].keys())
 
-    def test_error_recovery_values_non_empty(self, vault: Vault):
+    def test_common_error_values_non_empty(self, vault: Vault):
         result = agent_reference_impl(vault)
-        for code, recovery in result["error_recovery"].items():
+        for code, recovery in result["common_errors"].items():
             assert recovery.strip(), f"{code}: empty recovery"
+
+    def test_validation_failed_recovery_excludes_tag_format_claim(self, vault: Vault):
+        result = agent_reference_impl(vault)
+        assert "domain/scope" not in result["common_errors"]["VALIDATION_FAILED"]

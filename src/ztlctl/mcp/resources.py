@@ -105,14 +105,13 @@ def context_impl(vault: Any) -> dict[str, Any]:
 
 
 def agent_reference_impl(_vault: Any) -> dict[str, Any]:
-    """Agent reference: tool catalog, workflows, and error recovery.
+    """Agent reference: onboarding flow, tool catalog, workflows, and errors.
 
     Single-fetch onboarding payload for agents using the MCP server.
     """
-    from ztlctl.mcp.tools import tool_catalog
+    from ztlctl.mcp.tools import common_error_recovery, tool_catalog
 
-    # --- tool_categories: group catalog by category ---
-    grouped: dict[str, list[dict[str, str]]] = {}
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for tool in tool_catalog():
         grouped.setdefault(tool["category"], []).append(
             {
@@ -120,65 +119,161 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
                 "description": tool["description"],
                 "when_to_use": tool["when_to_use"],
                 "avoid_when": tool["avoid_when"],
+                "side_effect": tool["side_effect"],
+                "common_errors": list(tool["common_errors"]),
+                "args_guidance": dict(tool["args_guidance"]),
             }
         )
     tool_categories = {
         cat: sorted(tools, key=lambda t: t["name"]) for cat, tools in sorted(grouped.items())
     }
 
-    # --- workflows: common multi-step patterns ---
-    workflows = {
-        "capture": [
-            "garden_seed",
-            "reweave",
-        ],
-        "research_session": [
-            "create_log",
-            "create_reference",
-            "create_note",
-            "reweave",
-            "session_close",
-        ],
-        "search_then_create": [
-            "search",
-            "get_related",
-            "create_note (with links)",
-        ],
-        "vault_maintenance": [
-            "vault_review",
-            "graph_gaps",
-            "graph_bridges",
-            "reweave (dry_run=true)",
-        ],
-        "decision_documentation": [
-            "search",
-            "decision_support",
-            "create_note (subtype=decision)",
-            "reweave",
-        ],
+    recommended_start = {
+        "when_unsure": {
+            "tool": "discover_tools",
+            "notes": "Start here to browse the available tool surface by category.",
+            "recommended_args": {},
+        },
+        "when_name_known_but_contract_unclear": {
+            "tool": "describe_tool",
+            "notes": "Use this before a first call, especially for write tools.",
+            "recommended_args": {"name": "create_note"},
+        },
+        "when_you_need_a_quick_read_only_snapshot": {
+            "tool": "agent_context",
+            "notes": "Use after discovery if you need vault state before taking action.",
+            "recommended_args": {"limit": 5},
+        },
     }
 
-    # --- error_recovery: map error codes to recovery ---
-    error_recovery = {
-        "NOT_FOUND": ("Verify the ID with search() or list_items()."),
-        "VALIDATION_FAILED": (
-            "Check required params; titles must be non-empty; tags use domain/scope format."
-        ),
-        "ID_COLLISION": (
-            "Use search(title) to find existing item; update it or choose different title."
-        ),
-        "NO_ACTIVE_SESSION": ("Start a session with create_log(topic) first."),
-        "INVALID_TRANSITION": ("Check current status with get_document(id)."),
-        "NO_PATH": ("Ensure both IDs exist and are connected; use get_related() to verify."),
-        "EMPTY_QUERY": (
-            "Provide a non-empty query string; use list_items() to browse without search."
-        ),
+    workflow_examples = {
+        "capture": [
+            {
+                "tool": "garden_seed",
+                "notes": (
+                    "Fastest path for a raw idea. Domain/scope tags are recommended but "
+                    "not required."
+                ),
+                "recommended_args": {"title": "Quick idea"},
+            },
+            {
+                "tool": "reweave",
+                "notes": (
+                    "Preview link suggestions before writing them when the vault is already "
+                    "populated."
+                ),
+                "recommended_args": {"dry_run": True},
+            },
+        ],
+        "research_session": [
+            {
+                "tool": "create_log",
+                "notes": "Open a tracked session before recording sources and synthesis.",
+                "recommended_args": {"topic": "research-topic"},
+            },
+            {
+                "tool": "create_reference",
+                "notes": "Capture external sources as they are reviewed.",
+                "recommended_args": {"title": "Source title", "url": "https://example.com/source"},
+            },
+            {
+                "tool": "create_note",
+                "notes": "Synthesize findings into notes and use links to connect evidence.",
+                "recommended_args": {
+                    "title": "Synthesis note",
+                    "links": {"supports": ["REF-0001"]},
+                },
+            },
+            {
+                "tool": "reweave",
+                "notes": "Run after synthesis to add additional connections.",
+                "recommended_args": {},
+            },
+            {
+                "tool": "session_close",
+                "notes": "Close the session with a short summary when done.",
+                "recommended_args": {"summary": "Key findings and next actions."},
+            },
+        ],
+        "search_then_create": [
+            {
+                "tool": "search",
+                "notes": "Look for existing related content before creating anything new.",
+                "recommended_args": {"query": "topic keywords", "limit": 10},
+            },
+            {
+                "tool": "get_related",
+                "notes": "Inspect nearby graph context around a promising result.",
+                "recommended_args": {"content_id": "NOTE-0001", "depth": 2, "top": 10},
+            },
+            {
+                "tool": "create_note",
+                "notes": (
+                    "Create the new note only after checking for overlap. Use explicit links "
+                    "if you already know the evidence to connect."
+                ),
+                "recommended_args": {
+                    "title": "New note",
+                    "links": {"related": ["NOTE-0001"]},
+                },
+            },
+        ],
+        "vault_maintenance": [
+            {
+                "tool": "vault_review",
+                "notes": "Start with a broad health snapshot.",
+                "recommended_args": {"top": 10, "stale_days": 7},
+            },
+            {
+                "tool": "graph_gaps",
+                "notes": "Find disconnected areas that likely need linking.",
+                "recommended_args": {"top": 20},
+            },
+            {
+                "tool": "graph_bridges",
+                "notes": "Identify notes that already connect clusters well.",
+                "recommended_args": {"top": 20},
+            },
+            {
+                "tool": "reweave",
+                "notes": "Use preview mode first during maintenance sweeps.",
+                "recommended_args": {"dry_run": True},
+            },
+        ],
+        "decision_documentation": [
+            {
+                "tool": "search",
+                "notes": "Collect nearby evidence on the decision topic first.",
+                "recommended_args": {"query": "decision topic", "limit": 10},
+            },
+            {
+                "tool": "decision_support",
+                "notes": "Build topic-specific decision context from the vault.",
+                "recommended_args": {"topic": "decision topic"},
+            },
+            {
+                "tool": "create_note",
+                "notes": (
+                    "Store the decision as a structured note subtype and link supporting evidence."
+                ),
+                "recommended_args": {
+                    "title": "Decision: topic",
+                    "subtype": "decision",
+                },
+            },
+            {
+                "tool": "reweave",
+                "notes": "Connect the recorded decision back into the graph.",
+                "recommended_args": {},
+            },
+        ],
     }
 
     return {
+        "recommended_start": recommended_start,
         "tool_categories": tool_categories,
-        "workflows": workflows,
-        "error_recovery": error_recovery,
+        "workflow_examples": workflow_examples,
+        "common_errors": common_error_recovery(),
     }
 
 
@@ -230,7 +325,7 @@ def register_resources(server: Any, vault: Any) -> None:
 
     @server.resource("ztlctl://agent-reference")  # type: ignore[untyped-decorator]
     def agent_reference_resource() -> str:
-        """Agent reference: tool catalog, workflows, and error recovery."""
+        """Agent reference: onboarding flow, tool catalog, workflows, and errors."""
         import json
 
         return json.dumps(agent_reference_impl(vault), indent=2)

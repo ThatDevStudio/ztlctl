@@ -150,6 +150,22 @@ class TestCatalogCompleteness:
             assert "avoid_when" in tool, f"{tool['name']} missing avoid_when"
             assert tool["avoid_when"].strip(), f"{tool['name']} has empty avoid_when"
 
+    def test_all_entries_have_side_effect(self):
+        for tool in tool_catalog():
+            assert "side_effect" in tool, f"{tool['name']} missing side_effect"
+
+    def test_side_effect_values_are_valid(self):
+        for tool in tool_catalog():
+            assert tool["side_effect"] in {"read", "write"}
+
+    def test_all_entries_have_common_errors(self):
+        for tool in tool_catalog():
+            assert "common_errors" in tool, f"{tool['name']} missing common_errors"
+
+    def test_all_entries_have_args_guidance(self):
+        for tool in tool_catalog():
+            assert "args_guidance" in tool, f"{tool['name']} missing args_guidance"
+
     def test_catalog_has_26_tools(self):
         assert len(tool_catalog()) == 26
 
@@ -186,12 +202,15 @@ class TestDiscoveryTools:
         assert "create_reference" in names
 
     def test_discover_tools_excludes_enriched_fields(self, vault: Vault):
-        """Progressive disclosure: discover_tools must NOT expose when_to_use/avoid_when."""
+        """Progressive disclosure: discover_tools keeps only the lightweight selection surface."""
         resp = discover_tools_impl(vault)
         for cat in resp["data"]["categories"]:
             for tool in cat["tools"]:
                 assert "when_to_use" not in tool
                 assert "avoid_when" not in tool
+                assert "common_errors" not in tool
+                assert "args_guidance" not in tool
+                assert "side_effect" in tool
 
     def test_discover_tools_discovery_category_has_3(self, vault: Vault):
         resp = discover_tools_impl(vault, category="discovery")
@@ -203,10 +222,12 @@ class TestDiscoveryTools:
         class DummyServer:
             def __init__(self) -> None:
                 self.tools: list[str] = []
+                self.docs: dict[str, str | None] = {}
 
             def tool(self):
                 def decorator(fn):
                     self.tools.append(fn.__name__)
+                    self.docs[fn.__name__] = fn.__doc__
                     return fn
 
                 return decorator
@@ -215,6 +236,9 @@ class TestDiscoveryTools:
         register_tools(server, vault)
         assert "discover_tools" in server.tools
         assert "describe_tool" in server.tools
+        assert "What it does:" in (server.docs["create_note"] or "")
+        assert "Side effects:" in (server.docs["create_note"] or "")
+        assert "Args:" in (server.docs["create_note"] or "")
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +277,16 @@ class TestDescribeTool:
     def test_describe_tool_returns_all_fields(self, vault: Vault):
         resp = describe_tool_impl(vault, name="describe_tool")
         assert resp["ok"] is True
-        expected_fields = {"name", "category", "description", "when_to_use", "avoid_when"}
+        expected_fields = {
+            "name",
+            "category",
+            "description",
+            "when_to_use",
+            "avoid_when",
+            "side_effect",
+            "common_errors",
+            "args_guidance",
+        }
         assert set(resp["data"].keys()) == expected_fields
 
 

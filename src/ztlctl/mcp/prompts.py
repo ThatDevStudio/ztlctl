@@ -88,17 +88,15 @@ def vault_orientation_impl(vault: Any) -> str:
 
     counts = overview.get("counts", {})
     total = overview.get("total", 0)
-
-    # Build tools section dynamically from the catalog
-    grouped: dict[str, list[str]] = {}
+    grouped_tools: dict[str, list[str]] = {}
     for entry in tool_catalog():
-        grouped.setdefault(entry["category"], []).append(entry["name"])
-    tools_lines = "\n".join(
-        f"- **{cat.title()}**: {', '.join(sorted(names))}" for cat, names in sorted(grouped.items())
-    )
+        grouped_tools.setdefault(entry["category"], []).append(entry["name"])
 
-    # Build resources section dynamically from the catalog
-    resources_lines = "\n".join(
+    tool_lines = "\n".join(
+        f"- **{category.replace('_', ' ').title()}**: {', '.join(sorted(names))}"
+        for category, names in sorted(grouped_tools.items())
+    )
+    resource_lines = "\n".join(
         f"- `{entry['uri']}` — {entry['description']}" for entry in resource_catalog()
     )
 
@@ -117,11 +115,15 @@ def vault_orientation_impl(vault: Any) -> str:
 - **Tasks**: {counts.get("task", 0)}
 - **Sessions**: {counts.get("log", 0)}
 
-### Available Tools ({len(tool_catalog())})
-{tools_lines}
+### Tool Categories
+{tool_lines}
 
-### Available Resources ({len(resource_catalog())})
-{resources_lines}
+### Available Resources
+{resource_lines}
+
+### Discovery Rule
+If you are unsure which tool to call, start with `discover_tools`; if you know the
+name but not the contract, call `describe_tool`.
 """
 
 
