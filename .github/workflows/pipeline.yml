@@ -1,0 +1,368 @@
+name: Pipeline
+
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to recover (for example v1.2.3).
+        required: false
+        type: string
+
+concurrency:
+  group: pipeline-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: Validate
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_tag == '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run validation gates
+        uses: ./.github/actions/validate
+        with:
+          commit_lint: ${{ github.event_name == 'pull_request' }}
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: >-
+      ${{
+        always() &&
+        github.event_name != 'pull_request' &&
+        (
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '') ||
+          needs.validate.result == 'success'
+        ) &&
+        (
+          github.event_name != 'workflow_dispatch' ||
+          github.event.inputs.release_tag != '' ||
+          github.ref_name == 'develop'
+        )
+      }}
+    permissions:
+      contents: write
+    outputs:
+      released: ${{ steps.release_state.outputs.released }}
+      release_tag: ${{ steps.release_state.outputs.release_tag }}
+      version: ${{ steps.release_state.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Configure release mode
+        id: mode
+        shell: bash
+        env:
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+        run: |
+          if [ -n "$INPUT_RELEASE_TAG" ]; then
+            echo "recovery=true" >> "$GITHUB_OUTPUT"
+            echo "release_tag=$INPUT_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "recovery=false" >> "$GITHUB_OUTPUT"
+            echo "release_tag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up uv
+        if: ${{ steps.mode.outputs.recovery != 'true' }}
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Sync dev dependencies
+        if: ${{ steps.mode.outputs.recovery != 'true' }}
+        run: uv sync --group dev
+
+      - name: Configure git identity
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version and changelog
+        id: bump
+        if: ${{ steps.mode.outputs.recovery != 'true' }}
+        shell: bash
+        run: |
+          set +e
+          uv run cz bump --changelog --yes
+          bump_exit=$?
+          set -e
+          if [ "$bump_exit" -eq 21 ]; then
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$bump_exit" -ne 0 ]; then
+            exit "$bump_exit"
+          fi
+          version=$(uv run cz version --project)
+          echo "released=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release_tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release candidate
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        uses: ./.github/actions/validate
+        with:
+          commit_lint: "false"
+
+      - name: Build release manifest
+        id: manifest
+        if: >-
+          ${{
+            steps.mode.outputs.recovery == 'true' ||
+            steps.bump.outputs.released == 'true'
+          }}
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "${{ steps.mode.outputs.recovery }}" = "true" ]; then
+            python3 scripts/build_release_manifest.py \
+              --release-tag "${{ steps.mode.outputs.release_tag }}" \
+              --output dist/release-manifest.json
+          else
+            python3 scripts/build_release_manifest.py --output dist/release-manifest.json
+          fi
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = json.loads(Path("dist/release-manifest.json").read_text(encoding="utf-8"))
+          github_output = Path(os.environ["GITHUB_OUTPUT"])
+          with github_output.open("a", encoding="utf-8") as handle:
+              handle.write(f"version={manifest['version']}\n")
+              handle.write(f"release_tag={manifest['tag']}\n")
+              handle.write(f"asset_path={manifest['asset_path']}\n")
+          PY
+
+      - name: Push release commit and tag
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: git push origin develop --follow-tags
+
+      - name: Ensure GitHub release exists
+        if: >-
+          ${{
+            steps.mode.outputs.recovery == 'true' ||
+            steps.bump.outputs.released == 'true'
+          }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        shell: bash
+        run: |
+          tag="${{ steps.manifest.outputs.release_tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "GitHub Release for $tag already exists."
+          else
+            gh release create "$tag" \
+              --title "$tag" \
+              --generate-notes \
+              --verify-tag
+          fi
+
+      - name: Upload release assets
+        if: >-
+          ${{
+            steps.mode.outputs.recovery == 'true' ||
+            steps.bump.outputs.released == 'true'
+          }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          gh release upload "${{ steps.manifest.outputs.release_tag }}" \
+            "${{ steps.manifest.outputs.asset_path }}" \
+            dist/release-manifest.json \
+            --clobber
+
+      - name: Publish release manifest artifact
+        if: >-
+          ${{
+            steps.mode.outputs.recovery == 'true' ||
+            steps.bump.outputs.released == 'true'
+          }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: dist/release-manifest.json
+
+      - name: Set release state outputs
+        id: release_state
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [ "${{ steps.mode.outputs.recovery }}" = "true" ] && [ "${{ steps.manifest.outcome }}" = "success" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${{ steps.manifest.outputs.release_tag }}" >> "$GITHUB_OUTPUT"
+            echo "version=${{ steps.manifest.outputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.bump.outputs.released }}" = "true" ] && [ "${{ steps.manifest.outcome }}" = "success" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${{ steps.manifest.outputs.release_tag }}" >> "$GITHUB_OUTPUT"
+            echo "version=${{ steps.manifest.outputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "release_tag=" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    needs: [release]
+    if: ${{ needs.release.outputs.released == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/ztlctl/
+    steps:
+      - name: Download release manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: dist
+
+      - name: Read release manifest
+        id: manifest
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = json.loads(Path("dist/release-manifest.json").read_text(encoding="utf-8"))
+          github_output = Path(os.environ["GITHUB_OUTPUT"])
+          with github_output.open("a", encoding="utf-8") as handle:
+              handle.write(f"tag={manifest['tag']}\n")
+              handle.write(f"version={manifest['version']}\n")
+          PY
+
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.manifest.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Check PyPI for existing version
+        id: pypi
+        shell: bash
+        run: |
+          status_code=$(curl \
+            --silent \
+            --show-error \
+            --output /dev/null \
+            --write-out "%{http_code}" \
+            "https://pypi.org/pypi/ztlctl/${{ steps.manifest.outputs.version }}/json")
+          if [ "$status_code" = "200" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "ztlctl ${{ steps.manifest.outputs.version }} already exists on PyPI." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$status_code" = "404" ]; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unexpected PyPI response: $status_code" >&2
+            exit 1
+          fi
+
+      - name: Publish to PyPI
+        if: ${{ steps.pypi.outputs.exists != 'true' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  sync_homebrew_tap:
+    name: Sync Homebrew Tap
+    runs-on: macos-latest
+    needs: [publish]
+    if: ${{ needs.publish.result == 'success' && secrets.HOMEBREW_TAP_TOKEN != '' }}
+    permissions:
+      contents: read
+    env:
+      HOMEBREW_TAP_REPOSITORY: ThatDev/homebrew-ztlctl
+    steps:
+      - name: Download release manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: dist
+
+      - name: Read release manifest
+        id: manifest
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = json.loads(Path("dist/release-manifest.json").read_text(encoding="utf-8"))
+          github_output = Path(os.environ["GITHUB_OUTPUT"])
+          with github_output.open("a", encoding="utf-8") as handle:
+              handle.write(f"tag={manifest['tag']}\n")
+          PY
+
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.manifest.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Restore release manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: dist
+
+      - name: Generate Homebrew formula
+        run: |
+          python3 scripts/update_homebrew_formula.py \
+            --manifest dist/release-manifest.json \
+            --output "$RUNNER_TEMP/ztlctl.rb"
+
+      - name: Audit Homebrew formula
+        run: |
+          brew tap-new ThatDev/ztlctl
+          tap_formula_dir="$(brew --repo)/Library/Taps/thatdev/homebrew-ztlctl/Formula"
+          mkdir -p "$tap_formula_dir"
+          cp "$RUNNER_TEMP/ztlctl.rb" "$tap_formula_dir/ztlctl.rb"
+          brew audit --strict ThatDev/ztlctl/ztlctl
+
+      - name: Push formula to tap repository
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${HOMEBREW_TAP_REPOSITORY}.git" tap
+          mkdir -p tap/Formula
+          cp "$RUNNER_TEMP/ztlctl.rb" tap/Formula/ztlctl.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/ztlctl.rb
+          if git diff --cached --quiet; then
+            echo "No Homebrew formula changes."
+            exit 0
+          fi
+          git commit -m "brew: update ztlctl formula for ${{ steps.manifest.outputs.tag }}"
+          git push

@@ -5,11 +5,9 @@ from __future__ import annotations
 
 import argparse
 import ast
-import hashlib
+import json
 import re
-import subprocess
 import sys
-import tempfile
 import tomllib
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -19,7 +17,7 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT_PATH = ROOT / "pyproject.toml"
 LOCK_PATH = ROOT / "uv.lock"
-DEFAULT_OUTPUT = ROOT / "Formula" / "ztlctl.rb"
+DEFAULT_OUTPUT = ROOT / "dist" / "ztlctl.rb"
 
 
 def normalize_name(name: str) -> str:
@@ -111,6 +109,15 @@ class Artifact:
 
     url: str
     sha256: str
+
+
+@dataclass(frozen=True)
+class ReleaseMetadata:
+    """Release metadata embedded into the generated formula."""
+
+    version: str
+    download_url: str
+    source_sha256: str
 
 
 def package_maps(lock_data: dict[str, object]) -> dict[str, dict[str, object]]:
@@ -291,50 +298,54 @@ def format_runtime_resources(
     return common_blocks, arm_blocks, intel_blocks
 
 
-def git_ref_for_version(version: str) -> str:
-    """Return the git ref to archive for the requested version."""
-    tag = f"v{version}"
-    tagged_revision = subprocess.run(
-        ["git", "rev-parse", "--verify", tag],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if tagged_revision.returncode == 0:
-        return tag
-    return "HEAD"
-
-
-def build_release_tarball_sha(version: str) -> str:
-    """Build the Homebrew release tarball locally and return its sha256 digest."""
-    ref = git_ref_for_version(version)
-    with tempfile.TemporaryDirectory(prefix="ztlctl-homebrew-") as tmpdir:
-        tarball = Path(tmpdir) / f"ztlctl-{version}.tar.gz"
-        subprocess.run(
-            [
-                "git",
-                "archive",
-                "--format=tar.gz",
-                f"--prefix=ztlctl-{version}/",
-                "-o",
-                str(tarball),
-                ref,
-            ],
-            cwd=ROOT,
-            check=True,
+def load_release_metadata(
+    *,
+    manifest_path: Path | None,
+    version: str | None,
+    source_sha256: str | None,
+    download_url: str | None,
+) -> ReleaseMetadata:
+    """Load release metadata from a manifest or explicit CLI values."""
+    if manifest_path is not None:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        required_fields = {"version", "download_url", "source_sha256"}
+        missing = sorted(field for field in required_fields if field not in manifest)
+        if missing:
+            missing_fields = ", ".join(missing)
+            raise ValueError(f"{manifest_path} is missing required fields: {missing_fields}")
+        manifest_version = manifest["version"]
+        manifest_download_url = manifest["download_url"]
+        manifest_sha256 = manifest["source_sha256"]
+        if not isinstance(manifest_version, str) or not manifest_version:
+            raise ValueError(f"{manifest_path} has an invalid version field")
+        if not isinstance(manifest_download_url, str) or not manifest_download_url:
+            raise ValueError(f"{manifest_path} has an invalid download_url field")
+        if not isinstance(manifest_sha256, str) or not manifest_sha256:
+            raise ValueError(f"{manifest_path} has an invalid source_sha256 field")
+        return ReleaseMetadata(
+            version=manifest_version,
+            download_url=manifest_download_url,
+            source_sha256=manifest_sha256,
         )
-        return hashlib.sha256(tarball.read_bytes()).hexdigest()
+
+    if version is None or source_sha256 is None or download_url is None:
+        raise ValueError(
+            "Provide --manifest or all of --version, --source-sha256, and --download-url"
+        )
+    return ReleaseMetadata(
+        version=version,
+        download_url=download_url,
+        source_sha256=source_sha256,
+    )
 
 
 def base_formula(
     *,
-    version: str,
+    release: ReleaseMetadata,
     description: str,
     homepage: str,
     repository: str,
     license_name: str,
-    source_sha256: str,
     build_backend_names: list[str],
     common_resources: list[str],
     arm_resources: list[str],
@@ -363,8 +374,8 @@ def base_formula(
         "",
         f'  desc "{formula_description}"',
         f'  homepage "{homepage}"',
-        f'  url "{repository}/releases/download/v{version}/ztlctl-{version}.tar.gz"',
-        f'  sha256 "{source_sha256}"',
+        f'  url "{release.download_url}"',
+        f'  sha256 "{release.source_sha256}"',
         f'  license "{license_name}"',
         f'  head "{repository}.git", branch: "develop"',
         "",
@@ -404,7 +415,7 @@ def base_formula(
     return "\n".join(lines)
 
 
-def generate_formula() -> str:
+def generate_formula(release: ReleaseMetadata) -> str:
     """Generate the Homebrew formula content from local project files."""
     pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
     lock_data = tomllib.loads(LOCK_PATH.read_text(encoding="utf-8"))
@@ -453,10 +464,8 @@ def generate_formula() -> str:
     )
     all_resource_names = runtime_names | build_backend_names
 
-    version = str(project["version"])
     homepage = str(project["urls"]["Homepage"])
     repository = str(project["urls"]["Repository"])
-    source_sha256 = build_release_tarball_sha(version)
     common_runtime, arm_runtime, intel_runtime = format_runtime_resources(
         package_names=all_resource_names,
         packages=packages,
@@ -469,12 +478,11 @@ def generate_formula() -> str:
     intel_resources = [block for _, block in sorted(intel_runtime)]
 
     return base_formula(
-        version=version,
+        release=release,
         description=str(project["description"]),
         homepage=homepage,
         repository=repository,
         license_name=str(project["license"]),
-        source_sha256=source_sha256,
         build_backend_names=build_backend_display_names,
         common_resources=common_resources,
         arm_resources=arm_resources,
@@ -486,27 +494,43 @@ def main() -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--manifest",
+        type=Path,
+        help="Path to a release-manifest.json file.",
+    )
+    parser.add_argument(
+        "--version",
+        help="Release version to embed when no manifest is provided.",
+    )
+    parser.add_argument(
+        "--source-sha256",
+        help="Release tarball sha256 to embed when no manifest is provided.",
+    )
+    parser.add_argument(
+        "--download-url",
+        help="Release download URL to embed when no manifest is provided.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT,
         help="Path to the generated formula file.",
     )
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="Exit with status 1 if the generated formula does not match the output file.",
-    )
     args = parser.parse_args()
 
-    formula = generate_formula()
+    try:
+        release = load_release_metadata(
+            manifest_path=args.manifest,
+            version=args.version,
+            source_sha256=args.source_sha256,
+            download_url=args.download_url,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    formula = generate_formula(release)
     output_path = args.output
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if args.check:
-        if not output_path.exists() or output_path.read_text(encoding="utf-8") != formula:
-            print(f"{output_path} is out of date", file=sys.stderr)
-            return 1
-        return 0
 
     output_path.write_text(formula, encoding="utf-8")
     try:

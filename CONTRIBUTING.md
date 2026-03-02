@@ -66,25 +66,24 @@ For the complete design specification, see [DESIGN.md](DESIGN.md).
 | Branch | Purpose | Merges to |
 |--------|---------|-----------|
 | `develop` | Trunk — all development and releases | — |
-| `feature/<name>` | New features | `develop` |
-| `fix/<name>` | Bug fixes | `develop` |
+| `codex/<name>` | Focused work branch for features, fixes, and CI changes | `develop` |
 
 **Important:**
 - Never commit directly to `develop`
 - Always work on feature/fix branches created from `develop`
 - PRs always target `develop`
+- Branch protection requires the `Validate` status check before merge
 
 ## Making Changes
 
 1. **Pull latest develop:**
    ```bash
-   git checkout develop && git pull origin develop
+   git checkout develop && git pull --ff-only origin develop
    ```
 
 2. **Create a feature or fix branch:**
    ```bash
-   git checkout -b feature/<name>   # for new features
-   git checkout -b fix/<name>       # for bug fixes
+   git checkout -b codex/<name>     # preferred local branch naming
    ```
 
 3. **Make changes** in small, focused commits with conventional messages.
@@ -93,7 +92,7 @@ For the complete design specification, see [DESIGN.md](DESIGN.md).
 
 5. **Push and create a PR:**
    ```bash
-   git push -u origin feature/<name>
+   git push -u origin codex/<name>
    ```
 
 ## Conventional Commits
@@ -137,29 +136,47 @@ refactor(services): extract base service class
 
 ## Pre-Submit Checklist
 
-Run all four checks before pushing:
+The CI pipeline exposes a single required `Validate` status, but that one status runs several
+gates. Before pushing, run the closest local equivalent:
 
 ```bash
-uv run ruff check .              # Lint
-uv run ruff format --check .     # Format check
-uv run pytest                    # Tests
-uv run mypy src/                 # Type check
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src/
+uv run pytest --cov --cov-report=term-missing
+uv build
+uvx pip-audit
+uv sync --group test --extra mcp
+uv run pytest tests/mcp/test_stdio_integration.py tests/commands/test_serve.py -q
+uv sync --group test --extra semantic
+uv run pytest tests/integration/test_semantic_extra.py -q
 ```
 
-Or as a single command:
-
-```bash
-uv run ruff check . && uv run ruff format --check . && uv run pytest && uv run mypy src/
-```
-
-All four must pass — CI enforces the same checks.
+For pull requests, CI also runs `uv run cz check --rev-range origin/develop..HEAD`.
 
 ## Pull Request Requirements
 
 - **Title**: Must use conventional commit format (e.g., `feat(graph): add bridge detection`)
 - **Target**: `develop` branch
-- **CI**: All checks must pass (lint, test, typecheck, security audit, commit lint)
+- **CI**: The `Validate` workflow check must pass
 - **Scope**: Keep PRs focused — one feature or fix per PR
+
+## Release Recovery
+
+Releases are created by the unified `Pipeline` workflow after `Validate` passes on `develop`.
+The workflow builds a `release-manifest.json` file and uses it as the source of truth for release
+version, tag, tarball path, download URL, and source hash.
+
+If a release partially succeeds after tag creation, recover it with a manual workflow dispatch:
+
+```text
+Workflow: Pipeline
+Input: release_tag=vX.Y.Z
+```
+
+Recovery mode rebuilds the manifest from the existing tag, re-uploads release assets if needed,
+retries PyPI publish safely when the version is absent, and re-syncs the Homebrew tap only when
+the generated formula differs.
 
 ## Code Standards
 

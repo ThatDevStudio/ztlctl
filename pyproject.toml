@@ -137,5 +137,5 @@ version_files = ["src/ztlctl/__init__.py:__version__"]
 update_changelog_on_bump = true
 changelog_file = "CHANGELOG.md"
 tag_format = "v$version"
-bump_message = "release: v$new_version"
+bump_message = "release: v$new_version [skip ci]"
 annotated_tag = true
