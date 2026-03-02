@@ -18,7 +18,7 @@ This creates the directory structure, config file, SQLite database, and generate
 
 **Options:**
 - `--name TEXT` — Vault display name
-- `--profile [obsidian|core]` — Workspace profile used by initialization and self/workflow generation; `none` and `vanilla` are deprecated aliases for `core`
+- `--profile TEXT` — Workspace profile used by initialization and self/workflow generation; `core` is always available and installed profile ids are discovered dynamically
 - `--tone [research-partner|assistant|minimal]` — Agent personality for self/ files
 - `--topics TEXT` — Comma-separated topic directories
 - `--no-workflow` — Skip workflow template setup

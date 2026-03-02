@@ -27,7 +27,7 @@ class VaultConfig(BaseModel):
     model_config = {"frozen": True}
 
     name: str = "my-vault"
-    client: str = "obsidian"
+    client: str = "none"
 
     @field_validator("client")
     @classmethod
@@ -41,7 +41,7 @@ class WorkspaceConfig(BaseModel):
 
     model_config = {"frozen": True}
 
-    profile: str = "obsidian"
+    profile: str = "core"
 
     @field_validator("profile")
     @classmethod

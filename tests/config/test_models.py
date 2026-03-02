@@ -7,7 +7,7 @@ class TestSectionDefaults:
     def test_vault_defaults(self) -> None:
         cfg = VaultConfig()
         assert cfg.name == "my-vault"
-        assert cfg.client == "obsidian"
+        assert cfg.client == "none"
 
     def test_vault_frozen(self) -> None:
         cfg = VaultConfig()
@@ -23,7 +23,7 @@ class TestSectionDefaults:
 
     def test_workspace_defaults(self) -> None:
         cfg = WorkspaceConfig()
-        assert cfg.profile == "obsidian"
+        assert cfg.profile == "core"
 
     def test_workspace_normalizes_none_alias_to_core(self) -> None:
         cfg = WorkspaceConfig.model_validate({"profile": "none"})

@@ -1,3 +1,13 @@
 # Profile Layer
 
-{% include "layers/profile/" ~ profile ~ ".md.jinja" %}
+{% if profile == "core" %}
+{% include "layers/profile/core.md.jinja" %}
+{% elif profile == "obsidian" %}
+{% include "layers/profile/obsidian.md.jinja" %}
+{% else %}
+This workflow is configured for the plugin-provided profile `{{ profile }}`.
+
+ztlctl validates that the profile is installed before generating this scaffold, but
+the profile does not currently ship a built-in workflow note layer in the core
+template bundle.
+{% endif %}

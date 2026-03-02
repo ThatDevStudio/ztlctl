@@ -1261,7 +1261,9 @@ All configuration sections are frozen Pydantic `BaseModel` classes. Defaults are
 ```toml
 [vault]
 name = "my-research"
-client = "obsidian"
+
+[workspace]
+profile = "core"
 
 [agent]
 tone = "research-partner"
@@ -1272,7 +1274,9 @@ tone = "research-partner"
 ```toml
 [vault]
 name = "my-research"
-client = "obsidian"
+
+[workspace]
+profile = "core"
 
 [agent]
 tone = "research-partner"

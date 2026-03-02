@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 import click
 
-from ztlctl.commands._base import ZtlCommand
-from ztlctl.workspace_profiles import DEFAULT_PROFILE, PROFILE_CHOICES
+from ztlctl.commands._base import DynamicProfileOption, ZtlCommand
+from ztlctl.workspace_profiles import DEFAULT_PROFILE, discover_init_profiles
 
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
@@ -26,10 +26,15 @@ _INIT_EXAMPLES = """\
 @click.option("--name", default=None, help="Vault name.")
 @click.option(
     "--profile",
+    cls=DynamicProfileOption,
+    discovery_scope="init",
     type=str,
     default=None,
     metavar="TEXT",
-    help="Workspace profile (`obsidian` or `core`; `none` and `vanilla` are deprecated aliases).",
+    help=(
+        "Workspace profile. "
+        "`none` and `vanilla` remain deprecated compatibility aliases for `core`."
+    ),
 )
 @click.option(
     "--client",
@@ -68,10 +73,11 @@ def init_cmd(
         )
 
     if profile is None and client is None:
+        profile_choices = discover_init_profiles().ordered_ids()
         profile = (
             click.prompt(
                 "Profile",
-                type=click.Choice(PROFILE_CHOICES, case_sensitive=False),
+                type=click.Choice(profile_choices, case_sensitive=False),
                 default=DEFAULT_PROFILE,
             )
             if interactive

@@ -124,6 +124,24 @@ class TestWorkflowService:
         assert answers is not None
         assert answers.profile == "core"
 
+    def test_read_answers_preserves_unknown_profile_ids(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
+        answers_path = tmp_path / ".ztlctl" / "workflow-answers.yml"
+        answers_path.write_text(
+            (
+                "source_control: git\n"
+                "profile: local-profile\n"
+                "workflow: agent-generic\n"
+                "skill_set: engineering\n"
+            ),
+            encoding="utf-8",
+        )
+
+        answers = WorkflowService.read_answers(tmp_path)
+
+        assert answers is not None
+        assert answers.profile == "local-profile"
+
     def test_update_workflow_rewrites_legacy_viewer_answers_to_profile(
         self, tmp_path: Path
     ) -> None:
@@ -148,6 +166,69 @@ class TestWorkflowService:
         assert "profile: core" in rewritten
         assert "viewer:" not in rewritten
         assert not (tmp_path / ".ztlctl" / "workflow" / "viewer.md").exists()
+
+    def test_init_workflow_accepts_local_profile_plugin(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
+        plugin_dir = tmp_path / ".ztlctl" / "plugins"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        plugin_dir.joinpath("profile_plugin.py").write_text(
+            """import pluggy
+
+from ztlctl.plugins.contracts import WorkspaceProfileContribution
+
+hookimpl = pluggy.HookimplMarker("ztlctl")
+
+
+class LocalProfilePlugin:
+    @hookimpl
+    def register_workspace_profiles(self) -> list[WorkspaceProfileContribution]:
+        return [
+            WorkspaceProfileContribution(
+                profile_id="local-profile",
+                description="Local profile.",
+            )
+        ]
+""",
+            encoding="utf-8",
+        )
+
+        result = WorkflowService.init_workflow(
+            tmp_path,
+            WorkflowChoices(
+                source_control="git",
+                profile="local-profile",
+                workflow="manual",
+                skill_set="minimal",
+            ),
+        )
+
+        assert result.ok
+        answers = (tmp_path / ".ztlctl" / "workflow-answers.yml").read_text(encoding="utf-8")
+        profile_layer = (tmp_path / ".ztlctl" / "workflow" / "profile.md").read_text(
+            encoding="utf-8"
+        )
+        assert "profile: local-profile" in answers
+        assert "plugin-provided profile `local-profile`" in profile_layer
+
+    def test_update_workflow_fails_when_stored_profile_is_missing(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
+        answers_path = tmp_path / ".ztlctl" / "workflow-answers.yml"
+        answers_path.write_text(
+            (
+                "source_control: git\n"
+                "profile: missing-profile\n"
+                "workflow: manual\n"
+                "skill_set: minimal\n"
+            ),
+            encoding="utf-8",
+        )
+
+        result = WorkflowService.update_workflow(tmp_path)
+
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "PROFILE_NOT_FOUND"
+        assert result.error.detail["requested_profile"] == "missing-profile"
 
     def test_read_answers_returns_none_for_invalid_yaml(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)

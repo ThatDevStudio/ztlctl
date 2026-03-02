@@ -10,6 +10,8 @@ import pytest
 from click.testing import CliRunner
 
 from ztlctl.cli import cli
+from ztlctl.plugins.contracts import WorkspaceProfileContribution
+from ztlctl.workspace_profiles import WorkspaceProfileRegistry, core_workspace_profile
 
 # (CLI args, expected keywords in output)
 HELP_COMMANDS: list[tuple[list[str], list[str]]] = [
@@ -112,3 +114,52 @@ def test_command_help(cli_runner: CliRunner, args: list[str], expected_keywords:
     assert result.exit_code == 0
     for kw in expected_keywords:
         assert kw in result.output, f"Expected '{kw}' in help output for {args}"
+
+
+def test_init_help_lists_installed_profiles(
+    cli_runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = WorkspaceProfileRegistry(
+        profiles={
+            "core": core_workspace_profile(),
+            "obsidian": WorkspaceProfileContribution(
+                profile_id="obsidian",
+                description="Obsidian",
+            ),
+            "custom-profile": WorkspaceProfileContribution(
+                profile_id="custom-profile",
+                description="Custom",
+            ),
+        },
+        aliases={"none": "core", "vanilla": "core"},
+    )
+    monkeypatch.setattr("ztlctl.workspace_profiles.discover_init_profiles", lambda: registry)
+
+    result = cli_runner.invoke(cli, ["init", "--help"])
+
+    assert result.exit_code == 0
+    assert "Installed now: core, obsidian, custom-profile." in result.output
+
+
+def test_workflow_help_lists_installed_profiles(
+    cli_runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = WorkspaceProfileRegistry(
+        profiles={
+            "core": core_workspace_profile(),
+            "local-profile": WorkspaceProfileContribution(
+                profile_id="local-profile",
+                description="Local",
+            ),
+        },
+        aliases={"none": "core", "vanilla": "core"},
+    )
+    monkeypatch.setattr("ztlctl.workspace_profiles.discover_vault_profiles", lambda _root: registry)
+
+    result = cli_runner.invoke(cli, ["workflow", "init", "--help"])
+
+    assert result.exit_code == 0
+    assert "Installed" in result.output
+    assert "now: core, local-profile." in result.output

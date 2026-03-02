@@ -36,17 +36,24 @@ class PluginManager:
         self._pm.add_hookspecs(ZtlctlHookSpec)
         self._loaded: bool = False
 
-    def discover_and_load(self, *, local_dir: Path | None = None) -> list[str]:
+    def discover_and_load(
+        self,
+        *,
+        local_dir: Path | None = None,
+        include_entrypoints: bool = True,
+    ) -> list[str]:
         """Discover plugins from entry points and an optional local directory.
 
         Uses pluggy's native setuptools entry_point discovery for the
-        ``ztlctl.plugins`` group, then scans *local_dir* (typically
-        ``.ztlctl/plugins/``) for single-file Python plugins.
+        ``ztlctl.plugins`` group when *include_entrypoints* is true, then
+        scans *local_dir* (typically ``.ztlctl/plugins/``) for single-file
+        Python plugins.
 
         Returns a list of loaded plugin names.
         """
-        self._pm.load_setuptools_entrypoints("ztlctl.plugins")
-        self._normalize_plugin_instances()
+        if include_entrypoints:
+            self._pm.load_setuptools_entrypoints("ztlctl.plugins")
+            self._normalize_plugin_instances()
         if local_dir is not None:
             self._discover_local(local_dir)
         self._register_content_models()

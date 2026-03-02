@@ -11,10 +11,7 @@ source_control:
     - none
 profile:
   type: str
-  default: obsidian
-  choices:
-    - obsidian
-    - core
+  default: core
 workflow:
   type: str
   default: claude-driven

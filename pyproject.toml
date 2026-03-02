@@ -66,6 +66,7 @@ semantic = ["sqlite-vec>=0.1", "sentence-transformers>=2.2"]
 
 [project.entry-points."ztlctl.plugins"]
 git = "ztlctl.plugins.builtins.git:GitPlugin"
+obsidian = "ztlctl.plugins.builtins.obsidian:ObsidianProfilePlugin"
 
 [dependency-groups]
 dev = [

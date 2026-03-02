@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING, cast
 
 import click
 
-from ztlctl.commands._base import ZtlCommand, ZtlGroup
+from ztlctl.commands._base import DynamicProfileOption, ZtlCommand, ZtlGroup
+from ztlctl.config.settings import ZtlSettings
 from ztlctl.services.workflow import (
     SkillSet,
     SourceControl,
@@ -16,21 +17,49 @@ from ztlctl.services.workflow import (
     WorkflowMode,
     WorkflowService,
 )
-from ztlctl.workspace_profiles import PROFILE_CHOICES, WorkspaceProfileId
+from ztlctl.workspace_profiles import (
+    DEFAULT_PROFILE,
+    UnknownWorkspaceProfileError,
+    discover_vault_profiles,
+    resolve_workspace_profile,
+)
 
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
-_PROFILE_CHOICES = list(PROFILE_CHOICES)
 _WORKFLOW_CHOICES = ["claude-driven", "agent-generic", "manual"]
 _SKILL_CHOICES = ["research", "engineering", "minimal"]
 _SOURCE_CONTROL_CHOICES = ["git", "none"]
 _ASSET_CLIENT_CHOICES = ["claude", "codex", "both"]
 
 
+def _default_profile_for_prompt(
+    vault_root: Path,
+    *,
+    existing: WorkflowChoices | None,
+) -> str:
+    """Choose the best default profile for workflow prompts."""
+    registry = discover_vault_profiles(vault_root)
+    candidates: list[str] = []
+    if existing is not None:
+        candidates.append(existing.profile)
+    settings = ZtlSettings.from_cli(vault_root=vault_root)
+    candidates.append(settings.workspace.profile)
+    candidates.append(DEFAULT_PROFILE)
+
+    for candidate in candidates:
+        try:
+            resolved, _warning = resolve_workspace_profile(candidate, registry)
+            return resolved
+        except (UnknownWorkspaceProfileError, ValueError):
+            continue
+    return DEFAULT_PROFILE
+
+
 def _resolve_workflow_choices(
     app: AppContext,
     *,
+    vault_root: Path,
     source_control: str | None,
     profile: str | None,
     workflow_name: str | None,
@@ -40,6 +69,8 @@ def _resolve_workflow_choices(
     """Resolve workflow selections from flags or interactive prompts."""
     interactive = not app.settings.no_interact
     defaults = existing or WorkflowService.default_choices()
+    profile_choices = WorkflowService.profile_choices(vault_root)
+    profile_default = _default_profile_for_prompt(vault_root, existing=existing)
 
     if source_control is None:
         source_control = (
@@ -56,11 +87,11 @@ def _resolve_workflow_choices(
         profile = (
             click.prompt(
                 "Profile",
-                type=click.Choice(_PROFILE_CHOICES, case_sensitive=False),
-                default=defaults.profile,
+                type=click.Choice(profile_choices, case_sensitive=False),
+                default=profile_default if interactive else defaults.profile,
             )
             if interactive
-            else defaults.profile
+            else profile_default
         )
 
     if workflow_name is None:
@@ -87,7 +118,7 @@ def _resolve_workflow_choices(
 
     return WorkflowChoices(
         source_control=cast(SourceControl, source_control),
-        profile=cast(WorkspaceProfileId, profile),
+        profile=profile,
         workflow=cast(WorkflowMode, workflow_name),
         skill_set=cast(SkillSet, skill_set),
     )
@@ -119,10 +150,15 @@ def workflow(app: AppContext) -> None:
 )
 @click.option(
     "--profile",
+    cls=DynamicProfileOption,
+    discovery_scope="vault",
     type=str,
     default=None,
     metavar="TEXT",
-    help="Workspace profile (`obsidian` or `core`; `none` and `vanilla` are deprecated aliases).",
+    help=(
+        "Workspace profile for the workflow scaffold. "
+        "`none` and `vanilla` remain deprecated compatibility aliases for `core`."
+    ),
 )
 @click.option(
     "--viewer",
@@ -164,6 +200,7 @@ def workflow_init(
     defaults = WorkflowService.read_answers(vault_root)
     choices = _resolve_workflow_choices(
         app,
+        vault_root=vault_root,
         source_control=source_control,
         profile=profile if profile is not None else viewer,
         workflow_name=workflow_name,
@@ -197,13 +234,12 @@ def workflow_init(
 )
 @click.option(
     "--profile",
+    cls=DynamicProfileOption,
+    discovery_scope="vault",
     type=str,
     default=None,
     metavar="TEXT",
-    help=(
-        "Override workspace profile "
-        "(`obsidian` or `core`; `none` and `vanilla` are deprecated aliases)."
-    ),
+    help="Override the workflow scaffold workspace profile.",
 )
 @click.option(
     "--viewer",
@@ -249,6 +285,7 @@ def workflow_update(
     ):
         choices = _resolve_workflow_choices(
             app,
+            vault_root=vault_root,
             source_control=source_control,
             profile=profile if profile is not None else viewer,
             workflow_name=workflow_name,

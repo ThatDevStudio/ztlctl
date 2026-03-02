@@ -8,6 +8,7 @@ This keeps ``--help`` concise while making examples available on demand.
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import click
@@ -43,6 +44,43 @@ class ZtlCommand(click.Command):
         self.examples = examples
         if examples:
             _add_examples_option(self, examples)
+
+
+class DynamicProfileOption(click.Option):
+    """Click option that appends currently installed profiles to help text."""
+
+    def __init__(
+        self,
+        *args: Any,
+        discovery_scope: str,
+        path_param: str = "path",
+        **kwargs: Any,
+    ) -> None:
+        self.discovery_scope = discovery_scope
+        self.path_param = path_param
+        super().__init__(*args, **kwargs)
+
+    def get_help_record(self, ctx: click.Context) -> tuple[str, str] | None:
+        record = super().get_help_record(ctx)
+        if record is None:
+            return None
+        option, help_text = record
+        installed = self._installed_profiles(ctx)
+        if installed:
+            help_text = f"{help_text} Installed now: {', '.join(installed)}."
+        return option, help_text
+
+    def _installed_profiles(self, ctx: click.Context) -> list[str]:
+        try:
+            from ztlctl.workspace_profiles import discover_init_profiles, discover_vault_profiles
+
+            if self.discovery_scope == "init":
+                return discover_init_profiles().ordered_ids()
+            raw_path = ctx.params.get(self.path_param, ".")
+            vault_root = Path(str(raw_path)).resolve()
+            return discover_vault_profiles(vault_root).ordered_ids()
+        except Exception:
+            return []
 
 
 class ZtlGroup(click.Group):

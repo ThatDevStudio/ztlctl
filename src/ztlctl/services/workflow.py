@@ -23,12 +23,18 @@ from ztlctl.catalogs import (
 from ztlctl.infrastructure.templates import build_template_environment
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
-from ztlctl.workspace_profiles import DEFAULT_PROFILE, WorkspaceProfileId, normalize_profile
+from ztlctl.workspace_profiles import (
+    DEFAULT_PROFILE,
+    UnknownWorkspaceProfileError,
+    discover_vault_profiles,
+    normalize_profile,
+    resolve_workspace_profile,
+)
 
 WorkflowMode = Literal["claude-driven", "agent-generic", "manual"]
 SkillSet = Literal["research", "engineering", "minimal"]
 SourceControl = Literal["git", "none"]
-Profile = WorkspaceProfileId
+Profile = str
 WorkflowAssetClient = Literal["claude", "codex", "both"]
 
 _ANSWERS_RELATIVE_PATH = Path(".ztlctl") / "workflow-answers.yml"
@@ -41,7 +47,6 @@ _GENERATED_FILES = [
     ".ztlctl/workflow/skill-set.md",
 ]
 _SOURCE_CONTROL_VALUES = {"git", "none"}
-_PROFILE_VALUES = {"obsidian", "core"}
 _WORKFLOW_VALUES = {"claude-driven", "agent-generic", "manual"}
 _SKILL_SET_VALUES = {"research", "engineering", "minimal"}
 _ASSET_CLIENT_VALUES = {"claude", "codex", "both"}
@@ -109,8 +114,6 @@ class WorkflowService:
             return None
         if source_control not in _SOURCE_CONTROL_VALUES:
             return None
-        if profile not in _PROFILE_VALUES:
-            return None
         if workflow not in _WORKFLOW_VALUES:
             return None
         if skill_set not in _SKILL_SET_VALUES:
@@ -124,15 +127,26 @@ class WorkflowService:
         )
 
     @staticmethod
-    def _normalize_choices(choices: WorkflowChoices) -> tuple[WorkflowChoices, list[str]]:
-        """Normalize deprecated workflow selections to canonical values."""
-        try:
-            profile, profile_warning = normalize_profile(choices.profile)
-        except ValueError as exc:
-            msg = str(exc)
-            raise ValueError(msg) from exc
+    def _resolve_choices(
+        vault_root: Path,
+        choices: WorkflowChoices,
+    ) -> tuple[WorkflowChoices, list[str]]:
+        """Resolve workflow profile selections against installed vault profiles."""
+        if choices.source_control not in _SOURCE_CONTROL_VALUES:
+            msg = f"Unsupported source control: {choices.source_control!r}."
+            raise ValueError(msg)
+        if choices.workflow not in _WORKFLOW_VALUES:
+            msg = f"Unsupported workflow mode: {choices.workflow!r}."
+            raise ValueError(msg)
+        if choices.skill_set not in _SKILL_SET_VALUES:
+            msg = f"Unsupported skill set: {choices.skill_set!r}."
+            raise ValueError(msg)
 
-        warnings = [profile_warning] if profile_warning is not None else []
+        profile_registry = discover_vault_profiles(vault_root)
+        profile, profile_warning = resolve_workspace_profile(choices.profile, profile_registry)
+        warnings = list(profile_registry.warnings)
+        if profile_warning is not None:
+            warnings.append(profile_warning)
         return (
             WorkflowChoices(
                 source_control=choices.source_control,
@@ -142,6 +156,11 @@ class WorkflowService:
             ),
             warnings,
         )
+
+    @staticmethod
+    def profile_choices(vault_root: Path) -> list[str]:
+        """Return installed profile ids visible to a vault-scoped workflow command."""
+        return discover_vault_profiles(vault_root).ordered_ids()
 
     @staticmethod
     def _validate_vault_root(vault_root: Path, *, op: str) -> ServiceResult | None:
@@ -379,7 +398,22 @@ class WorkflowService:
         if validation_error is not None:
             return validation_error
         try:
-            choices, warnings = WorkflowService._normalize_choices(choices)
+            choices, warnings = WorkflowService._resolve_choices(vault_root, choices)
+        except UnknownWorkspaceProfileError as exc:
+            return ServiceResult(
+                ok=False,
+                op="workflow_init",
+                error=ServiceError(
+                    code="PROFILE_NOT_FOUND",
+                    message=str(exc),
+                    detail={
+                        "requested_profile": exc.requested_profile,
+                        "available_profiles": exc.available_profiles,
+                        "discovery_scope": "vault",
+                        "vault_root": str(vault_root),
+                    },
+                ),
+            )
         except ValueError as exc:
             return ServiceResult(
                 ok=False,
@@ -432,7 +466,22 @@ class WorkflowService:
             choices = WorkflowService.read_answers(vault_root)
         if choices is not None:
             try:
-                choices, choice_warnings = WorkflowService._normalize_choices(choices)
+                choices, choice_warnings = WorkflowService._resolve_choices(vault_root, choices)
+            except UnknownWorkspaceProfileError as exc:
+                return ServiceResult(
+                    ok=False,
+                    op="workflow_update",
+                    error=ServiceError(
+                        code="PROFILE_NOT_FOUND",
+                        message=str(exc),
+                        detail={
+                            "requested_profile": exc.requested_profile,
+                            "available_profiles": exc.available_profiles,
+                            "discovery_scope": "vault",
+                            "vault_root": str(vault_root),
+                        },
+                    ),
+                )
             except ValueError as exc:
                 return ServiceResult(
                     ok=False,
