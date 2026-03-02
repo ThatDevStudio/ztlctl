@@ -70,6 +70,7 @@ git = "ztlctl.plugins.builtins.git:GitPlugin"
 [dependency-groups]
 dev = [
     "commitizen>=4.1",
+    "hatchling",
     "pre-commit>=4.0",
     "mypy>=1.13",
     "types-networkx>=3.6.1.20260210",
