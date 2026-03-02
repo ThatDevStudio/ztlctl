@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         McpToolContribution,
         SourceProviderContribution,
         WorkflowModuleContribution,
+        WorkspaceProfileContribution,
     )
 
 hookspec = pluggy.HookspecMarker("ztlctl")
@@ -93,6 +94,16 @@ class ZtlctlHookSpec:
         """Called after vault init."""
 
     @hookspec
+    def post_init_profile(
+        self,
+        vault_name: str,
+        profile: str,
+        tone: str,
+        managed_paths: list[str],
+    ) -> None:
+        """Called after vault init with canonical workspace profile metadata."""
+
+    @hookspec
     def register_content_models(self) -> dict[str, type[ContentModel]] | None:
         """Return subtype -> ContentModel mappings to extend CONTENT_REGISTRY."""
 
@@ -115,6 +126,10 @@ class ZtlctlHookSpec:
     @hookspec
     def register_workflow_modules(self) -> list[WorkflowModuleContribution] | None:
         """Return plugin workflow export modules."""
+
+    @hookspec
+    def register_workspace_profiles(self) -> list[WorkspaceProfileContribution] | None:
+        """Return plugin workspace profile contributions."""
 
     @hookspec
     def register_source_providers(self) -> list[SourceProviderContribution] | None:

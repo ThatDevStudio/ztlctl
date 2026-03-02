@@ -657,7 +657,7 @@ def _render_init(result: ServiceResult, console: Console, *, verbose: bool = Fal
     """Render init_vault results with vault details and file manifest."""
     _status_line(console, result)
     d = result.data
-    for key in ("vault_path", "name", "client", "tone"):
+    for key in ("vault_path", "name", "profile", "tone"):
         if key in d:
             _field(console, key, d[key])
     topics = d.get("topics", [])

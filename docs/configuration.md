@@ -12,7 +12,9 @@ ztlctl uses a `ztlctl.toml` file at the vault root. Settings can be overridden v
 ```toml
 [vault]
 name = "my-vault"
-client = "obsidian"  # viewer preference: obsidian or none
+
+[workspace]
+profile = "obsidian"  # workspace profile: obsidian or core
 
 [agent]
 tone = "research-partner"  # or "assistant", "minimal"
@@ -86,8 +88,10 @@ Nested keys use double underscores (`__`) as separators.
 
 ## Notes
 
-- `vault.client` is currently `obsidian` or `none`. `vanilla` is accepted as a deprecated alias and normalized to `none`.
-- `vault.client = "obsidian"` does not mean ztlctl owns your full `.obsidian/` state. In Phase 0 it is still a viewer preference used by templates and workflow exports, plus the trigger for a minimal `.obsidian/snippets/ztlctl.css` scaffold during `ztlctl init`.
+- `[workspace].profile` is the canonical workspace selector. Built-in Phase 1 profiles are `obsidian` and `core`.
+- `[vault].client` is a deprecated compatibility input. Legacy values `none` and `vanilla` map to `profile = "core"` during settings load.
+- `workspace.profile = "obsidian"` does not mean ztlctl owns your full `.obsidian/` state. In Phase 1 it means the built-in Obsidian profile applies the minimal `.obsidian/snippets/ztlctl.css` scaffold during `ztlctl init`.
 - `[plugins].obsidian` is obsolete and ignored when present in older configs. The only canonical built-in plugin config section today is `[plugins].git`.
 - URL ingestion is provider-backed. Base ztlctl supports text and markdown ingestion directly; remote fetching comes from installed source-provider plugins.
-- Dashboard export writes markdown and JSON workbench artifacts, including topic dossiers, but it still avoids mutating `.obsidian/*`.
+- Core-managed paths are `ztlctl.toml`, `.ztlctl/`, `self/`, `notes/`, and `ops/`. Profile-managed paths are profile-owned workspace assets such as `.obsidian/`. Human-managed paths such as `garden/` remain outside default core indexing and mutation.
+- Dashboard export still uses `--viewer` because it is a render target, not a workspace selector.

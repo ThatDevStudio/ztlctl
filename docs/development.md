@@ -102,7 +102,7 @@ ztlctl checks those override paths first and falls back to the bundled package t
 
 `ztlctl workflow init` and `ztlctl workflow update` scaffold vault workflow guidance using a packaged Copier template.
 
-- Choices: source control (`git|none`), viewer (`obsidian|none`, with deprecated `vanilla` alias), workflow (`claude-driven|agent-generic|manual`), skill set (`research|engineering|minimal`)
+- Choices: source control (`git|none`), profile (`obsidian|core`, with deprecated `none` and `vanilla` aliases), workflow (`claude-driven|agent-generic|manual`), skill set (`research|engineering|minimal`)
 - Answers file: `.ztlctl/workflow-answers.yml`
 - Generated guidance: `.ztlctl/workflow/`
 

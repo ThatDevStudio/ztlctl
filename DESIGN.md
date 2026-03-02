@@ -1011,7 +1011,7 @@ The `research-partner` tone includes the full behavioral framework proven in the
 
 `ztlctl agent regenerate` re-derives self/ from current config. Staleness detection via timestamp comparison.
 
-> **Implementation note (Phase 5+7, follow-up):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--client/--tone/--topics`) modes. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, stamps the Alembic migration head (Phase 7), generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, optionally scaffolds `.obsidian/` for Obsidian clients, and now applies the default Copier workflow scaffold unless `--no-workflow` is passed. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Both self/ and content templates honor per-vault overrides from `.ztlctl/templates/` before falling back to bundled package templates.
+> **Implementation note (Phase 5+7, follow-up):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--profile/--tone/--topics`) modes, while retaining deprecated `--client` compatibility. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, stamps the Alembic migration head (Phase 7), generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, applies built-in profile scaffolding such as `.obsidian/snippets/ztlctl.css` for the `obsidian` profile, and now applies the default Copier workflow scaffold unless `--no-workflow` is passed. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Both self/ and content templates honor per-vault overrides from `.ztlctl/templates/` before falling back to bundled package templates.
 
 ### Vault Structure
 
@@ -1618,7 +1618,7 @@ Phase 4 — Presentation (complete):
 Phase 5 — Lifecycle (complete):
   F13 Init & Self-Generation:
     - Interactive `ztlctl init` with prompts for name, client, tone, topics
-    - Non-interactive `--name/--client/--tone/--topics` flags for scripting
+    - Non-interactive `--name/--profile/--tone/--topics` flags for scripting
     - Vault scaffolding: ztlctl.toml, .ztlctl/, notes/, ops/, self/
     - Obsidian client: .obsidian/ with CSS snippet scaffolding
     - Jinja2 templates for self/identity.md and self/methodology.md

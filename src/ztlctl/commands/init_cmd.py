@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import click
 
 from ztlctl.commands._base import ZtlCommand
+from ztlctl.workspace_profiles import DEFAULT_PROFILE, PROFILE_CHOICES
 
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
@@ -15,8 +16,8 @@ if TYPE_CHECKING:
 _INIT_EXAMPLES = """\
   ztlctl init
   ztlctl init /path/to/vault --name my-research
-  ztlctl init . --name lab --client obsidian --tone research-partner --topics "ai,engineering"
-  ztlctl init . --name scratch --client none --tone minimal
+  ztlctl init . --name lab --profile obsidian --tone research-partner --topics "ai,engineering"
+  ztlctl init . --name scratch --profile core --tone minimal
   ztlctl init --no-interact --name test --tone minimal /tmp/vault"""
 
 
@@ -24,11 +25,18 @@ _INIT_EXAMPLES = """\
 @click.argument("path", required=False, default=".")
 @click.option("--name", default=None, help="Vault name.")
 @click.option(
+    "--profile",
+    type=str,
+    default=None,
+    metavar="TEXT",
+    help="Workspace profile (`obsidian` or `core`; `none` and `vanilla` are deprecated aliases).",
+)
+@click.option(
     "--client",
     type=str,
     default=None,
     metavar="TEXT",
-    help="Client application (`obsidian` or `none`; `vanilla` is deprecated).",
+    help="Deprecated compatibility alias for --profile.",
 )
 @click.option(
     "--tone",
@@ -43,6 +51,7 @@ def init_cmd(
     app: AppContext,
     path: str,
     name: str | None,
+    profile: str | None,
     client: str | None,
     tone: str | None,
     topics: str | None,
@@ -58,15 +67,15 @@ def init_cmd(
             click.prompt("Vault name", default=vault_path.name) if interactive else vault_path.name
         )
 
-    if client is None:
-        client = (
+    if profile is None and client is None:
+        profile = (
             click.prompt(
-                "Client",
-                type=click.Choice(["obsidian", "none"], case_sensitive=False),
-                default="obsidian",
+                "Profile",
+                type=click.Choice(PROFILE_CHOICES, case_sensitive=False),
+                default=DEFAULT_PROFILE,
             )
             if interactive
-            else "obsidian"
+            else DEFAULT_PROFILE
         )
 
     if tone is None:
@@ -91,13 +100,22 @@ def init_cmd(
 
     from ztlctl.services.init import InitService
 
-    app.emit(
-        InitService.init_vault(
-            vault_path,
-            name=name,
-            client=client,
-            tone=tone,
-            topics=topic_list,
-            no_workflow=no_workflow,
-        )
+    result = InitService.init_vault(
+        vault_path,
+        name=name,
+        profile=profile,
+        client=client,
+        tone=tone,
+        topics=topic_list,
+        no_workflow=no_workflow,
     )
+    if client is not None:
+        result = result.model_copy(
+            update={
+                "warnings": [
+                    *result.warnings,
+                    "The --client flag is deprecated; use --profile instead.",
+                ]
+            }
+        )
+    app.emit(result)

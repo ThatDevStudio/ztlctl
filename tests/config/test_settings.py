@@ -63,6 +63,28 @@ class TestTomlSource:
 
         settings = ZtlSettings.from_cli(vault_root=tmp_path)
 
+        assert settings.workspace.profile == "core"
+        assert settings.vault.client == "none"
+
+    def test_workspace_profile_is_canonical_runtime_source(self, tmp_path: Path) -> None:
+        toml = tmp_path / "ztlctl.toml"
+        toml.write_text('[workspace]\nprofile = "core"\n', encoding="utf-8")
+
+        settings = ZtlSettings.from_cli(vault_root=tmp_path)
+
+        assert settings.workspace.profile == "core"
+        assert settings.vault.client == "none"
+
+    def test_workspace_profile_wins_over_legacy_client(self, tmp_path: Path) -> None:
+        toml = tmp_path / "ztlctl.toml"
+        toml.write_text(
+            '[vault]\nclient = "obsidian"\n\n[workspace]\nprofile = "core"\n',
+            encoding="utf-8",
+        )
+
+        settings = ZtlSettings.from_cli(vault_root=tmp_path)
+
+        assert settings.workspace.profile == "core"
         assert settings.vault.client == "none"
 
     def test_legacy_plugins_obsidian_key_is_ignored(self, tmp_path: Path) -> None:

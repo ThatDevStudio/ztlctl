@@ -18,7 +18,7 @@ import tomllib
 from pathlib import Path
 from typing import Any, ClassVar
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 
 from ztlctl.config.discovery import find_config
@@ -37,6 +37,12 @@ from ztlctl.config.models import (
     TagsConfig,
     VaultConfig,
     WorkflowConfig,
+    WorkspaceConfig,
+)
+from ztlctl.workspace_profiles import (
+    legacy_client_to_profile,
+    normalize_profile,
+    profile_to_legacy_client,
 )
 
 
@@ -104,6 +110,7 @@ class ZtlSettings(BaseSettings):
 
     # --- TOML sections (reuse existing frozen models) ---
     vault: VaultConfig = Field(default_factory=VaultConfig)
+    workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
     agent: AgentConfig = Field(default_factory=AgentConfig)
     reweave: ReweaveConfig = Field(default_factory=ReweaveConfig)
     garden: GardenConfig = Field(default_factory=GardenConfig)
@@ -120,6 +127,32 @@ class ZtlSettings(BaseSettings):
 
     # Retained for type-checker visibility; not used at runtime.
     _toml_path: ClassVar[Path | None] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_workspace_profile(cls, data: Any) -> Any:
+        """Inject canonical workspace.profile from legacy vault.client when needed."""
+        if not isinstance(data, dict):
+            return data
+
+        values = dict(data)
+        raw_workspace = values.get("workspace")
+        raw_vault = values.get("vault")
+        workspace = dict(raw_workspace) if isinstance(raw_workspace, dict) else {}
+        vault = dict(raw_vault) if isinstance(raw_vault, dict) else {}
+
+        if "profile" in workspace:
+            profile, _warning = normalize_profile(str(workspace["profile"]))
+            workspace["profile"] = profile
+            vault["client"] = profile_to_legacy_client(profile)
+        elif "client" in vault:
+            profile, _warning = legacy_client_to_profile(str(vault["client"]))
+            workspace["profile"] = profile
+            vault["client"] = profile_to_legacy_client(profile)
+
+        values["workspace"] = workspace
+        values["vault"] = vault
+        return values
 
     @classmethod
     def settings_customise_sources(

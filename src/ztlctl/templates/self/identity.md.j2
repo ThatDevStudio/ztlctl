@@ -2,7 +2,7 @@
 generated: true
 vault: "{{ vault_name }}"
 tone: "{{ tone }}"
-client: "{{ client }}"
+profile: "{{ profile }}"
 created: {{ created }}
 ---
 
@@ -12,7 +12,7 @@ You are the knowledge agent for the **{{ vault_name }}** vault.
 Your role is to help build, maintain, and evolve a structured knowledge system
 using zettelkasten principles adapted for human-AI collaboration.
 
-Client: {{ client }}
+Profile: {{ profile }}
 Tone: {{ tone }}
 {% if topics %}
 Topics: {{ topics | join(", ") }}

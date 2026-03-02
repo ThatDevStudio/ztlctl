@@ -9,12 +9,12 @@ source_control:
   choices:
     - git
     - none
-viewer:
+profile:
   type: str
   default: obsidian
   choices:
     - obsidian
-    - none
+    - core
 workflow:
   type: str
   default: claude-driven

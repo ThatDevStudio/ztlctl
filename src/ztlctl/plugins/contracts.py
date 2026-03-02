@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import click
@@ -53,6 +54,17 @@ class WorkflowModuleContribution:
 
     name: str
     render: Callable[[dict[str, Any]], str]
+
+
+@dataclass(frozen=True)
+class WorkspaceProfileContribution:
+    """One workspace profile definition exposed by core or plugins."""
+
+    profile_id: str
+    description: str
+    aliases: tuple[str, ...] = ()
+    managed_paths: tuple[str, ...] = ()
+    init_scaffold: Callable[[Path], list[str]] | None = None
 
 
 @dataclass(frozen=True)

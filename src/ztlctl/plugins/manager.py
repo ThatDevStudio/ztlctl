@@ -18,6 +18,7 @@ from ztlctl.plugins.contracts import (
     McpToolContribution,
     SourceProviderContribution,
     WorkflowModuleContribution,
+    WorkspaceProfileContribution,
 )
 from ztlctl.plugins.hookspecs import ZtlctlHookSpec
 
@@ -144,6 +145,19 @@ class PluginManager:
             "register_workflow_modules",
             WorkflowModuleContribution,
             key_fn=lambda item: item.name,
+            reserved=reserved_names,
+        )
+
+    def workspace_profile_contributions(
+        self,
+        *,
+        reserved_names: set[str] | None = None,
+    ) -> list[WorkspaceProfileContribution]:
+        """Collect plugin workspace profile contributions."""
+        return self._collect_contributions(
+            "register_workspace_profiles",
+            WorkspaceProfileContribution,
+            key_fn=lambda item: item.profile_id,
             reserved=reserved_names,
         )
 

@@ -30,7 +30,7 @@ EXAMPLES_COMMANDS: list[tuple[list[str], list[str]]] = [
     (["graph", "path", "--examples"], ["ztlctl graph path"]),
     # -- workflow --
     (["workflow", "--examples"], ["ztlctl workflow init", "ztlctl workflow update"]),
-    (["workflow", "init", "--examples"], ["--viewer obsidian"]),
+    (["workflow", "init", "--examples"], ["--profile obsidian"]),
     (["workflow", "update", "--examples"], ["--skill-set minimal"]),
     (["workflow", "export", "--examples"], ["--client both"]),
     (["workflow", "validate", "--examples"], ["--client claude"]),
