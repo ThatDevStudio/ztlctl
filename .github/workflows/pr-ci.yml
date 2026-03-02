@@ -1,0 +1,86 @@
+name: PR CI
+
+on:
+  pull_request:
+    branches: [develop]
+
+concurrency:
+  group: pr-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate_pr:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Sync dev dependencies
+        id: sync_dev
+        run: uv sync --group dev
+
+      - name: Ruff check
+        id: ruff_check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        id: ruff_format
+        run: uv run ruff format --check .
+
+      - name: Mypy
+        id: mypy
+        run: uv run mypy src/
+
+      - name: Pytest
+        id: pytest
+        run: uv run pytest --cov --cov-report=term-missing
+
+      - name: Build package
+        id: build
+        run: uv build
+
+      - name: Pip audit
+        id: pip_audit
+        run: uvx pip-audit
+
+      - name: Sync MCP extra dependencies
+        id: sync_mcp
+        run: uv sync --group test --extra mcp
+
+      - name: MCP extra tests
+        id: mcp_tests
+        run: uv run pytest tests/mcp/test_stdio_integration.py -q
+
+      - name: Commit lint
+        id: commit_lint
+        run: uv run cz check --rev-range "origin/${{ github.base_ref }}..HEAD"
+
+      - name: Validation summary
+        if: ${{ always() }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Validate PR summary
+
+          | Gate | Result |
+          | --- | --- |
+          | Sync dev dependencies | ${{ steps.sync_dev.outcome }} |
+          | Ruff check | ${{ steps.ruff_check.outcome }} |
+          | Ruff format check | ${{ steps.ruff_format.outcome }} |
+          | Mypy | ${{ steps.mypy.outcome }} |
+          | Pytest | ${{ steps.pytest.outcome }} |
+          | Build package | ${{ steps.build.outcome }} |
+          | Pip audit | ${{ steps.pip_audit.outcome }} |
+          | Sync MCP extra dependencies | ${{ steps.sync_mcp.outcome }} |
+          | MCP extra tests | ${{ steps.mcp_tests.outcome }} |
+          | Commit lint | ${{ steps.commit_lint.outcome }} |
+          EOF

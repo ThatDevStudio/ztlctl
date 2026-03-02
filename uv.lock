@@ -2219,6 +2219,9 @@ dev = [
 lint = [
     { name = "ruff" },
 ]
+semantic-ci = [
+    { name = "sqlite-vec" },
+]
 test = [
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -2259,6 +2262,7 @@ dev = [
     { name = "types-networkx", specifier = ">=3.6.1.20260210" },
 ]
 lint = [{ name = "ruff", specifier = ">=0.8" }]
+semantic-ci = [{ name = "sqlite-vec", specifier = ">=0.1" }]
 test = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-cov", specifier = ">=6.0" },

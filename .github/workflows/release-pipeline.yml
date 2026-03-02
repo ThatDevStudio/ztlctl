@@ -1,8 +1,6 @@
-name: Pipeline
+name: Release Pipeline
 
 on:
-  pull_request:
-    branches: [develop]
   push:
     branches: [develop]
   workflow_dispatch:
@@ -13,13 +11,13 @@ on:
         type: string
 
 concurrency:
-  group: pipeline-${{ github.event.pull_request.number || github.ref || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: release-pipeline-${{ github.ref || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
-  validate:
-    name: Validate
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_tag == '' }}
+  validate_merge:
+    name: Validate Merge
+    if: ${{ github.event_name != 'workflow_dispatch' || (github.event.inputs.release_tag == '' && github.ref_name == 'develop') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,22 +27,86 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run validation gates
-        uses: ./.github/actions/validate
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
         with:
-          commit_lint: ${{ github.event_name == 'pull_request' }}
+          enable-cache: true
+
+      - name: Sync dev dependencies
+        id: sync_dev
+        run: uv sync --group dev
+
+      - name: Ruff check
+        id: ruff_check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        id: ruff_format
+        run: uv run ruff format --check .
+
+      - name: Mypy
+        id: mypy
+        run: uv run mypy src/
+
+      - name: Pytest
+        id: pytest
+        run: uv run pytest --cov --cov-report=term-missing
+
+      - name: Build package
+        id: build
+        run: uv build
+
+      - name: Pip audit
+        id: pip_audit
+        run: uvx pip-audit
+
+      - name: Sync MCP extra dependencies
+        id: sync_mcp
+        run: uv sync --group test --extra mcp
+
+      - name: MCP extra tests
+        id: mcp_tests
+        run: uv run pytest tests/mcp/test_stdio_integration.py -q
+
+      - name: Sync semantic CI dependencies
+        id: sync_semantic_ci
+        run: uv sync --group test --group semantic-ci
+
+      - name: Semantic CI tests
+        id: semantic_tests
+        run: uv run pytest tests/integration/test_semantic_extra.py -q
+
+      - name: Validation summary
+        if: ${{ always() }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Validate Merge summary
+
+          | Gate | Result |
+          | --- | --- |
+          | Sync dev dependencies | ${{ steps.sync_dev.outcome }} |
+          | Ruff check | ${{ steps.ruff_check.outcome }} |
+          | Ruff format check | ${{ steps.ruff_format.outcome }} |
+          | Mypy | ${{ steps.mypy.outcome }} |
+          | Pytest | ${{ steps.pytest.outcome }} |
+          | Build package | ${{ steps.build.outcome }} |
+          | Pip audit | ${{ steps.pip_audit.outcome }} |
+          | Sync MCP extra dependencies | ${{ steps.sync_mcp.outcome }} |
+          | MCP extra tests | ${{ steps.mcp_tests.outcome }} |
+          | Sync semantic CI dependencies | ${{ steps.sync_semantic_ci.outcome }} |
+          | Semantic CI tests | ${{ steps.semantic_tests.outcome }} |
+          EOF
 
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [validate]
+    needs: [validate_merge]
     if: >-
       ${{
         always() &&
-        github.event_name != 'pull_request' &&
         (
           (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '') ||
-          needs.validate.result == 'success'
+          needs.validate_merge.result == 'success'
         ) &&
         (
           github.event_name != 'workflow_dispatch' ||
@@ -116,11 +178,60 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "release_tag=v$version" >> "$GITHUB_OUTPUT"
 
-      - name: Validate release candidate
+      - name: Release candidate sync dev dependencies
+        id: rc_sync_dev
         if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
-        uses: ./.github/actions/validate
-        with:
-          commit_lint: "false"
+        run: uv sync --group dev
+
+      - name: Release candidate ruff check
+        id: rc_ruff_check
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uv run ruff check .
+
+      - name: Release candidate ruff format check
+        id: rc_ruff_format
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uv run ruff format --check .
+
+      - name: Release candidate mypy
+        id: rc_mypy
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uv run mypy src/
+
+      - name: Release candidate pytest
+        id: rc_pytest
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uv run pytest --cov --cov-report=term-missing
+
+      - name: Release candidate build package
+        id: rc_build
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uv build
+
+      - name: Release candidate pip audit
+        id: rc_pip_audit
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uvx pip-audit
+
+      - name: Release candidate sync MCP extra dependencies
+        id: rc_sync_mcp
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uv sync --group test --extra mcp
+
+      - name: Release candidate MCP extra tests
+        id: rc_mcp_tests
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uv run pytest tests/mcp/test_stdio_integration.py -q
+
+      - name: Release candidate sync semantic CI dependencies
+        id: rc_sync_semantic_ci
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uv sync --group test --group semantic-ci
+
+      - name: Release candidate semantic CI tests
+        id: rc_semantic_tests
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        run: uv run pytest tests/integration/test_semantic_extra.py -q
 
       - name: Build release manifest
         id: manifest

@@ -15,11 +15,8 @@ from ztlctl.services.query import QueryService
 from ztlctl.services.update import UpdateService
 from ztlctl.services.vector import VectorService
 
-if (
-    importlib.util.find_spec("sqlite_vec") is None
-    or importlib.util.find_spec("sentence_transformers") is None
-):
-    pytest.skip("semantic extra not installed", allow_module_level=True)
+if importlib.util.find_spec("sqlite_vec") is None:
+    pytest.skip("sqlite-vec not installed", allow_module_level=True)
 
 
 class _FakeEncoder:
