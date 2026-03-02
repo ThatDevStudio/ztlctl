@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.8.0 (2026-03-02)
+
+### Feat
+
+- implement phase 1 workspace profiles (#98)
+
 ## v1.7.2 (2026-03-02)
 
 ### Fix
