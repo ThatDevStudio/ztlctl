@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
-import os
 import re
 import subprocess
 import sys
@@ -21,9 +20,6 @@ ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT_PATH = ROOT / "pyproject.toml"
 LOCK_PATH = ROOT / "uv.lock"
 DEFAULT_OUTPUT = ROOT / "Formula" / "ztlctl.rb"
-
-BREW_TEMP_TAP = "ztlctl/local"
-BREW_TEMP_TAP_DIRNAME = "homebrew-local"
 
 
 def normalize_name(name: str) -> str:
@@ -339,6 +335,7 @@ def base_formula(
     repository: str,
     license_name: str,
     source_sha256: str,
+    build_backend_names: list[str],
     common_resources: list[str],
     arm_resources: list[str],
     intel_resources: list[str],
@@ -376,13 +373,15 @@ def base_formula(
         "",
     ]
     lines.extend(resource_sections)
+    build_backend_literal = " ".join(build_backend_names)
     lines.extend(
         [
             "  def install",
             '    venv = virtualenv_create(libexec, "python3.13")',
+            f"    build_backend_names = %w[{build_backend_literal}]",
             (
                 "    build_backend, runtime_resources = "
-                'resources.partition { |resource| resource.name == "hatchling" }'
+                "resources.partition { |resource| build_backend_names.include?(resource.name) }"
             ),
             "    venv.pip_install runtime_resources",
             "    venv.pip_install build_backend, build_isolation: false",
@@ -405,99 +404,20 @@ def base_formula(
     return "\n".join(lines)
 
 
-def formula_bootstrap_text(
-    *,
-    version: str,
-    description: str,
-    homepage: str,
-    repository: str,
-    license_name: str,
-    source_sha256: str,
-) -> str:
-    """Render a minimal formula used to query Homebrew for extra resources."""
-    return base_formula(
-        version=version,
-        description=description,
-        homepage=homepage,
-        repository=repository,
-        license_name=license_name,
-        source_sha256=source_sha256,
-        common_resources=[],
-        arm_resources=[],
-        intel_resources=[],
-    )
-
-
-def parse_resource_blocks(text: str) -> dict[str, str]:
-    """Parse Homebrew resource blocks from generated Ruby."""
-    pattern = re.compile(r'(^  resource "([^"]+)" do\n(?:    .*\n)+  end\n)', re.MULTILINE)
-    blocks: dict[str, str] = {}
-    for full_block, name in pattern.findall(text):
-        blocks[name] = full_block.rstrip()
-    return blocks
-
-
-def brew_repo() -> Path:
-    """Return the local Homebrew repository path."""
-    result = subprocess.run(
-        ["brew", "--repo"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return Path(result.stdout.strip())
-
-
-def ensure_temp_tap_formula_path() -> Path:
-    """Ensure the disposable tap used for resource updates exists."""
-    repo = brew_repo()
-    tap_path = repo / "Library" / "Taps" / "ztlctl" / BREW_TEMP_TAP_DIRNAME
-    if not tap_path.exists():
-        subprocess.run(["brew", "tap-new", BREW_TEMP_TAP], cwd=ROOT, check=True)
-    formula_path = tap_path / "Formula" / "ztlctl.rb"
-    formula_path.parent.mkdir(parents=True, exist_ok=True)
-    return formula_path
-
-
-def brew_update_resource_blocks(bootstrap_formula: str) -> dict[str, str]:
-    """Use Homebrew's resource updater to resolve build-backend resources."""
-    formula_path = ensure_temp_tap_formula_path()
-    formula_path.write_text(bootstrap_formula, encoding="utf-8")
-    env = os.environ.copy()
-    env.setdefault("HOMEBREW_NO_AUTO_UPDATE", "1")
-    result = subprocess.run(
-        [
-            "brew",
-            "update-python-resources",
-            "--print-only",
-            "--package-name",
-            "ztlctl",
-            "--extra-packages",
-            "hatchling",
-            BREW_TEMP_TAP + "/ztlctl",
-        ],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    blocks = parse_resource_blocks(result.stdout)
-    if "hatchling" not in blocks:
-        raise ValueError("brew update-python-resources did not return a hatchling resource block")
-    return blocks
-
-
 def generate_formula() -> str:
     """Generate the Homebrew formula content from local project files."""
     pyproject = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
     lock_data = tomllib.loads(LOCK_PATH.read_text(encoding="utf-8"))
     project = pyproject["project"]
+    build_system = pyproject["build-system"]
     packages = package_maps(lock_data)
     direct_dependencies = {
         normalize_name(parse_requirement_name(requirement))
         for requirement in project["dependencies"]
+    }
+    build_dependencies = {
+        normalize_name(parse_requirement_name(requirement))
+        for requirement in build_system["requires"]
     }
     arm_env = {
         "sys_platform": "darwin",
@@ -522,31 +442,29 @@ def generate_formula() -> str:
         packages=packages,
         env=intel_env,
     )
+    build_backend_names = dependency_closure(
+        roots=build_dependencies,
+        packages=packages,
+        env=arm_env,
+    ) | dependency_closure(
+        roots=build_dependencies,
+        packages=packages,
+        env=intel_env,
+    )
+    all_resource_names = runtime_names | build_backend_names
 
     version = str(project["version"])
     homepage = str(project["urls"]["Homepage"])
     repository = str(project["urls"]["Repository"])
     source_sha256 = build_release_tarball_sha(version)
-    bootstrap = formula_bootstrap_text(
-        version=version,
-        description=str(project["description"]),
-        homepage=homepage,
-        repository=repository,
-        license_name=str(project["license"]),
-        source_sha256=source_sha256,
-    )
-    extra_resource_blocks = brew_update_resource_blocks(bootstrap)
     common_runtime, arm_runtime, intel_runtime = format_runtime_resources(
-        package_names=runtime_names,
+        package_names=all_resource_names,
         packages=packages,
     )
-
-    extra_common: list[tuple[str, str]] = [
-        (name, block)
-        for name, block in sorted(extra_resource_blocks.items())
-        if normalize_name(name) not in runtime_names
-    ]
-    common_resources = [block for _, block in sorted(common_runtime + extra_common)]
+    build_backend_display_names = sorted(
+        str(packages[name]["name"]) for name in build_backend_names
+    )
+    common_resources = [block for _, block in sorted(common_runtime)]
     arm_resources = [block for _, block in sorted(arm_runtime)]
     intel_resources = [block for _, block in sorted(intel_runtime)]
 
@@ -557,6 +475,7 @@ def generate_formula() -> str:
         repository=repository,
         license_name=str(project["license"]),
         source_sha256=source_sha256,
+        build_backend_names=build_backend_display_names,
         common_resources=common_resources,
         arm_resources=arm_resources,
         intel_resources=intel_resources,

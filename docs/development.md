@@ -45,7 +45,7 @@ python scripts/update_homebrew_formula.py
 python scripts/update_homebrew_formula.py --check
 ```
 
-The formula uses a release tarball as the stable source, installs the CLI into a Python virtualenv, and refreshes build-backend metadata with Homebrew's `brew update-python-resources` flow. The release workflow uploads the source tarball to GitHub Releases, and the publish workflow regenerates and syncs the formula into the tap repository.
+The formula uses a release tarball as the stable source, installs the CLI into a Python virtualenv, and derives both runtime and build-backend resources from the repository's `uv.lock`. The release workflow uploads the source tarball to GitHub Releases, and the publish workflow regenerates and syncs the formula into the tap repository.
 
 ## Architecture
 

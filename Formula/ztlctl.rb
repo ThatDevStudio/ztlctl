@@ -4,8 +4,8 @@ class Ztlctl < Formula
 
   desc "ZettelControl - CLI utility for managing a Zettelkasten note-taking system"
   homepage "https://github.com/ThatDevStudio/ztlctl"
-  url "https://github.com/ThatDevStudio/ztlctl/releases/download/v1.6.0/ztlctl-1.6.0.tar.gz"
-  sha256 "c0dfbdd1d7971a15b877edbfbac2b66422b5e59f52b0dfe33b898f59565d2368"
+  url "https://github.com/ThatDevStudio/ztlctl/releases/download/v1.7.0/ztlctl-1.7.0.tar.gz"
+  sha256 "296b058841caf04b96f5d0f070558a942b1fe4beb14c3b74571c7b79c985405c"
   license "MIT"
   head "https://github.com/ThatDevStudio/ztlctl.git", branch: "develop"
 
@@ -91,8 +91,8 @@ class Ztlctl < Formula
     sha256 "aa6ac98bdfd716a749b84d4034486863fd81c3abde9aa3cf8eff9127981a4ae4"
   end
   resource "hatchling" do
-    url "https://files.pythonhosted.org/packages/cf/9c/b4cfe330cd4f49cff17fd771154730555fa4123beb7f292cf0098b4e6c20/hatchling-1.29.0.tar.gz"
-    sha256 "793c31816d952cee405b83488ce001c719f325d9cda69f1fc4cd750527640ea6"
+    url "https://files.pythonhosted.org/packages/d3/8a/44032265776062a89171285ede55a0bdaadc8ac00f27f0512a71a9e3e1c8/hatchling-1.29.0-py3-none-any.whl"
+    sha256 "50af9343281f34785fab12da82e445ed987a6efb34fd8c2fc0f6e6630dbcc1b0"
   end
   resource "jinja2" do
     url "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl"
@@ -179,8 +179,8 @@ class Ztlctl < Formula
     sha256 "a8453e9b9e636ec59bd9e79bbd4a72f025981b3ba0f5837aebf48f02f37a7f9f"
   end
   resource "trove-classifiers" do
-    url "https://files.pythonhosted.org/packages/d8/43/7935f8ea93fcb6680bc10a6fdbf534075c198eeead59150dd5ed68449642/trove_classifiers-2026.1.14.14.tar.gz"
-    sha256 "00492545a1402b09d4858605ba190ea33243d361e2b01c9c296ce06b5c3325f3"
+    url "https://files.pythonhosted.org/packages/bb/4a/2e5583e544bc437d5e8e54b47db87430df9031b29b48d17f26d129fa60c0/trove_classifiers-2026.1.14.14-py3-none-any.whl"
+    sha256 "1f9553927f18d0513d8e5ff80ab8980b8202ce37ecae0e3274ed2ef11880e74d"
   end
   resource "typing-extensions" do
     url "https://files.pythonhosted.org/packages/18/67/36e9267722cc04a6b9f15c7f3441c2363321a3ea07da7ae0c0707beb2a9c/typing_extensions-4.15.0-py3-none-any.whl"
@@ -197,7 +197,8 @@ class Ztlctl < Formula
 
   def install
     venv = virtualenv_create(libexec, "python3.13")
-    build_backend, runtime_resources = resources.partition { |resource| resource.name == "hatchling" }
+    build_backend_names = %w[hatchling packaging pathspec pluggy trove-classifiers]
+    build_backend, runtime_resources = resources.partition { |resource| build_backend_names.include?(resource.name) }
     venv.pip_install runtime_resources
     venv.pip_install build_backend, build_isolation: false
     venv.pip_install_and_link buildpath, build_isolation: false
