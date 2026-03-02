@@ -72,7 +72,7 @@ For the complete design specification, see [DESIGN.md](DESIGN.md).
 - Never commit directly to `develop`
 - Always work on feature/fix branches created from `develop`
 - PRs always target `develop`
-- Branch protection requires the `Validate` status check before merge
+- Branch protection requires the `Validate PR` status check before merge
 
 ## Making Changes
 
@@ -88,7 +88,7 @@ For the complete design specification, see [DESIGN.md](DESIGN.md).
 
 3. **Make changes** in small, focused commits with conventional messages.
 
-4. **Run the full validation suite** (see [Pre-Submit Checklist](#pre-submit-checklist)).
+4. **Run the PR validation suite** (see [Pre-Submit Checklist](#pre-submit-checklist)).
 
 5. **Push and create a PR:**
    ```bash
@@ -136,8 +136,8 @@ refactor(services): extract base service class
 
 ## Pre-Submit Checklist
 
-The CI pipeline exposes a single required `Validate` status, but that one status runs several
-gates. Before pushing, run the closest local equivalent:
+The `PR CI` workflow exposes a single required `Validate PR` status. Before pushing, run the
+closest local equivalent:
 
 ```bash
 uv run ruff check .
@@ -147,30 +147,43 @@ uv run pytest --cov --cov-report=term-missing
 uv build
 uvx pip-audit
 uv sync --group test --extra mcp
-uv run pytest tests/mcp/test_stdio_integration.py tests/commands/test_serve.py -q
-uv sync --group test --extra semantic
-uv run pytest tests/integration/test_semantic_extra.py -q
+uv run pytest tests/mcp/test_stdio_integration.py -q
+uv run cz check --rev-range origin/develop..HEAD
 ```
 
-For pull requests, CI also runs `uv run cz check --rev-range origin/develop..HEAD`.
+After merging to `develop`, the `Release Pipeline` workflow runs the merge validation profile
+before any release activity:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src/
+uv run pytest --cov --cov-report=term-missing
+uv build
+uvx pip-audit
+uv sync --group test --extra mcp
+uv run pytest tests/mcp/test_stdio_integration.py -q
+uv sync --group test --group semantic-ci
+uv run pytest tests/integration/test_semantic_extra.py -q
+```
 
 ## Pull Request Requirements
 
 - **Title**: Must use conventional commit format (e.g., `feat(graph): add bridge detection`)
 - **Target**: `develop` branch
-- **CI**: The `Validate` workflow check must pass
+- **CI**: The `Validate PR` workflow check must pass
 - **Scope**: Keep PRs focused — one feature or fix per PR
 
 ## Release Recovery
 
-Releases are created by the unified `Pipeline` workflow after `Validate` passes on `develop`.
-The workflow builds a `release-manifest.json` file and uses it as the source of truth for release
-version, tag, tarball path, download URL, and source hash.
+Releases are created by the `Release Pipeline` workflow after `Validate Merge` passes on
+`develop`. The workflow builds a `release-manifest.json` file and uses it as the source of truth
+for release version, tag, tarball path, download URL, and source hash.
 
 If a release partially succeeds after tag creation, recover it with a manual workflow dispatch:
 
 ```text
-Workflow: Pipeline
+Workflow: Release Pipeline
 Input: release_tag=vX.Y.Z
 ```
 

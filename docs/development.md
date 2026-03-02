@@ -35,10 +35,16 @@ uv run pre-commit run --all-files                # All pre-commit hooks
 
 ## CI/CD Pipeline
 
-GitHub Actions now exposes a single required `Validate` status on pull requests. The
-validation run covers lint, format, type checking, package build, security audit, the full
-pytest suite, and the MCP/semantic extra smoke tests. Release, publish, and Homebrew sync run
-as dependent jobs in the same `Pipeline` workflow after `Validate` succeeds.
+GitHub Actions exposes two CI/CD workflows:
+
+- `PR CI` runs on pull requests to `develop` and exposes the required `Validate PR` check.
+- `Release Pipeline` runs only after changes land on `develop`, then performs merge validation,
+  release, publish, and Homebrew sync as dependent jobs.
+
+`Validate PR` covers lint, format, type checking, package build, security audit, the full pytest
+suite, the MCP stdio integration test, and commit lint. `Validate Merge` in the release pipeline
+re-runs the merge validation after landing on `develop` and adds the semantic CI smoke test using
+the lightweight internal `semantic-ci` dependency group.
 
 The release workflow builds `dist/release-manifest.json` and treats it as the source of truth
 for release version, tag, asset path, download URL, and source tarball hash. Downstream publish

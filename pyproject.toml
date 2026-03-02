@@ -79,6 +79,7 @@ dev = [
 ]
 test = ["pytest>=8.3", "pytest-cov>=6.0"]
 lint = ["ruff>=0.8"]
+semantic-ci = ["sqlite-vec>=0.1"]
 
 [tool.uv]
 package = true
