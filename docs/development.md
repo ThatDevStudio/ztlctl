@@ -33,19 +33,32 @@ uv run mypy src/                                 # Type check
 uv run pre-commit run --all-files                # All pre-commit hooks
 ```
 
+## CI/CD Pipeline
+
+GitHub Actions now exposes a single required `Validate` status on pull requests. The
+validation run covers lint, format, type checking, package build, security audit, the full
+pytest suite, and the MCP/semantic extra smoke tests. Release, publish, and Homebrew sync run
+as dependent jobs in the same `Pipeline` workflow after `Validate` succeeds.
+
+The release workflow builds `dist/release-manifest.json` and treats it as the source of truth
+for release version, tag, asset path, download URL, and source tarball hash. Downstream publish
+and Homebrew steps consume that manifest instead of rediscovering release metadata.
+
 ## Homebrew Formula
 
 The Homebrew tap publishes `ztlctl` at `ThatDev/ztlctl`.
 
 ```bash
-# Regenerate the formula from the current project version
-python scripts/update_homebrew_formula.py
+# Build release assets for an existing tag
+python3 scripts/build_release_manifest.py --release-tag v1.7.1 --output dist/release-manifest.json
 
-# Verify the checked-in formula is current
-python scripts/update_homebrew_formula.py --check
+# Generate the Homebrew formula from the release manifest
+python3 scripts/update_homebrew_formula.py --manifest dist/release-manifest.json --output dist/ztlctl.rb
 ```
 
-The formula uses a release tarball as the stable source, installs the CLI into a Python virtualenv, and derives both runtime and build-backend resources from the repository's `uv.lock`. The release workflow uploads the source tarball to GitHub Releases, and the publish workflow regenerates and syncs the formula into the tap repository.
+The formula is now a derived release artifact rather than a checked-in source file. It uses the
+release tarball as the stable source, installs the CLI into a Python virtualenv, and derives both
+runtime and build-backend resources from the repository's `uv.lock`.
 
 ## Architecture
 
