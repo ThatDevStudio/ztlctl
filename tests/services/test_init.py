@@ -28,10 +28,10 @@ class TestInitVault:
         assert (tmp_path / "ops" / "tasks").is_dir()
 
     def test_creates_toml_config(self, tmp_path: Path) -> None:
-        InitService.init_vault(tmp_path, name="my-vault", client="vanilla", tone="minimal")
+        InitService.init_vault(tmp_path, name="my-vault", client="none", tone="minimal")
         toml = (tmp_path / "ztlctl.toml").read_text()
         assert 'name = "my-vault"' in toml
-        assert 'client = "vanilla"' in toml
+        assert 'client = "none"' in toml
         assert 'tone = "minimal"' in toml
 
     def test_creates_database(self, tmp_path: Path) -> None:
@@ -87,9 +87,17 @@ class TestInitVault:
         assert css_path.is_file()
         assert "ztlctl" in css_path.read_text()
 
-    def test_vanilla_client_no_obsidian_dir(self, tmp_path: Path) -> None:
-        InitService.init_vault(tmp_path, name="van-vault", client="vanilla")
+    def test_none_client_no_obsidian_dir(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="none-vault", client="none")
         assert not (tmp_path / ".obsidian").exists()
+
+    def test_vanilla_client_alias_normalizes_to_none(self, tmp_path: Path) -> None:
+        result = InitService.init_vault(tmp_path, name="alias-vault", client="vanilla")
+
+        assert result.ok
+        assert result.data["client"] == "none"
+        assert 'client = "none"' in (tmp_path / "ztlctl.toml").read_text()
+        assert any("deprecated" in warning.lower() for warning in result.warnings)
 
     def test_topic_directories_created(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="topics-vault", topics=["ai", "engineering"])
@@ -125,10 +133,10 @@ class PostInitPlugin:
             encoding="utf-8",
         )
 
-        result = InitService.init_vault(tmp_path, name="hooked-vault", client="vanilla")
+        result = InitService.init_vault(tmp_path, name="hooked-vault", client="none")
 
         assert result.ok
-        assert marker.read_text(encoding="utf-8") == "hooked-vault|vanilla|research-partner"
+        assert marker.read_text(encoding="utf-8") == "hooked-vault|none|research-partner"
 
     def test_workflow_scaffold_created_by_default(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="wf-vault")
@@ -153,12 +161,12 @@ class PostInitPlugin:
 
     def test_result_data_fields(self, tmp_path: Path) -> None:
         result = InitService.init_vault(
-            tmp_path, name="data-vault", client="vanilla", tone="assistant"
+            tmp_path, name="data-vault", client="none", tone="assistant"
         )
         assert result.ok
         assert result.op == "init_vault"
         assert result.data["name"] == "data-vault"
-        assert result.data["client"] == "vanilla"
+        assert result.data["client"] == "none"
         assert result.data["tone"] == "assistant"
         assert str(tmp_path) in result.data["vault_path"]
 
@@ -185,6 +193,19 @@ class PostInitPlugin:
         identity = (tmp_path / "self" / "identity.md").read_text()
         assert "generated: true" in identity
         assert 'vault: "fm-vault"' in identity
+
+    def test_self_files_use_current_ids_and_lifecycle_terms(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="truth-vault", client="none")
+
+        identity = (tmp_path / "self" / "identity.md").read_text(encoding="utf-8")
+        methodology = (tmp_path / "self" / "methodology.md").read_text(encoding="utf-8")
+
+        assert "ztl_<8hex>" in identity
+        assert "seed → budding → evergreen" in identity
+        assert "sapling" not in identity
+        assert "ref_<8hex>" in methodology
+        assert "inbox → active → blocked/done/dropped" in methodology
+        assert "ZTL-NNNN" not in methodology
 
     def test_stamp_failure_produces_warning(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

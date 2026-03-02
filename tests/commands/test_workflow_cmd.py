@@ -37,7 +37,7 @@ class TestWorkflowCommands:
                 "init",
                 str(tmp_path),
                 "--viewer",
-                "vanilla",
+                "none",
                 "--workflow",
                 "agent-generic",
                 "--skill-set",
@@ -48,7 +48,7 @@ class TestWorkflowCommands:
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
         assert payload["ok"] is True
-        assert payload["data"]["choices"]["viewer"] == "vanilla"
+        assert payload["data"]["choices"]["viewer"] == "none"
         assert payload["data"]["choices"]["workflow"] == "agent-generic"
 
     def test_workflow_update_json(self, cli_runner: CliRunner, tmp_path: Path) -> None:
@@ -82,13 +82,13 @@ class TestWorkflowCommands:
         result = cli_runner.invoke(
             cli,
             ["workflow", "init", str(tmp_path)],
-            input="none\nvanilla\nmanual\nminimal\n",
+            input="none\nnone\nmanual\nminimal\n",
         )
 
         assert result.exit_code == 0, result.output
         answers = (tmp_path / ".ztlctl" / "workflow-answers.yml").read_text()
         assert "source_control: none" in answers
-        assert "viewer: vanilla" in answers
+        assert "viewer: none" in answers
         assert "workflow: manual" in answers
         assert "skill_set: minimal" in answers
 
@@ -123,6 +123,29 @@ class TestWorkflowCommands:
         assert result.exit_code == 1
         assert "Source control" not in result.output
         assert "Workflow scaffolding already exists" in result.output
+
+    def test_workflow_init_vanilla_alias_normalizes(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        self._init_vault(cli_runner, tmp_path)
+
+        result = cli_runner.invoke(
+            cli,
+            [
+                "--json",
+                "--no-interact",
+                "workflow",
+                "init",
+                str(tmp_path),
+                "--viewer",
+                "vanilla",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload["data"]["choices"]["viewer"] == "none"
+        assert any("deprecated" in warning.lower() for warning in payload["warnings"])
 
     def test_workflow_export_both_generates_claude_and_codex_assets(
         self, cli_runner: CliRunner, tmp_path: Path

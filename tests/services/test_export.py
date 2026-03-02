@@ -441,15 +441,26 @@ class TestExportDashboard:
         content = (output / "dashboard.md").read_text(encoding="utf-8")
         assert f"[[{task['id']}]]" in content
 
-    def test_dashboard_export_vanilla_avoids_obsidian_internal_files(
+    def test_dashboard_export_none_avoids_obsidian_internal_files(
         self, vault: Vault, tmp_path: Path
     ) -> None:
-        output = tmp_path / "dashboard-vanilla"
+        output = tmp_path / "dashboard-none"
+
+        result = ExportService(vault).export_dashboard(output, viewer="none")
+
+        assert result.ok
+        assert not (output / ".obsidian").exists()
+
+    def test_dashboard_export_vanilla_alias_normalizes_to_none(
+        self, vault: Vault, tmp_path: Path
+    ) -> None:
+        output = tmp_path / "dashboard-alias"
 
         result = ExportService(vault).export_dashboard(output, viewer="vanilla")
 
         assert result.ok
-        assert not (output / ".obsidian").exists()
+        assert result.data["viewer"] == "none"
+        assert any("deprecated" in warning.lower() for warning in result.warnings)
 
     def test_dashboard_dossier_surfaces_bundle_citations_and_artifacts(
         self, vault: Vault, tmp_path: Path
@@ -472,7 +483,7 @@ class TestExportDashboard:
         )
 
         output = tmp_path / "dashboard-bundle"
-        result = ExportService(vault).export_dashboard(output, viewer="vanilla")
+        result = ExportService(vault).export_dashboard(output, viewer="none")
 
         assert result.ok
         dossier = (output / "topics" / "architecture.md").read_text(encoding="utf-8")

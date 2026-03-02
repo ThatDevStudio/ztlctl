@@ -16,6 +16,7 @@ _INIT_EXAMPLES = """\
   ztlctl init
   ztlctl init /path/to/vault --name my-research
   ztlctl init . --name lab --client obsidian --tone research-partner --topics "ai,engineering"
+  ztlctl init . --name scratch --client none --tone minimal
   ztlctl init --no-interact --name test --tone minimal /tmp/vault"""
 
 
@@ -24,9 +25,10 @@ _INIT_EXAMPLES = """\
 @click.option("--name", default=None, help="Vault name.")
 @click.option(
     "--client",
-    type=click.Choice(["obsidian", "vanilla"], case_sensitive=False),
+    type=str,
     default=None,
-    help="Client application.",
+    metavar="TEXT",
+    help="Client application (`obsidian` or `none`; `vanilla` is deprecated).",
 )
 @click.option(
     "--tone",
@@ -60,7 +62,7 @@ def init_cmd(
         client = (
             click.prompt(
                 "Client",
-                type=click.Choice(["obsidian", "vanilla"], case_sensitive=False),
+                type=click.Choice(["obsidian", "none"], case_sensitive=False),
                 default="obsidian",
             )
             if interactive

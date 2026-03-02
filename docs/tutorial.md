@@ -18,7 +18,7 @@ This creates the directory structure, config file, SQLite database, and generate
 
 **Options:**
 - `--name TEXT` — Vault display name
-- `--client [obsidian|vanilla]` — Viewer preference used by templates and workflow exports
+- `--client [obsidian|none]` — Viewer preference used by templates and workflow exports; `vanilla` is a deprecated alias for `none`
 - `--tone [research-partner|assistant|minimal]` — Agent personality for self/ files
 - `--topics TEXT` — Comma-separated topic directories
 - `--no-workflow` — Skip workflow template setup

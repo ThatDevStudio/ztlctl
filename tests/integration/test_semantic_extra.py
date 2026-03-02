@@ -45,7 +45,7 @@ def semantic_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Vault:
         (
             "[vault]\n"
             'name = "semantic-test"\n'
-            'client = "vanilla"\n'
+            'client = "none"\n'
             "\n"
             "[agent]\n"
             'tone = "minimal"\n'

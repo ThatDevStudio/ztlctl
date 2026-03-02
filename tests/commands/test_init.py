@@ -43,7 +43,7 @@ class TestInitCommandNonInteractive:
                 "--name",
                 "full-vault",
                 "--client",
-                "vanilla",
+                "none",
                 "--tone",
                 "minimal",
                 "--topics",
@@ -53,7 +53,7 @@ class TestInitCommandNonInteractive:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
-        assert data["data"]["client"] == "vanilla"
+        assert data["data"]["client"] == "none"
         assert data["data"]["tone"] == "minimal"
         assert data["data"]["topics"] == ["ai", "engineering"]
 
@@ -94,6 +94,28 @@ class TestInitCommandNonInteractive:
         data = json.loads(result.output)
         assert data["data"]["client"] == "obsidian"
         assert data["data"]["tone"] == "research-partner"
+
+    def test_init_vanilla_alias_emits_warning_and_normalizes(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        result = cli_runner.invoke(
+            cli,
+            [
+                "--json",
+                "--no-interact",
+                "init",
+                str(tmp_path),
+                "--name",
+                "alias-vault",
+                "--client",
+                "vanilla",
+            ],
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["data"]["client"] == "none"
+        assert any("deprecated" in warning.lower() for warning in data["warnings"])
 
     def test_init_creates_directories(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         cli_runner.invoke(
@@ -146,13 +168,13 @@ class TestInitCommandInteractive:
     ) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--json", "init", str(tmp_path), "--name", "partial", "--client", "vanilla"],
+            ["--json", "init", str(tmp_path), "--name", "partial", "--client", "none"],
             input="assistant\nweb\n",
         )
         assert result.exit_code == 0
         data = self._extract_json(result.output)
         assert data["data"]["name"] == "partial"
-        assert data["data"]["client"] == "vanilla"
+        assert data["data"]["client"] == "none"
         assert data["data"]["tone"] == "assistant"
 
     def test_init_empty_topics_interactive(self, cli_runner: CliRunner, tmp_path: Path) -> None:

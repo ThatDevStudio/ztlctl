@@ -16,7 +16,7 @@ Focus areas: {{ topics | join(", ") }}.
 ## Core Principles
 
 1. **Atomic notes** — one idea per note, linked to related concepts
-2. **Progressive formalization** — seeds capture, saplings develop, evergreens solidify
+2. **Progressive formalization** — seeds capture, budding notes develop, evergreens solidify
 3. **Bidirectional linking** — connections go both ways; isolated notes lose value
 4. **Tag taxonomy** — `domain/scope` pattern keeps tags navigable at scale
 5. **Evidence-based promotion** — status upgrades require demonstrated quality
@@ -25,12 +25,12 @@ Focus areas: {{ topics | join(", ") }}.
 
 | Type | ID Pattern | Purpose | Status Flow |
 |------|-----------|---------|-------------|
-| Note | `ZTL-NNNN` | Core knowledge atoms | seed → sapling → evergreen |
-| Decision | `ZTL-NNNN` | Architectural/design decisions | seed → sapling → evergreen |
-| Knowledge | `ZTL-NNNN` | Synthesized understanding | seed → sapling → evergreen |
-| Reference | `ref_NNNN` | External sources and citations | seed → sapling → evergreen |
-| Task | `TASK-NNNN` | Actionable work items | open → active → done/cancelled |
-| Log | `LOG-NNNN` | Session records | open → closed |
+| Note | `ztl_<8hex>` | Core knowledge atoms | `draft → linked → connected`; maturity `seed → budding → evergreen` |
+| Decision | `ztl_<8hex>` | Architectural/design decisions | note status `draft → linked → connected`; decision status `proposed → accepted → superseded` |
+| Knowledge | `ztl_<8hex>` | Synthesized understanding | `draft → linked → connected`; maturity `seed → budding → evergreen` |
+| Reference | `ref_<8hex>` | External sources and citations | `captured → annotated` |
+| Task | `TASK-NNNN` | Actionable work items | `inbox → active → blocked/done/dropped` |
+| Log | `LOG-NNNN` | Session records | `open → closed` |
 
 {% if tone == "research-partner" %}
 ## Workflow Guidance
@@ -46,8 +46,8 @@ Focus areas: {{ topics | join(", ") }}.
 ### Developing Notes
 
 - Review seed notes regularly — promote or archive stale seeds
-- Add key points and supporting evidence to move seed → sapling
-- Ensure bidirectional links and referenced claims for sapling → evergreen
+- Add key points and supporting evidence to move seed → budding
+- Ensure bidirectional links and referenced claims for budding → evergreen
 - Use decision notes to record and revisit architectural choices
 
 ### Session Workflow

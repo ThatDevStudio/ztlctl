@@ -148,14 +148,28 @@ class TestExportDashboardCommand:
         assert data["op"] == "export_dashboard"
         assert (output / "dashboard.md").is_file()
 
-    def test_export_dashboard_vanilla_writes_no_obsidian_state(
+    def test_export_dashboard_none_writes_no_obsidian_state(
         self, cli_runner: CliRunner, tmp_path: Path
     ) -> None:
-        output = tmp_path / "dashboard-vanilla"
+        output = tmp_path / "dashboard-none"
         result = cli_runner.invoke(
             cli,
-            ["export", "dashboard", "--viewer", "vanilla", "--output", str(output)],
+            ["export", "dashboard", "--viewer", "none", "--output", str(output)],
         )
 
         assert result.exit_code == 0, result.output
         assert not (output / ".obsidian").exists()
+
+    def test_export_dashboard_vanilla_alias_normalizes(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        output = tmp_path / "dashboard-alias"
+        result = cli_runner.invoke(
+            cli,
+            ["--json", "export", "dashboard", "--viewer", "vanilla", "--output", str(output)],
+        )
+
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert data["data"]["viewer"] == "none"
+        assert any("deprecated" in warning.lower() for warning in data["warnings"])
