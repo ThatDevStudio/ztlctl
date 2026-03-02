@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.7.2 (2026-03-02)
+
+### Fix
+
+- **workspace**: reconcile phase 0 client and viewer truth (#97)
+
 ## v1.7.1 (2026-03-02)
 
 ### Fix
