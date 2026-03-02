@@ -15,6 +15,7 @@ from ztlctl.infrastructure.templates import build_template_environment
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
+from ztlctl.workspace_modes import normalize_client
 
 if TYPE_CHECKING:
     from ztlctl.infrastructure.vault import Vault
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
 _OBSIDIAN_CSS = """\
 /* ztlctl vault styling for Obsidian */
 .ztlctl-seed { color: var(--text-muted); }
-.ztlctl-sapling { color: var(--text-normal); }
+.ztlctl-budding { color: var(--text-normal); }
 .ztlctl-evergreen { color: var(--text-accent); font-weight: bold; }
 """
 
@@ -127,6 +128,18 @@ class InitService:
         """
         vault_path = path.resolve()
         topics = topics or []
+        try:
+            client, client_warning = normalize_client(client)
+        except ValueError as exc:
+            return ServiceResult(
+                ok=False,
+                op="init_vault",
+                error=ServiceError(
+                    code="INVALID_CLIENT",
+                    message=str(exc),
+                    detail={"client": client},
+                ),
+            )
 
         # 1. VALIDATE
         toml_path = vault_path / "ztlctl.toml"
@@ -143,6 +156,8 @@ class InitService:
 
         files_created: list[str] = []
         warnings: list[str] = []
+        if client_warning is not None:
+            warnings.append(client_warning)
 
         # 2. CREATE STRUCTURE
         dirs = [
@@ -205,7 +220,7 @@ class InitService:
             workflow_result = WorkflowService.init_workflow(
                 vault_path,
                 WorkflowService.default_choices(
-                    viewer="obsidian" if client == "obsidian" else "vanilla"
+                    viewer="obsidian" if client == "obsidian" else "none"
                 ),
             )
             if workflow_result.ok:

@@ -60,7 +60,7 @@ class TestWorkflowService:
             tmp_path,
             choices=WorkflowChoices(
                 source_control="none",
-                viewer="vanilla",
+                viewer="none",
                 workflow="manual",
                 skill_set="minimal",
             ),
@@ -78,7 +78,7 @@ class TestWorkflowService:
             tmp_path,
             WorkflowChoices(
                 source_control="git",
-                viewer="vanilla",
+                viewer="none",
                 workflow="agent-generic",
                 skill_set="engineering",
             ),
@@ -87,9 +87,41 @@ class TestWorkflowService:
         answers = WorkflowService.read_answers(tmp_path)
 
         assert answers is not None
-        assert answers.viewer == "vanilla"
+        assert answers.viewer == "none"
         assert answers.workflow == "agent-generic"
         assert answers.skill_set == "engineering"
+
+    def test_init_workflow_normalizes_vanilla_alias(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
+
+        result = WorkflowService.init_workflow(
+            tmp_path,
+            WorkflowChoices(
+                source_control="git",
+                viewer="vanilla",
+                workflow="manual",
+                skill_set="minimal",
+            ),
+        )
+
+        assert result.ok
+        assert result.data["choices"]["viewer"] == "none"
+        assert any("deprecated" in warning.lower() for warning in result.warnings)
+        answers = (tmp_path / ".ztlctl" / "workflow-answers.yml").read_text(encoding="utf-8")
+        assert "viewer: none" in answers
+
+    def test_read_answers_normalizes_legacy_vanilla_value(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
+        answers_path = tmp_path / ".ztlctl" / "workflow-answers.yml"
+        answers_path.write_text(
+            "source_control: none\nviewer: vanilla\nworkflow: manual\nskill_set: minimal\n",
+            encoding="utf-8",
+        )
+
+        answers = WorkflowService.read_answers(tmp_path)
+
+        assert answers is not None
+        assert answers.viewer == "none"
 
     def test_read_answers_returns_none_for_invalid_yaml(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)

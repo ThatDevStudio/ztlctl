@@ -995,7 +995,7 @@ Interactive by default. Creates vault + workflow (use `--no-workflow` to skip wo
 ```
 $ ztlctl init
   Vault name [research]: my-research
-  Client [obsidian]: obsidian           # vanilla | obsidian
+  Client [obsidian]: obsidian           # none | obsidian (`vanilla` accepted as deprecated alias)
   Tone [research-partner]: research-partner  # research-partner | assistant | minimal
   Initial topics: cognitive-science, engineering
 ```
@@ -1033,8 +1033,7 @@ The `research-partner` tone includes the full behavioral framework proven in the
 │   ├── logs/
 │   └── tasks/
 └── .obsidian/              # if client = obsidian
-    ├── snippets/ztlctl.css
-    └── graph-colors.md
+    └── snippets/ztlctl.css
 ```
 
 ---
@@ -1146,7 +1145,7 @@ auto_ignore = true
 
 ```
 Source control: git | none
-Viewer: obsidian | vanilla
+Viewer: obsidian | none
 Workflow: claude-driven | agent-generic | manual
 Skill set: research | engineering | minimal
 ```
@@ -1246,7 +1245,7 @@ All configuration sections are frozen Pydantic `BaseModel` classes. Defaults are
 | `[session]` | `SessionConfig` | `close_reweave`, `close_orphan_sweep` |
 | `[tags]` | `TagsConfig` | `auto_register` |
 | `[check]` | `CheckConfig` | `backup_retention_days`, `backup_max_count` |
-| `[plugins]` | `PluginsConfig` | `git`, `obsidian` (dicts) |
+| `[plugins]` | `PluginsConfig` | `git` (dict) |
 | `[git]` | `GitConfig` | `enabled`, `branch`, `auto_push`, `batch_commits` |
 | `[mcp]` | `McpConfig` | `enabled`, `transport` |
 | `[workflow]` | `WorkflowConfig` | `template`, `skill_set` |
@@ -1321,10 +1320,9 @@ backup_max_count = 10
 
 [plugins]
 git = { enabled = true }
-obsidian = { enabled = true }
 
 [git]
-branch = "main"
+branch = "develop"
 auto_push = true
 commit_style = "conventional"
 batch_commits = true
@@ -1622,7 +1620,7 @@ Phase 5 — Lifecycle (complete):
     - Interactive `ztlctl init` with prompts for name, client, tone, topics
     - Non-interactive `--name/--client/--tone/--topics` flags for scripting
     - Vault scaffolding: ztlctl.toml, .ztlctl/, notes/, ops/, self/
-    - Obsidian client: .obsidian/ with graph colors and CSS snippets
+    - Obsidian client: .obsidian/ with CSS snippet scaffolding
     - Jinja2 templates for self/identity.md and self/methodology.md
     - `ztlctl agent regenerate` with staleness detection (timestamp comparison)
     - Database initialization integrated into init flow

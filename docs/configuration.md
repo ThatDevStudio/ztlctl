@@ -12,7 +12,7 @@ ztlctl uses a `ztlctl.toml` file at the vault root. Settings can be overridden v
 ```toml
 [vault]
 name = "my-vault"
-client = "obsidian"  # viewer preference: obsidian or vanilla
+client = "obsidian"  # viewer preference: obsidian or none
 
 [agent]
 tone = "research-partner"  # or "assistant", "minimal"
@@ -86,6 +86,8 @@ Nested keys use double underscores (`__`) as separators.
 
 ## Notes
 
-- `vault.client = "obsidian"` does not mean ztlctl owns your full `.obsidian/` state. It is a viewer preference used by templates and workflow exports.
+- `vault.client` is currently `obsidian` or `none`. `vanilla` is accepted as a deprecated alias and normalized to `none`.
+- `vault.client = "obsidian"` does not mean ztlctl owns your full `.obsidian/` state. In Phase 0 it is still a viewer preference used by templates and workflow exports, plus the trigger for a minimal `.obsidian/snippets/ztlctl.css` scaffold during `ztlctl init`.
+- `[plugins].obsidian` is obsolete and ignored when present in older configs. The only canonical built-in plugin config section today is `[plugins].git`.
 - URL ingestion is provider-backed. Base ztlctl supports text and markdown ingestion directly; remote fetching comes from installed source-provider plugins.
 - Dashboard export writes markdown and JSON workbench artifacts, including topic dossiers, but it still avoids mutating `.obsidian/*`.

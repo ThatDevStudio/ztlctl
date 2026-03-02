@@ -14,7 +14,7 @@ viewer:
   default: obsidian
   choices:
     - obsidian
-    - vanilla
+    - none
 workflow:
   type: str
   default: claude-driven

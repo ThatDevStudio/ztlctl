@@ -23,11 +23,12 @@ from ztlctl.catalogs import (
 from ztlctl.infrastructure.templates import build_template_environment
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
+from ztlctl.workspace_modes import normalize_viewer
 
 WorkflowMode = Literal["claude-driven", "agent-generic", "manual"]
 SkillSet = Literal["research", "engineering", "minimal"]
 SourceControl = Literal["git", "none"]
-Viewer = Literal["obsidian", "vanilla"]
+Viewer = Literal["obsidian", "none"]
 WorkflowAssetClient = Literal["claude", "codex", "both"]
 
 _ANSWERS_RELATIVE_PATH = Path(".ztlctl") / "workflow-answers.yml"
@@ -40,7 +41,7 @@ _GENERATED_FILES = [
     ".ztlctl/workflow/skill-set.md",
 ]
 _SOURCE_CONTROL_VALUES = {"git", "none"}
-_VIEWER_VALUES = {"obsidian", "vanilla"}
+_VIEWER_VALUES = {"obsidian", "none"}
 _WORKFLOW_VALUES = {"claude-driven", "agent-generic", "manual"}
 _SKILL_SET_VALUES = {"research", "engineering", "minimal"}
 _ASSET_CLIENT_VALUES = {"claude", "codex", "both"}
@@ -94,10 +95,14 @@ class WorkflowService:
 
         try:
             source_control = cast(SourceControl, str(data["source_control"]))
-            viewer = cast(Viewer, str(data["viewer"]))
+            viewer_raw = str(data["viewer"])
             workflow = cast(WorkflowMode, str(data["workflow"]))
             skill_set = cast(SkillSet, str(data["skill_set"]))
         except KeyError:
+            return None
+        try:
+            viewer, _warning = normalize_viewer(viewer_raw)
+        except ValueError:
             return None
         if source_control not in _SOURCE_CONTROL_VALUES:
             return None
@@ -113,6 +118,26 @@ class WorkflowService:
             viewer=viewer,
             workflow=workflow,
             skill_set=skill_set,
+        )
+
+    @staticmethod
+    def _normalize_choices(choices: WorkflowChoices) -> tuple[WorkflowChoices, list[str]]:
+        """Normalize deprecated workflow selections to canonical values."""
+        try:
+            viewer, viewer_warning = normalize_viewer(choices.viewer)
+        except ValueError as exc:
+            msg = str(exc)
+            raise ValueError(msg) from exc
+
+        warnings = [viewer_warning] if viewer_warning is not None else []
+        return (
+            WorkflowChoices(
+                source_control=choices.source_control,
+                viewer=viewer,
+                workflow=choices.workflow,
+                skill_set=choices.skill_set,
+            ),
+            warnings,
         )
 
     @staticmethod
@@ -337,6 +362,18 @@ class WorkflowService:
         validation_error = WorkflowService.validate_init_target(vault_root)
         if validation_error is not None:
             return validation_error
+        try:
+            choices, warnings = WorkflowService._normalize_choices(choices)
+        except ValueError as exc:
+            return ServiceResult(
+                ok=False,
+                op="workflow_init",
+                error=ServiceError(
+                    code="INVALID_VIEWER",
+                    message=str(exc),
+                    detail={"viewer": choices.viewer},
+                ),
+            )
 
         try:
             WorkflowService._run_copy(vault_root, choices)
@@ -358,6 +395,7 @@ class WorkflowService:
                 "files_written": list(_GENERATED_FILES),
                 "choices": choices.as_data(),
             },
+            warnings=warnings,
         )
 
     @staticmethod
@@ -373,8 +411,26 @@ class WorkflowService:
         if validation_error is not None:
             return validation_error
 
+        warnings: list[str] = []
+        if choices is None:
+            choices = WorkflowService.read_answers(vault_root)
+        if choices is not None:
+            try:
+                choices, choice_warnings = WorkflowService._normalize_choices(choices)
+            except ValueError as exc:
+                return ServiceResult(
+                    ok=False,
+                    op="workflow_update",
+                    error=ServiceError(
+                        code="INVALID_VIEWER",
+                        message=str(exc),
+                        detail={"viewer": choices.viewer},
+                    ),
+                )
+            warnings.extend(choice_warnings)
+
         try:
-            mode, warnings = WorkflowService._run_update(vault_root, choices)
+            mode, update_warnings = WorkflowService._run_update(vault_root, choices)
         except CopierError as exc:
             return ServiceResult(
                 ok=False,
@@ -384,6 +440,7 @@ class WorkflowService:
                     message=f"Failed to update workflow template: {exc}",
                 ),
             )
+        warnings.extend(update_warnings)
 
         final_choices = WorkflowService.read_answers(vault_root)
         data = {

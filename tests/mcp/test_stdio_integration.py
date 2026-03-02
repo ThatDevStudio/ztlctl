@@ -100,7 +100,7 @@ def test_stdio_transport_end_to_end(tmp_path: Path) -> None:
 
     config_path = tmp_path / "ztlctl.toml"
     config_path.write_text(
-        '[vault]\nname = "mcp-test"\nclient = "vanilla"\n\n[agent]\ntone = "minimal"\n',
+        '[vault]\nname = "mcp-test"\nclient = "none"\n\n[agent]\ntone = "minimal"\n',
         encoding="utf-8",
     )
 

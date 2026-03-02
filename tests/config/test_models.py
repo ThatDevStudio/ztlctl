@@ -17,6 +17,10 @@ class TestSectionDefaults:
         except Exception:
             pass
 
+    def test_vault_normalizes_vanilla_client_alias(self) -> None:
+        cfg = VaultConfig.model_validate({"client": "vanilla"})
+        assert cfg.client == "none"
+
 
 class TestReweaveConfig:
     def test_weights_sum(self) -> None:

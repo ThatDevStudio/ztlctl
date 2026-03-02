@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from ztlctl.workspace_modes import normalize_client
 
 # --- ztlctl.toml sections ---
 
@@ -22,6 +24,12 @@ class VaultConfig(BaseModel):
 
     name: str = "my-vault"
     client: str = "obsidian"
+
+    @field_validator("client")
+    @classmethod
+    def _normalize_client(cls, value: str) -> str:
+        normalized, _warning = normalize_client(value)
+        return normalized
 
 
 class AgentContextConfig(BaseModel):
@@ -126,7 +134,6 @@ class PluginsConfig(BaseModel):
     model_config = {"frozen": True}
 
     git: dict[str, Any] = Field(default_factory=lambda: {"enabled": True})
-    obsidian: dict[str, Any] = Field(default_factory=lambda: {"enabled": True})
 
 
 class GitConfig(BaseModel):

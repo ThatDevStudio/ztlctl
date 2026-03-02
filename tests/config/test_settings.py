@@ -57,6 +57,25 @@ class TestTomlSource:
         assert settings.vault.name == "custom"
         assert settings.config_path == custom
 
+    def test_legacy_vanilla_client_normalizes_to_none(self, tmp_path: Path) -> None:
+        toml = tmp_path / "ztlctl.toml"
+        toml.write_text('[vault]\nname = "legacy"\nclient = "vanilla"\n')
+
+        settings = ZtlSettings.from_cli(vault_root=tmp_path)
+
+        assert settings.vault.client == "none"
+
+    def test_legacy_plugins_obsidian_key_is_ignored(self, tmp_path: Path) -> None:
+        toml = tmp_path / "ztlctl.toml"
+        toml.write_text(
+            "[plugins]\ngit = { enabled = true }\nobsidian = { enabled = true }\n",
+            encoding="utf-8",
+        )
+
+        settings = ZtlSettings.from_cli(vault_root=tmp_path)
+
+        assert settings.plugins.model_dump() == {"git": {"enabled": True}}
+
 
 class TestCliFlags:
     def test_cli_flags_override(self, tmp_path: Path) -> None:

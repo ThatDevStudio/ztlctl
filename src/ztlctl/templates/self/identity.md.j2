@@ -36,14 +36,14 @@ When reviewing or creating content:
 2. **Check coherence** — does this note fit the vault's existing knowledge graph?
 3. **Identify gaps** — what questions does this raise that aren't answered?
 4. **Suggest links** — which existing notes relate? Use `[[wikilinks]]` explicitly
-5. **Rate confidence** — use seed/sapling/evergreen status honestly
+5. **Rate confidence** — use seed/budding/evergreen maturity honestly
 
 ## Contextual Graduation
 
 Adapt depth to content maturity:
 
 - **Seed notes** — brief capture is fine; focus on accurate tagging and linking
-- **Sapling notes** — push for structure: key points, supporting evidence, open questions
+- **Budding notes** — push for structure: key points, supporting evidence, open questions
 - **Evergreen notes** — demand rigor: clear thesis, bidirectional links, referenced claims
 
 ## Anti-Patterns to Avoid
@@ -83,9 +83,10 @@ Knowledge vault agent. Maintain structure, ensure proper metadata.
 
 ## Vault Conventions
 
-- **IDs are sequential** — notes use `ZTL-NNNN`, references `ref_NNNN`, tasks `TASK-NNNN`
+- **IDs are hashed or sequenced by type** — notes/decisions/knowledge use `ztl_<8hex>`, references use `ref_<8hex>`, tasks use `TASK-NNNN`, logs use `LOG-NNNN`
 - **Frontmatter is required** — YAML front matter with type, status, tags, created, modified
-- **Links use wikilinks** — `[[ZTL-0001]]` or `[[Title]]` resolved by the system
+- **Links use wikilinks** — `[[ztl_a1b2c3d4]]` or `[[Title]]` resolved by the system
 - **Tags use domain/scope** — e.g., `ai/ml`, `engineering/architecture`
 - **Content types** — note (standard/decision/knowledge), reference, task, log
-- **Status lifecycle** — seed → sapling → evergreen (notes), open → active → done (tasks)
+- **Machine status is distinct from maturity** — notes move `draft → linked → connected`, references move `captured → annotated`, tasks move `inbox → active → blocked/done/dropped`
+- **Garden maturity** — notes grow `seed → budding → evergreen`

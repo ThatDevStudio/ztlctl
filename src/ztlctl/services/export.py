@@ -19,6 +19,7 @@ from ztlctl.infrastructure.database.schema import node_tags, nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceResult
 from ztlctl.services.telemetry import traced
+from ztlctl.workspace_modes import normalize_viewer
 
 if TYPE_CHECKING:
     from sqlalchemy import Row
@@ -319,11 +320,25 @@ class ExportService(BaseService):
         self,
         output_dir: Path,
         *,
-        viewer: Literal["obsidian", "vanilla"] = "obsidian",
+        viewer: Literal["obsidian", "none"] | str = "obsidian",
     ) -> ServiceResult:
         """Export a viewer-friendly dashboard plus review and dossier artifacts."""
         from ztlctl.services.query import QueryService
 
+        try:
+            viewer, viewer_warning = normalize_viewer(viewer)
+        except ValueError as exc:
+            from ztlctl.services.result import ServiceError
+
+            return ServiceResult(
+                ok=False,
+                op="export_dashboard",
+                error=ServiceError(
+                    code="INVALID_VIEWER",
+                    message=str(exc),
+                    detail={"viewer": viewer},
+                ),
+            )
         output_dir = output_dir.resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
         topics_dir = output_dir / "topics"
@@ -496,6 +511,7 @@ class ExportService(BaseService):
                 "viewer": viewer,
                 "files_created": files_created,
             },
+            warnings=[viewer_warning] if viewer_warning is not None else [],
         )
 
     # ── Private helpers ───────────────────────────────────────────────
@@ -504,7 +520,7 @@ class ExportService(BaseService):
     def _dashboard_lines(
         items: list[dict[str, Any]],
         *,
-        viewer: Literal["obsidian", "vanilla"],
+        viewer: Literal["obsidian", "none"],
         empty: str,
     ) -> list[str]:
         """Render one dashboard section according to the target viewer."""
@@ -528,7 +544,7 @@ class ExportService(BaseService):
         item_id: str,
         title: str,
         *,
-        viewer: Literal["obsidian", "vanilla"],
+        viewer: Literal["obsidian", "none"],
     ) -> str:
         """Render an item label appropriate for the target viewer."""
         if viewer == "obsidian":
@@ -548,7 +564,7 @@ class ExportService(BaseService):
         cls,
         topic: str,
         *,
-        viewer: Literal["obsidian", "vanilla"],
+        viewer: Literal["obsidian", "none"],
     ) -> str:
         """Render a dashboard link to a topic dossier."""
         slug = cls._topic_slug(topic)
@@ -562,7 +578,7 @@ class ExportService(BaseService):
         topic: str,
         packet: dict[str, Any],
         *,
-        viewer: Literal["obsidian", "vanilla"],
+        viewer: Literal["obsidian", "none"],
     ) -> str:
         """Render a markdown topic dossier from a packet payload."""
         lines = [

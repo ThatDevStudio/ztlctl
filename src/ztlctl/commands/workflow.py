@@ -21,7 +21,7 @@ from ztlctl.services.workflow import (
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
-_VIEWER_CHOICES = ["obsidian", "vanilla"]
+_VIEWER_CHOICES = ["obsidian", "none"]
 _WORKFLOW_CHOICES = ["claude-driven", "agent-generic", "manual"]
 _SKILL_CHOICES = ["research", "engineering", "minimal"]
 _SOURCE_CONTROL_CHOICES = ["git", "none"]
@@ -98,6 +98,7 @@ def _resolve_workflow_choices(
     examples="""\
   ztlctl workflow init
   ztlctl workflow init --viewer obsidian --workflow claude-driven
+  ztlctl workflow init --viewer none --workflow manual
   ztlctl workflow export --client both
   ztlctl workflow validate --client claude
   ztlctl workflow update
@@ -118,9 +119,10 @@ def workflow(app: AppContext) -> None:
 )
 @click.option(
     "--viewer",
-    type=click.Choice(_VIEWER_CHOICES, case_sensitive=False),
+    type=str,
     default=None,
-    help="Viewer layer.",
+    metavar="TEXT",
+    help="Viewer layer (`obsidian` or `none`; `vanilla` is deprecated).",
 )
 @click.option(
     "--workflow",
@@ -177,9 +179,10 @@ def workflow_init(
 )
 @click.option(
     "--viewer",
-    type=click.Choice(_VIEWER_CHOICES, case_sensitive=False),
+    type=str,
     default=None,
-    help="Override viewer layer.",
+    metavar="TEXT",
+    help="Override viewer layer (`obsidian` or `none`; `vanilla` is deprecated).",
 )
 @click.option(
     "--workflow",
