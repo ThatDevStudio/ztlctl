@@ -31,5 +31,6 @@ For agent-fetched web pages and multimodal captures, ztlctl persists durable sou
 ## For Developers and Agents
 
 - [Agentic Workflows](agentic-workflows.md) — Sessions, context assembly, batch operations, scripting
+- [Hybrid Workspace Backlog](backlog.md) — Gap closure roadmap for plugin-driven profiles, Obsidian starter kits, and the hybrid garden model
 - [Development](development.md) — Contributing, architecture, and local setup
 - [Troubleshooting](troubleshooting.md) — Common issues and solutions
