@@ -9,17 +9,19 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from ztlctl.infrastructure.templates import build_template_environment
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
 from ztlctl.workspace_profiles import (
-    WorkspaceProfileId,
-    get_builtin_workspace_profile,
+    UnknownWorkspaceProfileError,
+    discover_init_profiles,
+    discover_vault_profiles,
     profile_to_legacy_client,
     resolve_profile_selection,
+    resolve_workspace_profile,
 )
 
 if TYPE_CHECKING:
@@ -116,6 +118,31 @@ def _generate_toml(*, name: str, profile: str, tone: str) -> str:
     )
 
 
+def _profile_error(
+    *,
+    op: str,
+    code: str,
+    message: str,
+    requested_profile: str | None,
+    registry_profiles: list[str],
+    discovery_scope: str,
+    vault_root: Path | None = None,
+) -> ServiceResult:
+    """Build a structured workspace-profile error result."""
+    detail: dict[str, str | list[str]] = {
+        "requested_profile": requested_profile or "",
+        "available_profiles": registry_profiles,
+        "discovery_scope": discovery_scope,
+    }
+    if vault_root is not None:
+        detail["vault_root"] = str(vault_root)
+    return ServiceResult(
+        ok=False,
+        op=op,
+        error=ServiceError(code=code, message=message, detail=detail),
+    )
+
+
 # ── Public API ────────────────────────────────────────────────────────
 
 
@@ -148,10 +175,22 @@ class InitService:
         """
         vault_path = path.resolve()
         topics = topics or []
+        profile_registry = discover_init_profiles()
         try:
             profile, selection_warnings, legacy_client = resolve_profile_selection(
                 profile=profile,
                 client=client,
+                registry=profile_registry,
+            )
+        except UnknownWorkspaceProfileError as exc:
+            requested = profile if profile is not None else client
+            return _profile_error(
+                op="init_vault",
+                code="PROFILE_NOT_FOUND",
+                message=str(exc),
+                requested_profile=requested,
+                registry_profiles=exc.available_profiles,
+                discovery_scope="init",
             )
         except ValueError as exc:
             return ServiceResult(
@@ -179,7 +218,7 @@ class InitService:
 
         files_created: list[str] = []
         warnings: list[str] = list(selection_warnings)
-        profile_contribution = get_builtin_workspace_profile(profile)
+        profile_contribution = profile_registry.profiles[profile]
 
         # 2. CREATE STRUCTURE
         dirs = [
@@ -231,7 +270,25 @@ class InitService:
 
         # 6. APPLY PROFILE SCAFFOLD
         if profile_contribution.init_scaffold is not None:
-            files_created.extend(profile_contribution.init_scaffold(vault_path))
+            try:
+                files_created.extend(profile_contribution.init_scaffold(vault_path))
+            except Exception as exc:
+                return ServiceResult(
+                    ok=False,
+                    op="init_vault",
+                    error=ServiceError(
+                        code="PROFILE_SCAFFOLD_FAILED",
+                        message=(
+                            f"Workspace profile `{profile}` failed during scaffold setup: {exc}"
+                        ),
+                        detail={
+                            "profile": profile,
+                            "managed_paths": list(profile_contribution.managed_paths),
+                            "error": str(exc),
+                        },
+                    ),
+                    warnings=warnings,
+                )
 
         # 7. WORKFLOW
         if not no_workflow:
@@ -301,14 +358,31 @@ class InitService:
             )
 
         settings = vault.settings
+        profile_registry = discover_vault_profiles(vault.root)
+        try:
+            resolved_profile, profile_warning = resolve_workspace_profile(
+                settings.workspace.profile,
+                profile_registry,
+            )
+        except UnknownWorkspaceProfileError as exc:
+            return _profile_error(
+                op="regenerate_self",
+                code="PROFILE_NOT_FOUND",
+                message=str(exc),
+                requested_profile=exc.requested_profile,
+                registry_profiles=exc.available_profiles,
+                discovery_scope="vault",
+                vault_root=vault.root,
+            )
+
         self_dir = vault.root / "self"
         self_dir.mkdir(exist_ok=True)
 
         rendered = _render_self_files(
             vault_name=settings.vault.name,
             tone=settings.agent.tone,
-            profile=settings.workspace.profile,
-            client=profile_to_legacy_client(cast(WorkspaceProfileId, settings.workspace.profile)),
+            profile=resolved_profile,
+            client=profile_to_legacy_client(resolved_profile),
             topics=[],  # topics are directory-based, not in config
             created=today_iso(),
             vault_root=vault.root,
@@ -332,6 +406,10 @@ class InitService:
                 "changed": changed,
                 "vault_path": str(vault.root),
             },
+            warnings=[
+                *profile_registry.warnings,
+                *([profile_warning] if profile_warning is not None else []),
+            ],
         )
 
     @staticmethod

@@ -17,6 +17,8 @@ class TestZtlSettingsDefaults:
         assert settings.quiet is False
         assert settings.verbose is False
         assert settings.vault.name == "my-vault"
+        assert settings.workspace.profile == "core"
+        assert settings.vault.client == "none"
         assert settings.agent.tone == "research-partner"
         assert settings.reweave.enabled is True
 
@@ -73,6 +75,15 @@ class TestTomlSource:
         settings = ZtlSettings.from_cli(vault_root=tmp_path)
 
         assert settings.workspace.profile == "core"
+        assert settings.vault.client == "none"
+
+    def test_plugin_profile_maps_to_compatibility_client_none(self, tmp_path: Path) -> None:
+        toml = tmp_path / "ztlctl.toml"
+        toml.write_text('[workspace]\nprofile = "custom-plugin"\n', encoding="utf-8")
+
+        settings = ZtlSettings.from_cli(vault_root=tmp_path)
+
+        assert settings.workspace.profile == "custom-plugin"
         assert settings.vault.client == "none"
 
     def test_workspace_profile_wins_over_legacy_client(self, tmp_path: Path) -> None:

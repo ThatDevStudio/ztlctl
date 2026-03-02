@@ -93,8 +93,8 @@ class TestInitCommandNonInteractive:
         )
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data["data"]["profile"] == "obsidian"
-        assert data["data"]["client"] == "obsidian"
+        assert data["data"]["profile"] == "core"
+        assert data["data"]["client"] == "none"
         assert data["data"]["tone"] == "research-partner"
 
     def test_init_vanilla_alias_emits_warning_and_normalizes(
@@ -147,7 +147,7 @@ class TestInitCommandInteractive:
         result = cli_runner.invoke(
             cli,
             ["--json", "init", str(tmp_path)],
-            input="my-vault\nobsidian\nresearch-partner\nai,ml\n",
+            input="my-vault\ncore\nresearch-partner\nai,ml\n",
         )
         assert result.exit_code == 0
         data = self._extract_json(result.output)
@@ -163,8 +163,8 @@ class TestInitCommandInteractive:
         )
         assert result.exit_code == 0
         data = self._extract_json(result.output)
-        assert data["data"]["profile"] == "obsidian"
-        assert data["data"]["client"] == "obsidian"
+        assert data["data"]["profile"] == "core"
+        assert data["data"]["client"] == "none"
         assert data["data"]["tone"] == "research-partner"
 
     def test_init_partial_flags_prompts_remaining(
@@ -186,7 +186,7 @@ class TestInitCommandInteractive:
         result = cli_runner.invoke(
             cli,
             ["--json", "init", str(tmp_path)],
-            input="empty-topics\nobsidian\nminimal\n\n",
+            input="empty-topics\ncore\nminimal\n\n",
         )
         assert result.exit_code == 0
         data = self._extract_json(result.output)

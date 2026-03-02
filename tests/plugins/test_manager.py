@@ -179,12 +179,12 @@ class TestPluginManager:
         assert "dummy" not in pm.list_plugin_names()
 
     def test_discover_loads_entry_points(self):
-        """Discover loads at least the built-in git plugin (package is editable-installed)."""
+        """Discover loads the shipped built-in entry-point plugins."""
         pm = PluginManager()
         names = pm.discover_and_load()
         assert pm.is_loaded is True
-        # At minimum, the git plugin entry point should be found
         assert any("git" in n.lower() or "Git" in n for n in names)
+        assert any("obsidian" in n.lower() or "Obsidian" in n for n in names)
 
     def test_is_loaded_false_before_discover(self):
         pm = PluginManager()
@@ -311,7 +311,7 @@ class TestPluginManager:
         with caplog.at_level("WARNING"):
             profiles = pm.workspace_profile_contributions(reserved_names={"plugin-profile"})
 
-        assert profiles == []
+        assert all(item.profile_id != "plugin-profile" for item in profiles)
         assert "Skipping reserved plugin contribution" in caplog.text
 
     def test_duplicate_workspace_profiles_warn_and_skip(

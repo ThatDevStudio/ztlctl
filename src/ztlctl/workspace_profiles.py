@@ -1,93 +1,243 @@
-"""Canonical workspace profile and dashboard viewer helpers."""
+"""Workspace profile discovery, resolution, and compatibility helpers."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 from ztlctl.plugins.contracts import WorkspaceProfileContribution
+from ztlctl.plugins.manager import PluginManager
 
-WorkspaceProfileId = Literal["obsidian", "core"]
+type WorkspaceProfileId = str
 DashboardViewer = Literal["obsidian", "none"]
 
-PROFILE_CHOICES = ("obsidian", "core")
+CORE_PROFILE_ID = "core"
+OBSIDIAN_PROFILE_ID = "obsidian"
+DEFAULT_PROFILE: WorkspaceProfileId = CORE_PROFILE_ID
+DEFAULT_LEGACY_CLIENT_FOR_NON_OBSIDIAN = "none"
 DASHBOARD_VIEWER_CHOICES = ("obsidian", "none")
-DEFAULT_PROFILE: WorkspaceProfileId = "obsidian"
 
-_PROFILE_ALIASES = {
-    "obsidian": "obsidian",
-    "core": "core",
-    "none": "core",
-    "vanilla": "core",
+_PROFILE_ALIAS_MAP = {
+    "none": CORE_PROFILE_ID,
+    "vanilla": CORE_PROFILE_ID,
 }
-_LEGACY_CLIENT_VALUES = ("obsidian", "none", "vanilla", "core")
-_OBSIDIAN_CSS = """\
-/* ztlctl vault styling for Obsidian */
-.ztlctl-seed { color: var(--text-muted); }
-.ztlctl-budding { color: var(--text-normal); }
-.ztlctl-evergreen { color: var(--text-accent); font-weight: bold; }
-"""
+_LEGACY_CLIENT_VALUES = {
+    OBSIDIAN_PROFILE_ID,
+    DEFAULT_LEGACY_CLIENT_FOR_NON_OBSIDIAN,
+    "vanilla",
+    CORE_PROFILE_ID,
+}
+
+
+@dataclass
+class WorkspaceProfileRegistry:
+    """Resolved runtime registry for installed workspace profiles."""
+
+    profiles: dict[str, WorkspaceProfileContribution]
+    aliases: dict[str, str]
+    warnings: list[str] = field(default_factory=list)
+
+    def ordered_ids(self) -> list[str]:
+        """Return canonical profile ids in stable UX order."""
+        preferred = [CORE_PROFILE_ID, OBSIDIAN_PROFILE_ID]
+        ordered: list[str] = [item for item in preferred if item in self.profiles]
+        ordered.extend(sorted(item for item in self.profiles if item not in ordered))
+        return ordered
+
+
+class UnknownWorkspaceProfileError(ValueError):
+    """Raised when a requested profile is not installed in the active registry."""
+
+    def __init__(self, requested_profile: str, available_profiles: list[str]) -> None:
+        self.requested_profile = requested_profile
+        self.available_profiles = available_profiles
+        available = ", ".join(f"`{item}`" for item in available_profiles)
+        super().__init__(
+            f"Workspace profile {requested_profile!r} is not installed. "
+            f"Installed profiles: {available}."
+        )
+
+
+def _normalize_token(value: str) -> str:
+    """Normalize a profile-like token for comparisons and persistence."""
+    return value.strip().lower()
+
+
+def core_workspace_profile() -> WorkspaceProfileContribution:
+    """Return the always-available core fallback workspace profile."""
+    return WorkspaceProfileContribution(
+        profile_id=CORE_PROFILE_ID,
+        description="Minimal core-managed workspace with no profile scaffold.",
+        aliases=("none", "vanilla"),
+        managed_paths=(),
+        init_scaffold=lambda _vault_root: [],
+    )
 
 
 def normalize_profile(value: str) -> tuple[WorkspaceProfileId, str | None]:
-    """Normalize a profile id to the canonical Phase 1 surface."""
-    candidate = value.strip().lower()
-    mapped = _PROFILE_ALIASES.get(candidate)
-    if mapped is None:
-        valid = ", ".join(f"`{item}`" for item in PROFILE_CHOICES)
-        msg = f"Unsupported profile: {value!r}. Valid values: {valid}."
+    """Normalize compatibility aliases while preserving arbitrary profile ids."""
+    candidate = _normalize_token(value)
+    if not candidate:
+        msg = "Workspace profile cannot be empty."
         raise ValueError(msg)
-    if candidate == "none":
-        return "core", "`none` is deprecated for profile selection; use `core` instead."
-    if candidate == "vanilla":
+    mapped = _PROFILE_ALIAS_MAP.get(candidate)
+    if mapped == CORE_PROFILE_ID and candidate == "none":
+        return CORE_PROFILE_ID, "`none` is deprecated for profile selection; use `core` instead."
+    if mapped == CORE_PROFILE_ID and candidate == "vanilla":
         return (
-            "core",
+            CORE_PROFILE_ID,
             "`vanilla` is deprecated for profile selection; use `core` instead.",
         )
-    return cast(WorkspaceProfileId, mapped), None
+    return candidate, None
 
 
 def normalize_dashboard_viewer(value: str) -> tuple[DashboardViewer, str | None]:
     """Normalize a dashboard viewer value."""
-    candidate = value.strip().lower()
+    candidate = _normalize_token(value)
     if candidate == "vanilla":
-        return "none", "`vanilla` is deprecated for dashboard viewer selection; use `none` instead."
-    if candidate in DASHBOARD_VIEWER_CHOICES:
-        return cast(DashboardViewer, candidate), None
+        return (
+            "none",
+            "`vanilla` is deprecated for dashboard viewer selection; use `none` instead.",
+        )
+    if candidate == "obsidian":
+        return "obsidian", None
+    if candidate == "none":
+        return "none", None
     valid = ", ".join(f"`{item}`" for item in DASHBOARD_VIEWER_CHOICES)
     msg = f"Unsupported dashboard viewer: {value!r}. Valid values: {valid}."
     raise ValueError(msg)
 
 
 def legacy_client_to_profile(value: str) -> tuple[WorkspaceProfileId, str | None]:
-    """Map the deprecated init client surface to a canonical profile."""
-    candidate = value.strip().lower()
+    """Map the deprecated client surface to a canonical profile id."""
+    candidate = _normalize_token(value)
     if candidate not in _LEGACY_CLIENT_VALUES:
         valid = ", ".join(f"`{item}`" for item in ("obsidian", "none"))
         msg = f"Unsupported client: {value!r}. Valid values: {valid}."
         raise ValueError(msg)
-    profile, warning = normalize_profile(candidate)
-    if candidate == "obsidian":
-        return profile, None
-    return profile, warning
+    if candidate == OBSIDIAN_PROFILE_ID:
+        return OBSIDIAN_PROFILE_ID, None
+    if candidate == CORE_PROFILE_ID:
+        return CORE_PROFILE_ID, "`core` is deprecated for client selection; use `none` instead."
+    if candidate == "vanilla":
+        return (
+            CORE_PROFILE_ID,
+            "`vanilla` is deprecated for client selection; use `none` instead.",
+        )
+    return CORE_PROFILE_ID, None
 
 
 def profile_to_legacy_client(profile: WorkspaceProfileId) -> str:
     """Return the compatibility client value for a canonical profile."""
-    return "obsidian" if profile == "obsidian" else "none"
+    return OBSIDIAN_PROFILE_ID if profile == OBSIDIAN_PROFILE_ID else "none"
+
+
+def _normalize_contribution(
+    contribution: WorkspaceProfileContribution,
+) -> WorkspaceProfileContribution | None:
+    """Normalize a profile contribution for registry insertion."""
+    profile_id = _normalize_token(contribution.profile_id)
+    if not profile_id:
+        return None
+    normalized_aliases: list[str] = []
+    for item in contribution.aliases:
+        alias = _normalize_token(item)
+        if alias:
+            normalized_aliases.append(alias)
+    return replace(contribution, profile_id=profile_id, aliases=tuple(normalized_aliases))
+
+
+def discover_workspace_profiles(
+    *,
+    local_dir: Path | None,
+    include_entrypoints: bool = True,
+) -> WorkspaceProfileRegistry:
+    """Discover installed workspace profiles from plugins plus the core fallback."""
+    registry = WorkspaceProfileRegistry(
+        profiles={CORE_PROFILE_ID: core_workspace_profile()},
+        aliases={"none": CORE_PROFILE_ID, "vanilla": CORE_PROFILE_ID},
+    )
+
+    plugin_manager = PluginManager()
+    plugin_manager.discover_and_load(
+        local_dir=local_dir,
+        include_entrypoints=include_entrypoints,
+    )
+    contributions = plugin_manager.workspace_profile_contributions(reserved_names={CORE_PROFILE_ID})
+
+    for contribution in contributions:
+        normalized = _normalize_contribution(contribution)
+        if normalized is None:
+            registry.warnings.append("Skipping plugin workspace profile with an empty id.")
+            continue
+
+        profile_id = normalized.profile_id
+        if profile_id in registry.profiles:
+            registry.warnings.append(
+                f"Skipping duplicate workspace profile `{profile_id}` from plugin discovery."
+            )
+            continue
+
+        registry.profiles[profile_id] = normalized
+        for alias in normalized.aliases:
+            if alias == profile_id:
+                continue
+            if alias in registry.profiles:
+                registry.warnings.append(
+                    f"Skipping alias `{alias}` for workspace profile `{profile_id}` because it "
+                    "conflicts with an installed profile id."
+                )
+                continue
+            existing = registry.aliases.get(alias)
+            if existing is not None and existing != profile_id:
+                registry.warnings.append(
+                    f"Skipping alias `{alias}` for workspace profile `{profile_id}` because it "
+                    f"already resolves to `{existing}`."
+                )
+                continue
+            registry.aliases[alias] = profile_id
+
+    return registry
+
+
+def discover_init_profiles() -> WorkspaceProfileRegistry:
+    """Discover profiles available during init (entry-point plugins only)."""
+    return discover_workspace_profiles(local_dir=None, include_entrypoints=True)
+
+
+def discover_vault_profiles(vault_root: Path) -> WorkspaceProfileRegistry:
+    """Discover profiles for an existing vault (entry points plus local plugins)."""
+    return discover_workspace_profiles(
+        local_dir=vault_root / ".ztlctl" / "plugins",
+        include_entrypoints=True,
+    )
+
+
+def resolve_workspace_profile(
+    value: str,
+    registry: WorkspaceProfileRegistry,
+) -> tuple[WorkspaceProfileId, str | None]:
+    """Resolve a user-provided profile value against the discovered registry."""
+    candidate, warning = normalize_profile(value)
+    resolved = registry.aliases.get(candidate, candidate)
+    if resolved in registry.profiles:
+        return resolved, warning
+    raise UnknownWorkspaceProfileError(value, registry.ordered_ids())
 
 
 def resolve_profile_selection(
     *,
     profile: str | None,
     client: str | None = None,
+    registry: WorkspaceProfileRegistry,
     default: WorkspaceProfileId = DEFAULT_PROFILE,
 ) -> tuple[WorkspaceProfileId, list[str], str]:
     """Resolve canonical profile plus compatibility client and warnings."""
-    warnings: list[str] = []
+    warnings = list(registry.warnings)
 
     if profile is not None:
-        resolved, profile_warning = normalize_profile(profile)
+        resolved, profile_warning = resolve_workspace_profile(profile, registry)
         if profile_warning is not None:
             warnings.append(profile_warning)
         if client is not None:
@@ -99,42 +249,19 @@ def resolve_profile_selection(
 
     if client is not None:
         warnings.append("`client` is deprecated for workspace selection; use `profile` instead.")
-        resolved, client_warning = legacy_client_to_profile(client)
+        raw_profile, client_warning = legacy_client_to_profile(client)
         if client_warning is not None:
             warnings.append(client_warning)
+        resolved, profile_warning = resolve_workspace_profile(raw_profile, registry)
+        if profile_warning is not None:
+            warnings.append(profile_warning)
         return resolved, warnings, profile_to_legacy_client(resolved)
 
+    if default not in registry.profiles:
+        available = ", ".join(f"`{item}`" for item in registry.ordered_ids())
+        msg = (
+            f"Default workspace profile {default!r} is not installed. "
+            f"Installed profiles: {available}."
+        )
+        raise ValueError(msg)
     return default, warnings, profile_to_legacy_client(default)
-
-
-def _obsidian_init_scaffold(vault_root: Path) -> list[str]:
-    """Write the built-in Obsidian scaffold owned by the obsidian profile."""
-    snippets_dir = vault_root / ".obsidian" / "snippets"
-    snippets_dir.mkdir(parents=True, exist_ok=True)
-    (snippets_dir / "ztlctl.css").write_text(_OBSIDIAN_CSS, encoding="utf-8")
-    return [".obsidian/snippets/ztlctl.css"]
-
-
-def builtin_workspace_profiles() -> dict[str, WorkspaceProfileContribution]:
-    """Return the built-in workspace profiles available in Phase 1."""
-    return {
-        "core": WorkspaceProfileContribution(
-            profile_id="core",
-            description="Minimal built-in workspace with no viewer-specific scaffold.",
-            aliases=("none", "vanilla"),
-            managed_paths=(),
-            init_scaffold=lambda _vault_root: [],
-        ),
-        "obsidian": WorkspaceProfileContribution(
-            profile_id="obsidian",
-            description="Built-in Obsidian-compatible workspace scaffold.",
-            aliases=(),
-            managed_paths=(".obsidian",),
-            init_scaffold=_obsidian_init_scaffold,
-        ),
-    }
-
-
-def get_builtin_workspace_profile(profile: WorkspaceProfileId) -> WorkspaceProfileContribution:
-    """Fetch one built-in workspace profile by id."""
-    return builtin_workspace_profiles()[profile]

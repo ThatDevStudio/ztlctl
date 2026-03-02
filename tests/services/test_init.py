@@ -92,6 +92,45 @@ class TestInitVault:
         InitService.init_vault(tmp_path, name="none-vault", profile="core")
         assert not (tmp_path / ".obsidian").exists()
 
+    def test_missing_profile_returns_profile_not_found(self, tmp_path: Path) -> None:
+        result = InitService.init_vault(tmp_path, name="missing-vault", profile="missing-profile")
+
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "PROFILE_NOT_FOUND"
+        assert result.error.detail["requested_profile"] == "missing-profile"
+        assert "core" in result.error.detail["available_profiles"]
+
+    def test_init_ignores_target_local_profile_plugins(self, tmp_path: Path) -> None:
+        plugin_dir = tmp_path / ".ztlctl" / "plugins"
+        plugin_dir.mkdir(parents=True)
+        plugin_dir.joinpath("local_profile.py").write_text(
+            """import pluggy
+
+from ztlctl.plugins.contracts import WorkspaceProfileContribution
+
+hookimpl = pluggy.HookimplMarker("ztlctl")
+
+
+class LocalProfilePlugin:
+    @hookimpl
+    def register_workspace_profiles(self) -> list[WorkspaceProfileContribution]:
+        return [WorkspaceProfileContribution(profile_id="local-profile", description="Local.")]
+""",
+            encoding="utf-8",
+        )
+
+        result = InitService.init_vault(
+            tmp_path,
+            name="local-plugin-vault",
+            profile="local-profile",
+        )
+
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "PROFILE_NOT_FOUND"
+        assert result.error.detail["discovery_scope"] == "init"
+
     def test_vanilla_client_alias_normalizes_to_none(self, tmp_path: Path) -> None:
         result = InitService.init_vault(tmp_path, name="alias-vault", client="vanilla")
 
@@ -215,8 +254,8 @@ class PostInitProfilePlugin:
 
     def test_default_values(self, tmp_path: Path) -> None:
         result = InitService.init_vault(tmp_path, name="defaults")
-        assert result.data["profile"] == "obsidian"
-        assert result.data["client"] == "obsidian"
+        assert result.data["profile"] == "core"
+        assert result.data["client"] == "none"
         assert result.data["tone"] == "research-partner"
         assert result.data["topics"] == []
 
@@ -230,7 +269,7 @@ class PostInitProfilePlugin:
         identity = (tmp_path / "self" / "identity.md").read_text()
         assert "generated: true" in identity
         assert 'vault: "fm-vault"' in identity
-        assert 'profile: "obsidian"' in identity
+        assert 'profile: "core"' in identity
 
     def test_self_files_use_current_ids_and_lifecycle_terms(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="truth-vault", profile="core")
@@ -327,6 +366,26 @@ class TestRegenerateSelf:
         assert not result.ok
         assert result.error is not None
         assert result.error.code == "NO_CONFIG"
+
+    def test_regenerate_fails_when_configured_profile_is_missing(self, tmp_path: Path) -> None:
+        self._make_vault(tmp_path).close()
+        (tmp_path / "ztlctl.toml").write_text(
+            '[vault]\nname = "regen-vault"\n\n[workspace]\nprofile = "missing-profile"\n',
+            encoding="utf-8",
+        )
+
+        from ztlctl.config.settings import ZtlSettings
+        from ztlctl.infrastructure.vault import Vault
+
+        missing_vault = Vault(ZtlSettings.from_cli(vault_root=tmp_path))
+        try:
+            result = InitService.regenerate_self(missing_vault)
+        finally:
+            missing_vault.close()
+
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "PROFILE_NOT_FOUND"
 
 
 class TestCheckStaleness:
