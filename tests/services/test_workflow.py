@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from ruamel.yaml import YAML
 
 from ztlctl.services.init import InitService
 from ztlctl.services.workflow import WorkflowChoices, WorkflowService
@@ -31,7 +32,7 @@ class TestWorkflowService:
             tmp_path,
             WorkflowChoices(
                 source_control="git",
-                viewer="obsidian",
+                profile="obsidian",
                 workflow="claude-driven",
                 skill_set="research",
             ),
@@ -60,7 +61,7 @@ class TestWorkflowService:
             tmp_path,
             choices=WorkflowChoices(
                 source_control="none",
-                viewer="none",
+                profile="core",
                 workflow="manual",
                 skill_set="minimal",
             ),
@@ -78,7 +79,7 @@ class TestWorkflowService:
             tmp_path,
             WorkflowChoices(
                 source_control="git",
-                viewer="none",
+                profile="core",
                 workflow="agent-generic",
                 skill_set="engineering",
             ),
@@ -87,7 +88,7 @@ class TestWorkflowService:
         answers = WorkflowService.read_answers(tmp_path)
 
         assert answers is not None
-        assert answers.viewer == "none"
+        assert answers.profile == "core"
         assert answers.workflow == "agent-generic"
         assert answers.skill_set == "engineering"
 
@@ -98,17 +99,17 @@ class TestWorkflowService:
             tmp_path,
             WorkflowChoices(
                 source_control="git",
-                viewer="vanilla",
+                profile="vanilla",
                 workflow="manual",
                 skill_set="minimal",
             ),
         )
 
         assert result.ok
-        assert result.data["choices"]["viewer"] == "none"
+        assert result.data["choices"]["profile"] == "core"
         assert any("deprecated" in warning.lower() for warning in result.warnings)
         answers = (tmp_path / ".ztlctl" / "workflow-answers.yml").read_text(encoding="utf-8")
-        assert "viewer: none" in answers
+        assert "profile: core" in answers
 
     def test_read_answers_normalizes_legacy_vanilla_value(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
@@ -121,7 +122,32 @@ class TestWorkflowService:
         answers = WorkflowService.read_answers(tmp_path)
 
         assert answers is not None
-        assert answers.viewer == "none"
+        assert answers.profile == "core"
+
+    def test_update_workflow_rewrites_legacy_viewer_answers_to_profile(
+        self, tmp_path: Path
+    ) -> None:
+        InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
+        WorkflowService.init_workflow(tmp_path, WorkflowService.default_choices())
+        answers_path = tmp_path / ".ztlctl" / "workflow-answers.yml"
+        yaml = YAML()
+        payload = yaml.load(answers_path.read_text(encoding="utf-8"))
+        assert isinstance(payload, dict)
+        payload["source_control"] = "none"
+        payload["viewer"] = "none"
+        payload.pop("profile", None)
+        payload["workflow"] = "manual"
+        payload["skill_set"] = "minimal"
+        with answers_path.open("w", encoding="utf-8") as handle:
+            yaml.dump(payload, handle)
+
+        result = WorkflowService.update_workflow(tmp_path)
+
+        assert result.ok
+        rewritten = answers_path.read_text(encoding="utf-8")
+        assert "profile: core" in rewritten
+        assert "viewer:" not in rewritten
+        assert not (tmp_path / ".ztlctl" / "workflow" / "viewer.md").exists()
 
     def test_read_answers_returns_none_for_invalid_yaml(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)

@@ -1,6 +1,6 @@
 """Tests for config section models — defaults and sparse overrides."""
 
-from ztlctl.config.models import ReweaveConfig, VaultConfig
+from ztlctl.config.models import ReweaveConfig, VaultConfig, WorkspaceConfig
 
 
 class TestSectionDefaults:
@@ -20,6 +20,14 @@ class TestSectionDefaults:
     def test_vault_normalizes_vanilla_client_alias(self) -> None:
         cfg = VaultConfig.model_validate({"client": "vanilla"})
         assert cfg.client == "none"
+
+    def test_workspace_defaults(self) -> None:
+        cfg = WorkspaceConfig()
+        assert cfg.profile == "obsidian"
+
+    def test_workspace_normalizes_none_alias_to_core(self) -> None:
+        cfg = WorkspaceConfig.model_validate({"profile": "none"})
+        assert cfg.profile == "core"
 
 
 class TestReweaveConfig:

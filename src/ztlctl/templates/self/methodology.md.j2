@@ -2,7 +2,7 @@
 generated: true
 vault: "{{ vault_name }}"
 tone: "{{ tone }}"
-client: "{{ client }}"
+profile: "{{ profile }}"
 created: {{ created }}
 ---
 
@@ -80,13 +80,13 @@ Focus areas: {{ topics | join(", ") }}.
 - Run `check` for vault health
 {% endif %}
 
-{% if client == "obsidian" %}
+{% if profile == "obsidian" %}
 ## Obsidian Integration
 
-- Vault is configured for Obsidian compatibility
+- Workspace profile is configured for Obsidian compatibility
 - Wikilinks (`[[note]]`) work natively in Obsidian
 - Tags render in Obsidian's tag pane
-- The `.obsidian/` directory contains client-specific configuration
+- The `.obsidian/` directory contains profile-managed configuration
 {% endif %}
 
 ## Tool Reference

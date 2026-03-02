@@ -12,7 +12,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from ztlctl.workspace_modes import normalize_client
+from ztlctl.workspace_profiles import (
+    legacy_client_to_profile,
+    normalize_profile,
+    profile_to_legacy_client,
+)
 
 # --- ztlctl.toml sections ---
 
@@ -28,7 +32,21 @@ class VaultConfig(BaseModel):
     @field_validator("client")
     @classmethod
     def _normalize_client(cls, value: str) -> str:
-        normalized, _warning = normalize_client(value)
+        normalized_profile, _warning = legacy_client_to_profile(value)
+        return profile_to_legacy_client(normalized_profile)
+
+
+class WorkspaceConfig(BaseModel):
+    """[workspace] section."""
+
+    model_config = {"frozen": True}
+
+    profile: str = "obsidian"
+
+    @field_validator("profile")
+    @classmethod
+    def _normalize_profile(cls, value: str) -> str:
+        normalized, _warning = normalize_profile(value)
         return normalized
 
 

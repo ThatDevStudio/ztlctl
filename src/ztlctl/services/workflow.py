@@ -23,12 +23,12 @@ from ztlctl.catalogs import (
 from ztlctl.infrastructure.templates import build_template_environment
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
-from ztlctl.workspace_modes import normalize_viewer
+from ztlctl.workspace_profiles import DEFAULT_PROFILE, WorkspaceProfileId, normalize_profile
 
 WorkflowMode = Literal["claude-driven", "agent-generic", "manual"]
 SkillSet = Literal["research", "engineering", "minimal"]
 SourceControl = Literal["git", "none"]
-Viewer = Literal["obsidian", "none"]
+Profile = WorkspaceProfileId
 WorkflowAssetClient = Literal["claude", "codex", "both"]
 
 _ANSWERS_RELATIVE_PATH = Path(".ztlctl") / "workflow-answers.yml"
@@ -36,12 +36,12 @@ _GENERATED_FILES = [
     ".ztlctl/workflow-answers.yml",
     ".ztlctl/workflow/README.md",
     ".ztlctl/workflow/source-control.md",
-    ".ztlctl/workflow/viewer.md",
+    ".ztlctl/workflow/profile.md",
     ".ztlctl/workflow/operating-mode.md",
     ".ztlctl/workflow/skill-set.md",
 ]
 _SOURCE_CONTROL_VALUES = {"git", "none"}
-_VIEWER_VALUES = {"obsidian", "none"}
+_PROFILE_VALUES = {"obsidian", "core"}
 _WORKFLOW_VALUES = {"claude-driven", "agent-generic", "manual"}
 _SKILL_SET_VALUES = {"research", "engineering", "minimal"}
 _ASSET_CLIENT_VALUES = {"claude", "codex", "both"}
@@ -52,7 +52,7 @@ class WorkflowChoices:
     """Resolved workflow selections used for Copier rendering."""
 
     source_control: SourceControl
-    viewer: Viewer
+    profile: Profile
     workflow: WorkflowMode
     skill_set: SkillSet
 
@@ -60,7 +60,7 @@ class WorkflowChoices:
         """Convert to Copier's expected mapping."""
         return {
             "source_control": self.source_control,
-            "viewer": self.viewer,
+            "profile": self.profile,
             "workflow": self.workflow,
             "skill_set": self.skill_set,
         }
@@ -70,11 +70,11 @@ class WorkflowService:
     """Apply or update workflow scaffolding in a vault."""
 
     @staticmethod
-    def default_choices(*, viewer: Viewer = "obsidian") -> WorkflowChoices:
+    def default_choices(*, profile: Profile = DEFAULT_PROFILE) -> WorkflowChoices:
         """Return the default workflow selection set."""
         return WorkflowChoices(
             source_control="git",
-            viewer=viewer,
+            profile=profile,
             workflow="claude-driven",
             skill_set="research",
         )
@@ -95,18 +95,21 @@ class WorkflowService:
 
         try:
             source_control = cast(SourceControl, str(data["source_control"]))
-            viewer_raw = str(data["viewer"])
+            if "profile" in data:
+                profile_raw = str(data["profile"])
+            else:
+                profile_raw = str(data["viewer"])
             workflow = cast(WorkflowMode, str(data["workflow"]))
             skill_set = cast(SkillSet, str(data["skill_set"]))
         except KeyError:
             return None
         try:
-            viewer, _warning = normalize_viewer(viewer_raw)
+            profile, _warning = normalize_profile(profile_raw)
         except ValueError:
             return None
         if source_control not in _SOURCE_CONTROL_VALUES:
             return None
-        if viewer not in _VIEWER_VALUES:
+        if profile not in _PROFILE_VALUES:
             return None
         if workflow not in _WORKFLOW_VALUES:
             return None
@@ -115,7 +118,7 @@ class WorkflowService:
 
         return WorkflowChoices(
             source_control=source_control,
-            viewer=viewer,
+            profile=profile,
             workflow=workflow,
             skill_set=skill_set,
         )
@@ -124,16 +127,16 @@ class WorkflowService:
     def _normalize_choices(choices: WorkflowChoices) -> tuple[WorkflowChoices, list[str]]:
         """Normalize deprecated workflow selections to canonical values."""
         try:
-            viewer, viewer_warning = normalize_viewer(choices.viewer)
+            profile, profile_warning = normalize_profile(choices.profile)
         except ValueError as exc:
             msg = str(exc)
             raise ValueError(msg) from exc
 
-        warnings = [viewer_warning] if viewer_warning is not None else []
+        warnings = [profile_warning] if profile_warning is not None else []
         return (
             WorkflowChoices(
                 source_control=choices.source_control,
-                viewer=viewer,
+                profile=profile,
                 workflow=choices.workflow,
                 skill_set=choices.skill_set,
             ),
@@ -324,6 +327,7 @@ class WorkflowService:
                 overwrite=True,
                 quiet=True,
             )
+        WorkflowService._cleanup_legacy_generated_files(vault_root)
 
     @staticmethod
     def _run_update(vault_root: Path, choices: WorkflowChoices | None) -> tuple[str, list[str]]:
@@ -339,6 +343,7 @@ class WorkflowService:
                 overwrite=True,
                 quiet=True,
             )
+            WorkflowService._cleanup_legacy_generated_files(vault_root)
             return "update", warnings
         except CopierError as exc:
             warnings.append(
@@ -352,7 +357,18 @@ class WorkflowService:
                 overwrite=True,
                 quiet=True,
             )
+            WorkflowService._cleanup_legacy_generated_files(vault_root)
             return "recopy", warnings
+
+    @staticmethod
+    def _cleanup_legacy_generated_files(vault_root: Path) -> None:
+        """Remove generated files from the pre-profile workflow schema."""
+        legacy_paths = [
+            vault_root / ".ztlctl" / "workflow" / "viewer.md",
+        ]
+        for path in legacy_paths:
+            if path.exists():
+                path.unlink()
 
     @staticmethod
     @traced
@@ -369,9 +385,9 @@ class WorkflowService:
                 ok=False,
                 op="workflow_init",
                 error=ServiceError(
-                    code="INVALID_VIEWER",
+                    code="INVALID_PROFILE",
                     message=str(exc),
-                    detail={"viewer": choices.viewer},
+                    detail={"profile": choices.profile},
                 ),
             )
 
@@ -422,9 +438,9 @@ class WorkflowService:
                     ok=False,
                     op="workflow_update",
                     error=ServiceError(
-                        code="INVALID_VIEWER",
+                        code="INVALID_PROFILE",
                         message=str(exc),
-                        detail={"viewer": choices.viewer},
+                        detail={"profile": choices.profile},
                     ),
                 )
             warnings.extend(choice_warnings)

@@ -177,6 +177,14 @@ class TestFindContentFiles:
         results = find_content_files(vault_root)
         assert all(".ztlctl" not in str(p) for p in results)
 
+    def test_ignores_human_managed_garden_paths(self, vault_root: Path) -> None:
+        (vault_root / "garden").mkdir(exist_ok=True)
+        (vault_root / "garden" / "seed.md").write_text("garden note", encoding="utf-8")
+
+        results = find_content_files(vault_root)
+
+        assert all("garden" not in str(path) for path in results)
+
     def test_sorted_output(self, vault_root: Path) -> None:
         (vault_root / "notes" / "ztl_bbb.md").write_text("test")
         (vault_root / "notes" / "ztl_aaa.md").write_text("test")

@@ -15,6 +15,7 @@ from ztlctl.plugins.contracts import (
     SourceFetchResult,
     SourceProviderContribution,
     WorkflowModuleContribution,
+    WorkspaceProfileContribution,
 )
 from ztlctl.plugins.manager import PluginManager
 
@@ -109,6 +110,17 @@ class _ContributionPlugin:
         ]
 
     @hookimpl
+    def register_workspace_profiles(self) -> list[WorkspaceProfileContribution]:
+        return [
+            WorkspaceProfileContribution(
+                profile_id="plugin-profile",
+                description="Plugin profile.",
+                aliases=("plugin-alias",),
+                managed_paths=(".plugin",),
+            )
+        ]
+
+    @hookimpl
     def register_source_providers(self) -> list[SourceProviderContribution]:
         return [
             SourceProviderContribution(
@@ -127,6 +139,10 @@ class _DuplicateContributionPlugin:
     @hookimpl
     def register_cli_commands(self) -> list[CliCommandContribution]:
         return [CliCommandContribution(name="plugin-hello", command=click.Command("plugin-hello"))]
+
+    @hookimpl
+    def register_workspace_profiles(self) -> list[WorkspaceProfileContribution]:
+        return [WorkspaceProfileContribution(profile_id="plugin-profile", description="Duplicate.")]
 
 
 class _MalformedContributionPlugin:
@@ -192,7 +208,9 @@ class TestPluginManager:
             "post_session_close",
             "post_check",
             "post_init",
+            "post_init_profile",
             "register_content_models",
+            "register_workspace_profiles",
         ],
     )
     def test_all_hookspecs_registered(self, hook_name: str):
@@ -260,6 +278,7 @@ class TestPluginManager:
         resources = pm.mcp_resource_contributions()
         prompts = pm.mcp_prompt_contributions()
         modules = pm.workflow_module_contributions()
+        profiles = pm.workspace_profile_contributions()
         providers = pm.source_provider_contributions()
 
         assert any(item.name == "plugin-hello" for item in cli)
@@ -267,6 +286,7 @@ class TestPluginManager:
         assert any(item.uri == "ztlctl://plugin/resource" for item in resources)
         assert any(item.name == "plugin_prompt" for item in prompts)
         assert any(item.name == "plugin_module" for item in modules)
+        assert any(item.profile_id == "plugin-profile" for item in profiles)
         assert any(item.name == "mock-provider" for item in providers)
 
     def test_duplicate_contributions_warn_and_skip(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -279,6 +299,33 @@ class TestPluginManager:
             commands = pm.cli_command_contributions()
 
         assert [item.name for item in commands].count("plugin-hello") == 1
+        assert "Skipping duplicate plugin contribution" in caplog.text
+
+    def test_reserved_workspace_profiles_warn_and_skip(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        pm = PluginManager()
+        pm.register_plugin(_ContributionPlugin(), name="contrib")
+        pm.discover_and_load(local_dir=None)
+
+        with caplog.at_level("WARNING"):
+            profiles = pm.workspace_profile_contributions(reserved_names={"plugin-profile"})
+
+        assert profiles == []
+        assert "Skipping reserved plugin contribution" in caplog.text
+
+    def test_duplicate_workspace_profiles_warn_and_skip(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        pm = PluginManager()
+        pm.register_plugin(_ContributionPlugin(), name="contrib-a")
+        pm.register_plugin(_DuplicateContributionPlugin(), name="contrib-b")
+        pm.discover_and_load(local_dir=None)
+
+        with caplog.at_level("WARNING"):
+            profiles = pm.workspace_profile_contributions()
+
+        assert [item.profile_id for item in profiles].count("plugin-profile") == 1
         assert "Skipping duplicate plugin contribution" in caplog.text
 
     def test_malformed_contribution_warns_and_skips(self, caplog: pytest.LogCaptureFixture) -> None:

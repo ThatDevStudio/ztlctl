@@ -42,8 +42,8 @@ class TestInitCommandNonInteractive:
                 str(tmp_path),
                 "--name",
                 "full-vault",
-                "--client",
-                "none",
+                "--profile",
+                "core",
                 "--tone",
                 "minimal",
                 "--topics",
@@ -53,6 +53,7 @@ class TestInitCommandNonInteractive:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
+        assert data["data"]["profile"] == "core"
         assert data["data"]["client"] == "none"
         assert data["data"]["tone"] == "minimal"
         assert data["data"]["topics"] == ["ai", "engineering"]
@@ -92,6 +93,7 @@ class TestInitCommandNonInteractive:
         )
         assert result.exit_code == 0
         data = json.loads(result.output)
+        assert data["data"]["profile"] == "obsidian"
         assert data["data"]["client"] == "obsidian"
         assert data["data"]["tone"] == "research-partner"
 
@@ -114,6 +116,7 @@ class TestInitCommandNonInteractive:
 
         assert result.exit_code == 0
         data = json.loads(result.output)
+        assert data["data"]["profile"] == "core"
         assert data["data"]["client"] == "none"
         assert any("deprecated" in warning.lower() for warning in data["warnings"])
 
@@ -160,6 +163,7 @@ class TestInitCommandInteractive:
         )
         assert result.exit_code == 0
         data = self._extract_json(result.output)
+        assert data["data"]["profile"] == "obsidian"
         assert data["data"]["client"] == "obsidian"
         assert data["data"]["tone"] == "research-partner"
 
@@ -168,12 +172,13 @@ class TestInitCommandInteractive:
     ) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--json", "init", str(tmp_path), "--name", "partial", "--client", "none"],
+            ["--json", "init", str(tmp_path), "--name", "partial", "--profile", "core"],
             input="assistant\nweb\n",
         )
         assert result.exit_code == 0
         data = self._extract_json(result.output)
         assert data["data"]["name"] == "partial"
+        assert data["data"]["profile"] == "core"
         assert data["data"]["client"] == "none"
         assert data["data"]["tone"] == "assistant"
 

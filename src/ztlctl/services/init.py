@@ -9,25 +9,21 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from ztlctl.infrastructure.templates import build_template_environment
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
-from ztlctl.workspace_modes import normalize_client
+from ztlctl.workspace_profiles import (
+    WorkspaceProfileId,
+    get_builtin_workspace_profile,
+    profile_to_legacy_client,
+    resolve_profile_selection,
+)
 
 if TYPE_CHECKING:
     from ztlctl.infrastructure.vault import Vault
-
-# ── Constants ─────────────────────────────────────────────────────────
-
-_OBSIDIAN_CSS = """\
-/* ztlctl vault styling for Obsidian */
-.ztlctl-seed { color: var(--text-muted); }
-.ztlctl-budding { color: var(--text-normal); }
-.ztlctl-evergreen { color: var(--text-accent); font-weight: bold; }
-"""
 
 # ── Template rendering ────────────────────────────────────────────────
 
@@ -36,6 +32,7 @@ def _render_self_files(
     *,
     vault_name: str,
     tone: str,
+    profile: str,
     client: str,
     topics: list[str],
     created: str,
@@ -49,6 +46,7 @@ def _render_self_files(
     context = {
         "vault_name": vault_name,
         "tone": tone,
+        "profile": profile,
         "client": client,
         "topics": topics,
         "created": created,
@@ -59,7 +57,15 @@ def _render_self_files(
     }
 
 
-def _dispatch_post_init(*, vault_path: Path, name: str, client: str, tone: str) -> list[str]:
+def _dispatch_post_init(
+    *,
+    vault_path: Path,
+    name: str,
+    profile: str,
+    client: str,
+    tone: str,
+    managed_paths: list[str],
+) -> list[str]:
     """Dispatch post-init hooks against the freshly created vault."""
     warnings: list[str] = []
 
@@ -81,6 +87,15 @@ def _dispatch_post_init(*, vault_path: Path, name: str, client: str, tone: str) 
                         "tone": tone,
                     },
                 )
+                bus.dispatch(
+                    "post_init_profile",
+                    {
+                        "vault_name": name,
+                        "profile": profile,
+                        "tone": tone,
+                        "managed_paths": managed_paths,
+                    },
+                )
         finally:
             vault.close(wait_for_events=True)
     except Exception as exc:
@@ -92,9 +107,13 @@ def _dispatch_post_init(*, vault_path: Path, name: str, client: str, tone: str) 
 # ── TOML generation ──────────────────────────────────────────────────
 
 
-def _generate_toml(*, name: str, client: str, tone: str) -> str:
+def _generate_toml(*, name: str, profile: str, tone: str) -> str:
     """Generate a sparse ztlctl.toml with only the user-chosen overrides."""
-    return f'[vault]\nname = "{name}"\nclient = "{client}"\n\n[agent]\ntone = "{tone}"\n'
+    return (
+        f'[vault]\nname = "{name}"\n\n'
+        f'[workspace]\nprofile = "{profile}"\n\n'
+        f'[agent]\ntone = "{tone}"\n'
+    )
 
 
 # ── Public API ────────────────────────────────────────────────────────
@@ -109,7 +128,8 @@ class InitService:
         path: Path,
         *,
         name: str,
-        client: str = "obsidian",
+        profile: str | None = None,
+        client: str | None = None,
         tone: str = "research-partner",
         topics: list[str] | None = None,
         no_workflow: bool = False,
@@ -122,22 +142,25 @@ class InitService:
         3. GENERATE CONFIG — sparse ztlctl.toml
         4. INITIALIZE DB — SQLite + FTS5
         5. RENDER SELF — identity.md + methodology.md via Jinja2
-        6. SETUP OBSIDIAN — .obsidian/snippets/ztlctl.css (if client=obsidian)
+        6. APPLY PROFILE SCAFFOLD — profile-managed files such as .obsidian/snippets/ztlctl.css
         7. WORKFLOW — .ztlctl/workflow-answers.yml (unless --no-workflow)
         8. RESPOND — ServiceResult with created file manifest
         """
         vault_path = path.resolve()
         topics = topics or []
         try:
-            client, client_warning = normalize_client(client)
+            profile, selection_warnings, legacy_client = resolve_profile_selection(
+                profile=profile,
+                client=client,
+            )
         except ValueError as exc:
             return ServiceResult(
                 ok=False,
                 op="init_vault",
                 error=ServiceError(
-                    code="INVALID_CLIENT",
+                    code="INVALID_PROFILE",
                     message=str(exc),
-                    detail={"client": client},
+                    detail={"profile": profile, "client": client},
                 ),
             )
 
@@ -155,9 +178,8 @@ class InitService:
             )
 
         files_created: list[str] = []
-        warnings: list[str] = []
-        if client_warning is not None:
-            warnings.append(client_warning)
+        warnings: list[str] = list(selection_warnings)
+        profile_contribution = get_builtin_workspace_profile(profile)
 
         # 2. CREATE STRUCTURE
         dirs = [
@@ -173,7 +195,7 @@ class InitService:
             d.mkdir(parents=True, exist_ok=True)
 
         # 3. GENERATE CONFIG
-        toml_content = _generate_toml(name=name, client=client, tone=tone)
+        toml_content = _generate_toml(name=name, profile=profile, tone=tone)
         toml_path.write_text(toml_content, encoding="utf-8")
         files_created.append("ztlctl.toml")
 
@@ -196,7 +218,8 @@ class InitService:
         rendered = _render_self_files(
             vault_name=name,
             tone=tone,
-            client=client,
+            profile=profile,
+            client=legacy_client,
             topics=topics,
             created=created,
             vault_root=vault_path,
@@ -206,12 +229,9 @@ class InitService:
             (self_dir / filename).write_text(content, encoding="utf-8")
             files_created.append(f"self/{filename}")
 
-        # 6. SETUP OBSIDIAN
-        if client == "obsidian":
-            snippets_dir = vault_path / ".obsidian" / "snippets"
-            snippets_dir.mkdir(parents=True, exist_ok=True)
-            (snippets_dir / "ztlctl.css").write_text(_OBSIDIAN_CSS, encoding="utf-8")
-            files_created.append(".obsidian/snippets/ztlctl.css")
+        # 6. APPLY PROFILE SCAFFOLD
+        if profile_contribution.init_scaffold is not None:
+            files_created.extend(profile_contribution.init_scaffold(vault_path))
 
         # 7. WORKFLOW
         if not no_workflow:
@@ -219,9 +239,7 @@ class InitService:
 
             workflow_result = WorkflowService.init_workflow(
                 vault_path,
-                WorkflowService.default_choices(
-                    viewer="obsidian" if client == "obsidian" else "none"
-                ),
+                WorkflowService.default_choices(profile=profile),
             )
             if workflow_result.ok:
                 files_created.extend(
@@ -238,7 +256,14 @@ class InitService:
                 )
 
         warnings.extend(
-            _dispatch_post_init(vault_path=vault_path, name=name, client=client, tone=tone)
+            _dispatch_post_init(
+                vault_path=vault_path,
+                name=name,
+                profile=profile,
+                client=legacy_client,
+                tone=tone,
+                managed_paths=list(profile_contribution.managed_paths),
+            )
         )
 
         return ServiceResult(
@@ -247,7 +272,8 @@ class InitService:
             data={
                 "vault_path": str(vault_path),
                 "name": name,
-                "client": client,
+                "profile": profile,
+                "client": legacy_client,
                 "tone": tone,
                 "topics": topics,
                 "files_created": files_created,
@@ -281,7 +307,8 @@ class InitService:
         rendered = _render_self_files(
             vault_name=settings.vault.name,
             tone=settings.agent.tone,
-            client=settings.vault.client,
+            profile=settings.workspace.profile,
+            client=profile_to_legacy_client(cast(WorkspaceProfileId, settings.workspace.profile)),
             topics=[],  # topics are directory-based, not in config
             created=today_iso(),
             vault_root=vault.root,

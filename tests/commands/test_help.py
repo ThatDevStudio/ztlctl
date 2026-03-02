@@ -42,10 +42,13 @@ HELP_COMMANDS: list[tuple[list[str], list[str]]] = [
     (["export", "graph", "--help"], ["--format", "--output"]),
     # -- workflow group --
     (["workflow", "--help"], ["init", "update", "export", "validate"]),
-    (["workflow", "init", "--help"], ["--source-control", "--viewer", "--workflow", "--skill-set"]),
+    (
+        ["workflow", "init", "--help"],
+        ["--source-control", "--profile", "--viewer", "--workflow", "--skill-set"],
+    ),
     (
         ["workflow", "update", "--help"],
-        ["--source-control", "--viewer", "--workflow", "--skill-set"],
+        ["--source-control", "--profile", "--viewer", "--workflow", "--skill-set"],
     ),
     (["workflow", "export", "--help"], ["--client"]),
     (["workflow", "validate", "--help"], ["--client"]),
@@ -60,7 +63,10 @@ HELP_COMMANDS: list[tuple[list[str], list[str]]] = [
     # -- supersede --
     (["supersede", "--help"], ["OLD_ID", "NEW_ID"]),
     # -- init --
-    (["init", "--help"], ["--name", "--client", "--tone", "--topics", "--no-workflow"]),
+    (
+        ["init", "--help"],
+        ["--name", "--profile", "--client", "--tone", "--topics", "--no-workflow"],
+    ),
     # -- garden --
     (["garden", "--help"], ["seed"]),
     (["garden", "seed", "--help"], ["--tags", "--topic"]),

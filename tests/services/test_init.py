@@ -28,10 +28,11 @@ class TestInitVault:
         assert (tmp_path / "ops" / "tasks").is_dir()
 
     def test_creates_toml_config(self, tmp_path: Path) -> None:
-        InitService.init_vault(tmp_path, name="my-vault", client="none", tone="minimal")
+        InitService.init_vault(tmp_path, name="my-vault", profile="core", tone="minimal")
         toml = (tmp_path / "ztlctl.toml").read_text()
         assert 'name = "my-vault"' in toml
-        assert 'client = "none"' in toml
+        assert "[workspace]" in toml
+        assert 'profile = "core"' in toml
         assert 'tone = "minimal"' in toml
 
     def test_creates_database(self, tmp_path: Path) -> None:
@@ -82,13 +83,13 @@ class TestInitVault:
         assert "Session Workflow" in methodology
 
     def test_obsidian_client_creates_css(self, tmp_path: Path) -> None:
-        InitService.init_vault(tmp_path, name="obs-vault", client="obsidian")
+        InitService.init_vault(tmp_path, name="obs-vault", profile="obsidian")
         css_path = tmp_path / ".obsidian" / "snippets" / "ztlctl.css"
         assert css_path.is_file()
         assert "ztlctl" in css_path.read_text()
 
     def test_none_client_no_obsidian_dir(self, tmp_path: Path) -> None:
-        InitService.init_vault(tmp_path, name="none-vault", client="none")
+        InitService.init_vault(tmp_path, name="none-vault", profile="core")
         assert not (tmp_path / ".obsidian").exists()
 
     def test_vanilla_client_alias_normalizes_to_none(self, tmp_path: Path) -> None:
@@ -96,7 +97,8 @@ class TestInitVault:
 
         assert result.ok
         assert result.data["client"] == "none"
-        assert 'client = "none"' in (tmp_path / "ztlctl.toml").read_text()
+        assert result.data["profile"] == "core"
+        assert 'profile = "core"' in (tmp_path / "ztlctl.toml").read_text()
         assert any("deprecated" in warning.lower() for warning in result.warnings)
 
     def test_topic_directories_created(self, tmp_path: Path) -> None:
@@ -138,6 +140,39 @@ class PostInitPlugin:
         assert result.ok
         assert marker.read_text(encoding="utf-8") == "hooked-vault|none|research-partner"
 
+    def test_init_dispatches_post_init_profile_hooks(self, tmp_path: Path) -> None:
+        marker = tmp_path / "post-init-profile.txt"
+        plugin_dir = tmp_path / ".ztlctl" / "plugins"
+        plugin_dir.mkdir(parents=True)
+        plugin_dir.joinpath("post_init_profile_plugin.py").write_text(
+            f"""import pluggy
+
+hookimpl = pluggy.HookimplMarker("ztlctl")
+
+
+class PostInitProfilePlugin:
+    @hookimpl
+    def post_init_profile(
+        self,
+        vault_name: str,
+        profile: str,
+        tone: str,
+        managed_paths: list[str],
+    ) -> None:
+        with open({str(marker)!r}, "w", encoding="utf-8") as fh:
+            fh.write(f"{{vault_name}}|{{profile}}|{{tone}}|{{','.join(managed_paths)}}")
+""",
+            encoding="utf-8",
+        )
+
+        result = InitService.init_vault(tmp_path, name="profile-vault", profile="obsidian")
+
+        assert result.ok
+        assert (
+            marker.read_text(encoding="utf-8")
+            == "profile-vault|obsidian|research-partner|.obsidian"
+        )
+
     def test_workflow_scaffold_created_by_default(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="wf-vault")
         readme = tmp_path / ".ztlctl" / "workflow" / "README.md"
@@ -161,11 +196,12 @@ class PostInitPlugin:
 
     def test_result_data_fields(self, tmp_path: Path) -> None:
         result = InitService.init_vault(
-            tmp_path, name="data-vault", client="none", tone="assistant"
+            tmp_path, name="data-vault", profile="core", tone="assistant"
         )
         assert result.ok
         assert result.op == "init_vault"
         assert result.data["name"] == "data-vault"
+        assert result.data["profile"] == "core"
         assert result.data["client"] == "none"
         assert result.data["tone"] == "assistant"
         assert str(tmp_path) in result.data["vault_path"]
@@ -179,6 +215,7 @@ class PostInitPlugin:
 
     def test_default_values(self, tmp_path: Path) -> None:
         result = InitService.init_vault(tmp_path, name="defaults")
+        assert result.data["profile"] == "obsidian"
         assert result.data["client"] == "obsidian"
         assert result.data["tone"] == "research-partner"
         assert result.data["topics"] == []
@@ -193,9 +230,10 @@ class PostInitPlugin:
         identity = (tmp_path / "self" / "identity.md").read_text()
         assert "generated: true" in identity
         assert 'vault: "fm-vault"' in identity
+        assert 'profile: "obsidian"' in identity
 
     def test_self_files_use_current_ids_and_lifecycle_terms(self, tmp_path: Path) -> None:
-        InitService.init_vault(tmp_path, name="truth-vault", client="none")
+        InitService.init_vault(tmp_path, name="truth-vault", profile="core")
 
         identity = (tmp_path / "self" / "identity.md").read_text(encoding="utf-8")
         methodology = (tmp_path / "self" / "methodology.md").read_text(encoding="utf-8")

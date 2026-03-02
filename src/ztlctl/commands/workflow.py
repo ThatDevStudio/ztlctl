@@ -11,17 +11,17 @@ from ztlctl.commands._base import ZtlCommand, ZtlGroup
 from ztlctl.services.workflow import (
     SkillSet,
     SourceControl,
-    Viewer,
     WorkflowAssetClient,
     WorkflowChoices,
     WorkflowMode,
     WorkflowService,
 )
+from ztlctl.workspace_profiles import PROFILE_CHOICES, WorkspaceProfileId
 
 if TYPE_CHECKING:
     from ztlctl.commands._context import AppContext
 
-_VIEWER_CHOICES = ["obsidian", "none"]
+_PROFILE_CHOICES = list(PROFILE_CHOICES)
 _WORKFLOW_CHOICES = ["claude-driven", "agent-generic", "manual"]
 _SKILL_CHOICES = ["research", "engineering", "minimal"]
 _SOURCE_CONTROL_CHOICES = ["git", "none"]
@@ -32,7 +32,7 @@ def _resolve_workflow_choices(
     app: AppContext,
     *,
     source_control: str | None,
-    viewer: str | None,
+    profile: str | None,
     workflow_name: str | None,
     skill_set: str | None,
     existing: WorkflowChoices | None = None,
@@ -52,15 +52,15 @@ def _resolve_workflow_choices(
             else defaults.source_control
         )
 
-    if viewer is None:
-        viewer = (
+    if profile is None:
+        profile = (
             click.prompt(
-                "Viewer",
-                type=click.Choice(_VIEWER_CHOICES, case_sensitive=False),
-                default=defaults.viewer,
+                "Profile",
+                type=click.Choice(_PROFILE_CHOICES, case_sensitive=False),
+                default=defaults.profile,
             )
             if interactive
-            else defaults.viewer
+            else defaults.profile
         )
 
     if workflow_name is None:
@@ -87,7 +87,7 @@ def _resolve_workflow_choices(
 
     return WorkflowChoices(
         source_control=cast(SourceControl, source_control),
-        viewer=cast(Viewer, viewer),
+        profile=cast(WorkspaceProfileId, profile),
         workflow=cast(WorkflowMode, workflow_name),
         skill_set=cast(SkillSet, skill_set),
     )
@@ -97,8 +97,8 @@ def _resolve_workflow_choices(
     cls=ZtlGroup,
     examples="""\
   ztlctl workflow init
-  ztlctl workflow init --viewer obsidian --workflow claude-driven
-  ztlctl workflow init --viewer none --workflow manual
+  ztlctl workflow init --profile obsidian --workflow claude-driven
+  ztlctl workflow init --profile core --workflow manual
   ztlctl workflow export --client both
   ztlctl workflow validate --client claude
   ztlctl workflow update
@@ -109,7 +109,7 @@ def workflow(app: AppContext) -> None:
     """Manage workflow templates and configuration."""
 
 
-@workflow.command("init", cls=ZtlCommand, examples="ztlctl workflow init --viewer obsidian")
+@workflow.command("init", cls=ZtlCommand, examples="ztlctl workflow init --profile obsidian")
 @click.argument("path", required=False, default=".")
 @click.option(
     "--source-control",
@@ -118,11 +118,18 @@ def workflow(app: AppContext) -> None:
     help="Source control layer.",
 )
 @click.option(
+    "--profile",
+    type=str,
+    default=None,
+    metavar="TEXT",
+    help="Workspace profile (`obsidian` or `core`; `none` and `vanilla` are deprecated aliases).",
+)
+@click.option(
     "--viewer",
     type=str,
     default=None,
     metavar="TEXT",
-    help="Viewer layer (`obsidian` or `none`; `vanilla` is deprecated).",
+    help="Deprecated compatibility alias for --profile.",
 )
 @click.option(
     "--workflow",
@@ -142,6 +149,7 @@ def workflow_init(
     app: AppContext,
     path: str,
     source_control: str | None,
+    profile: str | None,
     viewer: str | None,
     workflow_name: str | None,
     skill_set: str | None,
@@ -157,12 +165,22 @@ def workflow_init(
     choices = _resolve_workflow_choices(
         app,
         source_control=source_control,
-        viewer=viewer,
+        profile=profile if profile is not None else viewer,
         workflow_name=workflow_name,
         skill_set=skill_set,
         existing=defaults,
     )
-    app.emit(WorkflowService.init_workflow(vault_root, choices))
+    result = WorkflowService.init_workflow(vault_root, choices)
+    if viewer is not None:
+        result = result.model_copy(
+            update={
+                "warnings": [
+                    *result.warnings,
+                    "The workflow --viewer flag is deprecated for init; use --profile instead.",
+                ]
+            }
+        )
+    app.emit(result)
 
 
 @workflow.command(
@@ -178,11 +196,21 @@ def workflow_init(
     help="Override source control layer.",
 )
 @click.option(
+    "--profile",
+    type=str,
+    default=None,
+    metavar="TEXT",
+    help=(
+        "Override workspace profile "
+        "(`obsidian` or `core`; `none` and `vanilla` are deprecated aliases)."
+    ),
+)
+@click.option(
     "--viewer",
     type=str,
     default=None,
     metavar="TEXT",
-    help="Override viewer layer (`obsidian` or `none`; `vanilla` is deprecated).",
+    help="Deprecated compatibility alias for --profile.",
 )
 @click.option(
     "--workflow",
@@ -202,6 +230,7 @@ def workflow_update(
     app: AppContext,
     path: str,
     source_control: str | None,
+    profile: str | None,
     viewer: str | None,
     workflow_name: str | None,
     skill_set: str | None,
@@ -215,16 +244,28 @@ def workflow_update(
 
     current = WorkflowService.read_answers(vault_root)
     choices = None
-    if any(option is not None for option in (source_control, viewer, workflow_name, skill_set)):
+    if any(
+        option is not None for option in (source_control, profile, viewer, workflow_name, skill_set)
+    ):
         choices = _resolve_workflow_choices(
             app,
             source_control=source_control,
-            viewer=viewer,
+            profile=profile if profile is not None else viewer,
             workflow_name=workflow_name,
             skill_set=skill_set,
             existing=current,
         )
-    app.emit(WorkflowService.update_workflow(vault_root, choices=choices))
+    result = WorkflowService.update_workflow(vault_root, choices=choices)
+    if viewer is not None:
+        result = result.model_copy(
+            update={
+                "warnings": [
+                    *result.warnings,
+                    "The workflow --viewer flag is deprecated for update; use --profile instead.",
+                ]
+            }
+        )
+    app.emit(result)
 
 
 @workflow.command(
