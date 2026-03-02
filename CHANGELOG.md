@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.7.0 (2026-03-02)
+
+### Feat
+
+- add homebrew install support (#92)
+
 ## v1.6.0 (2026-03-01)
 
 ### Feat
