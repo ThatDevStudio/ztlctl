@@ -77,6 +77,24 @@ jobs:
       - run: uv sync
       - run: uvx pip-audit
 
+  homebrew:
+    name: Homebrew Formula
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --group dev
+      - run: python scripts/update_homebrew_formula.py --check
+      - run: uv run pytest tests/test_homebrew_formula.py -q
+      - run: brew tap-new ThatDev/ztlctl
+      - run: cp Formula/ztlctl.rb "$(brew --repo)/Library/Taps/thatdev/homebrew-ztlctl/Formula/ztlctl.rb"
+      - run: brew audit --strict ThatDev/ztlctl/ztlctl
+
   commit-lint:
     name: Commit Message Lint
     runs-on: ubuntu-latest

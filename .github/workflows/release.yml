@@ -51,12 +51,22 @@ jobs:
         if: steps.bump.outputs.skip != 'true'
         run: git push origin develop --follow-tags
 
+      - name: Build Homebrew source tarball
+        if: steps.bump.outputs.skip != 'true'
+        run: |
+          git archive \
+            --format=tar.gz \
+            --prefix="ztlctl-${{ steps.bump.outputs.version }}/" \
+            "${{ steps.bump.outputs.tag }}" \
+            -o "ztlctl-${{ steps.bump.outputs.version }}.tar.gz"
+
       - name: Create GitHub Release
         if: steps.bump.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
           gh release create "${{ steps.bump.outputs.tag }}" \
+            "ztlctl-${{ steps.bump.outputs.version }}.tar.gz" \
             --title "${{ steps.bump.outputs.tag }}" \
             --generate-notes \
             --target develop

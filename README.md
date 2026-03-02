@@ -21,7 +21,16 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv tool install ztlctl
 ```
 
+Or with Homebrew:
+
+```bash
+brew tap ThatDev/ztlctl
+brew install ThatDev/ztlctl/ztlctl
+```
+
 Optional extras: `pip install ztlctl[mcp]` (MCP server), `pip install ztlctl[semantic]` (vector search), `pip install ztlctl[community]` (advanced graph algorithms).
+
+Homebrew installs the base CLI. For optional extras such as MCP or semantic search, use `pip` or `uv`.
 
 See the [Installation Guide](docs/installation.md) for details.
 
@@ -84,7 +93,7 @@ ztlctl agent session close --summary "Mapped async patterns, identified refactor
 
 | Guide | Description |
 |-------|-------------|
-| [Installation](docs/installation.md) | Install via pip/uv, optional extras |
+| [Installation](docs/installation.md) | Install via pip, uv, or Homebrew |
 | [Quick Start](docs/quickstart.md) | Your first vault in 9 commands |
 | [Tutorial](docs/tutorial.md) | Step-by-step vault building guide |
 | [Core Concepts](docs/concepts.md) | Content types, lifecycle, vault structure, graph |
