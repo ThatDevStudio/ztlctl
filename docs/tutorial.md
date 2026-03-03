@@ -14,7 +14,7 @@ ztlctl init research-vault --name "Research Notes" --profile obsidian --topics "
 cd research-vault
 ```
 
-This creates the directory structure, config file, SQLite database, generated identity files, and the selected workspace scaffold. With `--profile obsidian`, init also writes the first-party Obsidian starter kit, creates the human-owned `garden/` layer, and prints a checklist for installing the curated Obsidian community plugins.
+This creates the directory structure, config file, SQLite database, generated identity files, and the selected workspace scaffold. With `--profile obsidian`, init also writes the first-party Obsidian starter kit, creates the human-owned `garden/` layer, and prints a checklist for installing the curated Obsidian community plugins. After that scaffold, `.obsidian/` is yours to customize in Obsidian.
 
 **Options:**
 - `--name TEXT` — Vault display name

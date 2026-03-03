@@ -76,7 +76,7 @@ The work tracked here is explicitly about:
 | DRF-003 | 2 | Add drift guard tests and checks | High | M | DRF-001, DRF-002 |
 | OBS-001 | 3 | Define official Obsidian starter-kit scope | High | M | ARC-002, PLG-001 |
 | OBS-002 | 3 | Ship official Obsidian profile plugin scaffolding | Critical | XL | OBS-001, PLG-002 |
-| OBS-003 | 4 | Add profile validation, update, and upgrade behavior | High | M | OBS-002 |
+| OBS-003 | 4 | Reframe Obsidian ownership after starter scaffold | Medium | S | OBS-002 |
 | GDN-001 | 3 | Reintroduce explicit garden scaffold and templates | High | M | OBS-001 |
 | GDN-002 | 1 | Codify machine-layer vs garden-layer ownership | Critical | S | ARC-002 |
 | GDN-003 | 4 | Align review/export surfaces with hybrid workflow | Medium | M | GDN-001, GDN-002, OBS-002 |
@@ -477,35 +477,38 @@ OBS-001, PLG-002
 
 ---
 
-### OBS-003 — Add profile validation, update, and upgrade behavior
+### OBS-003 — Reframe Obsidian ownership after starter scaffold
+
+**Status**
+Supersedes the older lifecycle-heavy Phase 4 direction. The current product stance is that the Obsidian starter kit is scaffolded during init and then customized by the user in Obsidian, rather than managed through ztlctl validation and upgrade flows.
 
 **Problem**
-Starter-kit assets will drift over time without a profile-owned validation/update path.
+The repo still contains wording that implies `.obsidian/` is a long-term profile-managed lifecycle surface, even though the intended direction is a one-shot starter scaffold.
 
 **Outcome**
-Profiles can validate and upgrade their own managed assets.
+Docs, templates, and runtime messaging describe `.obsidian/` as a profile-scaffolded workspace surface that ztlctl creates during init and then leaves alone.
 
 **Impact**
-High
+Medium
 
 **Effort**
-M
+S
 
 **Dependencies**
 OBS-002
 
 **In scope**
 
-- profile-owned validation hooks
-- update/upgrade behavior for managed starter-kit assets
-- clear reporting for user-modified versus profile-managed files
-- non-destructive update strategy
+- remove misleading lifecycle/update language for `.obsidian/`
+- clarify that users customize `.obsidian/` after init
+- keep API field names such as `managed_paths` for compatibility while narrowing their documented meaning
+- document that `garden/` remains human-managed and core indexing still stops at `notes/` and `ops/`
 
 **Acceptance criteria**
 
-- a user can validate whether their profile-owned assets are current
-- updates do not blindly overwrite user customizations
-- profile upgrades are explicit and reviewable
+- the backlog no longer treats profile validation/update as the default next step
+- public docs no longer imply that ztlctl will compare, validate, or rewrite `.obsidian/` after init
+- starter-kit messaging clearly states that `.obsidian/` is scaffolded once and then user-managed
 
 ---
 
@@ -803,16 +806,16 @@ Only after the profile system exists should the first-party Obsidian experience 
 
 **Goal**
 
-Make the starter kit sustainable rather than a one-shot scaffold.
+Clarify ownership of the shipped starter kit and keep hybrid workflow messaging coherent without adding profile lifecycle machinery.
 
 **Why fifth**
 
-Once the starter kit exists, the product needs validation, update behavior, and coherent review/export alignment.
+Once the starter kit exists, the product still needs honest ownership language and coherent review/export framing. The previous assumption that ztlctl should validate and rewrite `.obsidian/` by default is no longer aligned with the intended direction.
 
 **Exit criteria**
 
-- profile-owned assets can be validated and updated safely
-- review/export surfaces are consistent with the restored hybrid model
+- docs and templates consistently describe `.obsidian/` as a one-shot scaffold
+- review/export surfaces remain consistent with the restored hybrid model
 
 ---
 

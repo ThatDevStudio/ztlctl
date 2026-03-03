@@ -353,7 +353,11 @@ class PostInitProfilePlugin:
         setup_steps = result.data["setup_steps"]
         assert len(setup_steps) == 3
         assert setup_steps[0]["title"] == "Install the curated Obsidian plugins"
+        assert "writes the starter files once" in setup_steps[0]["body"]
         assert any("dataview" in item.lower() for item in setup_steps[0]["items"])
+        assert any(
+            "does not later validate or rewrite" in item.lower() for item in setup_steps[1]["items"]
+        )
         assert result.data["step_ids_executed"] == [
             "obsidian_scaffold",
             "obsidian_plugin_install_guidance",
@@ -444,6 +448,19 @@ class PostInitProfilePlugin:
         assert "Verify the Obsidian workspace defaults" in readme
         assert "garden/notes" in readme
         assert "human-owned" in readme
+        assert "scaffolded once" in readme
+        assert "does not later validate or rewrite" in readme
+
+    def test_obsidian_methodology_describes_one_shot_scaffold(self, tmp_path: Path) -> None:
+        result = InitService.init_vault(tmp_path, name="obsidian-methodology", profile="obsidian")
+
+        assert result.ok
+        methodology = (tmp_path / "self" / "methodology.md").read_text(encoding="utf-8")
+        workflow_profile = (tmp_path / ".ztlctl" / "workflow" / "profile.md").read_text(
+            encoding="utf-8"
+        )
+        assert "starter configuration scaffolded during init" in methodology
+        assert "customized directly in Obsidian" in workflow_profile
 
     def test_garden_is_not_reported_as_profile_managed(self, tmp_path: Path) -> None:
         marker = tmp_path / "post-init-profile.txt"

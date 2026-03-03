@@ -1,4 +1,4 @@
-"""Workspace ownership boundaries for core, profile, and human-managed paths."""
+"""Workspace ownership boundaries for core, profile-scaffold, and human-managed paths."""
 
 from __future__ import annotations
 
@@ -22,7 +22,13 @@ def classify_workspace_path(
     *,
     profile_managed_paths: tuple[str, ...] = (),
 ) -> WorkspaceOwnership:
-    """Classify a vault-relative path by ownership boundary."""
+    """Classify a vault-relative path by ownership boundary.
+
+    ``profile_managed_paths`` names the roots scaffolded by the selected
+    workspace profile during init. The classification is used for workspace
+    boundary reporting; it does not imply later validation or overwrite
+    authority.
+    """
     candidate = Path(path)
     parts = candidate.parts
     if not parts:

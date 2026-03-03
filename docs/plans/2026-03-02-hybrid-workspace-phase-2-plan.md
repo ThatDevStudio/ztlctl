@@ -49,4 +49,4 @@
 ## Follow-On Work
 
 - Phase 3 should build the first-party Obsidian starter kit on top of the now-real plugin profile system
-- Phase 4 should add profile-managed validation and upgrade behavior
+- Follow-on ownership work was later reframed away from automatic profile validation and upgrade behavior for `.obsidian/`

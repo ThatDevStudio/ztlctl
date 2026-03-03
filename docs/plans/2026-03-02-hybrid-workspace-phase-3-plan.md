@@ -40,5 +40,6 @@
 
 ## Follow-On Work
 
-- Phase 4 should add profile validation, update, and upgrade behavior for profile-managed assets
-- review/export surfaces can become more profile-aware after those lifecycle controls exist
+- The current default direction is to treat the Obsidian starter kit as a one-shot scaffold rather than a ztlctl-managed lifecycle surface.
+- Any future validation or upgrade behavior for `.obsidian/` would require a new product decision instead of being assumed backlog follow-through.
+- review/export surfaces can still become more profile-aware later, but they no longer depend on profile-managed update controls.
