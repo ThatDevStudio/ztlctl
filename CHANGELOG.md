@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.10.0 (2026-03-03)
+
+### Feat
+
+- implement phase 3 obsidian starter kit (#100)
+
 ## v1.9.0 (2026-03-02)
 
 ### Feat
