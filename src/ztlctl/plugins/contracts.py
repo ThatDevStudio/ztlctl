@@ -58,7 +58,12 @@ class WorkflowModuleContribution:
 
 @dataclass(frozen=True)
 class WorkspaceProfileContribution:
-    """One workspace profile definition exposed by core or plugins."""
+    """One workspace profile definition exposed by core or plugins.
+
+    ``managed_paths`` identifies the vault roots a profile scaffolds during init
+    so ownership and post-init hooks can classify them. It does not imply that
+    ztlctl will later validate or rewrite those files.
+    """
 
     profile_id: str
     description: str

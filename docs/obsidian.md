@@ -9,7 +9,7 @@ The first-party `obsidian` workspace profile scaffolds a curated Obsidian starte
 
 It creates:
 
-- `.obsidian/` starter configuration owned by the profile
+- `.obsidian/` starter configuration scaffolded during init
 - `garden/` directories and templates owned by the human after scaffold
 - install and verification guidance shown during `ztlctl init --profile obsidian`
 
@@ -51,10 +51,10 @@ ztlctl writes config and guidance for those plugins, but it does not ship the pl
 ## Ownership
 
 - Core-managed paths: `ztlctl.toml`, `.ztlctl/`, `self/`, `notes/`, `ops/`
-- Profile-managed paths: `.obsidian/`
+- Profile-associated scaffold surface: `.obsidian/`
 - Human-managed paths: `garden/`
 
-`garden/` is intentionally outside default indexing and mutation. The core vault model still indexes only `notes/` and `ops/`.
+`ztlctl` writes the `.obsidian/` starter files during init, then leaves them for you to customize in Obsidian or by editing the files directly. `garden/` is intentionally outside default indexing and mutation. The core vault model still indexes only `notes/` and `ops/`.
 
 ## First Open in Obsidian
 
@@ -65,4 +65,4 @@ After `ztlctl init --profile obsidian`:
 3. Enable those plugins so the scaffolded config in `.obsidian/` takes effect.
 4. Verify that new notes target `garden/notes`, attachments target `garden/attachments`, templates point at `garden/templates`, and both CSS snippets are enabled.
 
-The same checklist is printed during init and stored in `garden/README.md`.
+The same checklist is printed during init and stored in `garden/README.md`. `ztlctl` does not later validate or rewrite your `.obsidian/` changes.

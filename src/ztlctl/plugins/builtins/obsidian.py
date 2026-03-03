@@ -122,7 +122,9 @@ def _obsidian_instructions() -> tuple[VaultInitInstruction, ...]:
             title="Install the curated Obsidian plugins",
             body=(
                 "Open Obsidian, trust the vault, then go to Settings -> Community plugins -> "
-                "Browse and install the plugins that this starter kit preconfigures."
+                "Browse and install the plugins that this starter kit preconfigures. "
+                "ztlctl writes the starter files once, but it does not download the plugin "
+                "binaries for you."
             ),
             items=(
                 "Dataview (id: dataview) for structured note queries and future garden dashboards.",
@@ -140,13 +142,15 @@ def _obsidian_instructions() -> tuple[VaultInitInstruction, ...]:
             title="Enable the installed plugins",
             body=(
                 "After installation, enable each plugin so Obsidian picks up the scaffolded "
-                "configuration already written into .obsidian/."
+                "configuration already written into .obsidian/. After that, customize those "
+                "files directly in Obsidian or in your editor."
             ),
             items=(
                 "If the vault was already open in Obsidian, reload the app or reopen the vault "
                 "after enabling them.",
                 "The starter kit writes plugin config files for Folder notes, Omnisearch, and "
                 "Book Search.",
+                "ztlctl does not later validate or rewrite your .obsidian/ changes.",
             ),
             kind="manual",
         ),
@@ -189,7 +193,7 @@ def _garden_readme() -> str:
         This profile creates a hybrid workspace:
 
         - `notes/` and `ops/` are the machine/core layer that ztlctl indexes and mutates.
-        - `.obsidian/` is profile-managed starter-kit configuration.
+        - `.obsidian/` is starter-kit configuration scaffolded during init.
         - `garden/` is the human-owned enrichment layer scaffolded for Obsidian use.
 
         ## Garden Directories
@@ -204,7 +208,8 @@ def _garden_readme() -> str:
 
         ## Ownership
 
-        - `.obsidian/` is profile-managed and may be replaced by future profile update flows.
+        - `.obsidian/` is scaffolded once by `ztlctl init`, then customized in
+          Obsidian or by editing the files directly.
         - `garden/` is scaffolded by the profile once, then treated as human-managed content.
         - ztlctl still indexes only `notes/` and `ops/` by default.
 

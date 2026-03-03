@@ -1011,7 +1011,7 @@ The `research-partner` tone includes the full behavioral framework proven in the
 
 `ztlctl agent regenerate` re-derives self/ from current config. Staleness detection via timestamp comparison.
 
-> **Implementation note (Phase 3):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--profile/--tone/--topics`) modes, while retaining deprecated `--client` compatibility. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, stamps the Alembic migration head, generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, runs ordered plugin-contributed vault init steps, and then applies the default Copier workflow scaffold unless `--no-workflow` is passed. The first-party `obsidian` profile plugin now scaffolds `.obsidian/`, seeds `garden/`, and emits a structured plugin-install checklist instead of relying on a single CSS side effect. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Both self/ and content templates honor per-vault overrides from `.ztlctl/templates/` before falling back to bundled package templates.
+> **Implementation note (Phase 3):** `ztlctl init` supports both interactive (prompts) and non-interactive (`--name/--profile/--tone/--topics`) modes, while retaining deprecated `--client` compatibility. The init flow creates the vault directory structure, writes `ztlctl.toml`, initializes the database, stamps the Alembic migration head, generates `self/identity.md` and `self/methodology.md` from Jinja2 templates, runs ordered plugin-contributed vault init steps, and then applies the default Copier workflow scaffold unless `--no-workflow` is passed. The first-party `obsidian` profile plugin now scaffolds `.obsidian/`, seeds `garden/`, and emits a structured plugin-install checklist instead of relying on a single CSS side effect. That scaffold is intentionally one-shot: after init, `.obsidian/` is customized in Obsidian or by editing the files directly rather than through ztlctl lifecycle management. `ztlctl agent regenerate` regenerates self/ documents from current config with staleness detection. Both self/ and content templates honor per-vault overrides from `.ztlctl/templates/` before falling back to bundled package templates.
 
 ### Vault Structure
 
@@ -1032,7 +1032,7 @@ The `research-partner` tone includes the full behavioral framework proven in the
 ├── ops/
 │   ├── logs/
 │   └── tasks/
-├── .obsidian/              # if profile = obsidian
+├── .obsidian/              # if profile = obsidian; scaffolded at init
 │   ├── app.json
 │   ├── community-plugins.json
 │   └── snippets/

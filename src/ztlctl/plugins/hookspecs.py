@@ -102,7 +102,12 @@ class ZtlctlHookSpec:
         tone: str,
         managed_paths: list[str],
     ) -> None:
-        """Called after vault init with canonical workspace profile metadata."""
+        """Called after vault init with canonical workspace profile metadata.
+
+        ``managed_paths`` reports the scaffold surface associated with the
+        selected profile during init. It is descriptive metadata, not a promise
+        of future lifecycle management by ztlctl.
+        """
 
     @hookspec
     def register_content_models(self) -> dict[str, type[ContentModel]] | None:
