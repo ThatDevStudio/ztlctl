@@ -66,3 +66,7 @@ After `ztlctl init --profile obsidian`:
 4. Verify that new notes target `garden/notes`, attachments target `garden/attachments`, templates point at `garden/templates`, and both CSS snippets are enabled.
 
 The same checklist is printed during init and stored in `garden/README.md`. `ztlctl` does not later validate or rewrite your `.obsidian/` changes.
+
+## Relationship to Export
+
+`ztlctl export dashboard --viewer obsidian` is an external review workbench, not part of the starter kit itself. It gives you portable markdown and JSON review artifacts for triage and topic review, but it does not export the literal `garden/` directory and it does not mirror `.obsidian/` workspace state.

@@ -106,6 +106,8 @@ ztlctl query draft --topic architecture --mode review --target task --json
 ztlctl query draft --topic architecture --mode decision --target decision --json
 ```
 
+For a portable human review surface outside the vault, use `ztlctl export dashboard --viewer ... --output ...`. That export is an external review workbench for machine-layer queues, stale/orphan signals, and topic dossiers; it complements `garden/` but does not write into the vault or mirror `.obsidian/` state.
+
 ## Session Close Enrichment Pipeline
 
 When a session closes, ztlctl automatically runs:

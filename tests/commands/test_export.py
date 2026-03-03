@@ -173,3 +173,11 @@ class TestExportDashboardCommand:
         data = json.loads(result.output)
         assert data["data"]["viewer"] == "none"
         assert any("deprecated" in warning.lower() for warning in data["warnings"])
+
+    def test_export_dashboard_help_mentions_external_review_workbench(
+        self, cli_runner: CliRunner
+    ) -> None:
+        result = cli_runner.invoke(cli, ["export", "dashboard", "--help"])
+
+        assert result.exit_code == 0, result.output
+        assert "Export an external review dashboard and JSON review indexes." in result.output

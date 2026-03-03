@@ -582,6 +582,9 @@ ARC-002
 
 ### GDN-003 — Align review/export surfaces with hybrid workflow
 
+**Status**
+Completed through export-purpose clarification and review-surface wording cleanup. The artifact model remains intentionally external and unchanged.
+
 **Problem**
 The current review and dashboard surfaces speak about garden work, but they do so from a thinner model than the intended hybrid experience.
 
@@ -612,6 +615,9 @@ GDN-001, GDN-002, OBS-002
 
 ### ADP-001 — Publish mapping guide from `research` to `ztlctl`
 
+**Status**
+Completed through `docs/research-mapping.md`.
+
 **Problem**
 Even if migration is low priority, there is still value in documenting how the old concepts map to the new product.
 
@@ -641,6 +647,9 @@ OBS-002, GDN-001
 ---
 
 ### ADP-002 — Evaluate migration/import tooling
+
+**Status**
+Completed with a documented no-go decision for now.
 
 **Problem**
 There is no first-class path from the old hybrid workspace into the new product, but this is not yet a top priority.
@@ -816,6 +825,7 @@ Once the starter kit exists, the product still needs honest ownership language a
 
 - docs and templates consistently describe `.obsidian/` as a one-shot scaffold
 - review/export surfaces remain consistent with the restored hybrid model
+- export is clearly described as an external review workbench rather than a vault-integrated workspace layer
 
 ---
 
@@ -838,6 +848,7 @@ This work becomes much easier and much more accurate after the new architecture 
 
 - mapping guide exists
 - migration/import tooling has a documented decision
+- the documented decision is no-go for now unless product direction changes later
 
 ## Assumptions and Defaults
 

@@ -47,6 +47,11 @@ class TestVaultOrientation:
         for resource in resource_catalog():
             assert resource["uri"] in prompt
 
+    def test_includes_updated_review_resource_descriptions(self, vault: Vault):
+        prompt = vault_orientation_impl(vault)
+        assert "External review workbench snapshot" in prompt
+        assert "Enrichment backlog signals focused on stale seeds and orphan notes." in prompt
+
     def test_includes_discovery_rule(self, vault: Vault):
         prompt = vault_orientation_impl(vault)
         assert "start with `discover_tools`" in prompt

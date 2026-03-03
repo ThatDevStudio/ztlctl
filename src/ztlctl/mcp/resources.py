@@ -23,11 +23,14 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
     {"uri": "ztlctl://work-queue", "description": "Current work queue (scored task list)."},
     {
         "uri": "ztlctl://review/dashboard",
-        "description": "Review-oriented dashboard snapshot with work, gaps, and bridges.",
+        "description": (
+            "External review workbench snapshot with work queues, review signals, "
+            "and topic dossiers."
+        ),
     },
     {
         "uri": "ztlctl://garden/backlog",
-        "description": "Garden backlog focused on stale seeds and orphan notes.",
+        "description": "Enrichment backlog signals focused on stale seeds and orphan notes.",
     },
     {
         "uri": "ztlctl://decision-queue",
@@ -123,7 +126,7 @@ def review_dashboard_impl(vault: Any) -> dict[str, Any]:
 
 
 def garden_backlog_impl(vault: Any) -> dict[str, Any]:
-    """Return stale and orphan items that make up the garden backlog."""
+    """Return stale and orphan machine-layer items that feed enrichment review."""
     from ztlctl.services.query import QueryService
 
     review = QueryService(vault).vault_review(top=10)

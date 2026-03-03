@@ -245,7 +245,7 @@ def graph(
 )
 @click.pass_obj
 def dashboard(app: AppContext, viewer: str, output: str) -> None:
-    """Export a dashboard note and JSON review indexes."""
+    """Export an external review dashboard and JSON review indexes."""
     from ztlctl.services.export import ExportService
 
     app.emit(ExportService(app.vault).export_dashboard(Path(output), viewer=viewer))

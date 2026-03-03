@@ -441,6 +441,30 @@ class TestExportDashboard:
         content = (output / "dashboard.md").read_text(encoding="utf-8")
         assert f"[[{task['id']}]]" in content
 
+    def test_dashboard_export_reframes_enrichment_backlog_wording(
+        self, vault: Vault, tmp_path: Path
+    ) -> None:
+        from tests.conftest import create_note
+
+        create_note(vault, "Seed Review Note", maturity="seed", topic="architecture")
+        output = tmp_path / "dashboard-wording"
+
+        result = ExportService(vault).export_dashboard(output, viewer="none")
+
+        assert result.ok
+        content = (output / "dashboard.md").read_text(encoding="utf-8")
+        assert (
+            "- Purpose: external review workbench for captured knowledge and human-led enrichment."
+            in content
+        )
+        assert (
+            "- Scope: machine-layer signals, work queues, and topic dossiers; "
+            "not a mirror of garden/ or .obsidian/." in content
+        )
+        assert "## Enrichment Backlog" in content
+        assert "- Built from stale seeds and orphan notes in the machine layer." in content
+        assert "## Garden Backlog" not in content
+
     def test_dashboard_export_none_avoids_obsidian_internal_files(
         self, vault: Vault, tmp_path: Path
     ) -> None:

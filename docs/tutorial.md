@@ -220,6 +220,8 @@ ztlctl export graph --format json --output graph.json # For D3.js / vis.js
 ztlctl export dashboard --viewer obsidian --output ./dashboard/
 ```
 
+This dashboard is an external review workbench. It helps you review machine-layer work queues, stale/orphan signals, and topic dossiers before doing human-led garden work in Obsidian.
+
 This export now includes:
 
 - `dashboard.md`
