@@ -108,6 +108,17 @@ ztlctl checks those override paths first and falls back to the bundled package t
 
 `ztlctl init` applies the default workflow scaffold automatically unless `--no-workflow` is passed.
 
+## Plugin Init Hooks
+
+Plugins can now contribute ordered init steps through `register_vault_init_steps()`.
+
+- Each step receives a normalized `VaultInitContext`
+- Steps can create files, emit warnings, and return structured setup instructions
+- `ztlctl init` aggregates those instructions into the result payload and prints them under `Next steps`
+- The first-party Obsidian profile plugin uses this surface to scaffold `.obsidian/`, seed `garden/`, and print plugin-install guidance
+
+Legacy `WorkspaceProfileContribution.init_scaffold` remains supported temporarily and is wrapped into the same ordered init pipeline for compatibility.
+
 ## Contributing
 
 See [CONTRIBUTING.md](https://github.com/ThatDevStudio/ztlctl/blob/develop/CONTRIBUTING.md) for the full contribution guide, including:

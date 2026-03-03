@@ -665,6 +665,22 @@ def _render_init(result: ServiceResult, console: Console, *, verbose: bool = Fal
         _field(console, "topics", ", ".join(topics))
     files = d.get("files_created", [])
     _field(console, "files_created", len(files))
+    setup_steps = d.get("setup_steps", [])
+    if isinstance(setup_steps, list) and setup_steps:
+        console.print()
+        console.print(Text("  Next steps:", style="ztl.key"))
+        for index, step in enumerate(setup_steps, start=1):
+            if not isinstance(step, dict):
+                continue
+            title = str(step.get("title", ""))
+            body = str(step.get("body", ""))
+            console.print(f"    {index}. {title}")
+            if body:
+                console.print(f"       {body}")
+            items = step.get("items", [])
+            if isinstance(items, list):
+                for item in items:
+                    console.print(f"       - {item}")
     if verbose:
         for f in files:
             console.print(f"    {f}")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from pathlib import Path
@@ -9,7 +10,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from ztlctl.plugins.contracts import (
+    VaultInitContext,
+    VaultInitStepContribution,
+    VaultInitStepResult,
+    WorkspaceProfileContribution,
+)
 from ztlctl.services.init import InitService
+from ztlctl.workspace_profiles import WorkspaceProfileRegistry, core_workspace_profile
 
 if TYPE_CHECKING:
     from ztlctl.infrastructure.vault import Vault
@@ -87,10 +95,13 @@ class TestInitVault:
         css_path = tmp_path / ".obsidian" / "snippets" / "ztlctl.css"
         assert css_path.is_file()
         assert "ztlctl" in css_path.read_text()
+        assert (tmp_path / ".obsidian" / "snippets" / "garden-layers.css").is_file()
+        assert (tmp_path / "garden" / "README.md").is_file()
 
     def test_none_client_no_obsidian_dir(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="none-vault", profile="core")
         assert not (tmp_path / ".obsidian").exists()
+        assert not (tmp_path / "garden").exists()
 
     def test_missing_profile_returns_profile_not_found(self, tmp_path: Path) -> None:
         result = InitService.init_vault(tmp_path, name="missing-vault", profile="missing-profile")
@@ -130,6 +141,38 @@ class LocalProfilePlugin:
         assert result.error is not None
         assert result.error.code == "PROFILE_NOT_FOUND"
         assert result.error.detail["discovery_scope"] == "init"
+
+    def test_init_ignores_target_local_init_step_plugins(self, tmp_path: Path) -> None:
+        plugin_dir = tmp_path / ".ztlctl" / "plugins"
+        plugin_dir.mkdir(parents=True)
+        plugin_dir.joinpath("local_init_step.py").write_text(
+            """import pluggy
+
+from ztlctl.plugins.contracts import VaultInitStepContribution, VaultInitStepResult
+
+hookimpl = pluggy.HookimplMarker("ztlctl")
+
+
+class LocalInitStepPlugin:
+    @hookimpl
+    def register_vault_init_steps(self) -> list[VaultInitStepContribution]:
+        return [
+            VaultInitStepContribution(
+                step_id="local-step",
+                description="Local step.",
+                profiles=("core",),
+                run=lambda context: VaultInitStepResult(files_created=("local-step.txt",)),
+            )
+        ]
+""",
+            encoding="utf-8",
+        )
+
+        result = InitService.init_vault(tmp_path, name="local-step-vault", profile="core")
+
+        assert result.ok
+        assert "local-step" not in result.data["step_ids_executed"]
+        assert not (tmp_path / "local-step.txt").exists()
 
     def test_vanilla_client_alias_normalizes_to_none(self, tmp_path: Path) -> None:
         result = InitService.init_vault(tmp_path, name="alias-vault", client="vanilla")
@@ -230,6 +273,8 @@ class PostInitProfilePlugin:
         assert "self/identity.md" in files
         assert "self/methodology.md" in files
         assert ".obsidian/snippets/ztlctl.css" in files
+        assert ".obsidian/community-plugins.json" in files
+        assert "garden/README.md" in files
         assert ".ztlctl/workflow-answers.yml" in files
         assert ".ztlctl/workflow/README.md" in files
 
@@ -244,6 +289,8 @@ class PostInitProfilePlugin:
         assert result.data["client"] == "none"
         assert result.data["tone"] == "assistant"
         assert str(tmp_path) in result.data["vault_path"]
+        assert result.data["setup_steps"] == []
+        assert isinstance(result.data["step_ids_executed"], list)
 
     def test_rejects_existing_vault(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="first")
@@ -298,6 +345,276 @@ class PostInitProfilePlugin:
         result = InitService.init_vault(tmp_path, name="stamp-fail")
         assert result.ok  # init still succeeds
         assert any("stamp" in w.lower() for w in result.warnings)
+
+    def test_obsidian_init_returns_setup_steps(self, tmp_path: Path) -> None:
+        result = InitService.init_vault(tmp_path, name="obsidian-steps", profile="obsidian")
+
+        assert result.ok
+        setup_steps = result.data["setup_steps"]
+        assert len(setup_steps) == 3
+        assert setup_steps[0]["title"] == "Install the curated Obsidian plugins"
+        assert any("dataview" in item.lower() for item in setup_steps[0]["items"])
+        assert result.data["step_ids_executed"] == [
+            "obsidian_scaffold",
+            "obsidian_plugin_install_guidance",
+        ]
+
+    def test_obsidian_scaffold_writes_expected_files(self, tmp_path: Path) -> None:
+        result = InitService.init_vault(tmp_path, name="obsidian-artifacts", profile="obsidian")
+
+        assert result.ok
+        expected = [
+            ".obsidian/app.json",
+            ".obsidian/appearance.json",
+            ".obsidian/core-plugins.json",
+            ".obsidian/community-plugins.json",
+            ".obsidian/templates.json",
+            ".obsidian/graph.json",
+            ".obsidian/snippets/ztlctl.css",
+            ".obsidian/snippets/garden-layers.css",
+            ".obsidian/plugins/folder-notes/data.json",
+            ".obsidian/plugins/obsidian-book-search-plugin/data.json",
+            ".obsidian/plugins/omnisearch/data.json",
+            "garden/README.md",
+            "garden/templates/note.md",
+            "garden/templates/grove.md",
+            "garden/templates/book.md",
+        ]
+        for rel_path in expected:
+            assert (tmp_path / rel_path).exists(), rel_path
+        assert not (tmp_path / ".obsidian" / "workspace.json").exists()
+
+    def test_obsidian_scaffold_contents_match_curated_defaults(self, tmp_path: Path) -> None:
+        result = InitService.init_vault(tmp_path, name="obsidian-content", profile="obsidian")
+
+        assert result.ok
+        community_plugins = (tmp_path / ".obsidian" / "community-plugins.json").read_text(
+            encoding="utf-8"
+        )
+        assert json.loads(community_plugins) == [
+            "dataview",
+            "templater-obsidian",
+            "folder-notes",
+            "omnisearch",
+            "obsidian-book-search-plugin",
+        ]
+        appearance = json.loads(
+            (tmp_path / ".obsidian" / "appearance.json").read_text(encoding="utf-8")
+        )
+        assert appearance["enabledCssSnippets"] == ["ztlctl", "garden-layers"]
+        app_cfg = json.loads((tmp_path / ".obsidian" / "app.json").read_text(encoding="utf-8"))
+        assert app_cfg["newFileFolderPath"] == "garden/notes"
+        assert app_cfg["attachmentFolderPath"] == "garden/attachments"
+        templates = json.loads(
+            (tmp_path / ".obsidian" / "templates.json").read_text(encoding="utf-8")
+        )
+        assert templates["folder"] == "garden/templates"
+        graph_cfg = (tmp_path / ".obsidian" / "graph.json").read_text(encoding="utf-8")
+        assert "path:notes" in graph_cfg
+        assert "path:ops/tasks" in graph_cfg
+        assert "path:ops/logs" in graph_cfg
+        assert "path:garden/notes" in graph_cfg
+        assert "path:garden/groves" in graph_cfg
+        assert "path:garden/library" in graph_cfg
+        assert "conversations" not in graph_cfg
+        assert "decisions" not in graph_cfg
+        assert "knowledge" not in graph_cfg
+        assert "resources" not in graph_cfg
+        assert "backlog" not in graph_cfg
+        note_template = (tmp_path / "garden" / "templates" / "note.md").read_text(encoding="utf-8")
+        assert "cssclasses: [garden-note, seed]" in note_template
+        assert "growth: seed" in note_template
+        combined = "\n".join(
+            [
+                note_template,
+                (tmp_path / "garden" / "templates" / "grove.md").read_text(encoding="utf-8"),
+                (tmp_path / "garden" / "templates" / "book.md").read_text(encoding="utf-8"),
+                (tmp_path / "garden" / "README.md").read_text(encoding="utf-8"),
+            ]
+        )
+        assert "seedling" not in combined
+        assert "sapling" not in combined
+
+    def test_garden_readme_mirrors_obsidian_init_guidance(self, tmp_path: Path) -> None:
+        result = InitService.init_vault(tmp_path, name="garden-readme", profile="obsidian")
+
+        assert result.ok
+        readme = (tmp_path / "garden" / "README.md").read_text(encoding="utf-8")
+        assert "Install the curated Obsidian plugins" in readme
+        assert "Verify the Obsidian workspace defaults" in readme
+        assert "garden/notes" in readme
+        assert "human-owned" in readme
+
+    def test_garden_is_not_reported_as_profile_managed(self, tmp_path: Path) -> None:
+        marker = tmp_path / "post-init-profile.txt"
+        plugin_dir = tmp_path / ".ztlctl" / "plugins"
+        plugin_dir.mkdir(parents=True)
+        plugin_dir.joinpath("post_init_profile_plugin.py").write_text(
+            f"""import pluggy
+
+hookimpl = pluggy.HookimplMarker("ztlctl")
+
+
+class PostInitProfilePlugin:
+    @hookimpl
+    def post_init_profile(
+        self,
+        vault_name: str,
+        profile: str,
+        tone: str,
+        managed_paths: list[str],
+    ) -> None:
+        with open({str(marker)!r}, "w", encoding="utf-8") as fh:
+            fh.write(",".join(managed_paths))
+""",
+            encoding="utf-8",
+        )
+
+        result = InitService.init_vault(tmp_path, name="owned-vault", profile="obsidian")
+
+        assert result.ok
+        assert marker.read_text(encoding="utf-8") == ".obsidian"
+
+    def test_legacy_profile_scaffold_runs_through_init_step_wrapper(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sentinel = "legacy/profile.txt"
+
+        def _legacy_scaffold(vault_root: Path) -> list[str]:
+            target = vault_root / sentinel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("legacy", encoding="utf-8")
+            return [sentinel]
+
+        registry = WorkspaceProfileRegistry(
+            profiles={
+                "core": core_workspace_profile(),
+                "legacy-profile": WorkspaceProfileContribution(
+                    profile_id="legacy-profile",
+                    description="Legacy profile.",
+                    init_scaffold=_legacy_scaffold,
+                ),
+            },
+            aliases={"none": "core", "vanilla": "core"},
+        )
+        monkeypatch.setattr("ztlctl.services.init.discover_init_profiles", lambda: registry)
+        monkeypatch.setattr(
+            "ztlctl.plugins.manager.PluginManager.discover_and_load",
+            lambda self, *, local_dir=None, include_entrypoints=True: [],
+        )
+        monkeypatch.setattr(
+            "ztlctl.plugins.manager.PluginManager.vault_init_step_contributions",
+            lambda self, reserved_names=None: [],
+        )
+
+        result = InitService.init_vault(tmp_path, name="legacy-wrapper", profile="legacy-profile")
+
+        assert result.ok
+        assert sentinel in result.data["files_created"]
+        assert result.data["step_ids_executed"] == ["legacy_profile_scaffold__legacy-profile"]
+
+    def test_init_step_failure_returns_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _bad_step(_context: VaultInitContext) -> VaultInitStepResult:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            "ztlctl.services.init._collect_init_steps",
+            lambda _registry: [
+                VaultInitStepContribution(
+                    step_id="bad-step",
+                    description="Broken init step.",
+                    profiles=("core",),
+                    run=_bad_step,
+                )
+            ],
+        )
+
+        result = InitService.init_vault(tmp_path, name="broken-step", profile="core")
+
+        assert not result.ok
+        assert result.error is not None
+        assert result.error.code == "INIT_STEP_FAILED"
+        assert result.error.detail["step_id"] == "bad-step"
+
+    def test_init_steps_execute_in_order_then_step_id(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        registry = WorkspaceProfileRegistry(
+            profiles={
+                "core": core_workspace_profile(),
+                "ordered-profile": WorkspaceProfileContribution(
+                    profile_id="ordered-profile",
+                    description="Ordered profile.",
+                ),
+            },
+            aliases={"none": "core", "vanilla": "core"},
+        )
+        monkeypatch.setattr("ztlctl.services.init.discover_init_profiles", lambda: registry)
+        monkeypatch.setattr(
+            "ztlctl.plugins.manager.PluginManager.discover_and_load",
+            lambda self, *, local_dir=None, include_entrypoints=True: [],
+        )
+        monkeypatch.setattr(
+            "ztlctl.plugins.manager.PluginManager.vault_init_step_contributions",
+            lambda self, reserved_names=None: [
+                VaultInitStepContribution(
+                    step_id="later",
+                    description="Later step.",
+                    order=200,
+                    profiles=("ordered-profile",),
+                    run=lambda _context: VaultInitStepResult(files_created=("later.txt",)),
+                ),
+                VaultInitStepContribution(
+                    step_id="beta",
+                    description="Beta step.",
+                    order=100,
+                    profiles=("ordered-profile",),
+                    run=lambda _context: VaultInitStepResult(files_created=("beta.txt",)),
+                ),
+                VaultInitStepContribution(
+                    step_id="alpha",
+                    description="Alpha step.",
+                    order=100,
+                    profiles=("ordered-profile",),
+                    run=lambda _context: VaultInitStepResult(files_created=("alpha.txt",)),
+                ),
+            ],
+        )
+
+        result = InitService.init_vault(tmp_path, name="ordered-vault", profile="ordered-profile")
+
+        assert result.ok
+        assert result.data["step_ids_executed"] == ["alpha", "beta", "later"]
+
+    def test_init_steps_filter_by_profile(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "ztlctl.services.init._collect_init_steps",
+            lambda _registry: [
+                VaultInitStepContribution(
+                    step_id="other-profile-step",
+                    description="Wrong profile.",
+                    profiles=("obsidian",),
+                    run=lambda _context: VaultInitStepResult(files_created=("wrong.txt",)),
+                ),
+                VaultInitStepContribution(
+                    step_id="matching-step",
+                    description="Matching profile.",
+                    profiles=("core",),
+                    run=lambda _context: VaultInitStepResult(files_created=("match.txt",)),
+                ),
+            ],
+        )
+
+        result = InitService.init_vault(tmp_path, name="filtered-steps", profile="core")
+
+        assert result.ok
+        assert result.data["step_ids_executed"] == ["matching-step"]
+        assert "match.txt" in result.data["files_created"]
+        assert "wrong.txt" not in result.data["files_created"]
 
 
 class TestRegenerateSelf:

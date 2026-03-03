@@ -35,6 +35,13 @@ def test_classify_profile_managed_paths() -> None:
 
 def test_classify_human_managed_paths() -> None:
     assert classify_workspace_path(Path("garden/notes/seed.md")) == "human"
+    assert (
+        classify_workspace_path(
+            Path("garden/library/book.md"),
+            profile_managed_paths=(".obsidian",),
+        )
+        == "human"
+    )
 
 
 def test_classify_unclassified_paths() -> None:

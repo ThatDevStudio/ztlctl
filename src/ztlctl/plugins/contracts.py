@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import click
 
@@ -65,6 +65,49 @@ class WorkspaceProfileContribution:
     aliases: tuple[str, ...] = ()
     managed_paths: tuple[str, ...] = ()
     init_scaffold: Callable[[Path], list[str]] | None = None
+
+
+@dataclass(frozen=True)
+class VaultInitContext:
+    """Normalized context passed to plugin-contributed vault init steps."""
+
+    vault_root: Path
+    vault_name: str
+    profile: str
+    tone: str
+    topics: tuple[str, ...] = ()
+    no_workflow: bool = False
+
+
+@dataclass(frozen=True)
+class VaultInitInstruction:
+    """One user-facing instruction emitted during vault initialization."""
+
+    instruction_id: str
+    title: str
+    body: str
+    items: tuple[str, ...] = ()
+    kind: Literal["manual", "install", "verify"] = "manual"
+
+
+@dataclass(frozen=True)
+class VaultInitStepResult:
+    """Files, warnings, and user-visible setup guidance from one init step."""
+
+    files_created: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+    instructions: tuple[VaultInitInstruction, ...] = ()
+
+
+@dataclass(frozen=True)
+class VaultInitStepContribution:
+    """One plugin-contributed step in the ordered vault init pipeline."""
+
+    step_id: str
+    description: str
+    run: Callable[[VaultInitContext], VaultInitStepResult]
+    order: int = 500
+    profiles: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

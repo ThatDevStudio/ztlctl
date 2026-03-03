@@ -21,6 +21,7 @@ For agent-fetched web pages and multimodal captures, ztlctl persists durable sou
 
 - [Core Concepts](concepts.md) — Content types, lifecycle states, vault structure, knowledge graph
 - [Knowledge Paradigms](paradigms.md) — Capture/synthesis and enrichment, mapped to Zettelkasten, second-brain, and garden approaches
+- [Obsidian Starter Kit](obsidian.md) — First-party Obsidian scaffold, plugin preset, and garden layout
 
 ## Reference
 
