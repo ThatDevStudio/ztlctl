@@ -14,6 +14,7 @@ if TYPE_CHECKING:
         McpResourceContribution,
         McpToolContribution,
         SourceProviderContribution,
+        VaultInitStepContribution,
         WorkflowModuleContribution,
         WorkspaceProfileContribution,
     )
@@ -130,6 +131,10 @@ class ZtlctlHookSpec:
     @hookspec
     def register_workspace_profiles(self) -> list[WorkspaceProfileContribution] | None:
         """Return plugin workspace profile contributions."""
+
+    @hookspec
+    def register_vault_init_steps(self) -> list[VaultInitStepContribution] | None:
+        """Return ordered plugin steps to run during `ztlctl init`."""
 
     @hookspec
     def register_source_providers(self) -> list[SourceProviderContribution] | None:

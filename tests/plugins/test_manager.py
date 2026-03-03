@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 import pluggy
 import pytest
@@ -14,6 +16,10 @@ from ztlctl.plugins.contracts import (
     McpToolContribution,
     SourceFetchResult,
     SourceProviderContribution,
+    VaultInitContext,
+    VaultInitInstruction,
+    VaultInitStepContribution,
+    VaultInitStepResult,
     WorkflowModuleContribution,
     WorkspaceProfileContribution,
 )
@@ -121,6 +127,27 @@ class _ContributionPlugin:
         ]
 
     @hookimpl
+    def register_vault_init_steps(self) -> list[VaultInitStepContribution]:
+        return [
+            VaultInitStepContribution(
+                step_id="plugin-init-step",
+                description="Plugin init step.",
+                order=250,
+                profiles=("plugin-profile",),
+                run=lambda context: VaultInitStepResult(
+                    files_created=(".plugin/config.json",),
+                    instructions=(
+                        VaultInitInstruction(
+                            instruction_id="plugin.verify",
+                            title="Verify plugin setup",
+                            body=f"Profile: {context.profile}",
+                        ),
+                    ),
+                ),
+            )
+        ]
+
+    @hookimpl
     def register_source_providers(self) -> list[SourceProviderContribution]:
         return [
             SourceProviderContribution(
@@ -144,11 +171,25 @@ class _DuplicateContributionPlugin:
     def register_workspace_profiles(self) -> list[WorkspaceProfileContribution]:
         return [WorkspaceProfileContribution(profile_id="plugin-profile", description="Duplicate.")]
 
+    @hookimpl
+    def register_vault_init_steps(self) -> list[VaultInitStepContribution]:
+        return [
+            VaultInitStepContribution(
+                step_id="plugin-init-step",
+                description="Duplicate init step.",
+                run=lambda _context: VaultInitStepResult(),
+            )
+        ]
+
 
 class _MalformedContributionPlugin:
     @hookimpl
     def register_source_providers(self) -> list[object]:
         return ["bad-provider"]
+
+    @hookimpl
+    def register_vault_init_steps(self) -> list[object]:
+        return ["bad-step"]
 
 
 class TestPluginManager:
@@ -211,6 +252,7 @@ class TestPluginManager:
             "post_init_profile",
             "register_content_models",
             "register_workspace_profiles",
+            "register_vault_init_steps",
         ],
     )
     def test_all_hookspecs_registered(self, hook_name: str):
@@ -257,6 +299,51 @@ class TestPluginManager:
         finally:
             CONTENT_REGISTRY.clear()
             CONTENT_REGISTRY.update(original_registry)
+
+    def test_collects_vault_init_step_contributions(self) -> None:
+        pm = PluginManager()
+        pm.register_plugin(_ContributionPlugin(), name="contrib")
+        pm.discover_and_load(local_dir=None, include_entrypoints=False)
+
+        steps = pm.vault_init_step_contributions()
+
+        assert len(steps) == 1
+        assert steps[0].step_id == "plugin-init-step"
+        result = steps[0].run(
+            VaultInitContext(
+                vault_root=Path("/tmp/vault"),
+                vault_name="vault",
+                profile="plugin-profile",
+                tone="research-partner",
+            )
+        )
+        assert result.files_created == (".plugin/config.json",)
+        assert result.instructions[0].title == "Verify plugin setup"
+
+    def test_duplicate_vault_init_steps_warn_and_skip(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        pm = PluginManager()
+        pm.register_plugin(_ContributionPlugin(), name="contrib")
+        pm.register_plugin(_DuplicateContributionPlugin(), name="dup")
+        pm.discover_and_load(local_dir=None, include_entrypoints=False)
+
+        with caplog.at_level("WARNING"):
+            steps = pm.vault_init_step_contributions()
+
+        assert [step.step_id for step in steps] == ["plugin-init-step"]
+        assert "Skipping duplicate plugin contribution 'plugin-init-step'" in caplog.text
+
+    def test_invalid_vault_init_steps_warn_and_skip(self, caplog: pytest.LogCaptureFixture) -> None:
+        pm = PluginManager()
+        pm.register_plugin(_MalformedContributionPlugin(), name="bad-steps")
+        pm.discover_and_load(local_dir=None, include_entrypoints=False)
+
+        with caplog.at_level("WARNING"):
+            steps = pm.vault_init_step_contributions()
+
+        assert steps == []
+        assert "Skipping invalid register_vault_init_steps contribution" in caplog.text
 
     def test_normalize_plugin_instances_instantiates_registered_classes(self) -> None:
         pm = PluginManager()

@@ -8,15 +8,24 @@ operates *before* a Vault exists.  All public methods are @staticmethod
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ztlctl.infrastructure.templates import build_template_environment
+from ztlctl.plugins.contracts import (
+    VaultInitContext,
+    VaultInitInstruction,
+    VaultInitStepContribution,
+    VaultInitStepResult,
+)
+from ztlctl.plugins.manager import PluginManager
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
 from ztlctl.workspace_profiles import (
     UnknownWorkspaceProfileError,
+    WorkspaceProfileRegistry,
     discover_init_profiles,
     discover_vault_profiles,
     profile_to_legacy_client,
@@ -106,6 +115,131 @@ def _dispatch_post_init(
     return warnings
 
 
+def _serialize_instruction(instruction: VaultInitInstruction) -> dict[str, str | list[str]]:
+    """Convert a vault init instruction into JSON-safe result data."""
+    return {
+        "instruction_id": instruction.instruction_id,
+        "title": instruction.title,
+        "body": instruction.body,
+        "items": list(instruction.items),
+        "kind": instruction.kind,
+    }
+
+
+def _legacy_scaffold_step(
+    profile_id: str,
+    scaffold: Callable[[Path], list[str]],
+) -> VaultInitStepContribution:
+    """Wrap the deprecated profile `init_scaffold` into a vault init step."""
+
+    def _run(context: VaultInitContext) -> VaultInitStepResult:
+        return VaultInitStepResult(files_created=tuple(scaffold(context.vault_root)))
+
+    return VaultInitStepContribution(
+        step_id=f"legacy_profile_scaffold__{profile_id}",
+        description=f"Legacy scaffold wrapper for workspace profile `{profile_id}`.",
+        run=_run,
+        order=150,
+        profiles=(profile_id,),
+    )
+
+
+def _step_applies_to_profile(step: VaultInitStepContribution, profile: str) -> bool:
+    """Whether a step applies to the selected profile."""
+    if not step.profiles:
+        return True
+    return profile in {item.strip().lower() for item in step.profiles}
+
+
+def _collect_init_steps(
+    profile_registry: WorkspaceProfileRegistry,
+) -> list[VaultInitStepContribution]:
+    """Discover init steps from entry-point plugins plus legacy scaffolds."""
+    plugin_manager = PluginManager()
+    plugin_manager.discover_and_load(local_dir=None, include_entrypoints=True)
+    steps = list(plugin_manager.vault_init_step_contributions())
+    for profile_id, contribution in profile_registry.profiles.items():
+        scaffold = contribution.init_scaffold
+        if scaffold is None:
+            continue
+        steps.append(_legacy_scaffold_step(profile_id, scaffold))
+    return sorted(steps, key=lambda item: (item.order, item.step_id))
+
+
+def _run_init_steps(
+    *,
+    vault_path: Path,
+    name: str,
+    profile: str,
+    tone: str,
+    topics: list[str],
+    no_workflow: bool,
+    profile_registry: WorkspaceProfileRegistry,
+    existing_files: list[str],
+) -> tuple[list[str], list[str], list[dict[str, str | list[str]]], list[str]] | ServiceResult:
+    """Execute ordered init steps and aggregate their outputs."""
+    files_created: list[str] = []
+    warnings: list[str] = []
+    instructions: list[dict[str, str | list[str]]] = []
+    step_ids_executed: list[str] = []
+    context = VaultInitContext(
+        vault_root=vault_path,
+        vault_name=name,
+        profile=profile,
+        tone=tone,
+        topics=tuple(topics),
+        no_workflow=no_workflow,
+    )
+
+    for step in _collect_init_steps(profile_registry):
+        if not _step_applies_to_profile(step, profile):
+            continue
+        try:
+            result = step.run(context)
+        except Exception as exc:
+            return ServiceResult(
+                ok=False,
+                op="init_vault",
+                warnings=warnings,
+                error=ServiceError(
+                    code="INIT_STEP_FAILED",
+                    message=f"Vault init step `{step.step_id}` failed: {exc}",
+                    detail={
+                        "step_id": step.step_id,
+                        "profile": profile,
+                        "error": str(exc),
+                    },
+                ),
+            )
+        if not isinstance(result, VaultInitStepResult):
+            return ServiceResult(
+                ok=False,
+                op="init_vault",
+                warnings=warnings,
+                error=ServiceError(
+                    code="INIT_STEP_FAILED",
+                    message=(
+                        f"Vault init step `{step.step_id}` returned an invalid result type: "
+                        f"{type(result).__name__}"
+                    ),
+                    detail={
+                        "step_id": step.step_id,
+                        "profile": profile,
+                        "error": f"expected VaultInitStepResult, got {type(result).__name__}",
+                    },
+                ),
+            )
+
+        step_ids_executed.append(step.step_id)
+        warnings.extend(result.warnings)
+        for path in result.files_created:
+            if path not in files_created and path not in existing_files:
+                files_created.append(path)
+        instructions.extend(_serialize_instruction(item) for item in result.instructions)
+
+    return files_created, warnings, instructions, step_ids_executed
+
+
 # ── TOML generation ──────────────────────────────────────────────────
 
 
@@ -169,7 +303,7 @@ class InitService:
         3. GENERATE CONFIG — sparse ztlctl.toml
         4. INITIALIZE DB — SQLite + FTS5
         5. RENDER SELF — identity.md + methodology.md via Jinja2
-        6. APPLY PROFILE SCAFFOLD — profile-managed files such as .obsidian/snippets/ztlctl.css
+        6. RUN INIT STEPS — ordered plugin steps plus legacy scaffold wrappers
         7. WORKFLOW — .ztlctl/workflow-answers.yml (unless --no-workflow)
         8. RESPOND — ServiceResult with created file manifest
         """
@@ -219,6 +353,8 @@ class InitService:
         files_created: list[str] = []
         warnings: list[str] = list(selection_warnings)
         profile_contribution = profile_registry.profiles[profile]
+        setup_steps: list[dict[str, str | list[str]]] = []
+        step_ids_executed: list[str] = []
 
         # 2. CREATE STRUCTURE
         dirs = [
@@ -268,27 +404,24 @@ class InitService:
             (self_dir / filename).write_text(content, encoding="utf-8")
             files_created.append(f"self/{filename}")
 
-        # 6. APPLY PROFILE SCAFFOLD
-        if profile_contribution.init_scaffold is not None:
-            try:
-                files_created.extend(profile_contribution.init_scaffold(vault_path))
-            except Exception as exc:
-                return ServiceResult(
-                    ok=False,
-                    op="init_vault",
-                    error=ServiceError(
-                        code="PROFILE_SCAFFOLD_FAILED",
-                        message=(
-                            f"Workspace profile `{profile}` failed during scaffold setup: {exc}"
-                        ),
-                        detail={
-                            "profile": profile,
-                            "managed_paths": list(profile_contribution.managed_paths),
-                            "error": str(exc),
-                        },
-                    ),
-                    warnings=warnings,
-                )
+        # 6. RUN INIT STEPS
+        init_step_result = _run_init_steps(
+            vault_path=vault_path,
+            name=name,
+            profile=profile,
+            tone=tone,
+            topics=topics,
+            no_workflow=no_workflow,
+            profile_registry=profile_registry,
+            existing_files=files_created,
+        )
+        if isinstance(init_step_result, ServiceResult):
+            return init_step_result.model_copy(
+                update={"warnings": [*warnings, *init_step_result.warnings]}
+            )
+        step_files, step_warnings, setup_steps, step_ids_executed = init_step_result
+        files_created.extend(step_files)
+        warnings.extend(step_warnings)
 
         # 7. WORKFLOW
         if not no_workflow:
@@ -334,6 +467,8 @@ class InitService:
                 "tone": tone,
                 "topics": topics,
                 "files_created": files_created,
+                "setup_steps": setup_steps,
+                "step_ids_executed": step_ids_executed,
             },
             warnings=warnings,
         )

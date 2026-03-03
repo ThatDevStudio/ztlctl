@@ -57,6 +57,7 @@ class TestInitCommandNonInteractive:
         assert data["data"]["client"] == "none"
         assert data["data"]["tone"] == "minimal"
         assert data["data"]["topics"] == ["ai", "engineering"]
+        assert data["data"]["setup_steps"] == []
 
     def test_init_no_workflow(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         result = cli_runner.invoke(
@@ -128,6 +129,50 @@ class TestInitCommandNonInteractive:
         assert (tmp_path / ".ztlctl").is_dir()
         assert (tmp_path / "self").is_dir()
         assert (tmp_path / "notes").is_dir()
+
+    def test_init_obsidian_json_includes_setup_steps(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        result = cli_runner.invoke(
+            cli,
+            [
+                "--json",
+                "--no-interact",
+                "init",
+                str(tmp_path),
+                "--name",
+                "obsidian-json",
+                "--profile",
+                "obsidian",
+            ],
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["data"]["profile"] == "obsidian"
+        assert len(data["data"]["setup_steps"]) == 3
+        assert "Install the curated Obsidian plugins" in data["data"]["setup_steps"][0]["title"]
+
+    def test_init_obsidian_output_prints_next_steps(
+        self, cli_runner: CliRunner, tmp_path: Path
+    ) -> None:
+        result = cli_runner.invoke(
+            cli,
+            [
+                "--no-interact",
+                "init",
+                str(tmp_path),
+                "--name",
+                "obsidian-output",
+                "--profile",
+                "obsidian",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Next steps:" in result.output
+        assert "Install the curated Obsidian plugins" in result.output
+        assert "Dataview" in result.output
 
 
 class TestInitCommandInteractive:

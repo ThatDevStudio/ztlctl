@@ -17,6 +17,7 @@ from ztlctl.plugins.contracts import (
     McpResourceContribution,
     McpToolContribution,
     SourceProviderContribution,
+    VaultInitStepContribution,
     WorkflowModuleContribution,
     WorkspaceProfileContribution,
 )
@@ -165,6 +166,19 @@ class PluginManager:
             "register_workspace_profiles",
             WorkspaceProfileContribution,
             key_fn=lambda item: item.profile_id,
+            reserved=reserved_names,
+        )
+
+    def vault_init_step_contributions(
+        self,
+        *,
+        reserved_names: set[str] | None = None,
+    ) -> list[VaultInitStepContribution]:
+        """Collect plugin vault init step contributions."""
+        return self._collect_contributions(
+            "register_vault_init_steps",
+            VaultInitStepContribution,
+            key_fn=lambda item: item.step_id,
             reserved=reserved_names,
         )
 

@@ -10,11 +10,11 @@ This tutorial walks through creating and managing a knowledge vault from capture
 ## Step 1: Initialize Your Vault
 
 ```bash
-ztlctl init research-vault --name "Research Notes" --topics "ml,systems,papers"
+ztlctl init research-vault --name "Research Notes" --profile obsidian --topics "ml,systems,papers"
 cd research-vault
 ```
 
-This creates the directory structure, config file, SQLite database, and generated identity files. The `--topics` flag pre-creates subdirectories under `notes/`.
+This creates the directory structure, config file, SQLite database, generated identity files, and the selected workspace scaffold. With `--profile obsidian`, init also writes the first-party Obsidian starter kit, creates the human-owned `garden/` layer, and prints a checklist for installing the curated Obsidian community plugins.
 
 **Options:**
 - `--name TEXT` — Vault display name

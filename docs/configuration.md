@@ -90,7 +90,7 @@ Nested keys use double underscores (`__`) as separators.
 
 - `[workspace].profile` is the canonical workspace selector. `core` is always available; additional profiles come from installed plugins.
 - `[vault].client` is a deprecated compatibility input. Legacy values `none` and `vanilla` map to `profile = "core"` during settings load.
-- `workspace.profile = "obsidian"` does not mean ztlctl owns your full `.obsidian/` state. In Phase 2 the shipped first-party Obsidian profile plugin applies the minimal `.obsidian/snippets/ztlctl.css` scaffold during `ztlctl init`.
+- `workspace.profile = "obsidian"` enables the first-party Obsidian starter kit during `ztlctl init`. That scaffold writes `.obsidian/` config, `garden/` templates, and a plugin-install checklist, but it does not download Obsidian community plugins for you.
 - `[plugins].obsidian` is obsolete and ignored when present in older configs. The only canonical built-in plugin config section today is `[plugins].git`.
 - URL ingestion is provider-backed. Base ztlctl supports text and markdown ingestion directly; remote fetching comes from installed source-provider plugins.
 - Core-managed paths are `ztlctl.toml`, `.ztlctl/`, `self/`, `notes/`, and `ops/`. Profile-managed paths are profile-owned workspace assets such as `.obsidian/`. Human-managed paths such as `garden/` remain outside default core indexing and mutation.
