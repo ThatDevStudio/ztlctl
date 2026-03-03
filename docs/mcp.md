@@ -83,8 +83,8 @@ This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting file
 | `ztlctl://self/methodology` | Agent methodology document |
 | `ztlctl://overview` | Vault statistics and structure |
 | `ztlctl://work-queue` | Prioritized task list |
-| `ztlctl://review/dashboard` | Review-oriented dashboard snapshot |
-| `ztlctl://garden/backlog` | Stale/orphan garden backlog |
+| `ztlctl://review/dashboard` | External review workbench snapshot |
+| `ztlctl://garden/backlog` | Enrichment backlog signals from stale seeds and orphan notes |
 | `ztlctl://decision-queue` | Recent decisions plus active work queue |
 | `ztlctl://capture/spec` | Source-bundle contract for agent capture and ingest handoff |
 | `ztlctl://topics` | Available topic directories |

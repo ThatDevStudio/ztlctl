@@ -322,7 +322,7 @@ class ExportService(BaseService):
         *,
         viewer: Literal["obsidian", "none"] | str = "obsidian",
     ) -> ServiceResult:
-        """Export a viewer-friendly dashboard plus review and dossier artifacts."""
+        """Export an external review workbench plus review and dossier artifacts."""
         from ztlctl.services.query import QueryService
 
         try:
@@ -395,7 +395,11 @@ class ExportService(BaseService):
             "# ztlctl Dashboard",
             "",
             f"- Viewer mode: {viewer}",
-            "- Focus: capture and synthesis feed the enrichment backlog.",
+            "- Purpose: external review workbench for captured knowledge and human-led enrichment.",
+            (
+                "- Scope: machine-layer signals, work queues, and topic dossiers; "
+                "not a mirror of garden/ or .obsidian/."
+            ),
         ]
         if export_cfg.include_work_queue:
             dashboard_sections.extend(
@@ -423,11 +427,12 @@ class ExportService(BaseService):
             dashboard_sections.extend(
                 [
                     "",
-                    "## Garden Backlog",
+                    "## Enrichment Backlog",
+                    "- Built from stale seeds and orphan notes in the machine layer.",
                     *self._dashboard_lines(
                         garden_backlog[:10],
                         viewer=viewer,
-                        empty="No garden backlog items.",
+                        empty="No enrichment backlog items.",
                     ),
                 ]
             )

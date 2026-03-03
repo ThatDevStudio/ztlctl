@@ -64,7 +64,7 @@ Most commands also support `--examples` to show usage examples.
 | `export markdown` | Export as portable markdown |
 | `export indexes` | Generate type/topic indexes |
 | `export graph` | Export graph (DOT or JSON) |
-| `export dashboard` | Export dashboard note, review queues, and topic dossier artifacts |
+| `export dashboard` | Export an external review workbench with dashboard, review queues, and topic dossiers |
 | `garden seed TITLE` | Quick-capture seed note |
 | `ingest text TITLE` | Ingest raw text into a note or reference |
 | `ingest file PATH` | Ingest a markdown or text file |

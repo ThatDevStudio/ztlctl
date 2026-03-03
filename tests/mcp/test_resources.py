@@ -129,6 +129,18 @@ class TestResourceCatalog:
         assert "ztlctl://agent-reference" in uris
         assert "ztlctl://capture/spec" in uris
 
+    def test_catalog_descriptions_reflect_review_workbench_wording(self):
+        catalog = {entry["uri"]: entry["description"] for entry in resource_catalog()}
+        assert (
+            catalog["ztlctl://review/dashboard"]
+            == "External review workbench snapshot with work queues, review signals, "
+            "and topic dossiers."
+        )
+        assert (
+            catalog["ztlctl://garden/backlog"]
+            == "Enrichment backlog signals focused on stale seeds and orphan notes."
+        )
+
 
 class TestAgentReference:
     """Tests for agent_reference_impl."""

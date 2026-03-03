@@ -49,13 +49,15 @@ ztlctl export dashboard --viewer obsidian --output ./dashboard
 ztlctl update ztl_abc123 --maturity budding
 ```
 
+The exported dashboard is an external review workbench built from machine-layer signals. It complements `garden/` by helping you triage what to tend next, but it does not export the literal `garden/` directory or replace Obsidian as the place where garden work happens.
+
 ## How The Paradigms Map
 
 | Paradigm | ztlctl role |
 |----------|-------------|
 | **Zettelkasten** | Durable note/reference creation, graph links, reweave, related-content traversal |
 | **Second brain** | Broad capture, references, tasks, topic organization, agent-assisted retrieval |
-| **Knowledge garden** | Human-led enrichment, maturity tracking, backlog review, dashboard-driven tending |
+| **Knowledge garden** | Human-led enrichment, maturity tracking, backlog review, and dashboard-guided tending from machine-layer review signals |
 
 ## What ztlctl Does Not Claim
 
