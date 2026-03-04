@@ -1,11 +1,13 @@
 ---
-title: Hybrid Workspace Backlog
+title: Hybrid Workspace Closure Record
 nav_order: 11
 ---
 
-# Hybrid Workspace Gap Backlog
+# Hybrid Workspace Closure Record
 
-This backlog tracks the remaining gap between the original `research` PoC workspace and the current `ztlctl` product.
+**Status:** Implemented. This page is now a historical record of the hybrid-workspace gap-closure effort.
+
+This document tracks the gap that existed between the original `research` PoC workspace and the current `ztlctl` product, and records how that gap was closed.
 
 The goal is not to recreate the PoC wholesale. The goal is to preserve what `ztlctl` improved while closing the specific gaps that matter to the intended product vision:
 
@@ -17,7 +19,7 @@ The goal is not to recreate the PoC wholesale. The goal is to preserve what `ztl
 
 ## Purpose
 
-This backlog is the canonical planning document for the hybrid workspace gap. It should guide future design and implementation work without reframing the project as a migration or reconstruction exercise.
+This page preserves the design stance, work breakdown, and implementation history of the hybrid workspace closure effort. It is no longer the forward-looking product roadmap.
 
 The work tracked here is explicitly about:
 
