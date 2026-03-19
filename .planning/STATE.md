@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Completed 03-01-PLAN.md"
-last_updated: "2026-03-19T23:20:33Z"
+status: unknown
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-19T23:29:40.116Z"
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -53,6 +53,7 @@ Plan: 2 of 2
 | Phase 02-action-registry P03 | 4 | 2 tasks | 11 files |
 | Phase 02-action-registry P04 | 10 | 3 tasks | 5 files |
 | Phase 03-mcp-surface-generation P01 | 15 | 2 tasks | 16 files |
+| Phase 03-mcp-surface-generation P02 | 4 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Recent decisions affecting current work:
 - [Phase 03-mcp-surface-generation]: McpResponse.warnings is list[str] | None (not list[str]) so model_dump(exclude_none=True) omits empty warnings — matching old _to_mcp_response() behavior
 - [Phase 03-mcp-surface-generation]: tool_catalog()/common_error_recovery() compatibility shims added to generator.py for callers previously importing from mcp/tools
 - [Phase 03-mcp-surface-generation]: manifest.json tool names updated to ActionRegistry names (session_status->status, create_log->start, graph_themes->themes, etc.)
+- [Phase 03-mcp-surface-generation]: PREVIOUSLY_MISSING test set uses actual registry names (apply, check_pending, stamp_current, check) not plan-doc names — corrected at test time
+- [Phase 03-mcp-surface-generation]: Budget-aware MCP tools: BUDGET_AWARE_ACTIONS frozenset gates injection; _apply_token_budget() truncates first list-valued field iteratively from tail
 
 ### Pending Todos
 
@@ -97,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T23:20:33Z
-Stopped at: Completed 03-01-PLAN.md
-Resume file: .planning/phases/03-mcp-surface-generation/03-02-PLAN.md
+Last session: 2026-03-19T23:29:40.114Z
+Stopped at: Completed 03-02-PLAN.md
+Resume file: None
