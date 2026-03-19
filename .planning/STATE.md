@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-action-registry/02-03-PLAN.md
-last_updated: "2026-03-19T21:37:10.331Z"
+stopped_at: Completed 02-action-registry/02-04-PLAN.md
+last_updated: "2026-03-19T21:49:39.178Z"
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -51,6 +51,7 @@ Plan: 2 of 4
 | Phase 02-action-registry P01 | 3 | 2 tasks | 6 files |
 | Phase 02-action-registry P02 | 3 | 2 tasks | 12 files |
 | Phase 02-action-registry P03 | 4 | 2 tasks | 11 files |
+| Phase 02-action-registry P04 | 10 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,8 @@ Recent decisions affecting current work:
 - [Phase 02-action-registry]: Controllers construct services per-call (not instance variables) — avoids stale service state across calls
 - [Phase 02-action-registry]: WorkflowController and InitController extend BaseController for consistency even though their services use static methods
 - [Phase 02-action-registry]: InitController named init_ctrl.py to avoid shadowing __init__.py
+- [Phase 02-action-registry]: Factory lambda handlers: lambda vault, **kw: Controller(vault).method(**kw) for stateless per-call controller construction
+- [Phase 02-action-registry]: 59 ActionDefinitions registered (plan required >=45) — all 13 categories covered at module load time
 
 ### Pending Todos
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T21:37:10.328Z
-Stopped at: Completed 02-action-registry/02-03-PLAN.md
+Last session: 2026-03-19T21:49:39.175Z
+Stopped at: Completed 02-action-registry/02-04-PLAN.md
 Resume file: None
