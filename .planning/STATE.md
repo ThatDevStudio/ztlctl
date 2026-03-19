@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-19T22:44:22.602Z"
+status: executing
+stopped_at: "Completed 03-01-PLAN.md"
+last_updated: "2026-03-19T23:20:33Z"
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 10
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 02 — action-registry
+**Current focus:** Phase 03 — mcp-surface-generation
 
 ## Current Position
 
-Phase: 02 (action-registry) — EXECUTING
-Plan: 2 of 4
+Phase: 03 (mcp-surface-generation) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Plan: 2 of 4
 | Phase 02-action-registry P02 | 3 | 2 tasks | 12 files |
 | Phase 02-action-registry P03 | 4 | 2 tasks | 11 files |
 | Phase 02-action-registry P04 | 10 | 3 tasks | 5 files |
+| Phase 03-mcp-surface-generation P01 | 15 | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Recent decisions affecting current work:
 - [Phase 02-action-registry]: InitController named init_ctrl.py to avoid shadowing __init__.py
 - [Phase 02-action-registry]: Factory lambda handlers: lambda vault, **kw: Controller(vault).method(**kw) for stateless per-call controller construction
 - [Phase 02-action-registry]: 59 ActionDefinitions registered (plan required >=45) — all 13 categories covered at module load time
+- [Phase 03-mcp-surface-generation]: McpResponse.warnings is list[str] | None (not list[str]) so model_dump(exclude_none=True) omits empty warnings — matching old _to_mcp_response() behavior
+- [Phase 03-mcp-surface-generation]: tool_catalog()/common_error_recovery() compatibility shims added to generator.py for callers previously importing from mcp/tools
+- [Phase 03-mcp-surface-generation]: manifest.json tool names updated to ActionRegistry names (session_status->status, create_log->start, graph_themes->themes, etc.)
 
 ### Pending Todos
 
@@ -93,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T22:44:22.600Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-mcp-surface-generation/03-CONTEXT.md
+Last session: 2026-03-19T23:20:33Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: .planning/phases/03-mcp-surface-generation/03-02-PLAN.md
