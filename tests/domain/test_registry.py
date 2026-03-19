@@ -3,11 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from ztlctl.domain.registry import (
-    NoteTypeDefinition,
-    NoteTypeRegistry,
-    get_note_type_registry,
-)
 
 from ztlctl.domain.content import (
     ContentModel,
@@ -23,6 +18,11 @@ from ztlctl.domain.lifecycle import (
     NOTE_TRANSITIONS,
     REFERENCE_TRANSITIONS,
     TASK_TRANSITIONS,
+)
+from ztlctl.domain.registry import (
+    NoteTypeDefinition,
+    NoteTypeRegistry,
+    get_note_type_registry,
 )
 
 # ---------------------------------------------------------------------------
