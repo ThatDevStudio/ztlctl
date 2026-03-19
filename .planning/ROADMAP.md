@@ -65,11 +65,11 @@ Plans:
   2. Hand-written `register_tools()` code (~280 lines) is replaced by ActionRegistry-driven generation
   3. MCP tools that return large result sets (list, search, vault_review) accept a token-budget parameter and truncate responses accordingly
   4. A parity test suite verifies that every CLI command has a corresponding MCP tool with equivalent parameters
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — McpResponse model + MCP tool generator + server.py wiring + tools.py deletion (ACTN-03)
+- [ ] 03-02-PLAN.md — Token-budget truncation for high-volume tools + parity test suite (AGNT-02, PLUG-04)
 
 ### Phase 4: CLI Surface Generation
 **Goal**: CLI commands are auto-generated from the ActionRegistry, eliminating hand-crafted Click command duplication while preserving interactive and complex command behaviors
