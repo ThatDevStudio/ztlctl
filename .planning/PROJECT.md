@@ -43,6 +43,13 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - [x] Performance bottleneck fixes (parallel rebuild I/O, batch FTS5, betweenness k-approx)
 - [x] Security hardening (git sanitization, MCP HTTP warnings, Copier trust documented)
 
+**Action Registry:** ✓ Validated in Phase 2
+- [x] ActionDefinition/ActionParam frozen dataclasses with typed parameters, CLI/MCP metadata
+- [x] ActionRegistry singleton with register/get/list_actions, name-uniqueness enforcement
+- [x] 13-controller layer (BaseController + domain controllers) wrapping all services
+- [x] 59 ActionDefinitions registered covering all public controller methods
+- [x] custom_presentation=True on complex operations (batch, init, workflow)
+
 **Plugin System Formalization:**
 - [ ] Formalize "note" and "note lifecycle" as extensible core primitives
 - [ ] Formalize "action" and "event" as the core operational model
@@ -70,7 +77,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ## Context
 
-**Existing codebase:** 1256 tests, mypy strict, ruff clean across 12 services, 9 command groups, 3 built-in plugins, MCP adapter, and semantic search. The v1 architecture is a clean 6-layer structure (domain → infrastructure → config → services → output → commands) with a Vault repository pattern.
+**Existing codebase:** 1665 tests, mypy strict, ruff clean across 12 services, 13 controllers, 59 registered actions, 9 command groups, 3 built-in plugins, MCP adapter, and semantic search. The v1 architecture is a clean 6-layer structure (domain → infrastructure → config → services → output → commands) with a Vault repository pattern.
 
 **Key architectural insight from user:** CLI and MCP should be "presentation wrappers around a core construct" — this means the current hand-crafted CLI commands and MCP tools need to evolve into auto-generated surfaces over formalized actions. This is the single biggest architectural shift in v2.
 
@@ -97,7 +104,9 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | CLI/MCP as auto-generated presentation layers | Define-once, use-everywhere — reduces duplication, ensures parity | — Pending |
 | Formalize note lifecycle as extensible primitive | Plugins need to define custom note types with custom lifecycles | ✓ Good — NoteTypeDefinition + NoteTypeRegistry in domain/registry.py |
 | Research Agent SDK/protocol viability | User's instinct is define-once interfaces; SDK adds value only if research proves it | — Pending |
-| Core hardening before plugin formalization | Tool must be standalone-capable before extending; fixes foundation first | — Pending |
+| Core hardening before plugin formalization | Tool must be standalone-capable before extending; fixes foundation first | ✓ Good — Phase 1 complete |
+| 4-layer architecture (Data/Service/Controller/Registry) | Controllers wrap services, registry wraps controllers — clean separation of concerns | ✓ Good — 13 controllers + ActionRegistry in Phase 2 |
+| All operations through registry, no escape hatches | Complex ops get thin definitions with custom_presentation=True | ✓ Good — 59 definitions, 5 custom_presentation |
 
 ---
-*Last updated: 2026-03-19 after Phase 1 completion*
+*Last updated: 2026-03-19 after Phase 2 completion*
