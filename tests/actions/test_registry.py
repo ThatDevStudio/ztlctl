@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from ztlctl.actions.registry import ActionRegistry, get_action_registry
 
 from ztlctl.actions.definitions import ActionDefinition, ActionParam
+from ztlctl.actions.registry import ActionRegistry, get_action_registry
 
 # ---------------------------------------------------------------------------
 # Fixtures
