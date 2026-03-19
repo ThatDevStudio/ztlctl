@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-02-PLAN.md (Tech debt and security hardening)
-last_updated: "2026-03-19T20:24:02.834Z"
+stopped_at: Completed 01-05-PLAN.md (Schema versioning and documentation audit)
+last_updated: "2026-03-19T20:38:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 5
 ---
 
 # Project State
@@ -23,22 +23,22 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 
 ## Current Position
 
-Phase: 01 (core-hardening) — EXECUTING
-Plan: 4 of 5 (Plans 01-03 completed)
+Phase: 01 (core-hardening) — COMPLETE
+Plan: 5 of 5 (All plans completed)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 3
+- Total plans completed: 5
 - Average duration: 4 min
-- Total execution time: 0.2 hours
+- Total execution time: 0.33 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-core-hardening | 3/5 | 12 min | 4 min |
+| 01-core-hardening | 5/5 | 20 min | 4 min |
 
 **Recent Trend:**
 
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - _fts5_escape() wraps terms in double-quotes and escapes internal double-quotes per FTS5 spec
 - [Phase 01-core-hardening]: Warned on sse and streamable-http transports in serve.py — both are HTTP-based and unauthenticated
 - [Phase 01-core-hardening]: Copier uses unsafe= not trust= parameter; current default unsafe=False is already safe — documented rather than changed
+- [Phase 01-05]: Pre-Alembic vaults (None revision, tables exist) treated as current — UpgradeService.apply() handles stamping, _check_schema_current() should not block on this case
+- [Phase 01-05]: Schema version check runs outside engine.connect() block in CheckService to avoid nested connection issues
 
 ### Pending Todos
 
@@ -76,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T20:23:57.525Z
-Stopped at: Completed 01-02-PLAN.md (Tech debt and security hardening)
+Last session: 2026-03-19T20:38:00.000Z
+Stopped at: Completed 01-05-PLAN.md (Schema versioning and documentation audit)
 Resume file: None
