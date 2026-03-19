@@ -584,7 +584,9 @@ class GraphService(BaseService):
 
         # Compute metrics
         pageranks = nx.pagerank(g)
-        betweenness = nx.betweenness_centrality(g)
+        node_count = g.number_of_nodes()
+        k_param = None if node_count <= 500 else min(500, node_count)
+        betweenness = nx.betweenness_centrality(g, k=k_param, seed=42)
 
         # Compute community assignments (Leiden → Louvain fallback)
         warnings: list[str] = []

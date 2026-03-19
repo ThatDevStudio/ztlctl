@@ -89,6 +89,32 @@ ztlctl agent session close --summary "Mapped async patterns, identified refactor
 - **Structured JSON output** on every command for scripting and agent consumption (`--json` flag)
 - **Vault integrity** checking, auto-fix, full rebuild, and rollback ([Troubleshooting](docs/troubleshooting.md))
 
+## CLI Command Reference
+
+All commands support `--json` for structured output and `--help` for full option details.
+Use `--log-json` on the root command to emit structured JSON logs to stderr (e.g. for agent pipelines).
+
+| Command | Description |
+|---------|-------------|
+| `ztlctl init` | Initialize a new vault |
+| `ztlctl create` | Create notes, references, and tasks |
+| `ztlctl update` | Update content metadata or body |
+| `ztlctl query` | Search, list, and query vault content |
+| `ztlctl graph` | Traverse and analyze the knowledge graph |
+| `ztlctl reweave` | Reweave links to densify the knowledge graph |
+| `ztlctl agent` | Manage sessions, context, and agent workflows |
+| `ztlctl garden` | Cultivate knowledge with the garden persona |
+| `ztlctl ingest` | Ingest text and source material into the vault |
+| `ztlctl check` | Check vault integrity; optionally fix, rebuild, or rollback |
+| `ztlctl upgrade` | Run pending database schema migrations |
+| `ztlctl export` | Export vault content (markdown, indexes, graph formats) |
+| `ztlctl vector` | Manage the semantic search vector index |
+| `ztlctl workflow` | Manage workflow templates and configuration |
+| `ztlctl serve` | Start the MCP server (`ztlctl[mcp]` extra required) |
+| `ztlctl archive` | Archive a content item (sets archived flag) |
+| `ztlctl extract` | Extract a decision note from a session log |
+| `ztlctl supersede` | Mark a decision as superseded by a newer decision |
+
 ## Documentation
 
 | Guide | Description |

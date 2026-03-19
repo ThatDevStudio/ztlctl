@@ -121,11 +121,6 @@ source = ["ztlctl"]
 branch = true
 omit = [
     "src/ztlctl/__main__.py",
-    "src/ztlctl/mcp/*",
-    "src/ztlctl/services/session.py",
-    "src/ztlctl/services/reweave.py",
-    "src/ztlctl/services/check.py",
-    "src/ztlctl/plugins/*",
 ]
 
 [tool.coverage.report]

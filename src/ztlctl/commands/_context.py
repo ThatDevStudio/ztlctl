@@ -50,6 +50,12 @@ class AppContext:
 
             self._vault = Vault(self.settings)
             self._vault.init_event_bus(sync=self.settings.sync)
+            if not self._vault._check_schema_current():
+                click.echo(
+                    "WARNING: Vault schema is out of date. "
+                    "Run 'ztlctl upgrade' to apply pending migrations.",
+                    err=True,
+                )
         return self._vault
 
     def emit(self, result: ServiceResult) -> None:

@@ -337,6 +337,8 @@ class WorkflowService:
     @staticmethod
     def _run_copy(vault_root: Path, choices: WorkflowChoices) -> None:
         with resources.as_file(WorkflowService._template_root()) as template_root:
+            # SECURITY: unsafe=False (default) prevents Copier template tasks from
+            # executing without explicit user consent. See HARD-07.
             run_copy(
                 str(template_root),
                 dst_path=vault_root,
@@ -354,6 +356,8 @@ class WorkflowService:
         update_data = None if choices is None else choices.as_data()
 
         try:
+            # SECURITY: unsafe=False (default) prevents Copier template tasks from
+            # executing without explicit user consent. See HARD-07.
             run_update(
                 dst_path=vault_root,
                 answers_file=str(_ANSWERS_RELATIVE_PATH),
@@ -368,6 +372,8 @@ class WorkflowService:
             warnings.append(
                 f"Copier update fallback to recopy ({exc}); local merge metadata unavailable."
             )
+            # SECURITY: unsafe=False (default) prevents Copier template tasks from
+            # executing without explicit user consent. See HARD-07.
             run_recopy(
                 dst_path=vault_root,
                 answers_file=str(_ANSWERS_RELATIVE_PATH),

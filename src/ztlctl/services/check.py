@@ -7,7 +7,10 @@ graph health, structural validation. (DESIGN.md Section 14)
 
 from __future__ import annotations
 
+import json
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -44,10 +47,21 @@ CAT_SCHEMA = "schema_integrity"
 CAT_GRAPH = "graph_health"
 CAT_STRUCTURAL = "structural_validation"
 CAT_GARDEN = "garden_health"
+CAT_SCHEMA_VERSION = "schema_version"
 
 
 class _ConsistencyReadError(ValueError):
     """Raised when a content file cannot be normalized for consistency checks."""
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers
+# ---------------------------------------------------------------------------
+
+
+def _read_file(path: Path) -> tuple[Path, str]:
+    """Read a single content file — designed for ThreadPoolExecutor."""
+    return path, path.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +80,8 @@ class CheckService(BaseService):
     def check(self, *, min_severity: str = SEVERITY_WARNING) -> ServiceResult:
         """Report integrity issues without modifying anything."""
         issues: list[dict[str, Any]] = []
+        with trace_span("schema_version"):
+            issues.extend(self._check_schema_version())
         with self._vault.engine.connect() as conn:
             with trace_span("db_file_consistency"):
                 issues.extend(self._check_db_file_consistency(conn))
@@ -149,14 +165,26 @@ class CheckService(BaseService):
             txn.conn.execute(delete(edges))
             txn.conn.execute(delete(nodes))
 
-            content_files = self._vault.find_content()
+            content_files = list(self._vault.find_content())
             nodes_indexed = 0
             edges_created = 0
             tags_found = 0
 
-            for file_path in content_files:
+            # Phase 1: Parallel file reads (I/O bound)
+            raw_contents: list[tuple[Path, str]] = []
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                futures = {executor.submit(_read_file, f): f for f in content_files}
+                for future in as_completed(futures):
+                    try:
+                        raw_contents.append(future.result())
+                    except Exception as exc:
+                        file_path = futures[future]
+                        warnings.append(f"Failed to read {file_path}: {exc}")
+
+            # Phase 2: Sequential DB writes (SQLite serialized)
+            for file_path, raw in raw_contents:
                 try:
-                    fm, body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+                    fm, body = parse_frontmatter(raw)
                 except Exception as exc:
                     warnings.append(f"Failed to parse {file_path}: {exc}")
                     continue
@@ -195,8 +223,6 @@ class CheckService(BaseService):
                 # Store aliases as JSON if present
                 aliases = fm.get("aliases")
                 if isinstance(aliases, list):
-                    import json
-
                     node_row["aliases"] = json.dumps(aliases)
 
                 txn.conn.execute(insert(nodes).values(**node_row))
@@ -211,9 +237,9 @@ class CheckService(BaseService):
                     tags_found += txn.index_tags(content_id, [str(t) for t in file_tags], today)
 
             # Second pass: index edges (all nodes must exist first)
-            for file_path in content_files:
+            for file_path, raw in raw_contents:
                 try:
-                    fm, body = parse_frontmatter(file_path.read_text(encoding="utf-8"))
+                    fm, body = parse_frontmatter(raw)
                 except Exception:
                     continue
 
@@ -315,6 +341,16 @@ class CheckService(BaseService):
         if len(backups) > config.backup_max_count:
             for old in backups[: len(backups) - config.backup_max_count]:
                 old.unlink(missing_ok=True)
+            backups = sorted(backup_dir.glob("ztlctl-*.db"))
+
+        # Enforce backup_retention_days (age-based pruning)
+        retention_days = config.backup_retention_days
+        if retention_days > 0:
+            cutoff = datetime.now() - timedelta(days=retention_days)
+            for backup in list(backups):
+                mtime = datetime.fromtimestamp(backup.stat().st_mtime)
+                if mtime < cutoff:
+                    backup.unlink(missing_ok=True)
 
     # ------------------------------------------------------------------
     # Check categories (read-only)
@@ -338,6 +374,24 @@ class CheckService(BaseService):
             "status": self._normalize_optional(fm.get("status")),
             "topic": self._normalize_optional(fm.get("topic")),
         }
+
+    def _check_schema_version(self) -> list[dict[str, Any]]:
+        """Check if vault schema is at the latest Alembic revision."""
+        issues: list[dict[str, Any]] = []
+        if not self._vault._check_schema_current():
+            issues.append(
+                {
+                    "category": CAT_SCHEMA_VERSION,
+                    "severity": SEVERITY_ERROR,
+                    "node_id": None,
+                    "message": (
+                        "Vault schema is out of date. "
+                        "Run 'ztlctl upgrade' to apply pending migrations."
+                    ),
+                    "fix": "Run: ztlctl upgrade",
+                }
+            )
+        return issues
 
     def _check_db_file_consistency(self, conn: Connection) -> list[dict[str, Any]]:
         """Category 1: DB rows vs. files on disk."""
@@ -643,7 +697,7 @@ class CheckService(BaseService):
 
     def _check_garden_health(self, conn: Connection) -> list[dict[str, Any]]:
         """Category 5: garden advisory — aging seeds and evergreen readiness."""
-        from datetime import UTC, datetime, timedelta
+        from datetime import UTC
 
         issues: list[dict[str, Any]] = []
         garden = self._vault.settings.garden

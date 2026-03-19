@@ -387,6 +387,29 @@ class Vault:
         self._plugin_manager = pm
         self._event_bus = EventBus(self._engine, pm, sync=sync)
 
+    def _check_schema_current(self) -> bool:
+        """Return True if database schema is at the latest Alembic revision.
+
+        Returns True for pre-Alembic vaults (tables exist but no alembic_version
+        row) — UpgradeService.apply() handles stamping those.
+        """
+        from alembic.runtime.migration import MigrationContext
+        from alembic.script import ScriptDirectory
+
+        from ztlctl.infrastructure.database.migrations import build_config
+
+        db_path = self.root / ".ztlctl" / "ztlctl.db"
+        cfg = build_config(f"sqlite:///{db_path}")
+        script = ScriptDirectory.from_config(cfg)
+        head = script.get_current_head()
+        with self.engine.connect() as conn:
+            ctx = MigrationContext.configure(conn)
+            current = ctx.get_current_revision()
+        # Pre-Alembic vaults: tables exist but no version stamp → treat as current
+        if current is None:
+            return True
+        return current == head
+
     def find_content(self, *, content_type: str | None = None) -> list[Path]:
         """Discover content files in the vault."""
         return find_content_files(self.root, content_type=content_type)

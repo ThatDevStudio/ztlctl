@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from sqlalchemy import create_engine
+import pytest
+from sqlalchemy import create_engine, text
 
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.upgrade import UpgradeService
@@ -106,3 +107,56 @@ class TestTablesExist:
         mock_vault.root = tmp_path
         svc = UpgradeService(mock_vault)
         assert svc._tables_exist() is False
+
+
+# ---------------------------------------------------------------------------
+# _check_schema_current()
+# ---------------------------------------------------------------------------
+
+
+class TestCheckSchemaCurrent:
+    def test_check_schema_current_returns_true_when_at_head(self, vault: Vault) -> None:
+        """A vault stamped at head reports schema as current."""
+        # Stamp to head so alembic_version row exists and matches head
+        UpgradeService(vault).stamp_current()
+        assert vault._check_schema_current() is True
+
+    def test_check_schema_current_handles_pre_alembic_vault(self, vault: Vault) -> None:
+        """A vault with tables but no alembic_version row is treated as current (not stale).
+
+        The fixture vault starts unstamped (no alembic_version table), which is exactly
+        the pre-Alembic state — _check_schema_current() must return True (not stale).
+        """
+        # The fresh vault fixture has tables but no alembic_version table — pre-Alembic state.
+        # _check_schema_current() should treat None revision as current.
+        assert vault._check_schema_current() is True
+
+    def test_check_schema_current_returns_false_when_stale(self, vault: Vault) -> None:
+        """A vault with an outdated revision is reported as stale."""
+        # First stamp so alembic_version table exists, then overwrite with a stale revision
+        UpgradeService(vault).stamp_current()
+        with vault.engine.begin() as conn:
+            conn.execute(text("DELETE FROM alembic_version"))
+            conn.execute(text("INSERT INTO alembic_version (version_num) VALUES ('000_fake_old')"))
+        assert vault._check_schema_current() is False
+
+    def test_stale_schema_warning_on_vault_access(
+        self, vault_root: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Accessing AppContext.vault with a stale schema emits a warning to stderr."""
+        from ztlctl.commands._context import AppContext
+        from ztlctl.config.settings import ZtlSettings
+
+        settings = ZtlSettings.from_cli(vault_root=vault_root, no_reweave=True)
+        ctx = AppContext(settings)
+
+        with (
+            patch.object(Vault, "_check_schema_current", return_value=False),
+            patch.object(Vault, "init_event_bus"),
+        ):
+            v = ctx.vault  # trigger lazy init
+            assert v is not None
+
+        captured = capsys.readouterr()
+        assert "WARNING: Vault schema is out of date" in captured.err
+        assert "ztlctl upgrade" in captured.err
