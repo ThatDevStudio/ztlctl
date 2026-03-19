@@ -145,10 +145,3 @@ session_logs = Table(
 FTS5_CREATE_SQL = (
     "CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(id UNINDEXED, title, body)"
 )
-
-# sqlite-vec virtual table DDL — created when semantic search is enabled.
-# node_id maps to nodes.id; embedding dimension must match SearchConfig.embedding_dim.
-VEC_CREATE_SQL = (
-    "CREATE VIRTUAL TABLE IF NOT EXISTS vec_items USING vec0("
-    "node_id TEXT PRIMARY KEY, embedding FLOAT[384])"
-)
