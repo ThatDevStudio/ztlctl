@@ -9,12 +9,61 @@ the mcp package at import time.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from typing import Any, Literal
 
 from ztlctl.actions.definitions import ActionDefinition, ActionParam
 from ztlctl.actions.registry import get_action_registry
 from ztlctl.mcp.response import COMMON_ERROR_RECOVERY, McpResponse
+
+# ---------------------------------------------------------------------------
+# Token-budget support
+# ---------------------------------------------------------------------------
+
+#: Actions whose responses may contain large lists and benefit from truncation.
+BUDGET_AWARE_ACTIONS: frozenset[str] = frozenset(
+    {"list_items", "search", "vault_review", "decision_support"}
+)
+
+
+def _apply_token_budget(data: dict[str, Any], budget: int | None) -> dict[str, Any]:
+    """Truncate *data* so its serialised size fits within *budget* tokens.
+
+    - If *budget* is ``None``, return *data* unchanged.
+    - Estimates token count as ``len(json.dumps(data)) // 4``.
+    - If the estimate already fits, return *data* unchanged.
+    - Otherwise, find the first list-valued field and iteratively remove
+      trailing elements until the payload fits or the list is empty.
+    - Adds ``"truncated": True`` and ``"token_budget": budget`` to the
+      returned dict when truncation was applied.
+    """
+    if budget is None:
+        return data
+
+    serialized = json.dumps(data)
+    if len(serialized) // 4 <= budget:
+        return data
+
+    # Find first non-empty list field to truncate
+    list_key: str | None = None
+    for key, val in data.items():
+        if isinstance(val, list) and len(val) > 0:
+            list_key = key
+            break
+
+    if list_key is None:
+        # No list field to truncate — return unchanged
+        return data
+
+    truncated = {**data, list_key: list(data[list_key])}
+    while truncated[list_key] and len(json.dumps(truncated)) // 4 > budget:
+        truncated[list_key] = truncated[list_key][:-1]
+
+    truncated["truncated"] = True
+    truncated["token_budget"] = budget
+    return truncated
+
 
 # ---------------------------------------------------------------------------
 # Module-level vault reference (server-scoped, set once per create_server call)
@@ -114,18 +163,40 @@ def _make_tool_fn(
     - ``__annotations__`` == mapped from action.params
     - ``__kwdefaults__`` == defaults for optional params (or None if none)
 
+    For actions in ``BUDGET_AWARE_ACTIONS``, an additional ``token_budget``
+    keyword-only parameter (``int | None``, default ``None``) is injected.
+    When set, large list-valued fields in the response are truncated to fit.
+
     Note: ``functools.wraps`` is intentionally NOT used — it would overwrite
     the dynamically set ``__annotations__`` breaking ``inspect.signature()``.
     """
+    is_budget_aware = action.name in BUDGET_AWARE_ACTIONS
 
-    def tool_fn(**kwargs: Any) -> dict[str, Any]:
-        result = action.handler(vault, **kwargs)
-        return McpResponse.from_result(result).model_dump(exclude_none=True)
+    if is_budget_aware:
+
+        def tool_fn(**kwargs: Any) -> dict[str, Any]:
+            token_budget: int | None = kwargs.pop("token_budget", None)
+            result = action.handler(vault, **kwargs)
+            response = McpResponse.from_result(result).model_dump(exclude_none=True)
+            response["data"] = _apply_token_budget(response.get("data", {}), token_budget)
+            return response
+
+    else:
+
+        def tool_fn(**kwargs: Any) -> dict[str, Any]:  # type: ignore[misc]
+            result = action.handler(vault, **kwargs)
+            return McpResponse.from_result(result).model_dump(exclude_none=True)
+
+    annotations = {**_build_annotations(action.params), "return": dict}
+    defaults = _build_defaults(action.params)
+
+    if is_budget_aware:
+        annotations["token_budget"] = int | None
+        defaults["token_budget"] = None
 
     tool_fn.__name__ = action.name
     tool_fn.__doc__ = _render_action_doc(action)
-    tool_fn.__annotations__ = {**_build_annotations(action.params), "return": dict}
-    defaults = _build_defaults(action.params)
+    tool_fn.__annotations__ = annotations
     tool_fn.__kwdefaults__ = defaults if defaults else None
     return tool_fn
 

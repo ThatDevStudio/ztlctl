@@ -9,6 +9,8 @@ import pytest
 
 from ztlctl.actions.definitions import ActionDefinition, ActionParam
 from ztlctl.mcp.generator import (
+    BUDGET_AWARE_ACTIONS,
+    _apply_token_budget,
     _build_annotations,
     _make_tool_fn,
     _render_action_doc,
@@ -187,3 +189,79 @@ def test_render_action_doc_sections(dummy_action: ActionDefinition) -> None:
     assert "What it does:" in doc
     assert "Side effects:" in doc
     assert "Args:" in doc
+
+
+# ---------------------------------------------------------------------------
+# Tests — _apply_token_budget
+# ---------------------------------------------------------------------------
+
+
+def test_apply_token_budget_none() -> None:
+    """_apply_token_budget with None budget returns data unchanged."""
+    data = {"items": list(range(100))}
+    result = _apply_token_budget(data, None)
+    assert result is data  # exact same object — no copy
+
+
+def test_apply_token_budget_within() -> None:
+    """Small data within large budget returns data unchanged."""
+    data = {"items": [1, 2, 3]}
+    result = _apply_token_budget(data, 10000)
+    # unchanged (not truncated)
+    assert result.get("truncated") is None
+
+
+def test_apply_token_budget_truncates() -> None:
+    """Large data with small budget returns truncated data with 'truncated': True."""
+
+    big_list = list(range(500))
+    data = {"items": big_list}
+    budget = 10  # very small — forces truncation
+    result = _apply_token_budget(data, budget)
+    assert result.get("truncated") is True
+    assert result.get("token_budget") == budget
+    assert len(result["items"]) < len(big_list)
+
+
+def test_apply_token_budget_no_list() -> None:
+    """Data with no list field returns unchanged regardless of budget."""
+    data = {"count": 5, "status": "ok"}
+    result = _apply_token_budget(data, 1)
+    # No list field to truncate — returned as-is (may or may not have truncated key)
+    assert result.get("truncated") is None
+
+
+# ---------------------------------------------------------------------------
+# Tests — budget-aware tool injection
+# ---------------------------------------------------------------------------
+
+
+def test_budget_aware_actions_set() -> None:
+    """BUDGET_AWARE_ACTIONS contains exactly the four expected actions."""
+    assert BUDGET_AWARE_ACTIONS == {"list_items", "search", "vault_review", "decision_support"}
+
+
+def test_budget_aware_tool_has_token_budget_param(mock_vault: Any) -> None:
+    """Budget-aware tool 'list_items' has 'token_budget' in __annotations__."""
+    server = DummyServer()
+    generate_tools(server, mock_vault)
+    fn = server.tools["list_items"]
+    assert "token_budget" in fn.__annotations__
+
+
+def test_non_budget_tool_no_token_budget_param(mock_vault: Any) -> None:
+    """Non-budget tool 'create_note' does NOT have 'token_budget' in __annotations__."""
+    server = DummyServer()
+    generate_tools(server, mock_vault)
+    fn = server.tools["create_note"]
+    assert "token_budget" not in fn.__annotations__
+
+
+def test_budget_aware_tool_has_token_budget_kwdefault(mock_vault: Any) -> None:
+    """Budget-aware tool 'list_items' has 'token_budget': None in __kwdefaults__."""
+    server = DummyServer()
+    generate_tools(server, mock_vault)
+    fn = server.tools["list_items"]
+    assert fn.__kwdefaults__ is not None
+    assert fn.__kwdefaults__.get("token_budget") is None
+    assert "token_budget" in fn.__kwdefaults__
