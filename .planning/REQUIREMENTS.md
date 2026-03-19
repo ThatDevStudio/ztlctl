@@ -14,7 +14,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **HARD-03**: UX polish — CLI rough edges, missing flags, confusing output improvements, progressive disclosure consistency
 - [ ] **HARD-04**: Documentation audit — incorrect, missing, or unfriendly docs identified and fixed across README, help text, and inline docs
 - [ ] **HARD-05**: Test coverage gaps closed — session, reweave, check services lifted from coverage exclusion; plugin code (EventBus state machine, GitPlugin modes); MCP _impl functions tested
-- [ ] **HARD-06**: Performance bottleneck fixes — rebuild I/O parallelization via ThreadPoolExecutor, FTS5 batch BM25 scoring (single query vs per-candidate), betweenness centrality approximation (k parameter)
+- [x] **HARD-06**: Performance bottleneck fixes — rebuild I/O parallelization via ThreadPoolExecutor, FTS5 batch BM25 scoring (single query vs per-candidate), betweenness centrality approximation (k parameter)
 - [ ] **HARD-07**: Security fixes — Copier trust flag enforcement, MCP HTTP transport binding warning, git commit message newline sanitization
 - [ ] **HARD-08**: Vault schema versioning with v1→v2 migration path via upgrade command; forward-compatible schema markers
 - [x] **HARD-09**: NoteTypeDefinition as extensible primitive — formalizes note type + lifecycle transition map + Jinja2 template as one registrable unit; existing 4 content types (note, reference, task, garden) become built-in NoteTypeDefinitions
@@ -91,7 +91,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HARD-03 | Phase 1 | Pending |
 | HARD-04 | Phase 1 | Pending |
 | HARD-05 | Phase 1 | Pending |
-| HARD-06 | Phase 1 | Pending |
+| HARD-06 | Phase 1 | Complete |
 | HARD-07 | Phase 1 | Pending |
 | HARD-08 | Phase 1 | Pending |
 | HARD-09 | Phase 1 | Complete |

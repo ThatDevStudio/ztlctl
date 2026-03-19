@@ -123,7 +123,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Hardening | 1/5 | In Progress|  |
+| 1. Core Hardening | 2/5 | In Progress|  |
 | 2. Action Registry | 0/1 | Not started | - |
 | 3. MCP Surface Generation | 0/2 | Not started | - |
 | 4. CLI Surface Generation | 0/2 | Not started | - |
