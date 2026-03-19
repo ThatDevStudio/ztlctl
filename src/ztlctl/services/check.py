@@ -47,6 +47,7 @@ CAT_SCHEMA = "schema_integrity"
 CAT_GRAPH = "graph_health"
 CAT_STRUCTURAL = "structural_validation"
 CAT_GARDEN = "garden_health"
+CAT_SCHEMA_VERSION = "schema_version"
 
 
 class _ConsistencyReadError(ValueError):
@@ -79,6 +80,8 @@ class CheckService(BaseService):
     def check(self, *, min_severity: str = SEVERITY_WARNING) -> ServiceResult:
         """Report integrity issues without modifying anything."""
         issues: list[dict[str, Any]] = []
+        with trace_span("schema_version"):
+            issues.extend(self._check_schema_version())
         with self._vault.engine.connect() as conn:
             with trace_span("db_file_consistency"):
                 issues.extend(self._check_db_file_consistency(conn))
@@ -371,6 +374,24 @@ class CheckService(BaseService):
             "status": self._normalize_optional(fm.get("status")),
             "topic": self._normalize_optional(fm.get("topic")),
         }
+
+    def _check_schema_version(self) -> list[dict[str, Any]]:
+        """Check if vault schema is at the latest Alembic revision."""
+        issues: list[dict[str, Any]] = []
+        if not self._vault._check_schema_current():
+            issues.append(
+                {
+                    "category": CAT_SCHEMA_VERSION,
+                    "severity": SEVERITY_ERROR,
+                    "node_id": None,
+                    "message": (
+                        "Vault schema is out of date. "
+                        "Run 'ztlctl upgrade' to apply pending migrations."
+                    ),
+                    "fix": "Run: ztlctl upgrade",
+                }
+            )
+        return issues
 
     def _check_db_file_consistency(self, conn: Connection) -> list[dict[str, Any]]:
         """Category 1: DB rows vs. files on disk."""
