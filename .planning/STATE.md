@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-19T21:03:29.050Z"
+stopped_at: Completed 02-action-registry/02-02-PLAN.md
+last_updated: "2026-03-19T21:30:07.904Z"
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 9
+  completed_plans: 7
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 01 — core-hardening
+**Current focus:** Phase 02 — action-registry
 
 ## Current Position
 
-Phase: 01 (core-hardening) — COMPLETE
-Plan: 5 of 5 (All plans completed)
+Phase: 02 (action-registry) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -48,6 +48,8 @@ Plan: 5 of 5 (All plans completed)
 *Updated after each plan completion*
 | Phase 01-core-hardening P02 | 10 | 2 tasks | 6 files |
 | Phase 01-core-hardening P04 | 95 | 2 tasks | 8 files |
+| Phase 02-action-registry P01 | 3 | 2 tasks | 6 files |
+| Phase 02-action-registry P02 | 3 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -70,6 +72,10 @@ Recent decisions affecting current work:
 - [Phase 01-05]: Schema version check runs outside engine.connect() block in CheckService to avoid nested connection issues
 - [Phase 01-core-hardening]: Coverage omit list reduced to only __main__.py — all service/plugin/MCP modules now measured at 87.66% overall
 - [Phase 01-core-hardening]: DummyServer pattern: call registered handlers immediately to cover inner closure bodies without mcp package
+- [Phase 02-action-registry]: ActionParam.handler typed as Callable[..., Any] to avoid circular import with ServiceResult
+- [Phase 02-action-registry]: No built-in action registrations in plan 02-01 — controllers register their own definitions in plan 02-02
+- [Phase 02-action-registry]: ReweaveController uses actual service signature (content_id, dry_run, min_score_override) — plan example had incorrect params
+- [Phase 02-action-registry]: Controllers construct services per-call (not instance variables) — avoids stale service state across calls
 
 ### Pending Todos
 
@@ -81,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T21:03:29.047Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-action-registry/02-CONTEXT.md
+Last session: 2026-03-19T21:30:07.902Z
+Stopped at: Completed 02-action-registry/02-01-PLAN.md
+Resume file: None
