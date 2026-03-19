@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.11.0 (2026-03-19)
+
+### Feat
+
+- **actions**: add ActionRegistry, controller layer, and core hardening (Phases 1-2) (#104)
+
 ## v1.10.0 (2026-03-03)
 
 ### Feat
