@@ -80,11 +80,11 @@ Plans:
   2. Complex commands (batch, init wizard, serve, interactive create) retain hand-written implementations via documented escape hatch pattern
   3. Generated CLI commands support --verbose, --json, progressive disclosure, and exit codes identically to hand-written predecessors
   4. The parity test suite from Phase 3 continues to pass, confirming CLI/MCP equivalence is maintained by construction
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — ActionDefinition CLI metadata + CLI command generator module + unit tests (ACTN-04, ACTN-05)
+- [ ] 04-02-PLAN.md — Generator wiring, command file migration, dynamic catalog, CLI parity tests (ACTN-04, ACTN-05)
 
 ### Phase 5: Plugin Formalization
 **Goal**: Third-party plugin authors have a stable, versioned API to register custom note types, actions, hooks, and configuration
@@ -122,7 +122,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
