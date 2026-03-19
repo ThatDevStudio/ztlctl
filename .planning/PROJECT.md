@@ -34,14 +34,14 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 <!-- Current scope. Building toward these. -->
 
-**Core Hardening:**
-- [ ] Systematic audit and fix of technical debt (dead code, unenforced config, stale indexes)
-- [ ] Data model consistency (note lifecycle formalization, edge cases in status transitions)
-- [ ] UX polish (CLI rough edges, confusing output, missing flags)
-- [ ] Documentation audit (incorrect, missing, or unfriendly docs)
-- [ ] Test coverage gaps closed (session, reweave, check, plugins, MCP _impl functions)
-- [ ] Performance bottleneck fixes (rebuild I/O, per-candidate FTS5, betweenness centrality)
-- [ ] Security hardening (Copier trust, MCP HTTP warnings, git commit message sanitization)
+**Core Hardening:** ✓ Validated in Phase 1
+- [x] Systematic audit and fix of technical debt (dead code, unenforced config, stale indexes)
+- [x] Data model consistency (NoteTypeDefinition formalization, lifecycle transition maps)
+- [x] UX polish (CLI help text, README command reference)
+- [x] Documentation audit (README updated, serve warnings added)
+- [x] Test coverage gaps closed (1553 tests, 87.66% coverage, omit list cleared)
+- [x] Performance bottleneck fixes (parallel rebuild I/O, batch FTS5, betweenness k-approx)
+- [x] Security hardening (git sanitization, MCP HTTP warnings, Copier trust documented)
 
 **Plugin System Formalization:**
 - [ ] Formalize "note" and "note lifecycle" as extensible core primitives
@@ -95,9 +95,9 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | CLI/MCP as auto-generated presentation layers | Define-once, use-everywhere — reduces duplication, ensures parity | — Pending |
-| Formalize note lifecycle as extensible primitive | Plugins need to define custom note types with custom lifecycles | — Pending |
+| Formalize note lifecycle as extensible primitive | Plugins need to define custom note types with custom lifecycles | ✓ Good — NoteTypeDefinition + NoteTypeRegistry in domain/registry.py |
 | Research Agent SDK/protocol viability | User's instinct is define-once interfaces; SDK adds value only if research proves it | — Pending |
 | Core hardening before plugin formalization | Tool must be standalone-capable before extending; fixes foundation first | — Pending |
 
 ---
-*Last updated: 2026-03-19 after initialization*
+*Last updated: 2026-03-19 after Phase 1 completion*
