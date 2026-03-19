@@ -866,3 +866,34 @@ class TestExtractDecision:
         assert result.ok
         # Should pick up only the decision_made entry (not regular, not start/close)
         assert result.data["entries_extracted"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Named acceptance-criteria tests (required by plan 01-04)
+# ---------------------------------------------------------------------------
+
+
+class TestSessionNamedAcceptanceCriteria:
+    """Named tests required by plan acceptance criteria for coverage gating."""
+
+    def test_session_start_creates_log_entry(self, vault: Vault) -> None:
+        """start() inserts a session_start lifecycle row in session_logs."""
+        data = SessionService(vault).start("AC Start Test").data
+        with vault.engine.connect() as conn:
+            row = conn.execute(
+                select(session_logs).where(
+                    session_logs.c.session_id == data["id"],
+                    session_logs.c.type == "session_start",
+                )
+            ).first()
+        assert row is not None
+        assert "AC Start Test" in row.summary
+
+    def test_session_close_runs_enrichment(self, vault: Vault) -> None:
+        """close() returns enrichment metrics: reweave_count, orphan_count, integrity_issues."""
+        start_session(vault, "AC Close Test")
+        result = SessionService(vault).close()
+        assert result.ok
+        assert "reweave_count" in result.data
+        assert "orphan_count" in result.data
+        assert "integrity_issues" in result.data

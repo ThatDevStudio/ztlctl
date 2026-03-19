@@ -851,3 +851,65 @@ class TestBackupPruning:
         svc._prune_backups(backup_dir)
         remaining = list(backup_dir.glob("ztlctl-*.db"))
         assert len(remaining) == max_count
+
+    def test_backup_retention_days_prunes_old_backups(self, vault: Vault) -> None:
+        """Backups older than retention_days are pruned when max_count is not the binding limit."""
+        import time
+
+        svc = CheckService(vault)
+        backup_dir = vault.root / ".ztlctl" / "backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        db_path = vault.root / ".ztlctl" / "ztlctl.db"
+
+        # Create a backup that appears very old (mtime far in the past)
+        old_backup = backup_dir / "ztlctl-20200101T000000.db"
+        old_backup.write_bytes(db_path.read_bytes())
+        # Set mtime to 400 days ago to ensure it's beyond any retention window
+        old_mtime = time.time() - (400 * 86400)
+        import os
+
+        os.utime(old_backup, (old_mtime, old_mtime))
+
+        # Create a recent backup
+        new_backup = backup_dir / "ztlctl-20260101T000000.db"
+        new_backup.write_bytes(db_path.read_bytes())
+
+        # Prune — old backup should be removed, new backup kept
+        svc._prune_backups(backup_dir)
+        remaining = list(backup_dir.glob("ztlctl-*.db"))
+        remaining_names = [r.name for r in remaining]
+
+        # Old backup should be pruned (400 days old)
+        assert "ztlctl-20200101T000000.db" not in remaining_names
+        # New backup should remain
+        assert "ztlctl-20260101T000000.db" in remaining_names
+
+
+class TestRebuildCompleteness:
+    """Additional named rebuild tests for plan acceptance criteria."""
+
+    def test_rebuild_completes_with_content(self, vault: Vault) -> None:
+        """rebuild() completes successfully and returns correct counts when content exists."""
+        # Create several notes and a reference
+        data_a = create_note(vault, "Rebuild Content A", tags=["domain/topic"])
+        data_b = create_note(vault, "Rebuild Content B", tags=["domain/topic"])
+        create_reference(vault, "Rebuild Reference C")
+
+        # Wipe the DB to force rebuild
+        with vault.engine.begin() as conn:
+            conn.execute(text("DELETE FROM nodes_fts"))
+            conn.execute(delete(node_tags))
+            conn.execute(delete(edges))
+            conn.execute(delete(nodes))
+
+        result = CheckService(vault).rebuild()
+
+        assert result.ok
+        assert result.data["nodes_indexed"] == 3
+
+        # Verify all nodes recovered
+        with vault.engine.connect() as conn:
+            recovered_a = conn.execute(select(nodes.c.id).where(nodes.c.id == data_a["id"])).first()
+            recovered_b = conn.execute(select(nodes.c.id).where(nodes.c.id == data_b["id"])).first()
+        assert recovered_a is not None
+        assert recovered_b is not None
