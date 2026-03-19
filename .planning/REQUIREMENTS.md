@@ -86,39 +86,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HARD-01 | — | Pending |
-| HARD-02 | — | Pending |
-| HARD-03 | — | Pending |
-| HARD-04 | — | Pending |
-| HARD-05 | — | Pending |
-| HARD-06 | — | Pending |
-| HARD-07 | — | Pending |
-| HARD-08 | — | Pending |
-| HARD-09 | — | Pending |
-| ACTN-01 | — | Pending |
-| ACTN-02 | — | Pending |
-| ACTN-03 | — | Pending |
-| ACTN-04 | — | Pending |
-| ACTN-05 | — | Pending |
-| PLUG-01 | — | Pending |
-| PLUG-02 | — | Pending |
-| PLUG-03 | — | Pending |
-| PLUG-04 | — | Pending |
-| PLUG-05 | — | Pending |
-| PLUG-06 | — | Pending |
-| PLUG-07 | — | Pending |
-| AGNT-01 | — | Pending |
-| AGNT-02 | — | Pending |
-| AGNT-03 | — | Pending |
-| AGNT-04 | — | Pending |
-| SECU-01 | — | Pending |
-| SECU-02 | — | Pending |
+| HARD-01 | Phase 1 | Pending |
+| HARD-02 | Phase 1 | Pending |
+| HARD-03 | Phase 1 | Pending |
+| HARD-04 | Phase 1 | Pending |
+| HARD-05 | Phase 1 | Pending |
+| HARD-06 | Phase 1 | Pending |
+| HARD-07 | Phase 1 | Pending |
+| HARD-08 | Phase 1 | Pending |
+| HARD-09 | Phase 1 | Pending |
+| ACTN-01 | Phase 2 | Pending |
+| ACTN-02 | Phase 2 | Pending |
+| ACTN-03 | Phase 3 | Pending |
+| ACTN-04 | Phase 4 | Pending |
+| ACTN-05 | Phase 4 | Pending |
+| PLUG-01 | Phase 5 | Pending |
+| PLUG-02 | Phase 5 | Pending |
+| PLUG-03 | Phase 5 | Pending |
+| PLUG-04 | Phase 3 | Pending |
+| PLUG-05 | Phase 5 | Pending |
+| PLUG-06 | Phase 5 | Pending |
+| PLUG-07 | Phase 5 | Pending |
+| AGNT-01 | Phase 6 | Pending |
+| AGNT-02 | Phase 3 | Pending |
+| AGNT-03 | Phase 6 | Pending |
+| AGNT-04 | Phase 6 | Pending |
+| SECU-01 | Phase 6 | Pending |
+| SECU-02 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
-- Mapped to phases: 0
-- Unmapped: 27 ⚠️
+- Mapped to phases: 27
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-19 after initial definition*
+*Last updated: 2026-03-19 after roadmap creation*
