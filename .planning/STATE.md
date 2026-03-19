@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 1 context gathered
-last_updated: "2026-03-19T20:21:15.000Z"
+stopped_at: Completed 01-02-PLAN.md (Tech debt and security hardening)
+last_updated: "2026-03-19T20:24:02.834Z"
 progress:
   total_phases: 6
   completed_phases: 0
@@ -46,6 +46,7 @@ Plan: 4 of 5 (Plans 01-03 completed)
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-core-hardening P02 | 10 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,8 @@ Recent decisions affecting current work:
 - ThreadPoolExecutor reads only (writes remain sequential) for SQLite concurrency safety in rebuild()
 - betweenness centrality: k=None for <=500 nodes (exact), k=500+seed=42 for larger graphs
 - _fts5_escape() wraps terms in double-quotes and escapes internal double-quotes per FTS5 spec
+- [Phase 01-core-hardening]: Warned on sse and streamable-http transports in serve.py — both are HTTP-based and unauthenticated
+- [Phase 01-core-hardening]: Copier uses unsafe= not trust= parameter; current default unsafe=False is already safe — documented rather than changed
 
 ### Pending Todos
 
@@ -73,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T20:21:15Z
-Stopped at: Completed 01-03-PLAN.md (Performance bottleneck fixes)
-Resume file: .planning/phases/01-core-hardening/01-04-PLAN.md
+Last session: 2026-03-19T20:23:57.525Z
+Stopped at: Completed 01-02-PLAN.md (Tech debt and security hardening)
+Resume file: None
