@@ -88,13 +88,13 @@ All commit messages AND PR titles MUST follow the conventional commits format:
 | `build` | None | Build system or dependencies |
 | `chore` | None | Maintenance tasks |
 
-### Feature Development Workflow
+### Feature Development Lifecycle
 
-1. **Pull latest develop** — if diverged, reset to match origin:
+1. **Pull latest develop:**
    ```bash
    git checkout develop && git pull origin develop
    ```
-2. **Create feature/fix branch:**
+2. **Create feature/fix branch from develop** — never stack branches on unmerged work:
    ```bash
    git checkout -b feature/<name>
    ```
@@ -109,23 +109,24 @@ All commit messages AND PR titles MUST follow the conventional commits format:
    git push -u origin feature/<name>
    gh pr create --base develop --title "feat(scope): description"
    ```
-   Provide the PR link for the user to review.
-6. **Address review feedback** — push additional commits to the same branch
-7. Wait for user to review, approve, and squash-merge
+6. **Wait for all CI workflows to pass** — check with `gh pr checks <number> --watch`. If any check fails, fix the issue, push, and wait again. Only declare the PR ready for review once ALL checks are green.
+7. **User reviews, approves, and squash-merges** — address review feedback with additional commits
+8. **Watch the release pipeline after merge** — check with `gh run list --branch develop`. If the release pipeline fails, create a `fix/*` branch from develop, fix the issue, and open a new PR (repeating steps 4-7).
+9. **Publish gate** — once the GitHub Release is created, the publish workflow triggers (PyPI, manual approval). Notify the user that publish is ready for approval. User approves or says "skip".
+10. **Cleanup** — only after publish approval/skip, delete all involved branches (feature + any fix branches) locally and remotely, then pull develop:
+    ```bash
+    git checkout develop && git pull origin develop
+    git branch -D feature/<name> && git push origin --delete feature/<name>
+    ```
 
 **Do NOT use git worktrees** — work directly on feature/fix branches in the main repo checkout.
-
-### Post-Release
-
-After a version-bumping merge, the release workflow pushes a version bump commit directly to `develop`. Pull before starting new work:
-
-```bash
-git checkout develop && git pull origin develop
-```
 
 ### What NOT to Do
 
 - **Don't commit directly to `develop`** — always use feature/fix branches with PRs
+- **Don't stack branches** — never create a branch on top of an unmerged branch; always branch from develop
+- **Don't declare a PR ready before CI passes** — wait for all workflows to complete successfully
+- **Don't consider work done after merge** — watch the release pipeline and fix failures before moving on
 - **Don't use non-conventional commit messages** — pre-commit hook and CI will reject them
 - **Don't use non-conventional PR titles** — squash-merge uses the PR title as the commit message
 - **Don't manually edit version numbers** — `cz bump` manages `pyproject.toml` and `src/ztlctl/__init__.py`
@@ -134,14 +135,14 @@ git checkout develop && git pull origin develop
 - **Don't merge PRs** — the user reviews and merges; Claude only creates PRs and addresses feedback
 - **Don't use git worktrees** — work directly on feature/fix branches
 - **Don't use `uv pip install`** — always use `uv add` (or `uv add --group <group>` for dev deps)
+- **Don't leave stale branches** — delete all branches (feature + fix) after publish approval/skip
 
 ## CI/CD Pipeline
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| `ci.yml` | PR/push to `develop` | Lint, test, typecheck, security audit, commit lint |
-| `release.yml` | Push to `develop` | Auto version bump, changelog, tag, GitHub Release (if version-bumping commits) |
-| `publish.yml` | GitHub Release published | Build and publish to PyPI via OIDC (manual approval) |
+| `pr-ci.yml` | PR to `develop` | Lint, test, typecheck, security audit, commit lint |
+| `release-pipeline.yml` | Push to `develop` | Validate → version bump → changelog → tag → GitHub Release → PyPI publish (manual approval) → Homebrew tap sync |
 
 ## Architecture
 
