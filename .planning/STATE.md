@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-05-PLAN.md (Schema versioning and documentation audit)
-last_updated: "2026-03-19T20:38:00.000Z"
+stopped_at: Completed 01-04-PLAN.md (Coverage gap closure — all service/plugin/MCP omits removed)
+last_updated: "2026-03-19T20:42:46.229Z"
 progress:
   total_phases: 6
   completed_phases: 1
@@ -47,6 +47,7 @@ Plan: 5 of 5 (All plans completed)
 
 *Updated after each plan completion*
 | Phase 01-core-hardening P02 | 10 | 2 tasks | 6 files |
+| Phase 01-core-hardening P04 | 95 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Recent decisions affecting current work:
 - [Phase 01-core-hardening]: Copier uses unsafe= not trust= parameter; current default unsafe=False is already safe — documented rather than changed
 - [Phase 01-05]: Pre-Alembic vaults (None revision, tables exist) treated as current — UpgradeService.apply() handles stamping, _check_schema_current() should not block on this case
 - [Phase 01-05]: Schema version check runs outside engine.connect() block in CheckService to avoid nested connection issues
+- [Phase 01-core-hardening]: Coverage omit list reduced to only __main__.py — all service/plugin/MCP modules now measured at 87.66% overall
+- [Phase 01-core-hardening]: DummyServer pattern: call registered handlers immediately to cover inner closure bodies without mcp package
 
 ### Pending Todos
 
@@ -78,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T20:38:00.000Z
-Stopped at: Completed 01-05-PLAN.md (Schema versioning and documentation audit)
+Last session: 2026-03-19T20:42:46.226Z
+Stopped at: Completed 01-04-PLAN.md (Coverage gap closure — all service/plugin/MCP omits removed)
 Resume file: None
