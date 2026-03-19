@@ -456,11 +456,11 @@ class ReweaveService(BaseService):
         if not words:
             return {}
 
-        # Quote each word and join with OR for broader matching
-        quoted = [f'"{w}"' for w in words if w.strip()]
-        if not quoted:
+        # Escape each word and join with OR for broader matching
+        escaped = [_fts5_escape(w) for w in words if w.strip()]
+        if not escaped:
             return {}
-        fts_query = " OR ".join(quoted)
+        fts_query = " OR ".join(escaped)
 
         candidate_ids = {str(c.id) for c in candidates}
 
@@ -808,6 +808,11 @@ class ReweaveService(BaseService):
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
+
+
+def _fts5_escape(term: str) -> str:
+    """Escape a term for safe FTS5 MATCH usage."""
+    return '"' + term.replace('"', '""') + '"'
 
 
 def _jaccard(set_a: set[str], set_b: set[str]) -> float:

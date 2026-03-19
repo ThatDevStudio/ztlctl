@@ -420,3 +420,18 @@ class TestGitPluginErrors:
             tags=[],
         )
         # No error raised
+
+
+# ---------------------------------------------------------------------------
+# Tests — _sanitize_for_commit
+# ---------------------------------------------------------------------------
+
+
+def test_sanitize_for_commit_strips_newlines():
+    """_sanitize_for_commit removes characters that could break git commit messages."""
+    from ztlctl.plugins.builtins.git import _sanitize_for_commit
+
+    assert _sanitize_for_commit("hello\nworld") == "hello world"
+    assert _sanitize_for_commit("hello\rworld") == "hello world"
+    assert _sanitize_for_commit("hello\0world") == "helloworld"
+    assert _sanitize_for_commit("clean text") == "clean text"

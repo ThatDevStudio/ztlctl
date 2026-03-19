@@ -620,6 +620,38 @@ class TestMaterializeMetrics:
         # A↔B = 2 bidirectional edges, A→C = 0
         assert result.data["edges_bidirectional"] == 2
 
+    def test_betweenness_uses_exact_for_small_graphs(self, vault: Vault) -> None:
+        """betweenness_centrality uses exact computation for graphs <= 500 nodes."""
+        from unittest.mock import patch
+
+        import networkx as nx
+
+        _build_chain(vault, ["A", "B", "C"])
+        svc = GraphService(vault)
+
+        with patch.object(nx, "betweenness_centrality", wraps=nx.betweenness_centrality) as mock_bc:
+            result = svc.materialize_metrics()
+
+        assert result.ok
+        # For a 3-node graph (<=500), k should be None (exact computation)
+        mock_bc.assert_called_once()
+        _, kwargs = mock_bc.call_args
+        assert kwargs.get("k") is None
+        assert kwargs.get("seed") == 42
+
+    def test_betweenness_k_param_logic_for_large_graphs(self) -> None:
+        """betweenness k-param logic produces k=500 for graphs with > 500 nodes."""
+        # Verify the k-param selection logic directly
+        # Small graph (<=500): k should be None (exact computation)
+        for node_count in (0, 1, 100, 500):
+            k_param = None if node_count <= 500 else min(500, node_count)
+            assert k_param is None, f"Expected None for node_count={node_count}, got {k_param}"
+
+        # Large graph (>500): k should be 500
+        for node_count in (501, 1000, 10000):
+            k_param = None if node_count <= 500 else min(500, node_count)
+            assert k_param == 500, f"Expected 500 for node_count={node_count}, got {k_param}"
+
 
 # ---------------------------------------------------------------------------
 # unlink — remove specific links

@@ -24,6 +24,12 @@ hookimpl = pluggy.HookimplMarker("ztlctl")
 
 logger = logging.getLogger(__name__)
 
+
+def _sanitize_for_commit(text: str) -> str:
+    """Remove newlines and null bytes from user-supplied text for commit messages."""
+    return text.replace("\n", " ").replace("\r", " ").replace("\0", "")
+
+
 # Standard .gitignore content for ztlctl vaults
 _GITIGNORE_CONTENT = """\
 # ztlctl vault gitignore
@@ -69,7 +75,10 @@ class GitPlugin:
             return
         self._git_add(path)
         if not self._config.batch_commits:
-            self._git_commit(f"feat: create {content_type} {content_id} — {title}")
+            self._git_commit(
+                f"feat: create {content_type} {_sanitize_for_commit(content_id)}"
+                f" — {_sanitize_for_commit(title)}"
+            )
 
     @hookimpl
     def post_update(
@@ -85,7 +94,7 @@ class GitPlugin:
         self._git_add(path)
         if not self._config.batch_commits:
             fields = ", ".join(fields_changed)
-            self._git_commit(f"docs: update {content_id} ({fields})")
+            self._git_commit(f"docs: update {_sanitize_for_commit(content_id)} ({fields})")
 
     @hookimpl
     def post_close(
@@ -100,7 +109,9 @@ class GitPlugin:
             return
         self._git_add(path)
         if not self._config.batch_commits:
-            self._git_commit(f"docs: close {content_id} — {summary}")
+            self._git_commit(
+                f"docs: close {_sanitize_for_commit(content_id)} — {_sanitize_for_commit(summary)}"
+            )
 
     @hookimpl
     def post_reweave(

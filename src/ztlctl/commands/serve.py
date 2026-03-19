@@ -39,5 +39,12 @@ def serve(app: object, transport: str, host: str, port: int) -> None:
     from ztlctl.commands._context import AppContext
 
     assert isinstance(app, AppContext)
+
+    if transport in ("sse", "streamable-http"):
+        click.echo(
+            "WARNING: HTTP transport has no authentication. Only use on trusted local networks.",
+            err=True,
+        )
+
     server = create_server(vault_root=app.settings.vault_root, host=host, port=port)
     server.run(transport=transport)
