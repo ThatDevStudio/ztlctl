@@ -48,10 +48,13 @@ Plans:
   1. ActionDefinition dataclass captures operation name, typed parameters, service method binding, and metadata for both CLI and MCP generation
   2. ActionRegistry collects all core operations, validates uniqueness, and provides lookup by name
   3. All existing service operations that have CLI commands or MCP tools are registered as ActionDefinitions with correct parameter types and metadata
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md — ActionParam + ActionDefinition + ActionRegistry infrastructure (ACTN-01, ACTN-02)
+- [ ] 02-02-PLAN.md — BaseController + read-heavy controllers (Check, Upgrade, Export, Graph, Vector, Reweave) (ACTN-02)
+- [ ] 02-03-PLAN.md — Write-heavy + complex controllers (Create, Update, Query, Session, Ingest, Workflow, Init) (ACTN-02)
+- [ ] 02-04-PLAN.md — Core registration of all ~50 ActionDefinitions + integration tests (ACTN-01, ACTN-02)
 
 ### Phase 3: MCP Surface Generation
 **Goal**: MCP tools are auto-generated from the ActionRegistry, replacing hand-written registration and achieving complete parity with CLI capabilities
@@ -124,7 +127,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Hardening | 4/5 | In Progress|  |
-| 2. Action Registry | 0/1 | Not started | - |
+| 2. Action Registry | 0/4 | Not started | - |
 | 3. MCP Surface Generation | 0/2 | Not started | - |
 | 4. CLI Surface Generation | 0/2 | Not started | - |
 | 5. Plugin Formalization | 0/3 | Not started | - |
