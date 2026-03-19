@@ -31,12 +31,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. NoteTypeDefinition exists as a registrable primitive — the four built-in content types (note, reference, task, garden) are defined as NoteTypeDefinitions with lifecycle transition maps
   4. CLI help text, README, and inline docs are accurate and consistent with actual behavior
   5. Performance-critical paths (rebuild, FTS5 scoring, betweenness centrality) are measurably faster than v1 baselines
-**Plans**: TBD
+**Plans**: 5 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md — NoteTypeDefinition + NoteTypeRegistry (HARD-02, HARD-09)
+- [ ] 01-02-PLAN.md — Tech debt cleanup + security fixes (HARD-01, HARD-07)
+- [ ] 01-03-PLAN.md — Performance bottleneck fixes (HARD-06)
+- [ ] 01-04-PLAN.md — Test coverage gaps closed (HARD-05)
+- [ ] 01-05-PLAN.md — Schema versioning + UX/docs audit (HARD-08, HARD-03, HARD-04)
 
 ### Phase 2: Action Registry
 **Goal**: Every core operation is described as a declarative ActionDefinition in a central registry, ready for presentation layer generation
@@ -121,7 +123,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Hardening | 0/3 | Not started | - |
+| 1. Core Hardening | 0/5 | Planning complete | - |
 | 2. Action Registry | 0/1 | Not started | - |
 | 3. MCP Surface Generation | 0/2 | Not started | - |
 | 4. CLI Surface Generation | 0/2 | Not started | - |
