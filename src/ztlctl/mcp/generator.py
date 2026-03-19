@@ -158,6 +158,57 @@ def _register_plugin_tools(server: Any, vault: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Catalog compatibility shim
+# ---------------------------------------------------------------------------
+#
+# ``tool_catalog()`` and ``common_error_recovery()`` provide the same
+# TypedDict-shaped data that the old ``mcp/tools.py`` exported.  Callers
+# that consumed the old module (resources.py, prompts.py, catalogs.py,
+# test_prompts.py) can import from here without behavioural change.
+
+
+def _action_to_catalog_entry(action: ActionDefinition) -> dict[str, Any]:
+    """Convert an ActionDefinition to a legacy ToolCatalogEntry-shaped dict."""
+    return {
+        "name": action.name,
+        "category": action.category,
+        "description": action.description,
+        "when_to_use": action.mcp_when_to_use,
+        "avoid_when": action.mcp_avoid_when,
+        "side_effect": action.side_effect,
+        "common_errors": action.mcp_common_errors,
+        "args_guidance": {p.name: p.description for p in action.params if p.description},
+    }
+
+
+def tool_catalog(vault: Any = None) -> tuple[dict[str, Any], ...]:
+    """Return the MCP tool catalog as TypedDict-shaped dicts.
+
+    Compatibility shim — replaces ``mcp/tools.tool_catalog()``.
+    Plugin contributions are included when *vault* provides a
+    ``plugin_manager`` with ``mcp_tool_contributions()``.
+    """
+    registry = get_action_registry()
+    entries = [_action_to_catalog_entry(a) for a in registry.list_actions()]
+
+    plugin_manager = getattr(vault, "plugin_manager", None) if vault is not None else None
+    if plugin_manager is not None:
+        reserved = {a.name for a in registry.list_actions()}
+        for contribution in plugin_manager.mcp_tool_contributions(reserved_names=reserved):
+            entries.append(contribution.catalog_entry)
+
+    return tuple(entries)
+
+
+def common_error_recovery() -> dict[str, str]:
+    """Return shared recovery guidance for MCP-exposed error codes.
+
+    Compatibility shim — replaces ``mcp/tools.common_error_recovery()``.
+    """
+    return dict(COMMON_ERROR_RECOVERY)
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 

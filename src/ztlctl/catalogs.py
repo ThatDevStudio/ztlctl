@@ -113,9 +113,9 @@ def cli_command_catalog() -> tuple[CliCommandCatalogEntry, ...]:
 
 def mcp_tool_catalog(vault: object | None = None) -> tuple[ToolCatalogEntry, ...]:
     """Return the authoritative MCP tool catalog."""
-    from ztlctl.mcp.tools import tool_catalog
+    from ztlctl.mcp.generator import tool_catalog
 
-    return tool_catalog(vault)
+    return tool_catalog(vault)  # type: ignore[return-value]
 
 
 def mcp_resource_catalog(vault: object | None = None) -> tuple[ResourceCatalogEntry, ...]:

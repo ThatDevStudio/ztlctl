@@ -248,7 +248,7 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
 
     Single-fetch onboarding payload for agents using the MCP server.
     """
-    from ztlctl.mcp.tools import common_error_recovery, tool_catalog
+    from ztlctl.mcp.generator import common_error_recovery, tool_catalog
 
     grouped: dict[str, list[dict[str, Any]]] = {}
     for tool in tool_catalog(_vault):
@@ -288,27 +288,23 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
     workflow_examples = {
         "capture": [
             {
-                "tool": "garden_seed",
+                "tool": "create_note",
                 "notes": (
-                    "Fastest path for a raw idea. Domain/scope tags are recommended but "
-                    "not required."
+                    "Fastest path for a raw idea. Use maturity='seed' for quick captures. "
+                    "Domain/scope tags are recommended but not required."
                 ),
                 "recommended_args": {"title": "Quick idea"},
             },
             {
-                "tool": "ingest_source",
+                "tool": "ingest_text",
                 "notes": (
                     "When an agent fetched or extracted a source externally, normalize it into "
                     "a source bundle and ingest it as a structured reference."
                 ),
                 "recommended_args": {
-                    "input_kind": "text",
-                    "content": "Normalized source text",
+                    "title": "Captured Source",
+                    "body_text": "Normalized source text",
                     "target_type": "reference",
-                    "source_bundle": {
-                        "source_kind": "web",
-                        "capture_agent": "agent-name",
-                    },
                 },
             },
             {
@@ -319,7 +315,7 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
         ],
         "research_session": [
             {
-                "tool": "create_log",
+                "tool": "start",
                 "notes": "Open a tracked session before recording sources and synthesis.",
                 "recommended_args": {"topic": "research-topic"},
             },
@@ -329,16 +325,15 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
                 "recommended_args": {"title": "Source title", "url": "https://example.com/source"},
             },
             {
-                "tool": "ingest_source",
+                "tool": "ingest_text",
                 "notes": (
                     "Prefer this when the agent already has normalized text and structured "
                     "bundle metadata from web or multimodal capture."
                 ),
                 "recommended_args": {
-                    "input_kind": "text",
-                    "content": "Normalized source text",
+                    "title": "Captured Source",
+                    "body_text": "Normalized source text",
                     "target_type": "reference",
-                    "source_bundle": {"source_kind": "pdf"},
                 },
             },
             {
@@ -355,7 +350,7 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
                 "recommended_args": {},
             },
             {
-                "tool": "session_close",
+                "tool": "close",
                 "notes": "Close the session with a short summary when done.",
                 "recommended_args": {"summary": "Key findings and next actions."},
             },
@@ -367,7 +362,7 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
                 "recommended_args": {"query": "topic keywords", "limit": 10},
             },
             {
-                "tool": "get_related",
+                "tool": "related",
                 "notes": "Inspect nearby graph context around a promising result.",
                 "recommended_args": {"content_id": "NOTE-0001", "depth": 2, "top": 10},
             },
@@ -395,12 +390,12 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
                 "recommended_args": {"top": 10, "stale_days": 7},
             },
             {
-                "tool": "graph_gaps",
+                "tool": "gaps",
                 "notes": "Find disconnected areas that likely need linking.",
                 "recommended_args": {"top": 20},
             },
             {
-                "tool": "graph_bridges",
+                "tool": "bridges",
                 "notes": "Identify notes that already connect clusters well.",
                 "recommended_args": {"top": 20},
             },

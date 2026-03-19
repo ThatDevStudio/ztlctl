@@ -8,6 +8,7 @@ import pytest
 
 from ztlctl.config.settings import ZtlSettings
 from ztlctl.infrastructure.vault import Vault
+from ztlctl.mcp.generator import tool_catalog
 from ztlctl.mcp.prompts import (
     capture_multimodal_source_impl,
     capture_web_source_impl,
@@ -22,7 +23,6 @@ from ztlctl.mcp.prompts import (
     vault_orientation_impl,
 )
 from ztlctl.mcp.resources import resource_catalog
-from ztlctl.mcp.tools import tool_catalog
 
 
 @pytest.fixture
