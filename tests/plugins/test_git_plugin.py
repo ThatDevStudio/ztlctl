@@ -423,6 +423,63 @@ class TestGitPluginErrors:
 
 
 # ---------------------------------------------------------------------------
+# Tests — batch vs immediate mode
+# ---------------------------------------------------------------------------
+
+
+class TestGitPluginCommitModes:
+    """Tests that distinguish batch mode vs immediate mode behavior."""
+
+    def test_git_plugin_batch_mode_defers_commit(self, plugin: GitPlugin, git_vault: Path):
+        """Batch mode stages on post_create but does NOT commit until session close."""
+        note = git_vault / "notes" / "N-0099.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text("# Batch Note", encoding="utf-8")
+
+        commits_before = _git_log(git_vault)
+
+        plugin.post_create(
+            content_type="note",
+            content_id="N-0099",
+            title="Batch Note",
+            path="notes/N-0099.md",
+            tags=[],
+        )
+
+        # File is staged but no new commit yet
+        staged = _staged_files(git_vault)
+        assert "notes/N-0099.md" in staged
+        commits_after = _git_log(git_vault)
+        assert len(commits_after) == len(commits_before), (
+            "Batch mode should not commit on post_create"
+        )
+
+    def test_git_plugin_immediate_mode_commits_per_event(
+        self, immediate_plugin: GitPlugin, git_vault: Path
+    ):
+        """Immediate mode commits after every post_create without waiting for session close."""
+        note = git_vault / "notes" / "N-0098.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text("# Immediate Note", encoding="utf-8")
+
+        commits_before = _git_log(git_vault)
+
+        immediate_plugin.post_create(
+            content_type="note",
+            content_id="N-0098",
+            title="Immediate Note",
+            path="notes/N-0098.md",
+            tags=[],
+        )
+
+        commits_after = _git_log(git_vault)
+        assert len(commits_after) == len(commits_before) + 1, (
+            "Immediate mode should commit on each post_create"
+        )
+        assert any("N-0098" in msg for msg in commits_after)
+
+
+# ---------------------------------------------------------------------------
 # Tests — _sanitize_for_commit
 # ---------------------------------------------------------------------------
 

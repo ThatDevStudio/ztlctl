@@ -297,6 +297,101 @@ class TestEventBusAsync:
         assert len(recorder.calls) == 5
 
 
+class TestEventBusStateMachineTransitions:
+    """Tests for the full state machine path through failed -> dead_letter."""
+
+    def test_event_transitions_to_failed_on_handler_error(self, engine, pm_with_failer):
+        """A failing handler transitions the event from pending to failed."""
+        bus = EventBus(engine, pm_with_failer, sync=True, max_retries=3)
+        event_id = bus.dispatch(
+            "post_create",
+            {
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Test",
+                "path": "notes/N-0001.md",
+                "tags": [],
+            },
+        )
+
+        with engine.connect() as conn:
+            row = conn.execute(select(event_wal).where(event_wal.c.id == event_id)).fetchone()
+
+        assert row is not None
+        assert row.status == "failed"
+        assert row.retries == 1
+        assert "Plugin exploded!" in row.error
+
+    def test_event_transitions_to_dead_letter_after_max_retries(self, engine, pm_with_failer):
+        """After exhausting retries, event transitions to dead_letter state."""
+        # max_retries=2: first dispatch fails with retries=1 → still "failed"
+        # drain() re-executes the hook, retries becomes 2 = max_retries → dead_letter
+        bus = EventBus(engine, pm_with_failer, sync=True, max_retries=2)
+        event_id = bus.dispatch(
+            "post_create",
+            {
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Test",
+                "path": "notes/N-0001.md",
+                "tags": [],
+            },
+        )
+
+        # After first dispatch: retries=1, status="failed" (not dead_letter yet)
+        with engine.connect() as conn:
+            row = conn.execute(
+                select(event_wal.c.status, event_wal.c.retries).where(event_wal.c.id == event_id)
+            ).fetchone()
+        assert row is not None
+        assert row.status == "failed"
+        assert row.retries == 1
+
+        # Drain forces another retry — now retries == max_retries → dead_letter
+        results = bus.drain()
+        assert len(results) == 1
+        assert results[0]["status"] == "dead_letter"
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                select(event_wal.c.status, event_wal.c.retries).where(event_wal.c.id == event_id)
+            ).fetchone()
+        assert row is not None
+        assert row.status == "dead_letter"
+        assert row.retries == 2
+
+    def test_sync_mode_dispatch_calls_handler_synchronously(self, engine, pm_with_recorder):
+        """Sync mode dispatches handler immediately without ThreadPoolExecutor."""
+        pm, recorder = pm_with_recorder
+        bus = EventBus(engine, pm, sync=True)
+
+        # In sync mode, there should be no executor
+        assert bus._executor is None
+
+        bus.dispatch(
+            "post_check",
+            {"issues_found": 0, "issues_fixed": 0},
+        )
+
+        # Handler was called immediately (sync)
+        assert len(recorder.calls) == 1
+        assert recorder.calls[0][0] == "post_check"
+
+    def test_shutdown_after_drain_no_error(self, engine, pm_with_recorder):
+        """shutdown() can be called after drain() without error."""
+        pm, _ = pm_with_recorder
+        bus = EventBus(engine, pm, sync=False, max_workers=1)
+
+        bus.dispatch(
+            "post_check",
+            {"issues_found": 0, "issues_fixed": 0},
+        )
+
+        bus.drain()
+        # Should not raise
+        bus.shutdown()
+
+
 class TestEventBusNoPlugins:
     """Tests for dispatch when no plugins are registered."""
 
