@@ -535,51 +535,165 @@ The graph powers `ztlctl graph` commands for traversal, analysis, and structural
 
 # Knowledge Paradigms
 
-ztlctl uses a two-layer model instead of collapsing every knowledge method into one workflow.
+ztlctl uses a two-layer model instead of collapsing every knowledge method into one workflow. The first layer — capture and synthesis — is where agents and humans work together to collect sources, build references, and develop rough understanding. The second layer — enrichment — is where the human user takes over to deepen, reorganize, and mature that foundation. Second-brain and knowledge-garden approaches are not competing methods: they map naturally to these two layers, and ztlctl supports both simultaneously.
 
-## Capture and Synthesis
+## Second-Brain vs Knowledge Garden
 
-This layer is where agents and humans work together to capture sources, create durable references and notes, and assemble enough context for learning or decision-making.
+### At a Glance
 
-It draws most heavily from:
+| Dimension | Second-Brain (Capture Layer) | Knowledge Garden (Enrichment Layer) |
+|-----------|------------------------------|--------------------------------------|
+| Primary question | "What did I learn?" | "What do I understand?" |
+| Capture style | Broad, fast, reference-driven | Selective, slow, insight-driven |
+| Content types | Notes, references, tasks, ingested sources | Garden seeds, budding notes, evergreen notes |
+| Organization | Topic routing, session batching | Maturity tiers, backlink structure |
+| Enrichment | Automated (reweave, sessions) | Human-led (Obsidian, dashboard review) |
+| ztlctl commands | `create`, `ingest`, `session`, `query search` | `garden seed`, `update --maturity`, `export dashboard`, `query packet --mode review` |
+| Agent role | Agent captures, synthesizes, triages | Agent assists conversationally, does not garden |
 
-- **Zettelkasten** for atomic notes, explicit links, and graph-driven discovery
-- **Second-brain patterns** for broad capture, topic routing, and action-oriented follow-up
-- **Agentic workflows** for structured research sessions, ingestion, topic packets, and review loops
+Both approaches coexist in a single vault. Content captured in the machine layer (`notes/`, `ops/`) is indexed, searchable, and reweaved automatically. Garden content lives in `garden/` — ztlctl never indexes or mutates that directory. The two layers complement rather than replace each other.
 
-Typical commands:
+## Choose Your Path
+
+**"I want to research a new technology or topic"**
+
+Use the second-brain capture-first approach. Start a focused session, ingest sources and create synthesis notes as understanding develops, and let reweave connect the material automatically.
+
+→ See [Scenario 1: Researching a New Technology](#scenario-1-researching-a-new-technology-second-brain-approach)
+
+---
+
+**"I have captured material and want to deepen my understanding"**
+
+Use the knowledge-garden enrichment-first approach. Surface seed notes waiting for attention, review the work queue for stale or actionable items, and promote notes as understanding matures.
+
+→ See [Scenario 2: Tending Existing Knowledge](#scenario-2-tending-existing-knowledge-knowledge-garden-approach)
+
+---
+
+**"I want both — capture now, tend later"**
+
+They coexist by design. Capture in the machine layer (`notes/`, `ops/`) using `create`, `ingest`, and `session`. Tend in the garden layer (`garden/`) using Obsidian or `ztlctl update`. ztlctl never indexes or mutates `garden/` content, so the two workflows never interfere.
+
+→ See [Scenario 3: Agent-Assisted Hybrid](#scenario-3-agent-assisted-hybrid-both-paradigms)
+
+---
+
+## Scenario 1: Researching a New Technology (Second-Brain Approach)
+
+You're investigating OAuth security. Start a focused session to keep context anchored, ingest sources as you find them, and build synthesis notes as understanding develops.
 
 ```bash
-ztlctl agent session start "oauth architecture"
-ztlctl ingest text "OAuth RFC Notes" --stdin --as reference
-ztlctl create note "Token exchange trade-offs" --topic auth
+# Start a focused research session
+ztlctl agent session start "oauth security"
+```
+
+The session creates a coordination log and anchors all subsequent work to the `oauth security` topic context.
+
+```bash
+# Ingest sources as references
+ztlctl ingest text "RFC 6749 notes" --stdin --as reference --tags "auth/oauth"
+```
+
+Each ingested source becomes a `reference` in the machine layer with a stored source bundle under `sources/`.
+
+```bash
+# Create synthesis notes as understanding develops
+ztlctl create note "OAuth 2.0 threat model" \
+  --tags "auth/oauth,security" \
+  --topic auth
+```
+
+Notes start at `draft` status and progress through `linked` → `connected` as reweave adds links.
+
+```bash
+# Build a learning packet from captured material
 ztlctl query packet --topic auth --mode learn
-ztlctl query draft --topic auth --target note
-ztlctl reweave
 ```
 
-## Enrichment
-
-This layer is where the human user takes over to deepen, reorganize, and mature the captured foundation knowledge.
-
-It is closest to the knowledge-garden model:
-
-- promote notes from `seed` to `budding` to `evergreen`
-- revisit weakly connected or stale notes
-- refine wording, structure, and pedagogy
-- use agents conversationally against captured knowledge rather than asking them to replace the garden work
-
-Typical commands:
+The learning packet aggregates your captured references and notes into a structured context block for review or agent handoff.
 
 ```bash
-ztlctl garden seed "Question: what breaks token rotation?"
-ztlctl query list --maturity seed --sort recency
-ztlctl query packet --topic auth --mode review
-ztlctl export dashboard --viewer obsidian --output ./dashboard
-ztlctl update ztl_abc123 --maturity budding
+# Draft a synthesis note from the packet
+ztlctl query draft --topic auth --target note
 ```
 
-The exported dashboard is an external review workbench built from machine-layer signals. It complements `garden/` by helping you triage what to tend next, but it does not export the literal `garden/` directory or replace Obsidian as the place where garden work happens.
+```bash
+# Close session — triggers reweave, orphan sweep, and integrity check automatically
+ztlctl agent session close --summary "Mapped OAuth threat surface"
+```
+
+!!! note
+    At session close, ztlctl automatically runs cross-session reweave to connect the new notes, an orphan sweep to link any isolated notes, and an integrity check. No manual step needed.
+
+---
+
+## Scenario 2: Tending Existing Knowledge (Knowledge-Garden Approach)
+
+You have a vault with captured material and want to deepen your understanding of the auth topic. Surface what needs attention, review the work queue, and promote notes as understanding matures.
+
+```bash
+# Surface seed notes waiting for enrichment
+ztlctl query list --maturity seed --sort recency
+```
+
+Seed notes are raw captures — garden seeds you planted but haven't developed yet.
+
+```bash
+# Review the work queue for stale or actionable items
+ztlctl query work-queue
+```
+
+The work queue scores all actionable items by priority, impact, and effort, presenting them in the order most worth your attention.
+
+```bash
+# Get a review packet for the topic you're tending
+ztlctl query packet --topic auth --mode review
+```
+
+The review packet surfaces stale notes, weakly connected items, and decision-support context for the topic — machine-layer signals to guide where human tending is most valuable.
+
+```bash
+# Promote a note as understanding deepens
+ztlctl update ZTL-0001 --maturity budding
+```
+
+Maturity tiers — `seed` → `budding` → `evergreen` — track how thoroughly a note has been developed.
+
+```bash
+# Export a dashboard for visual review in Obsidian
+ztlctl export dashboard --viewer obsidian --output ./dashboard
+```
+
+!!! note
+    Garden work happens in Obsidian (the `garden/` directory) or directly via `ztlctl update`. The exported dashboard is a review workbench — machine-layer signals to guide where human tending is most valuable, not a mirror of `garden/` state.
+
+---
+
+## Scenario 3: Agent-Assisted Hybrid (Both Paradigms)
+
+You're working alongside an agent. The agent captures research in the machine layer; you tend connections and deepen notes in the garden layer. Neither workflow disrupts the other.
+
+```bash
+# Agent captures research in the machine layer
+ztlctl create note "Distributed consensus trade-offs" --tags "systems/consensus" --topic systems
+```
+
+```bash
+# Human reviews agent-captured seeds and promotes them
+ztlctl query list --maturity seed --sort recency
+ztlctl update ZTL-0042 --maturity budding
+```
+
+```bash
+# Human tends connections in Obsidian's garden/ layer (no ztlctl command needed)
+# ztlctl does not index or mutate garden/ content
+```
+
+!!! tip
+    The garden layer is entirely human-owned. Agents can assist conversationally — answering questions against captured knowledge — but they do not create or modify garden content. This separation ensures your long-form insight work stays under your control.
+
+---
 
 ## How The Paradigms Map
 
@@ -595,17 +709,25 @@ The exported dashboard is an external review workbench built from machine-layer 
 - It does not treat garden work as fully automatable.
 - It does not treat operational session state as equivalent to durable knowledge artifacts.
 
-The intended flow is:
+## Intended Flow
 
 1. Capture sources and rough synthesis quickly.
 2. Use search, packets, and reweave to stabilize the foundation knowledge layer.
 3. Use packets, drafts, and dashboard dossiers to turn captured evidence into reviewable work.
 4. Enrich that foundation through slower, human-led garden work.
 
+## Next Steps
+
+- Follow the [Tutorial](tutorial.md) to build your first vault end-to-end
+- Read [Core Concepts](concepts.md) for the full content type and maturity tier reference
+- See [Agentic Workflows](agentic-workflows.md) for session lifecycle, recipe walkthroughs, and MCP integration
+
 
 ---
 
 # Obsidian Starter Kit
+
+This guide walks through setting up the first-party Obsidian integration from vault init through community plugin activation. The obsidian workspace profile scaffolds a curated starter kit optimized for hybrid human-agent knowledge work. You don't need Obsidian to use ztlctl — this guide is for users who want to pair the two.
 
 The first-party `obsidian` workspace profile scaffolds a curated Obsidian starter kit for hybrid knowledge work.
 
@@ -620,6 +742,32 @@ It does **not**:
 - download community plugin binaries
 - enable plugins automatically inside Obsidian
 - index `garden/` through the ztlctl core
+
+## Setup Walkthrough
+
+Initialize your vault with the Obsidian profile:
+
+```bash
+ztlctl init research-vault --profile obsidian --name "Research Vault" --topics "ml,systems"
+```
+
+Expected output:
+
+```
+✓ Vault initialized: research-vault/
+✓ Obsidian starter kit scaffolded (.obsidian/, garden/)
+✓ Community plugin configs written
+
+Next steps for Obsidian:
+1. Open research-vault/ in Obsidian and trust it
+2. Settings → Community plugins → Browse → install: dataview, templater-obsidian,
+   folder-notes, omnisearch, obsidian-book-search-plugin
+3. Enable all five plugins
+4. Verify settings in .obsidian/ took effect (graph view, templates path)
+```
+
+!!! note
+    ztlctl writes the .obsidian/ starter files during init, then leaves them for you to customize. After the first open, .obsidian/ is yours — ztlctl won't overwrite your changes.
 
 ## What Gets Scaffolded
 
@@ -650,6 +798,42 @@ The generated `.obsidian/community-plugins.json` expects you to install:
 
 ztlctl writes config and guidance for those plugins, but it does not ship the plugin binaries.
 
+## Why Each Community Plugin
+
+| Plugin | Purpose in this workflow |
+|--------|--------------------------|
+| `dataview` | Query your ztlctl-exported dashboard as a live Obsidian database — surfaces stale notes, seed candidates, and decision queue without leaving Obsidian |
+| `templater-obsidian` | Apply garden templates (note.md, grove.md, book.md) scaffolded by ztlctl init — keeps garden entries consistent |
+| `folder-notes` | Makes garden/ subdirectory structure navigable in Obsidian's file explorer — groves and canvases get clickable folder notes |
+| `omnisearch` | Full-text search across both ztlctl notes AND garden/ content in one Obsidian search bar |
+| `obsidian-book-search-plugin` | Fetch metadata for books added to the library/ garden layer — configured to match the book.md template |
+
+## Vault Structure
+
+The vault contains both machine-managed paths (owned by ztlctl) and human-managed paths (owned by you):
+
+```
+research-vault/
+├── ztlctl.toml          # Core config — managed by ztlctl
+├── .ztlctl/             # Internal state (DB, backups) — managed by ztlctl
+├── self/                # Identity and methodology files — managed by ztlctl
+├── notes/               # Atomic knowledge notes — managed by ztlctl
+├── ops/                 # Tasks and session logs — managed by ztlctl
+├── sources/             # Ingested source bundles — managed by ztlctl
+├── .obsidian/           # Obsidian workspace config — scaffolded by ztlctl, then yours
+└── garden/              # Human-managed knowledge garden — never touched by ztlctl
+    ├── README.md
+    ├── notes/           # Garden notes (seed → budding → evergreen)
+    ├── groves/          # Topic clusters
+    ├── library/         # Books and long-form sources
+    ├── canvases/        # Visual mind maps
+    ├── attachments/     # Images and files
+    └── templates/       # note.md, grove.md, book.md
+```
+
+!!! tip
+    garden/ is intentionally outside ztlctl's indexing. You can freely restructure, rename, and reorganize garden/ content without affecting ztlctl's graph or database.
+
 ## Ownership
 
 - Core-managed paths: `ztlctl.toml`, `.ztlctl/`, `self/`, `notes/`, `ops/`
@@ -669,9 +853,273 @@ After `ztlctl init --profile obsidian`:
 
 The same checklist is printed during init and stored in `garden/README.md`. `ztlctl` does not later validate or rewrite your `.obsidian/` changes.
 
+## Using garden/ for Enrichment
+
+After a ztlctl session, export a review dashboard and open it in Obsidian to guide garden work:
+
+```bash
+# After closing a session, generate a review workbench
+ztlctl export dashboard --viewer obsidian --output ./dashboard
+
+# Then open dashboard/ in Obsidian alongside your vault
+# The dashboard shows: stale notes, orphan candidates, topic dossiers
+```
+
+The exported dashboard is a machine-layer review workbench — not a mirror of garden/. Use it to decide what to tend next, then do the tending in Obsidian's garden/ directly.
+
 ## Relationship to Export
 
 `ztlctl export dashboard --viewer obsidian` is an external review workbench, not part of the starter kit itself. It gives you portable markdown and JSON review artifacts for triage and topic review, but it does not export the literal `garden/` directory and it does not mirror `.obsidian/` workspace state.
+
+## Next Steps
+
+- See [Built-in Plugins](plugins.md) for Git and Reweave plugin configuration
+- See [Agentic Workflows](agentic-workflows.md) for session lifecycle and recipe walkthroughs
+- See [Configuration](configuration.md) for the full ztlctl.toml reference
+
+
+---
+
+# Built-in Plugins
+
+ztlctl ships two built-in plugins that run automatically in the background: the Git plugin for automatic version control and the Reweave plugin for automatic link discovery. Both are enabled by default. This page explains exactly what they do, when they run, and how to configure them.
+
+## Git Plugin
+
+The Git plugin provides automatic version control for vault operations. When you create a note, the plugin stages the file and — depending on configuration — either commits immediately or batches the commit for session close.
+
+### Prerequisites
+
+!!! note
+    The Git plugin requires `git` to be installed and available on your PATH. If git is not found, the plugin logs a debug message and continues silently — vault operations never fail due to git errors.
+
+Verify git is available:
+
+```bash
+git --version
+```
+
+### What Gets Committed Automatically
+
+Every vault operation that creates or modifies a markdown file triggers a git stage. Commit timing depends on the `batch_commits` setting (see [Configuration](#git-plugin-configuration) below).
+
+| Action | Commit Message Format |
+|--------|-----------------------|
+| `ztlctl create note` | `feat: create note {id} — {title}` |
+| `ztlctl create reference` | `feat: create reference {id} — {title}` |
+| `ztlctl create task` | `feat: create task {id} — {title}` |
+| `ztlctl update` | `docs: update {id} ({fields_changed})` |
+| `ztlctl close` / `ztlctl archive` | `docs: close {id} — {summary}` |
+| `ztlctl agent session close` | `docs: session {id} — N created, N updated` |
+| `ztlctl init` | `feat: initialize vault '{name}'` |
+
+Operations that are **no-ops** for the Git plugin: `reweave`, `session start`, `check`, `check rebuild`. These do not stage or commit any files.
+
+### Batch Mode vs Immediate Mode
+
+| Mode | Behavior | When to use |
+|------|----------|-------------|
+| **Batch (default)** | Files are staged on each operation; one commit is made at session close | Session-based workflows — clean history with one commit per session |
+| **Immediate** | Files are staged AND committed after every individual operation | Headless or no-session workflows — each note creation is its own commit |
+
+!!! warning
+    In batch mode, creating notes outside an active session stages files but never commits them — the commit trigger is `session close`. If you work without sessions, set `batch_commits = false`.
+
+**What git status looks like in batch mode (before session close):**
+
+```bash
+$ git status
+On branch develop
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+        new file:   notes/ZTL-0001.md
+        new file:   notes/ZTL-0002.md
+        modified:   notes/ZTL-0003.md
+```
+
+After `ztlctl agent session close`, all staged changes are committed in one operation:
+
+```
+docs: session LOG-0001 — 2 created, 1 updated
+```
+
+### Git Plugin Configuration
+
+In `ztlctl.toml`:
+
+```toml
+[plugins.git]
+enabled = true
+batch_commits = true      # true = commit at session close, false = commit immediately
+auto_push = false         # push to remote on session close
+auto_ignore = true        # write .gitignore during vault init
+```
+
+**All config fields:**
+
+| Field | Default | Meaning |
+|-------|---------|---------|
+| `enabled` | `true` | Enable or disable the entire plugin |
+| `batch_commits` | `true` | Batch all changes into one session-close commit |
+| `auto_push` | `true` | Push to remote after session-close commit |
+| `auto_ignore` | `true` | Write .gitignore during `ztlctl init` |
+| `branch` | `"develop"` | Target branch (informational — plugin does not enforce branch) |
+| `commit_style` | `"conventional"` | Commit message format (currently only `"conventional"`) |
+
+The auto-generated `.gitignore` excludes:
+
+```
+# ztlctl vault gitignore
+.ztlctl/backups/
+*.db-journal
+```
+
+### Common Scenarios
+
+**Disable automatic commits entirely:**
+
+```toml
+[plugins.git]
+enabled = false
+```
+
+**Use immediate commits (one commit per note):**
+
+```toml
+[plugins.git]
+batch_commits = false
+```
+
+**Push to remote automatically on session close:**
+
+```toml
+[plugins.git]
+auto_push = true
+```
+
+---
+
+## Reweave Plugin
+
+The Reweave plugin automatically discovers connections for new notes and references the moment they are created. It runs the full 4-signal scoring algorithm against all existing content and creates graph edges for items above the threshold.
+
+### What It Does
+
+When you create a note or reference, the Reweave plugin immediately calls the reweave pipeline on the new item. This means your vault's link graph is always up to date without any manual `ztlctl reweave` call.
+
+```bash
+# When you run this:
+ztlctl create note "Attention mechanisms" --tags "ml/transformers"
+
+# The Reweave plugin automatically runs the equivalent of:
+ztlctl reweave --id ZTL-0042
+# → finds related notes via BM25 + tag overlap + graph proximity + shared topic
+# → creates edges for items scoring above 0.6 (default threshold)
+```
+
+### When It Runs (and When It Doesn't)
+
+**Fires for:** `create note`, `create reference` only.
+
+**Does not fire for:** `create task`, `update`, `close`, `archive`, `session close`, or `reweave` (manual reweave is not re-triggered).
+
+**Skip conditions (checked in order):**
+
+1. The create operation failed — skip
+2. The created item has no ID — skip
+3. `subtype = "decision"` — skip (decision notes have strict lifecycle and must not be auto-mutated)
+4. `--no-reweave` flag was passed — skip for this invocation only
+5. `[reweave] enabled = false` in config — skip globally
+
+!!! note
+    Decision notes (`ztlctl create note --subtype decision`) are intentionally excluded from auto-reweave. Decision notes represent deliberate choices and must not be auto-linked by background processes. Run `ztlctl reweave --id {id}` manually if you want to connect a decision note.
+
+### 4-Signal Scoring
+
+The reweave algorithm scores candidate links using four signals:
+
+| Signal | Default Weight | What It Measures |
+|--------|---------------|-----------------|
+| BM25 lexical similarity | 0.35 | Shared vocabulary between note bodies |
+| Jaccard tag overlap | 0.25 | Proportion of tags in common |
+| Graph proximity | 0.25 | How closely connected via existing edges |
+| Shared topic directory | 0.15 | Whether notes share a topic routing prefix |
+
+A link is created when the combined score exceeds `min_score_threshold` (default: 0.6).
+
+### Reweave Plugin Configuration
+
+In `ztlctl.toml`:
+
+```toml
+[reweave]
+enabled = true
+min_score_threshold = 0.6   # raise to 0.75 for fewer, higher-quality links
+max_links_per_note = 5      # raise for denser graphs
+lexical_weight = 0.35
+tag_weight = 0.25
+graph_weight = 0.25
+topic_weight = 0.15
+```
+
+**All config fields:**
+
+| Field | Default | Meaning |
+|-------|---------|---------|
+| `enabled` | `true` | Global enable/disable for auto-reweave |
+| `min_score_threshold` | `0.6` | Minimum combined score (0.0–1.0) to create a link |
+| `max_links_per_note` | `5` | Maximum new links per auto-reweave run |
+| `lexical_weight` | `0.35` | BM25 signal weight |
+| `tag_weight` | `0.25` | Tag overlap signal weight |
+| `graph_weight` | `0.25` | Graph proximity signal weight |
+| `topic_weight` | `0.15` | Topic directory signal weight |
+
+Weights do not need to sum to 1.0 — they are relative, not normalized.
+
+### Common Scenarios
+
+**Disable auto-reweave for a single note:**
+
+```bash
+ztlctl create note "Quick capture" --no-reweave
+```
+
+**Disable auto-reweave globally:**
+
+```toml
+[reweave]
+enabled = false
+```
+
+**Tune for fewer, higher-quality links:**
+
+```toml
+[reweave]
+min_score_threshold = 0.75
+max_links_per_note = 3
+```
+
+**Emphasize tag-based connections (lower lexical weight):**
+
+```toml
+[reweave]
+lexical_weight = 0.20
+tag_weight = 0.45
+```
+
+**Run reweave manually for an existing note:**
+
+```bash
+ztlctl reweave --id ZTL-0042
+```
+
+---
+
+## Next Steps
+
+- See [Agentic Workflows](agentic-workflows.md) for how plugins interact with sessions and MCP recipes
+- See [Configuration](configuration.md) for the full ztlctl.toml reference including all plugin config schemas
+- See [Obsidian Starter Kit](obsidian.md) for setting up the Obsidian integration
 
 
 ---
@@ -835,6 +1283,292 @@ The MCP prompt layer now also includes `topic_learn`, `topic_review`, `topic_dec
 
 See the [MCP Server](mcp.md) page for tool categories, resources, prompts, and exported client assets.
 
+## Recipe Walkthroughs
+
+ztlctl exposes three structured workflow recipes via MCP. Each recipe is a sequence of tool calls that accomplishes a common knowledge-work task. Recipes are designed for agent-driven execution but every step has a human CLI equivalent.
+
+Access recipes via MCP resource discovery:
+
+```bash
+# Discover available recipes
+ztlctl://recipes
+```
+
+Or access individual recipe specs directly in your MCP client:
+
+- `ztlctl://recipes/research-capture`
+- `ztlctl://recipes/review-triage`
+- `ztlctl://recipes/knowledge-synthesis`
+
+### Recipe 1: Research Capture
+
+**What it accomplishes:** Search existing knowledge for a topic, create a synthesis note for new findings, and automatically connect it to related content via reweave.
+
+**When to use:** When an agent (or you) has gathered research on a topic and wants to turn it into a durable knowledge artifact linked to existing context.
+
+**Steps:**
+
+| Step | Action | Condition |
+|------|--------|-----------|
+| 1 | Search existing content for the topic (limit 10) | Always |
+| 2 | Create a seed note with the synthesis title | Skip if step 1 already has a note with the same title |
+| 3 | Reweave the new note against existing content | Always |
+
+**Human CLI walkthrough:**
+
+```bash
+# Step 1: Check if you already have related content
+ztlctl query search "oauth security" --limit 10
+
+# Expected output (if no related notes yet):
+# No results for "oauth security"
+
+# Step 2: Create a synthesis note
+ztlctl create note "OAuth Security Patterns" --maturity seed --tags "auth/oauth,security"
+
+# Expected output:
+# Created note ZTL-0042: OAuth Security Patterns [seed]
+# Reweave: 3 links created (auto-triggered by Reweave plugin)
+
+# Step 3: Manual reweave if needed (already ran automatically above)
+# ztlctl reweave --id ZTL-0042
+```
+
+!!! tip
+    The Reweave plugin runs automatically after `create note`, so step 3 is already done for you. Run `ztlctl reweave --id {id}` manually only if you disabled auto-reweave or want to re-run after adding more related content. See [Built-in Plugins](plugins.md) for Reweave configuration.
+
+**Agent MCP tool sequence:**
+
+```
+1. search(query="oauth security", limit=10)
+2. create_note(title="OAuth Security Patterns", maturity="seed")
+3. reweave(content_id=<step_2_id>)
+```
+
+### Recipe 2: Review Triage
+
+**What it accomplishes:** Surface the current work queue, inspect each actionable item, update stale notes, and archive completed or obsolete ones.
+
+**When to use:** Periodic review — clearing the backlog, promoting mature notes, archiving abandoned tasks.
+
+**Steps:**
+
+| Step | Action | Condition |
+|------|--------|-----------|
+| 1 | Get the full work queue | Always |
+| 2 | Fetch each item's full content | Repeat for each work queue item |
+| 3 | Update items that need changes | Skip if item is already current |
+| 4 | Archive items that are complete or irrecoverable | Only if item should not continue |
+
+**Human CLI walkthrough:**
+
+```bash
+# Step 1: Get the prioritized work queue
+ztlctl query work-queue
+
+# Expected output (example):
+# TASK-0001  "Follow up on OAuth threat model"   priority: high   maturity: seed   stale: 14 days
+# TASK-0002  "Review Attention paper"             priority: medium maturity: seed   stale: 7 days
+# ZTL-0035   "Token exchange trade-offs"          maturity: seed   no outgoing edges
+
+# Step 2: Inspect a specific item
+ztlctl query get TASK-0001
+
+# Step 3: Update an item (promote maturity, add notes)
+ztlctl update TASK-0001 --maturity budding
+
+# Expected output:
+# Updated TASK-0001: maturity seed -> budding
+
+# Step 4: Archive a completed item
+ztlctl archive TASK-0001
+
+# Expected output:
+# Archived TASK-0001: "Follow up on OAuth threat model"
+```
+
+**Agent MCP tool sequence:**
+
+```
+1. work_queue()
+2. get_document(content_id=<each_item_id>)  <- repeat per item
+3. update(content_id=<id>, changes={maturity: "budding"})  <- skip if no changes needed
+4. archive(content_id=<id>)  <- only if item is done or stale beyond recovery
+```
+
+### Recipe 3: Knowledge Synthesis
+
+**What it accomplishes:** Search a topic broadly, identify structural gaps in the knowledge graph, draft a synthesis note from the topic packet, and reweave it into the graph.
+
+**When to use:** When you want to consolidate scattered knowledge on a topic into a single synthesis artifact that explicitly acknowledges gaps and invites future connection.
+
+**Steps:**
+
+| Step | Action | Condition |
+|------|--------|-----------|
+| 1 | Search existing content (limit 20) | Always |
+| 2 | Find graph gaps — structurally isolated areas | Always |
+| 3 | Draft a synthesis note from the topic packet | Skip if step 1 already has a mature (evergreen) synthesis note |
+| 4 | Reweave the draft against existing content | Always |
+
+**Human CLI walkthrough:**
+
+```bash
+# Step 1: Survey what exists on the topic
+ztlctl query search "distributed systems" --limit 20
+
+# Expected output (example):
+# ZTL-0010  "CAP theorem trade-offs"        maturity: budding
+# ZTL-0018  "Raft consensus algorithm"      maturity: seed
+# REF-0003  "Designing Data-Intensive Apps"  maturity: evergreen
+
+# Step 2: Find gaps — where the graph is thin
+ztlctl graph gaps --top 10
+
+# Expected output (example):
+# Gap 1: "consensus" cluster — 3 notes, 1 bridge connection, no synthesis note
+# Gap 2: "replication" cluster — isolated from "consistency" cluster
+
+# Step 3: Draft a synthesis note from the topic
+ztlctl query draft --topic "distributed-systems" --target note
+
+# Expected output:
+# Drafted ZTL-0055: "Distributed Systems Synthesis" [seed]
+#   Sources: 8 notes, 2 references
+#   Gaps surfaced: consensus <-> replication bridge missing
+
+# Step 4: Reweave (already ran automatically — manual run if re-running)
+ztlctl reweave --id ZTL-0055
+```
+
+**Agent MCP tool sequence:**
+
+```
+1. search(query="distributed systems", limit=20)
+2. gaps(top=10)
+3. draft_from_topic(topic="distributed-systems", target="note")  <- skip if step 1 has mature synthesis
+4. reweave(content_id=<step_3_id>)
+```
+
+!!! tip
+    Recipes are starting points, not rigid scripts. An agent can modify steps based on what it finds — for example, skipping the draft step if a recent evergreen note already covers the topic.
+
+## Session Lifecycle
+
+Sessions are operational coordination units — they group a period of work so ztlctl can apply enrichment to everything created during that period when the session closes. Sessions are optional for human users and central to agent-driven workflows.
+
+### Human-Driven Session
+
+A typical 30-minute research session:
+
+```bash
+# Start a session with a topic focus
+ztlctl agent session start "oauth security research"
+
+# Expected output:
+# Session started: LOG-0001 "oauth security research"
+# Session is open. All notes and references created now are linked to LOG-0001.
+
+# Capture sources as you find them
+ztlctl ingest text "RFC 6749 key sections" --stdin --as reference --tags "auth/oauth"
+ztlctl create note "Token exchange threat model" --tags "auth/oauth,security" --topic auth
+
+# Log your reasoning as you go
+ztlctl agent session log "Read RFC 6749 sections 4-6. Key risk: token replay via HTTP."
+ztlctl agent session log "Drafted threat model. Needs peer review." --pin
+
+# Check how much context you have accumulated (useful before asking an agent to continue)
+ztlctl agent session cost --report 50000
+
+# Close the session when done
+ztlctl agent session close --summary "Mapped OAuth 2.0 attack surface"
+
+# Expected output:
+# Session closed: LOG-0001
+# Cross-session reweave: 7 new links created
+# Orphan sweep: 2 orphaned notes connected
+# Integrity check: 0 issues
+# Graph metrics updated (PageRank, degree, betweenness)
+```
+
+!!! note
+    Only one session can be open at a time. If you already have an open session, `ztlctl agent session start` returns an error.
+
+### Agent-Driven Session
+
+Agents use the same session commands via MCP tools. A literature review agent might:
+
+```
+# Agent starts session
+agent_session_start(topic="attention mechanisms in transformers")
+
+# Agent fetches topic context to understand what is already captured
+agent_context(topic="transformers", budget=8000)
+
+# Agent ingests retrieved sources
+ingest_source(title="Attention Is All You Need", content=<paper_text>, as_type="reference")
+
+# Agent creates synthesis notes as it reads
+create_note(title="Multi-head attention intuition", maturity="seed", tags=["ml/transformers"])
+create_note(title="Self-attention vs cross-attention", maturity="seed", tags=["ml/transformers"])
+
+# Agent logs key decisions
+agent_session_log("Core insight: Q/K/V projection sizes determine capacity vs. compute tradeoff", pin=True)
+
+# Agent closes session when done
+agent_session_close(summary="Surveyed attention mechanism architecture, 2 synthesis notes created")
+```
+
+The agent receives structured JSON at each step, including content IDs it can use in subsequent calls. No special agent-mode configuration is required — the same MCP tools work for both supervised and autonomous agents.
+
+### Session Close Enrichment Pipeline
+
+When you (or an agent) call `session close`, ztlctl runs a 5-step enrichment pipeline automatically:
+
+```
+LOG CLOSE -> CROSS-SESSION REWEAVE -> ORPHAN SWEEP -> INTEGRITY CHECK -> GRAPH MATERIALIZATION
+```
+
+**Step 1 — Log Close:** The session node is marked `status="closed"` and a `session_close` log entry is inserted. This is atomic — if it fails, no other steps run.
+
+**Step 2 — Cross-Session Reweave** (toggle: `close_reweave`): Runs the reweave algorithm on every note and reference created during this session. New connections are discovered across the full vault — not just within the session. Returns the count of new links created.
+
+**Step 3 — Orphan Sweep** (toggle: `close_orphan_sweep`): Finds every note and reference in the entire vault with zero outgoing edges — not just session notes. Runs reweave with a lower threshold (default: 0.2 instead of 0.6) so orphaned notes have a better chance of getting at least one connection.
+
+**Step 4 — Integrity Check** (toggle: `close_integrity_check`): Runs the vault integrity checker. Counts error-severity issues and appends a warning to the close result. Does **not** auto-fix — only reports.
+
+**Step 5 — Graph Materialization** (always runs): Updates PageRank, degree centrality, and betweenness centrality for all nodes in the graph. This powers rank-ordered search, bridge detection, and gap identification.
+
+**Reading the close result with `--json`:**
+
+```bash
+ztlctl agent session close --summary "Research complete" --json
+```
+
+```json
+{
+  "session_id": "LOG-0001",
+  "status": "closed",
+  "reweave_count": 7,
+  "orphan_count": 2,
+  "integrity_issues": 0
+}
+```
+
+- `reweave_count`: Total new graph edges created across all session notes
+- `orphan_count`: Number of previously-isolated notes that received at least one connection via the orphan sweep
+- `integrity_issues`: Count of error-severity integrity violations found (0 = healthy)
+
+**Configuring the pipeline** in `ztlctl.toml`:
+
+```toml
+[session]
+close_reweave = true
+close_orphan_sweep = true
+close_integrity_check = true
+orphan_reweave_threshold = 0.2  # lower = more connections for orphans
+```
+
 ## Batch Operations
 
 For programmatic creation, use batch mode with a JSON file:
@@ -864,6 +1598,13 @@ ztlctl query search "python" --json | jq '.data.items[].title'
 # Check vault health programmatically
 ERRORS=$(ztlctl check --json | jq '.data.issues | map(select(.severity == "error")) | length')
 ```
+
+## Next Steps
+
+- See [Built-in Plugins](plugins.md) for Git and Reweave plugin configuration
+- See [Knowledge Paradigms](paradigms.md) for second-brain vs knowledge garden approach guidance
+- See [Core Concepts](concepts.md) for the content type and maturity tier reference
+- See [MCP Server](mcp.md) for the full MCP tool and resource reference
 
 
 ---
