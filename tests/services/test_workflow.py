@@ -254,3 +254,102 @@ class LocalProfilePlugin:
         monkeypatch.setattr(Path, "read_text", _raise_permission_error)
 
         assert WorkflowService.read_answers(tmp_path) is None
+
+
+class TestWorkflowServiceForceTrust:
+    """Tests for SECU-01: force_trust parameter for plugin template safety."""
+
+    def test_init_workflow_force_trust_default_false(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """init_workflow accepts force_trust parameter and defaults to False."""
+
+        InitService.init_vault(tmp_path, name="wf-vault", no_workflow=True)
+
+        # Confirm the parameter exists and defaults to False without error
+        import inspect
+
+        sig = inspect.signature(WorkflowService.init_workflow)
+        assert "force_trust" in sig.parameters
+        assert sig.parameters["force_trust"].default is False
+
+    def test_run_plugin_copy_method_exists(self) -> None:
+        """_run_plugin_copy static method exists on WorkflowService."""
+        assert hasattr(WorkflowService, "_run_plugin_copy")
+
+    def test_run_plugin_copy_unsafe_false_by_default(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """_run_plugin_copy passes unsafe=False to copier.run_copy when force_trust=False."""
+        from unittest.mock import patch
+
+        captured: dict[str, Any] = {}
+
+        def mock_run_copy(*args: Any, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+        with patch("ztlctl.services.workflow.run_copy", mock_run_copy):
+            WorkflowService._run_plugin_copy(
+                template_path="/fake/template",
+                vault_root=tmp_path,
+                choices=WorkflowChoices(
+                    source_control="git",
+                    profile="core",
+                    workflow="claude-driven",
+                    skill_set="research",
+                ),
+                force_trust=False,
+            )
+
+        assert captured.get("unsafe") is False
+
+    def test_run_plugin_copy_unsafe_true_with_force_trust(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """_run_plugin_copy passes unsafe=True to copier.run_copy when force_trust=True."""
+        from unittest.mock import patch
+
+        captured: dict[str, Any] = {}
+
+        def mock_run_copy(*args: Any, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+        with patch("ztlctl.services.workflow.run_copy", mock_run_copy):
+            WorkflowService._run_plugin_copy(
+                template_path="/fake/template",
+                vault_root=tmp_path,
+                choices=WorkflowChoices(
+                    source_control="git",
+                    profile="core",
+                    workflow="claude-driven",
+                    skill_set="research",
+                ),
+                force_trust=True,
+            )
+
+        assert captured.get("unsafe") is True
+
+    def test_builtin_run_copy_always_safe(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Built-in _run_copy does not accept force_trust — always uses unsafe=False."""
+        import inspect
+
+        sig = inspect.signature(WorkflowService._run_copy)
+        # force_trust must NOT be in _run_copy signature
+        assert "force_trust" not in sig.parameters
+
+    def test_builtin_run_update_always_safe(self) -> None:
+        """Built-in _run_update does not accept force_trust — always uses unsafe=False."""
+        import inspect
+
+        sig = inspect.signature(WorkflowService._run_update)
+        assert "force_trust" not in sig.parameters
+
+    def test_update_workflow_force_trust_parameter_exists(self) -> None:
+        """update_workflow accepts force_trust parameter and defaults to False."""
+        import inspect
+
+        sig = inspect.signature(WorkflowService.update_workflow)
+        assert "force_trust" in sig.parameters
+        assert sig.parameters["force_trust"].default is False
