@@ -1,6 +1,5 @@
 ---
 title: Agentic Workflows
-nav_order: 8
 ---
 
 # Agentic Workflows

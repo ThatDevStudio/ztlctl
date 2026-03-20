@@ -54,3 +54,6 @@ ops/
 # Worktrees
 .worktrees/
 .firecrawl/
+
+# MkDocs build output
+site/

@@ -1,6 +1,5 @@
 ---
 title: Core Concepts
-nav_order: 5
 ---
 
 # Core Concepts

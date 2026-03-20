@@ -1,6 +1,5 @@
 ---
 title: MCP Server
-nav_order: 10
 ---
 
 # MCP Server
