@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Phase 13 context gathered
-last_updated: "2026-03-20T20:20:30.294Z"
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-03-20T20:28:07.339Z"
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
+  completed_phases: 6
+  total_plans: 16
+  completed_plans: 16
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 12 — doc-search-integration
+**Current focus:** Phase 13 — switch-github-pages-deploy-to-actions-artifact
 
 ## Current Position
 
-Phase: 12 (doc-search-integration) — EXECUTING
-Plan: 1 of 3
+Phase: 13 (switch-github-pages-deploy-to-actions-artifact) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Plan: 1 of 3
 | Phase 12-doc-search-integration P01 | 3 | 2 tasks | 2 files |
 | Phase 12-doc-search-integration P03 | 525618 | 1 tasks | 2 files |
 | Phase 12-doc-search-integration P02 | 4 | 2 tasks | 6 files |
+| Phase 13-switch-github-pages-deploy P01 | 48 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,7 @@ Recent decisions affecting current work:
 - [Phase 12-01]: TypedDict DocResult/DocError instead of bare dict for mypy strict compliance in docs.py return types
 - [Phase 12-doc-search-integration]: [Phase 12-03]: ztlctl://docs/search is static guidance resource directing agents to docs_search MCP tool; ztlctl://docs/index serves llms.txt via lazy import pattern
 - [Phase 12-02]: DocsController.search() accepts docs_path kwarg for testability; docs category added as 15th ActionDefinition category
+- [Phase 13]: Replaced mkdocs gh-deploy with upload-pages-artifact + deploy-pages; deleted gh-pages remote branch to restore trunk-based discipline
 
 ### Roadmap Evolution
 
@@ -116,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T20:20:30.292Z
-Stopped at: Phase 13 context gathered
-Resume file: .planning/phases/13-switch-github-pages-deploy-to-actions-artifact-eliminate-gh-pages-branch/13-CONTEXT.md
+Last session: 2026-03-20T20:28:07.336Z
+Stopped at: Completed 13-01-PLAN.md
+Resume file: None
