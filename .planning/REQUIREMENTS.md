@@ -20,8 +20,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **UGDE-01**: Two-track navigation with User Guide and Developer Guide as top-level sections
 - [x] **UGDE-02**: Second-brain vs knowledge garden paradigm walkthroughs with examples and common scenarios
 - [x] **UGDE-03**: Built-in plugin guides — Obsidian setup and integration, Git plugin usage, Reweave plugin behavior
-- [ ] **UGDE-04**: Agentic workflow recipe walkthroughs — research-capture, review-triage, knowledge-synthesis with step-by-step examples
-- [ ] **UGDE-05**: Session lifecycle guides for both human-driven and agent-driven usage with concrete examples
+- [x] **UGDE-04**: Agentic workflow recipe walkthroughs — research-capture, review-triage, knowledge-synthesis with step-by-step examples
+- [x] **UGDE-05**: Session lifecycle guides for both human-driven and agent-driven usage with concrete examples
 
 ### Developer Guide
 
@@ -72,8 +72,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UGDE-01 | Phase 9 | Complete |
 | UGDE-02 | Phase 10 | Complete |
 | UGDE-03 | Phase 10 | Complete |
-| UGDE-04 | Phase 10 | Pending |
-| UGDE-05 | Phase 10 | Pending |
+| UGDE-04 | Phase 10 | Complete |
+| UGDE-05 | Phase 10 | Complete |
 | DVGD-01 | Phase 11 | Pending |
 | DVGD-02 | Phase 11 | Pending |
 | DVGD-03 | Phase 11 | Pending |

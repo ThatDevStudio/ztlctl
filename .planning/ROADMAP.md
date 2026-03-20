@@ -28,7 +28,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 
 - [ ] **Phase 8: MkDocs Infrastructure** - Migrate from Jekyll to MkDocs + mkdocs-shadcn, clean up internal artifacts, wire GitHub Actions deploy
 - [x] **Phase 9: Navigation Structure** - Build two-track nav (User Guide / Developer Guide), publish llms.txt and llms-full.txt (completed 2026-03-20)
-- [ ] **Phase 10: User Guide Content** - Paradigm walkthroughs, built-in plugin guides, agentic workflow recipes, session lifecycle guides
+- [x] **Phase 10: User Guide Content** - Paradigm walkthroughs, built-in plugin guides, agentic workflow recipes, session lifecycle guides (completed 2026-03-20)
 - [ ] **Phase 11: Developer Guide + API Reference** - Plugin authoring guide, auto-generated API reference, architecture docs, CONTRIBUTING update
 - [ ] **Phase 12: Doc Search Integration** - `ztlctl docs <query>` CLI command, `ztlctl://docs/search` MCP resource
 
@@ -75,7 +75,7 @@ Plans:
   2. A reader can set up and use each built-in plugin (Obsidian, Git, Reweave) by following the guide alone
   3. A reader can run a complete research-capture, review-triage, or knowledge-synthesis workflow end-to-end using the recipe walkthroughs
   4. A reader can understand the session lifecycle for both human-driven and agent-driven usage with concrete command examples
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 10-01-PLAN.md — Expand docs/paradigms.md into comprehensive second-brain vs knowledge-garden comparison guide with scenarios
@@ -120,6 +120,6 @@ Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can
 | 7. Plugin & Agentic Wiring Fixes | v2.0 | 3/3 | Complete | 2026-03-20 |
 | 8. MkDocs Infrastructure | v2.1 | 2/3 | In Progress | - |
 | 9. Navigation Structure | 2/2 | Complete   | 2026-03-20 | - |
-| 10. User Guide Content | 2/3 | In Progress|  | - |
+| 10. User Guide Content | 3/3 | Complete   | 2026-03-20 | - |
 | 11. Developer Guide + API Reference | v2.1 | 0/? | Not started | - |
 | 12. Doc Search Integration | v2.1 | 0/? | Not started | - |
