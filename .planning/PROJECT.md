@@ -42,11 +42,10 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 **User Guide Track:**
 - [x] Audience-segmented docs site with clear user vs developer navigation — Phase 9
-- [ ] Explanatory guides with examples and common scenarios for knowledge workers
-- [ ] Second-brain vs knowledge garden paradigm walkthroughs
-- [ ] Built-in plugin guides (Obsidian, Git, Reweave) with setup and usage examples
-- [ ] Agentic workflow recipes with step-by-step walkthroughs (research-capture, review-triage, knowledge-synthesis)
-- [ ] Session lifecycle guides for both human and agent-driven usage
+- [x] Paradigm comparison guide (second-brain vs knowledge garden, 192 lines, scenarios) — Phase 10
+- [x] Built-in plugin guides (Obsidian 155 lines, Git + Reweave 244 lines) — Phase 10
+- [x] Agentic workflow recipe walkthroughs (research-capture, review-triage, knowledge-synthesis) — Phase 10
+- [x] Session lifecycle guides for human and agent-driven usage (485 lines total) — Phase 10
 
 **Developer Guide Track:**
 - [ ] Plugin authoring guide with hookspecs, custom note types, config, capabilities
@@ -119,4 +118,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | MkDocs + mkdocs-shadcn for docs site | Modern shadcn/ui aesthetic, MkDocs ecosystem for Python tools, GitHub Pages deploy | ✓ Good — `mkdocs build --strict` passes, deploy workflow ready |
 
 ---
-*Last updated: 2026-03-20 after Phase 9 completion*
+*Last updated: 2026-03-20 after Phase 10 completion*

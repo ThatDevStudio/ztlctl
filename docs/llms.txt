@@ -16,6 +16,7 @@
 - [Core Concepts](https://thatdevstudio.github.io/ztlctl/concepts/): Content types, lifecycle states, and vault structure
 - [Knowledge Paradigms](https://thatdevstudio.github.io/ztlctl/paradigms/): Second-brain vs knowledge garden — which fits your workflow
 - [Obsidian Starter Kit](https://thatdevstudio.github.io/ztlctl/obsidian/): Set up Obsidian as a visual frontend for your vault
+- [Built-in Plugins](https://thatdevstudio.github.io/ztlctl/plugins/): Git and Reweave built-in plugin guides — config fields, trigger conditions, and common scenarios
 - [Agentic Workflows](https://thatdevstudio.github.io/ztlctl/agentic-workflows/): Orchestrate AI agents with ztlctl as their note substrate
 - [Command Reference](https://thatdevstudio.github.io/ztlctl/commands/): Every CLI command and flag
 - [Configuration](https://thatdevstudio.github.io/ztlctl/configuration/): Config file options, vault settings, and environment variables

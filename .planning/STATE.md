@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-20T17:52:38.180Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-03-20T18:34:00.066Z"
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  completed_phases: 3
+  total_plans: 8
+  completed_plans: 8
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 09 — navigation-structure
+**Current focus:** Phase 10 — user-guide-content
 
 ## Current Position
 
-Phase: 09 (navigation-structure) — COMPLETE
-Plan: 2 of 2 (all complete)
+Phase: 10 (user-guide-content) — EXECUTING
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -51,6 +51,9 @@ Plan: 2 of 2 (all complete)
 | Phase 08-mkdocs-infrastructure P03 | 1 | 1 tasks | 1 files |
 | Phase 09-navigation-structure P01 | 1 | 1 tasks | 3 files |
 | Phase 09-navigation-structure P02 | 2 | 2 tasks | 3 files |
+| Phase 10-user-guide-content P01 | 3 | 1 tasks | 3 files |
+| Phase 10-user-guide-content P02 | 4 | 2 tasks | 5 files |
+| Phase 10 P03 | 3 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -75,6 +78,10 @@ Recent decisions affecting current work:
 - [Phase 09-02]: llms.txt hand-authored (not generated) — spec is stable and file is small enough to maintain manually
 - [Phase 09-02]: gen_llms_full_txt.py uses NAV_ORDER (not mkdocs.yml parsing) to stay stdlib-only (no PyYAML dep)
 - [Phase 09-02]: strip_frontmatter() silently strips --- blocks before concatenation so YAML never pollutes agent corpus
+- [Phase 10-01]: Expanded paradigms.md from 72 to 192 lines preserving original sections verbatim; comparison table + 3 command-sequence scenarios + choose-your-path guidance added
+- [Phase 10-01]: Committed untracked docs/plugins.md and mkdocs.yml nav entry (from plan 02) to fix pre-existing broken link blocking mkdocs build --strict
+- [Phase 10]: [Phase 10-03]: Recipe walkthroughs inserted after MCP Server Integration section — preserves logical flow from concepts to concrete usage
+- [Phase 10]: [Phase 10-03]: Session Lifecycle section placed between Recipe Walkthroughs and Batch Operations — sessions tie recipes together
 
 ### Pending Todos
 
@@ -88,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T17:47:30Z
-Stopped at: Completed 09-02-PLAN.md
-Resume file: .planning/phases/09-navigation-structure/09-02-SUMMARY.md
+Last session: 2026-03-20T18:30:00.799Z
+Stopped at: Completed 10-03-PLAN.md
+Resume file: None

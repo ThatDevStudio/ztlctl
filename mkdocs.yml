@@ -28,6 +28,7 @@ nav:
     - Core Concepts: concepts.md
     - Knowledge Paradigms: paradigms.md
     - Obsidian Starter Kit: obsidian.md
+    - Built-in Plugins: plugins.md
     - Agentic Workflows: agentic-workflows.md
     - Command Reference: commands.md
     - Configuration: configuration.md

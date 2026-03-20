@@ -26,6 +26,7 @@ NAV_ORDER = [
             "concepts.md",
             "paradigms.md",
             "obsidian.md",
+            "plugins.md",
             "agentic-workflows.md",
             "commands.md",
             "configuration.md",
