@@ -75,6 +75,9 @@ dev = [
     "pre-commit>=4.0",
     "mypy>=1.13",
     "types-networkx>=3.6.1.20260210",
+    "mkdocs>=1.6.1",
+    "mkdocs-shadcn>=0.10.2",
+    "mkdocs-redirects>=1.2.2",
     { include-group = "test" },
     { include-group = "lint" },
 ]
