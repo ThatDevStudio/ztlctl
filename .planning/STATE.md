@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 07-plugin-agentic-wiring-fixes-01-PLAN.md
-last_updated: "2026-03-20T05:46:33.350Z"
+stopped_at: Completed 07-plugin-agentic-wiring-fixes-02-PLAN.md
+last_updated: "2026-03-20T05:47:25.849Z"
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 22
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 ## Current Position
 
 Phase: 07 (plugin-agentic-wiring-fixes) — EXECUTING
-Plan: 1 of 3
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Plan: 1 of 3
 | Phase 06-agentic-integration-security P03 | 17 | 2 tasks | 10 files |
 | Phase 06-agentic-integration-security P02 | 12 | 2 tasks | 8 files |
 | Phase 07-plugin-agentic-wiring-fixes P01 | 4 | 2 tasks | 6 files |
+| Phase 07-plugin-agentic-wiring-fixes P02 | 5 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,9 @@ Recent decisions affecting current work:
 - [Phase 07-plugin-agentic-wiring-fixes]: PLUG-03 wired via pm.inject_configs(self._settings) immediately after discover_and_load() in vault.init_event_bus()
 - [Phase 07-plugin-agentic-wiring-fixes]: ACTION_REJECTED inserted alphabetically in COMMON_ERROR_RECOVERY; detail= forwarded from ServiceError to McpError in from_result()
 - [Phase 07-plugin-agentic-wiring-fixes]: AGNT-04 advisory comment placed directly after _active_categories assignment in generator.py; category activation is metadata only (FastMCP does not support dynamic tool deregistration)
+- [Phase 07-plugin-agentic-wiring-fixes]: dispatch_post_create excluded from CreateController kwargs — internal CreateService flag not exposed to plugins
+- [Phase 07-plugin-agentic-wiring-fixes]: export_graph post-processing stays after service call but before post_action dispatch so post_action sees final result
+- [Phase 07-plugin-agentic-wiring-fixes]: Service calls always reference kwargs[key] not original local variables so plugin-modified kwargs take effect
 
 ### Pending Todos
 
@@ -136,6 +140,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:46:33.347Z
-Stopped at: Completed 07-plugin-agentic-wiring-fixes-01-PLAN.md
+Last session: 2026-03-20T05:47:25.846Z
+Stopped at: Completed 07-plugin-agentic-wiring-fixes-02-PLAN.md
 Resume file: None
