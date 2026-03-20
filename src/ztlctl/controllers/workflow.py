@@ -28,9 +28,34 @@ class WorkflowController(BaseController):
         force_trust: bool = False,
     ) -> ServiceResult:
         """Initialize Copier-backed workflow scaffolding for a vault."""
+        from ztlctl.services.result import ServiceError, ServiceResult
         from ztlctl.services.workflow import WorkflowService
 
-        return WorkflowService.init_workflow(vault_root, choices, force_trust=force_trust)
+        kwargs: dict[str, Any] = {
+            "vault_root": vault_root,
+            "choices": choices,
+            "force_trust": force_trust,
+        }
+
+        kwargs, rejection = self._dispatch_pre_action("init_workflow", kwargs)
+        if rejection is not None:
+            return ServiceResult(
+                ok=False,
+                op="init_workflow",
+                error=ServiceError(
+                    code="ACTION_REJECTED",
+                    message=rejection.reason,
+                    detail=rejection.detail,
+                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                ),
+            )
+
+        result = WorkflowService.init_workflow(
+            kwargs["vault_root"], kwargs["choices"], force_trust=kwargs["force_trust"]
+        )
+
+        self._dispatch_post_action("init_workflow", kwargs, result)
+        return result
 
     def update_workflow(
         self,
@@ -40,9 +65,36 @@ class WorkflowController(BaseController):
         force_trust: bool = False,
     ) -> ServiceResult:
         """Update workflow scaffolding using stored answers plus optional overrides."""
+        from ztlctl.services.result import ServiceError, ServiceResult
         from ztlctl.services.workflow import WorkflowService
 
-        return WorkflowService.update_workflow(vault_root, choices=choices, force_trust=force_trust)
+        kwargs: dict[str, Any] = {
+            "vault_root": vault_root,
+            "choices": choices,
+            "force_trust": force_trust,
+        }
+
+        kwargs, rejection = self._dispatch_pre_action("update_workflow", kwargs)
+        if rejection is not None:
+            return ServiceResult(
+                ok=False,
+                op="update_workflow",
+                error=ServiceError(
+                    code="ACTION_REJECTED",
+                    message=rejection.reason,
+                    detail=rejection.detail,
+                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                ),
+            )
+
+        result = WorkflowService.update_workflow(
+            kwargs["vault_root"],
+            choices=kwargs["choices"],
+            force_trust=kwargs["force_trust"],
+        )
+
+        self._dispatch_post_action("update_workflow", kwargs, result)
+        return result
 
     def export_assets(
         self,
@@ -51,9 +103,28 @@ class WorkflowController(BaseController):
         client: WorkflowAssetClient = "both",
     ) -> ServiceResult:
         """Render portable client workflow assets into a vault."""
+        from ztlctl.services.result import ServiceError, ServiceResult
         from ztlctl.services.workflow import WorkflowService
 
-        return WorkflowService.export_assets(vault_root, client=client)
+        kwargs: dict[str, Any] = {"vault_root": vault_root, "client": client}
+
+        kwargs, rejection = self._dispatch_pre_action("export_assets", kwargs)
+        if rejection is not None:
+            return ServiceResult(
+                ok=False,
+                op="export_assets",
+                error=ServiceError(
+                    code="ACTION_REJECTED",
+                    message=rejection.reason,
+                    detail=rejection.detail,
+                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                ),
+            )
+
+        result = WorkflowService.export_assets(kwargs["vault_root"], client=kwargs["client"])
+
+        self._dispatch_post_action("export_assets", kwargs, result)
+        return result
 
     def validate_assets(
         self,
@@ -62,9 +133,28 @@ class WorkflowController(BaseController):
         client: WorkflowAssetClient = "both",
     ) -> ServiceResult:
         """Validate the packaged workflow spec and generated client assets."""
+        from ztlctl.services.result import ServiceError, ServiceResult
         from ztlctl.services.workflow import WorkflowService
 
-        return WorkflowService.validate_assets(vault_root, client=client)
+        kwargs: dict[str, Any] = {"vault_root": vault_root, "client": client}
+
+        kwargs, rejection = self._dispatch_pre_action("validate_assets", kwargs)
+        if rejection is not None:
+            return ServiceResult(
+                ok=False,
+                op="validate_assets",
+                error=ServiceError(
+                    code="ACTION_REJECTED",
+                    message=rejection.reason,
+                    detail=rejection.detail,
+                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                ),
+            )
+
+        result = WorkflowService.validate_assets(kwargs["vault_root"], client=kwargs["client"])
+
+        self._dispatch_post_action("validate_assets", kwargs, result)
+        return result
 
     def read_answers(self, vault_root: Path) -> WorkflowChoices | None:
         """Read the stored workflow answers file if present."""
