@@ -137,10 +137,10 @@ Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can
 
 ### Phase 13: Switch GitHub Pages deploy to Actions artifact (eliminate gh-pages branch)
 
-**Goal:** [To be planned]
+**Goal:** Replace `mkdocs gh-deploy --force` with artifact-based GitHub Pages deployment (`actions/upload-pages-artifact` + `actions/deploy-pages`), then delete the `gh-pages` branch to restore a clean trunk-based repository.
 **Requirements**: TBD
 **Depends on:** Phase 12
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 13 to break down)
+- [ ] 13-01-PLAN.md — Rewrite docs.yml for artifact deployment, verify live site, delete gh-pages branch
