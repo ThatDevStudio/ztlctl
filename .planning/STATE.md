@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-19T23:40:43.776Z"
+stopped_at: "Completed 04-01-PLAN.md"
+last_updated: "2026-03-20T00:09:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 13
+  completed_plans: 12
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 03 — mcp-surface-generation
+**Current focus:** Phase 04 — cli-surface-generation
 
 ## Current Position
 
-Phase: 03 (mcp-surface-generation) — EXECUTING
+Phase: 04 (cli-surface-generation) — EXECUTING
 Plan: 2 of 2
 
 ## Performance Metrics
@@ -54,6 +54,7 @@ Plan: 2 of 2
 | Phase 02-action-registry P04 | 10 | 3 tasks | 5 files |
 | Phase 03-mcp-surface-generation P01 | 15 | 2 tasks | 16 files |
 | Phase 03-mcp-surface-generation P02 | 4 | 2 tasks | 3 files |
+| Phase 04-cli-surface-generation P01 | 9 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,9 @@ Recent decisions affecting current work:
 - [Phase 03-mcp-surface-generation]: manifest.json tool names updated to ActionRegistry names (session_status->status, create_log->start, graph_themes->themes, etc.)
 - [Phase 03-mcp-surface-generation]: PREVIOUSLY_MISSING test set uses actual registry names (apply, check_pending, stamp_current, check) not plan-doc names — corrected at test time
 - [Phase 03-mcp-surface-generation]: Budget-aware MCP tools: BUDGET_AWARE_ACTIONS frozenset gates injection; _apply_token_budget() truncates first list-valued field iteratively from tail
+- [Phase 04-cli-surface-generation]: update action marked custom_presentation=True — keeps hand-written update.py which decomposes changes dict into individual flags
+- [Phase 04-cli-surface-generation]: reweave/prune/undo grouped under cli_group="reweave" subgroup; archive/supersede stay top-level (cli_group=None)
+- [Phase 04-cli-surface-generation]: @click.pass_obj callback uses positional-only app param (def callback(app, /, **kwargs)) to satisfy mypy strict arg-type check
 
 ### Pending Todos
 
@@ -100,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T23:40:43.773Z
-Stopped at: Phase 4 context gathered
+Last session: 2026-03-20T00:09:00.000Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: .planning/phases/04-cli-surface-generation/04-CONTEXT.md

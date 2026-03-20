@@ -24,8 +24,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **ACTN-01**: ActionDefinition dataclass — name, typed params (ActionParam), service method binding, CLI metadata (group, help, interactive params), MCP metadata (catalog entries, when_to_use, avoid_when)
 - [x] **ACTN-02**: ActionRegistry — collects ActionDefinitions from core modules and plugins; validates uniqueness; provides lookup by name; single source of truth for all operations
 - [x] **ACTN-03**: Auto-generated MCP tools from ActionDefinitions — replaces hand-written register_tools() (~280 lines); produces FastMCP tool registrations with JSON schema, catalog metadata, and side-effect annotations
-- [ ] **ACTN-04**: Auto-generated CLI commands from ActionDefinitions — replaces hand-crafted Click command files; handles interactive prompts, AppContext.emit(), exit codes, --verbose/--json flags, progressive disclosure
-- [ ] **ACTN-05**: Escape hatch preservation — batch operations, init wizard, serve command, and other complex commands retain hand-written implementations where the ActionDefinition abstraction doesn't fit
+- [x] **ACTN-04**: Auto-generated CLI commands from ActionDefinitions — replaces hand-crafted Click command files; handles interactive prompts, AppContext.emit(), exit codes, --verbose/--json flags, progressive disclosure
+- [x] **ACTN-05**: Escape hatch preservation — batch operations, init wizard, serve command, and other complex commands retain hand-written implementations where the ActionDefinition abstraction doesn't fit
 
 ### Plugin System
 
@@ -98,8 +98,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ACTN-01 | Phase 2 | Complete |
 | ACTN-02 | Phase 2 | Complete |
 | ACTN-03 | Phase 3 | Complete |
-| ACTN-04 | Phase 4 | Pending |
-| ACTN-05 | Phase 4 | Pending |
+| ACTN-04 | Phase 4 | Complete |
+| ACTN-05 | Phase 4 | Complete |
 | PLUG-01 | Phase 5 | Pending |
 | PLUG-02 | Phase 5 | Pending |
 | PLUG-03 | Phase 5 | Pending |
