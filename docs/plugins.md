@@ -6,6 +6,8 @@ title: Built-in Plugins
 
 ztlctl ships two built-in plugins that run automatically in the background: the Git plugin for automatic version control and the Reweave plugin for automatic link discovery. Both are enabled by default. This page explains exactly what they do, when they run, and how to configure them.
 
+All plugin config lives under the `[plugins.<name>]` TOML key in `ztlctl.toml`. Config is validated at load time against the plugin's declared Pydantic schema (via `get_config_schema` hookspec). See [Configuration](configuration.md) for the full `ztlctl.toml` reference.
+
 ## Git Plugin
 
 The Git plugin provides automatic version control for vault operations. When you create a note, the plugin stages the file and — depending on configuration — either commits immediately or batches the commit for session close.
@@ -31,11 +33,11 @@ Every vault operation that creates or modifies a markdown file triggers a git st
 | `ztlctl create reference` | `feat: create reference {id} — {title}` |
 | `ztlctl create task` | `feat: create task {id} — {title}` |
 | `ztlctl update` | `docs: update {id} ({fields_changed})` |
-| `ztlctl close` / `ztlctl archive` | `docs: close {id} — {summary}` |
-| `ztlctl agent session close` | `docs: session {id} — N created, N updated` |
+| `ztlctl archive` | `docs: close {id} — {summary}` |
+| `ztlctl session close` | `docs: session {id} — N created, N updated` |
 | `ztlctl init` | `feat: initialize vault '{name}'` |
 
-Operations that are **no-ops** for the Git plugin: `reweave`, `session start`, `check`, `check rebuild`. These do not stage or commit any files.
+Operations that are **no-ops** for the Git plugin: `reweave run`, `session start`, `check check`, `check rebuild`. These do not stage or commit any files.
 
 ### Batch Mode vs Immediate Mode
 
@@ -59,7 +61,7 @@ Changes to be committed:
         modified:   notes/ZTL-0003.md
 ```
 
-After `ztlctl agent session close`, all staged changes are committed in one operation:
+After `ztlctl session close`, all staged changes are committed in one operation:
 
 ```
 docs: session LOG-0001 — 2 created, 1 updated
@@ -73,11 +75,11 @@ In `ztlctl.toml`:
 [plugins.git]
 enabled = true
 batch_commits = true      # true = commit at session close, false = commit immediately
-auto_push = false         # push to remote on session close
+auto_push = true          # push to remote on session close
 auto_ignore = true        # write .gitignore during vault init
 ```
 
-**All config fields:**
+**All config fields** (sourced from `GitConfig` model in `config/models.py`):
 
 | Field | Default | Meaning |
 |-------|---------|---------|
@@ -127,14 +129,14 @@ The Reweave plugin automatically discovers connections for new notes and referen
 
 ### What It Does
 
-When you create a note or reference, the Reweave plugin immediately calls the reweave pipeline on the new item. This means your vault's link graph is always up to date without any manual `ztlctl reweave` call.
+When you create a note or reference, the Reweave plugin immediately calls the reweave pipeline on the new item. This means your vault's link graph is always up to date without any manual `ztlctl reweave run` call.
 
 ```bash
 # When you run this:
-ztlctl create note "Attention mechanisms" --tags "ml/transformers"
+ztlctl create note "Attention mechanisms" --tags ml/transformers
 
 # The Reweave plugin automatically runs the equivalent of:
-ztlctl reweave --id ZTL-0042
+ztlctl reweave run --content-id ZTL-0042
 # → finds related notes via BM25 + tag overlap + graph proximity + shared topic
 # → creates edges for items scoring above 0.6 (default threshold)
 ```
@@ -143,7 +145,7 @@ ztlctl reweave --id ZTL-0042
 
 **Fires for:** `create note`, `create reference` only.
 
-**Does not fire for:** `create task`, `update`, `close`, `archive`, `session close`, or `reweave` (manual reweave is not re-triggered).
+**Does not fire for:** `create task`, `update`, `archive`, `session close`, or `reweave run` (manual reweave is not re-triggered).
 
 **Skip conditions (checked in order):**
 
@@ -154,7 +156,7 @@ ztlctl reweave --id ZTL-0042
 5. `[reweave] enabled = false` in config — skip globally
 
 !!! note
-    Decision notes (`ztlctl create note --subtype decision`) are intentionally excluded from auto-reweave. Decision notes represent deliberate choices and must not be auto-linked by background processes. Run `ztlctl reweave --id {id}` manually if you want to connect a decision note.
+    Decision notes (`ztlctl create note --subtype decision`) are intentionally excluded from auto-reweave. Decision notes represent deliberate choices and must not be auto-linked by background processes. Run `ztlctl reweave run --content-id {id}` manually if you want to connect a decision note.
 
 ### 4-Signal Scoring
 
@@ -184,7 +186,7 @@ graph_weight = 0.25
 topic_weight = 0.15
 ```
 
-**All config fields:**
+**All config fields** (sourced from `ReweaveConfig` model in `config/models.py`):
 
 | Field | Default | Meaning |
 |-------|---------|---------|
@@ -232,8 +234,24 @@ tag_weight = 0.45
 **Run reweave manually for an existing note:**
 
 ```bash
-ztlctl reweave --id ZTL-0042
+ztlctl reweave run --content-id ZTL-0042
 ```
+
+---
+
+## Anti-Patterns
+
+!!! warning "Anti-Pattern: Enabling auto_push without reviewing commits first"
+    With `auto_push = true`, every session close triggers a `git push` to the remote. If your vault has sensitive or draft content that should not leave your local machine, set `auto_push = false` until you have reviewed the staged content. Use `git log --oneline -5` after session close to inspect what was committed before enabling auto-push in production workflows.
+
+!!! warning "Anti-Pattern: Setting min_score_threshold too low"
+    Setting `min_score_threshold` below `0.4` will create noise — every pair of notes that shares one or two tokens in common will receive a link. Low-quality links reduce the signal-to-noise ratio in `graph related`, `graph rank`, and reweave-based session close enrichment. Start at `0.6` (default) and lower incrementally only if the graph is too sparse after a month of use.
+
+!!! warning "Anti-Pattern: Disabling the git plugin after existing history"
+    If you disable `[plugins.git] enabled = false` after already using the vault with git enabled, outstanding staged changes are left uncommitted forever. Future `ztlctl session close` calls will not commit them. If you want to stop tracking history mid-use, manually commit all staged files (`git commit -am "chore: disable git plugin"`) before setting `enabled = false`.
+
+!!! warning "Anti-Pattern: Using [plugins.git] toml key for the Reweave config section"
+    Reweave plugin config lives under `[reweave]` directly (not `[plugins.reweave]`). The Reweave plugin is a built-in whose config is managed by the top-level `ReweaveConfig` model, while the Git plugin uses the extensible `[plugins.git]` path under `PluginsConfig`. Mixing the two causes silent config fallback to defaults.
 
 ---
 
@@ -241,4 +259,5 @@ ztlctl reweave --id ZTL-0042
 
 - See [Agentic Workflows](agentic-workflows.md) for how plugins interact with sessions and MCP recipes
 - See [Configuration](configuration.md) for the full ztlctl.toml reference including all plugin config schemas
+- See [Best Practices](best-practices.md) for composing plugins with session-based workflows safely
 - See [Obsidian Starter Kit](obsidian.md) for setting up the Obsidian integration
