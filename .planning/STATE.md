@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
-status: planning
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-20T15:53:56.379Z"
-last_activity: 2026-03-20 — Roadmap created for v2.1 (5 phases, 18/18 requirements)
+status: unknown
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-20T16:13:03.290Z"
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 3
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** v2.1 Documentation — Phase 8: MkDocs Infrastructure
+**Current focus:** Phase 08 — mkdocs-infrastructure
 
 ## Current Position
 
-Phase: 8 of 12 (MkDocs Infrastructure)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-20 — Roadmap created for v2.1 (5 phases, 18/18 requirements)
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 08 (mkdocs-infrastructure) — EXECUTING
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -52,6 +46,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: Varies by phase complexity
 
 *Updated after each plan completion*
+| Phase 08-mkdocs-infrastructure P01 | 5 | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -64,6 +59,8 @@ Recent decisions affecting current work:
 - llms.txt + MCP doc search for agent accessibility: agents are a primary audience
 - mkdocs-shadcn theme (not Material): install via `pip install mkdocs-shadcn`, configure with `theme: name: shadcn`
 - Phase 10 and Phase 11 can be parallelized (both depend on Phase 9, not each other)
+- [Phase 08-01]: Deleted backlog.md, research-mapping.md, roadmap.md from docs/ — internal planning artifacts must not appear on published MkDocs site
+- [Phase 08-01]: docs/index.md For Developers and Agents section reduced to 3 links: agentic-workflows.md, development.md, troubleshooting.md
 
 ### Pending Todos
 
@@ -77,6 +74,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T15:53:56.376Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-mkdocs-infrastructure/08-CONTEXT.md
+Last session: 2026-03-20T16:13:03.287Z
+Stopped at: Completed 08-01-PLAN.md
+Resume file: None

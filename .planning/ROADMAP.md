@@ -44,7 +44,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
   3. docs/plans/ directory content is excluded from the built site
   4. No internal artifacts (backlog.md, research-mapping.md, internal roadmap.md) appear in the published site
   5. Redirect stubs preserve any existing public URLs that changed during migration
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 08-01-PLAN.md — Delete internal docs artifacts (backlog.md, research-mapping.md, roadmap.md) and repair index.md links
@@ -109,7 +109,7 @@ Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can
 | 5. Plugin Formalization | v2.0 | 3/3 | Complete | 2026-03-20 |
 | 6. Agentic Integration & Security | v2.0 | 3/3 | Complete | 2026-03-20 |
 | 7. Plugin & Agentic Wiring Fixes | v2.0 | 3/3 | Complete | 2026-03-20 |
-| 8. MkDocs Infrastructure | v2.1 | 0/3 | Not started | - |
+| 8. MkDocs Infrastructure | 1/3 | In Progress|  | - |
 | 9. Navigation Structure | v2.1 | 0/? | Not started | - |
 | 10. User Guide Content | v2.1 | 0/? | Not started | - |
 | 11. Developer Guide + API Reference | v2.1 | 0/? | Not started | - |
