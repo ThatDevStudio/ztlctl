@@ -136,6 +136,13 @@ class ActionDefinition:
     cli_group: str | None = None
     cli_examples: str = ""
     cli_interactive_params: tuple[str, ...] = ()
+    cli_name: str | None = None
+    """Explicit CLI command name (``cli_name``) override.
+
+    When ``None``, the generator derives the name from ``action.name`` by
+    stripping the ``cli_group`` prefix (if present) and replacing
+    underscores with hyphens.
+    """
 
     # Presentation escape hatch
     custom_presentation: bool = False

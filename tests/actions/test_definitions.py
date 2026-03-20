@@ -175,3 +175,33 @@ class TestActionDefinition:
         assert len(action.params) == 2
         assert action.params[0].name == "query"
         assert action.params[1].name == "limit"
+
+    def test_cli_name_default_is_none(self) -> None:
+        """ActionDefinition.cli_name defaults to None."""
+        action = _make_action()
+        assert action.cli_name is None
+
+    def test_cli_name_set(self) -> None:
+        """ActionDefinition accepts an explicit cli_name override."""
+        action = _make_action(cli_name="list")
+        assert action.cli_name == "list"
+
+    def test_cli_name_stored_on_frozen_dataclass(self) -> None:
+        """cli_name is correctly stored on a frozen dataclass."""
+        action = _make_action(cli_name="work-queue")
+        assert action.cli_name == "work-queue"
+        with pytest.raises((TypeError, AttributeError)):
+            action.cli_name = "changed"  # type: ignore[misc]
+
+    def test_cli_name_backward_compat(self) -> None:
+        """Existing ActionDefinitions without cli_name still construct correctly."""
+        # Simulate a definition that does not pass cli_name
+        action = ActionDefinition(
+            name="note.search",
+            description="Search notes.",
+            category="query",
+            params=(_make_param(),),
+            handler=_DUMMY_HANDLER,
+            side_effect="read",
+        )
+        assert action.cli_name is None
