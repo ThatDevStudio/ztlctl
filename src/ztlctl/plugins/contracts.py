@@ -151,3 +151,23 @@ class SourceProviderContribution:
     description: str
     schemes: tuple[str, ...]
     fetch: Callable[[SourceFetchRequest], SourceFetchResult]
+
+
+# ---------------------------------------------------------------------------
+# Action hook contracts (PLUG-02)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ActionRejection:
+    """Returned from ``pre_action`` to abort action execution.
+
+    A plugin's ``pre_action`` implementation can return an instance of this
+    class to prevent the registered action handler from running. The caller
+    (BaseController._dispatch_pre_action) converts this into an appropriate
+    error ServiceResult.
+    """
+
+    reason: str
+    code: str = "plugin_rejected"
+    detail: dict[str, Any] = field(default_factory=dict)
