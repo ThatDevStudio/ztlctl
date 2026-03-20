@@ -282,7 +282,7 @@ class TestDraftCommand:
 
         result = cli_runner.invoke(
             cli,
-            ["--json", "query", "draft", "--topic", "architecture", "--target", "note"],
+            ["--json", "query", "draft", "architecture", "--target", "note"],
         )
 
         assert result.exit_code == 0

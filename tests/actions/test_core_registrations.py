@@ -353,7 +353,7 @@ class TestCategoryIntegrity:
             ("check", {"check", "fix", "rebuild", "rollback"}),
             ("upgrade", {"check_pending", "apply", "stamp_current"}),
             ("reweave", {"reweave", "prune", "undo"}),
-            ("vector", {"reindex_all"}),
+            ("vector", {"vector_status", "reindex_all"}),
             ("init", {"init_vault", "regenerate_self", "check_staleness"}),
             ("workflow", {"init_workflow", "update_workflow", "export_assets"}),
             ("lifecycle", {"update", "archive", "supersede"}),

@@ -17,6 +17,7 @@ class TestWorkflowCommands:
             [
                 "--no-interact",
                 "init",
+                "--path",
                 str(tmp_path),
                 "--name",
                 "workflow-vault",

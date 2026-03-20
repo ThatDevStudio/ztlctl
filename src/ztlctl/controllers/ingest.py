@@ -68,7 +68,7 @@ class IngestController(BaseController):
 
     def ingest_file(
         self,
-        path: Path,
+        path: Path | str,
         *,
         title: str | None = None,
         target_type: str | None = None,
@@ -92,7 +92,7 @@ class IngestController(BaseController):
         from ztlctl.services.ingest import IngestService
 
         return IngestService(self._vault).ingest_file(
-            path,
+            Path(path),
             title=title,
             target_type=target_type,
             topic=topic,

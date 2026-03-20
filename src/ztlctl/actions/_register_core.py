@@ -9,6 +9,8 @@ and expensive module-level imports at startup.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 def _register_core_actions() -> None:
     """Register all built-in ActionDefinitions into the singleton registry."""
@@ -55,8 +57,7 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional note subtype: knowledge or decision.",
-                    choices=("knowledge", "decision"),
+                    description="Optional subtype (e.g. knowledge, decision, or plugin-defined).",
                 ),
                 ActionParam(
                     "tags",
@@ -316,6 +317,7 @@ def _register_core_actions() -> None:
                     default=None,
                     description="Optional filter: note, reference, task, or log.",
                     choices=("note", "reference", "task", "log"),
+                    cli_name="type",
                 ),
                 ActionParam(
                     "tag",
@@ -329,7 +331,8 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional space filter.",
+                    description="Filter by vault space: notes, ops, or self.",
+                    choices=("notes", "ops", "self"),
                 ),
                 ActionParam(
                     "rank_by",
@@ -401,6 +404,7 @@ def _register_core_actions() -> None:
                     default=None,
                     description="Optional type filter: note, reference, task, or log.",
                     choices=("note", "reference", "task", "log"),
+                    cli_name="type",
                 ),
                 ActionParam(
                     "status",
@@ -443,7 +447,8 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional space filter.",
+                    description="Filter by vault space: notes, ops, or self.",
+                    choices=("notes", "ops", "self"),
                 ),
                 ActionParam(
                     "since",
@@ -465,8 +470,8 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default="recency",
-                    description="Sort mode: recency.",
-                    choices=("recency",),
+                    description="Sort mode: recency, title, type, or priority.",
+                    choices=("recency", "title", "type", "priority"),
                 ),
                 ActionParam(
                     "limit",
@@ -496,7 +501,8 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional space filter for scoped task queues.",
+                    description="Filter by vault space: notes, ops, or self.",
+                    choices=("notes", "ops", "self"),
                 ),
             ),
             handler=lambda vault, **kw: QueryController(vault).work_queue(**kw),
@@ -555,7 +561,8 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional space filter.",
+                    description="Filter by vault space: notes, ops, or self.",
+                    choices=("notes", "ops", "self"),
                 ),
             ),
             handler=lambda vault, **kw: QueryController(vault).decision_support(**kw),
@@ -1660,6 +1667,16 @@ def _register_core_actions() -> None:
     # export category
     # -----------------------------------------------------------------------
 
+    def _make_export_filters(
+        content_type: str | None = None,
+        **_kw: object,
+    ) -> Any:
+        from ztlctl.services.export import ExportFilters
+
+        if content_type is None:
+            return None
+        return ExportFilters(content_type=content_type)
+
     registry.register(
         ActionDefinition(
             name="export_markdown",
@@ -1673,8 +1690,19 @@ def _register_core_actions() -> None:
                     description="Destination directory for exported markdown files.",
                     cli_is_argument=True,
                 ),
+                ActionParam(
+                    "content_type",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Filter by content type (note, reference, task).",
+                    cli_name="type",
+                ),
             ),
-            handler=lambda vault, **kw: ExportController(vault).export_markdown(**kw),
+            handler=lambda vault, **kw: ExportController(vault).export_markdown(
+                kw["output_dir"],
+                filters=_make_export_filters(**kw),
+            ),
             side_effect="read",
             mcp_when_to_use="Exporting vault content as plain markdown files.",
             mcp_avoid_when="You need a graph export or structured index.",
@@ -1696,8 +1724,19 @@ def _register_core_actions() -> None:
                     description="Destination directory for exported index files.",
                     cli_is_argument=True,
                 ),
+                ActionParam(
+                    "content_type",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Filter by content type (note, reference, task).",
+                    cli_name="type",
+                ),
             ),
-            handler=lambda vault, **kw: ExportController(vault).export_indexes(**kw),
+            handler=lambda vault, **kw: ExportController(vault).export_indexes(
+                kw["output_dir"],
+                filters=_make_export_filters(**kw),
+            ),
             side_effect="read",
             mcp_when_to_use="Generating navigational index files grouped by type and topic.",
             mcp_avoid_when="You need raw markdown files or a graph export.",
@@ -1719,9 +1758,30 @@ def _register_core_actions() -> None:
                     default="dot",
                     description="Export format: dot or json.",
                     choices=("dot", "json"),
+                    cli_name="format",
+                ),
+                ActionParam(
+                    "output_file",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Output file path (default: stdout).",
+                    cli_name="output",
+                ),
+                ActionParam(
+                    "content_type",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Filter by content type (note, reference, task).",
+                    cli_name="type",
                 ),
             ),
-            handler=lambda vault, **kw: ExportController(vault).export_graph(**kw),
+            handler=lambda vault, **kw: ExportController(vault).export_graph(
+                fmt=kw.get("fmt", "dot"),
+                output_file=kw.get("output_file"),
+                filters=_make_export_filters(**kw),
+            ),
             side_effect="read",
             mcp_when_to_use="Exporting the knowledge graph for visualization or external analysis.",
             mcp_avoid_when="You need markdown content files rather than the graph structure.",
@@ -1733,7 +1793,7 @@ def _register_core_actions() -> None:
     registry.register(
         ActionDefinition(
             name="export_dashboard",
-            description="Export an external review workbench plus review and dossier artifacts.",
+            description="Export an external review dashboard and JSON review indexes.",
             category="export",
             params=(
                 ActionParam(
@@ -1748,11 +1808,14 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default="obsidian",
-                    description="Client viewer: obsidian or none.",
-                    choices=("obsidian", "none"),
+                    # Note: no choices — service layer normalizes "vanilla" alias.
+                    description="Client viewer: obsidian, none (or legacy alias vanilla).",
                 ),
             ),
-            handler=lambda vault, **kw: ExportController(vault).export_dashboard(**kw),
+            handler=lambda vault, **kw: ExportController(vault).export_dashboard(
+                kw["output_dir"],
+                viewer=kw.get("viewer", "obsidian"),
+            ),
             side_effect="read",
             mcp_when_to_use="Generating a review workbench for use in an external tool.",
             mcp_avoid_when="You only need a graph or raw markdown export.",
@@ -1764,6 +1827,21 @@ def _register_core_actions() -> None:
     # -----------------------------------------------------------------------
     # vector category
     # -----------------------------------------------------------------------
+
+    registry.register(
+        ActionDefinition(
+            name="vector_status",
+            description="Check semantic search availability and index status.",
+            category="vector",
+            params=(),
+            handler=lambda vault, **kw: VectorController(vault).status(),
+            side_effect="read",
+            mcp_when_to_use="Checking whether semantic search is available before using it.",
+            mcp_avoid_when="You already know semantic search is available.",
+            cli_group="vector",
+            cli_name="status",
+        )
+    )
 
     registry.register(
         ActionDefinition(

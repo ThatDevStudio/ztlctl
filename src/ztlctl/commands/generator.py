@@ -50,11 +50,22 @@ def _param_to_click(p: ActionParam) -> click.Parameter:
     if p.cli_is_argument:
         return click.Argument([p.name])
 
-    option_name = f"--{p.name.replace('_', '-')}"
+    # cli_name overrides the flag name (e.g. cli_name="type" -> --type)
+    # while p.name remains the Python kwarg key passed to the handler.
+    # When cli_name differs from p.name, pass both to Click so it maps
+    # --<cli_name> to the p.name kwarg (e.g. ["--type", "content_type"]).
+    flag_name = p.cli_name if p.cli_name is not None else p.name.replace("_", "-")
+    option_name = f"--{flag_name}"
+    # Param decls: if cli_name differs from p.name, include p.name so Click
+    # uses it as the Python kwarg key.
+    if p.cli_name is not None and p.cli_name.replace("-", "_") != p.name:
+        param_decls = [option_name, p.name]
+    else:
+        param_decls = [option_name]
 
     if p.cli_flag:
         return click.Option(
-            [option_name],
+            param_decls,
             is_flag=True,
             default=False,
             help=p.description,
@@ -62,7 +73,7 @@ def _param_to_click(p: ActionParam) -> click.Parameter:
 
     if p.choices is not None:
         return click.Option(
-            [option_name],
+            param_decls,
             type=click.Choice(list(p.choices)),
             default=p.default,
             required=p.required and p.default is None,
@@ -71,7 +82,7 @@ def _param_to_click(p: ActionParam) -> click.Parameter:
 
     if p.cli_multiple:
         return click.Option(
-            [option_name],
+            param_decls,
             multiple=True,
             default=(),
             help=p.description,
@@ -80,7 +91,7 @@ def _param_to_click(p: ActionParam) -> click.Parameter:
     # dict type -> JSON string input
     if p.type is dict:
         return click.Option(
-            [option_name],
+            param_decls,
             type=click.STRING,
             default=p.default,
             required=p.required and p.default is None,
@@ -89,7 +100,7 @@ def _param_to_click(p: ActionParam) -> click.Parameter:
 
     click_type = {int: click.INT, float: click.FLOAT, bool: click.BOOL}.get(p.type, click.STRING)
     return click.Option(
-        [option_name],
+        param_decls,
         type=click_type,
         default=p.default,
         required=p.required and p.default is None,

@@ -12,48 +12,19 @@ from ztlctl.cli import cli
 
 # (CLI args, expected keywords in output)
 EXAMPLES_COMMANDS: list[tuple[list[str], list[str]]] = [
-    # -- create --
-    (["create", "--examples"], ["ztlctl create note"]),
-    (["create", "note", "--examples"], ["--subtype decision"]),
-    (["create", "reference", "--examples"], ["ztlctl create reference"]),
-    (["create", "task", "--examples"], ["--priority high"]),
+    # -- create (batch is the only hand-written command with examples) --
     (["create", "batch", "--examples"], ["--partial"]),
-    # -- query --
-    (["query", "--examples"], ["ztlctl query search", "ztlctl query list"]),
-    (["query", "search", "--examples"], ["--rank-by recency"]),
-    (["query", "list", "--examples"], ["--sort priority", "--include-archived"]),
-    (["query", "work-queue", "--examples"], ["ztlctl query work-queue"]),
-    (["query", "decision-support", "--examples"], ["--topic architecture"]),
-    # -- graph --
-    (["graph", "--examples"], ["ztlctl graph related", "ztlctl graph themes"]),
-    (["graph", "related", "--examples"], ["--depth 3"]),
-    (["graph", "path", "--examples"], ["ztlctl graph path"]),
-    # -- workflow --
+    # -- workflow (fully hand-written, has examples) --
     (["workflow", "--examples"], ["ztlctl workflow init", "ztlctl workflow update"]),
     (["workflow", "init", "--examples"], ["--profile obsidian"]),
     (["workflow", "update", "--examples"], ["--skill-set minimal"]),
     (["workflow", "export", "--examples"], ["--client both"]),
     (["workflow", "validate", "--examples"], ["--client claude"]),
-    # -- agent --
-    (["agent", "--examples"], ["ztlctl agent session start"]),
-    (["agent", "session", "start", "--examples"], ["ztlctl agent session start"]),
-    (["agent", "session", "cost", "--examples"], []),
-    (["agent", "session", "log", "--examples"], []),
-    (["agent", "context", "--examples"], []),
-    (["agent", "brief", "--examples"], []),
-    (["agent", "regenerate", "--examples"], ["ztlctl agent regenerate"]),
-    # -- standalone commands --
-    (["check", "--examples"], ["ztlctl check --fix", "ztlctl check --rebuild"]),
-    (["reweave", "--examples"], ["--dry-run", "--undo-id 42"]),
+    # -- standalone hand-written commands with examples --
     (["update", "--examples"], ["--title", "--maturity seed"]),
-    (["archive", "--examples"], ["ztlctl archive"]),
-    (["supersede", "--examples"], ["ztlctl supersede"]),
     (["init", "--examples"], ["ztlctl init"]),
-    (["export", "--examples"], ["ztlctl export"]),
     (["garden", "seed", "--examples"], ["garden seed"]),
     (["serve", "--examples"], ["ztlctl serve"]),
-    (["extract", "--examples"], ["extract"]),
-    (["upgrade", "--examples"], ["upgrade"]),
 ]
 
 
@@ -83,22 +54,16 @@ class TestExamplesInHelp:
     @pytest.mark.parametrize(
         "args",
         [
-            ["create", "--help"],
-            ["create", "note", "--help"],
-            ["query", "--help"],
-            ["query", "list", "--help"],
-            ["graph", "--help"],
-            ["graph", "related", "--help"],
+            # Hand-written commands that still have --examples
             ["workflow", "--help"],
             ["workflow", "init", "--help"],
             ["workflow", "update", "--help"],
             ["workflow", "export", "--help"],
             ["workflow", "validate", "--help"],
-            ["check", "--help"],
-            ["reweave", "--help"],
+            ["create", "batch", "--help"],
             ["update", "--help"],
-            ["archive", "--help"],
-            ["supersede", "--help"],
+            ["init", "--help"],
+            ["serve", "--help"],
         ],
     )
     def test_examples_in_help(self, cli_runner: CliRunner, args: list[str]) -> None:
@@ -116,10 +81,7 @@ class TestExamplesEagerExit:
         assert result.exit_code == 0
         assert "Examples for" in result.output
 
-    def test_examples_skips_required_args_archive(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["archive", "--examples"])
-        assert result.exit_code == 0
-
-    def test_examples_skips_required_args_supersede(self, cli_runner: CliRunner) -> None:
-        result = cli_runner.invoke(cli, ["supersede", "--examples"])
+    def test_examples_skips_required_args_init(self, cli_runner: CliRunner) -> None:
+        """init is a wizard group — --examples exits immediately."""
+        result = cli_runner.invoke(cli, ["init", "--examples"])
         assert result.exit_code == 0
