@@ -1,258 +1,280 @@
-# Domain Pitfalls
+# Pitfalls Research
 
-**Domain:** Plugin system formalization, CLI/MCP unification, agentic integration for a Zettelkasten CLI
-**Researched:** 2026-03-19
+**Domain:** Documentation restructuring — audience-segmented Jekyll/Just the Docs site, llms.txt, CLI doc search, MCP doc resources for a Python CLI/MCP tool
+**Researched:** 2026-03-20
+**Confidence:** HIGH (Just the Docs nav mechanics) / MEDIUM (llms.txt spec, MCP resource patterns) / HIGH (package size, redirect constraints)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites or major issues.
+### Pitfall 1: `parent:` Field Must Exactly Match the Parent Page's `title:` Value
 
-### Pitfall 1: Premature Plugin API Freeze
+**What goes wrong:**
+When restructuring flat nav into sections, each child page needs `parent: "Section Title"` in its frontmatter. If the parent page's `title:` value ever changes (even capitalization), all child pages under it silently detach from the hierarchy and fall back to the root level. No build error is raised. The navigation tree appears to work but sections are collapsed or missing children.
 
-**What goes wrong:** The plugin API is formalized and documented before the "define-once" action model is proven. Plugin authors build against it. Then the action model needs changes (new parameters, different return shapes, renamed hooks), and every published plugin breaks. This is especially dangerous because ztlctl already has 8 hookspecs and plugin contribution contracts — the existing surface is the informal version that may not survive the unification.
+**Why it happens:**
+Just the Docs resolves the parent-child relationship entirely through string matching on `title:` — there is no stable ID. When you rename a section (e.g., "Reference" → "API Reference" for clarity), you must update `parent:` in every child page simultaneously. In a flat-to-hierarchical migration with 16 pages, this is easy to miss for one or two pages.
 
-**Why it happens:** Excitement to ship the formalized system before validating that the unified action/event model actually covers all the cases the current hand-crafted CLI and MCP tool surfaces handle. The current hookspecs (`post_create`, `post_update`, etc.) and contribution contracts (`CliCommandContribution`, `McpToolContribution`) were designed for v1's architecture. A "define-once" action model will likely change the shape of these hooks fundamentally — e.g., moving from `post_create(content_type, content_id, title, path, tags)` to a generic `post_action(action_name, action_result)` pattern.
+The ztlctl site has 16 pages all at the root level with `nav_order: 1–12`. Converting to sections means every non-parent page must gain a `parent:` field with a string that exactly matches its new section's `title:`.
 
-**Consequences:** Plugin API churn destroys trust. Third-party plugin authors stop investing if the API breaks repeatedly. The existing GitPlugin and ReweavePlugin would need rewrites. The contribution contracts in `contracts.py` (8 frozen dataclasses) become dead code.
+**How to avoid:**
+1. Rename sections last, after all child pages have been assigned. Never rename a section title mid-migration.
+2. Add a build verification step: after the migration, run `grep -r "parent:" docs/` and compare the set of parent values against the set of actual section page titles. Any mismatch is a bug.
+3. Use lowercase, simple section titles (e.g., `title: "Reference"`) with no punctuation, making exact-match easier and reducing future rename temptation.
 
-**Prevention:**
-1. Mark the plugin API as `experimental` / `unstable` in the first release after formalization. Use a version prefix (e.g., `ztlctl.hooks.v1`) so old hooks coexist with new ones.
-2. Build the action model and auto-generation layer first as internal-only. Only promote to plugin API after the core CLI and MCP surfaces are successfully generated from it.
-3. Keep the existing hookspecs working as compatibility shims during transition. Deprecate, don't delete.
-4. Write the three built-in plugins (Git, Reweave, and at least one test plugin) against the new API before declaring it stable.
+**Warning signs:**
+- Top-level nav shows section headings but clicking them reveals no children
+- A page appears at the root level when it should be nested
+- `nav_order` conflicts in build output (duplicate nav_order values at the root scope appear when children detach)
 
-**Detection:** If you find yourself needing to change a hook signature more than once during development, the model is not ready for external consumption. If the `register_content_models` hook cannot express a real custom note type with custom lifecycle, the abstraction is too narrow.
-
-**Phase mapping:** Plugin System Formalization phase. Do not publish the formalized API until the CLI/MCP auto-generation phase proves the action model works.
-
----
-
-### Pitfall 2: CLI/MCP Parity Regression During Unification
-
-**What goes wrong:** The "define-once" action model introduces a code generation or registry layer between the service layer and the presentation layers (Click CLI + FastMCP tools). During this transition, capabilities that currently exist in one surface but not the other silently disappear, or parameter handling diverges because Click and MCP have fundamentally different type systems.
-
-**Why it happens:** The current codebase has significant duplication between CLI commands (22 files in `commands/`) and MCP tools (29 `_impl` functions in `mcp/tools.py`). Each was hand-crafted with surface-specific concerns. Click commands handle `ctx.obj` AppContext, exit codes, Rich output formatting, and `--verbose`/`--log-json` flags. MCP tools handle vault injection, `_to_mcp_response()` conversion, and catalog metadata. A unified action definition must accommodate both, and the impedance mismatch is real:
-- Click uses `click.Choice`, `click.Path`, `click.IntRange` — these have no MCP equivalent
-- MCP tools return `dict[str, Any]`; CLI commands write to stdout/stderr with exit codes
-- CLI has progressive disclosure (`--verbose`, `--json`); MCP has no equivalent concept
-- Click options have `--help` text; MCP tools have `when_to_use` / `avoid_when` guidance
-
-**Consequences:** Users who rely on CLI flags that have no MCP equivalent (like `--json` output mode or `--dry-run` on specific commands) lose functionality. Agents that depend on specific MCP tool response shapes get broken responses. The 1500-line `register_tools()` function in `mcp/tools.py` and the 22 command files represent ~3000 lines of presentation logic that cannot be trivially auto-generated.
-
-**Prevention:**
-1. Build a compatibility test suite before starting: for every CLI command, assert the equivalent MCP tool exists and accepts the same logical parameters. For every MCP tool, assert a CLI command exists. This becomes the regression gate.
-2. Design the action definition to carry both Click-specific metadata (help text, types, groups) and MCP-specific metadata (catalog entries, side_effect classification) as separate annotation layers on a single definition.
-3. Do not attempt full auto-generation in one pass. Start with read-only tools (discovery, query) where the impedance mismatch is smallest, then tackle write tools.
-4. Keep the `_impl` functions as the service call boundary — they already abstract away MCP-specific concerns. The unification target is the layer above `_impl`, not below it.
-
-**Detection:** If the generated CLI produces different results than a hand-crafted command for the same inputs, the generation layer is lossy. Run the existing 797+ tests after each generation step.
-
-**Phase mapping:** CLI/MCP Unification phase. Must come after the action model is designed but may need to happen incrementally rather than all-at-once.
+**Phase to address:**
+Navigation Restructuring phase — the frontmatter migration step.
 
 ---
 
-### Pitfall 3: Breaking Existing Vaults During Lifecycle Formalization
+### Pitfall 2: GitHub Pages Has No Server-Side Redirects — Client-Side Refresh Is the Only Option
 
-**What goes wrong:** Formalizing the note lifecycle (making "note types" and "status transitions" extensible primitives) requires changes to the domain layer (`lifecycle.py`, `content.py`) that invalidate existing vault data. Notes created under the informal system have frontmatter that the formalized system rejects, or status transition maps change so that previously valid state changes become illegal.
+**What goes wrong:**
+Moving pages from flat to sectioned navigation typically changes URLs. Just the Docs generates URLs from file paths. If you move `docs/commands.md` to `docs/reference/commands.md`, the URL changes from `/ztlctl/commands` to `/ztlctl/reference/commands`. All external links (README.md, GitHub issues, PyPI page, other tools that link to the docs) break silently. GitHub Pages serves a 404; there is no server-side redirect.
 
-**Why it happens:** The current lifecycle is hard-coded in `domain/lifecycle.py` with four separate transition maps (`NOTE_TRANSITIONS`, `REFERENCE_TRANSITIONS`, `TASK_TRANSITIONS`, `DECISION_TRANSITIONS`). Formalizing this into an extensible primitive means moving from compile-time constants to runtime-registered lifecycle definitions. If the registration mechanism requires metadata that existing notes lack (e.g., a `lifecycle_version` field), every note in every vault is "invalid" until migrated.
+**Why it happens:**
+GitHub Pages is a static host. It does not support `.htaccess`, Nginx rewrites, or any server-level redirect mechanism. The only GitHub Pages-approved redirect approach is the `jekyll-redirect-from` gem, which generates stub HTML files containing `<meta http-equiv="refresh">` tags. These are client-side redirects, not HTTP 301s.
 
-**Consequences:** Users cannot upgrade ztlctl without running a migration. If the migration is lossy or introduces ambiguity (e.g., a note with `status: active` could map to two different formalized states), data corruption occurs silently. The `check --rebuild` command, which is the safety net, may itself break if it depends on the old lifecycle definitions.
+For ztlctl, the current flat structure means `/ztlctl/commands`, `/ztlctl/configuration`, `/ztlctl/mcp`, `/ztlctl/installation`, etc. are live public URLs. These are referenced in README.md, CONTRIBUTING.md, and potentially in the Homebrew tap and PyPI description.
 
-**Prevention:**
-1. The formalized lifecycle system must treat the current four lifecycle maps as the built-in defaults, not as something that replaces them. Existing notes with no `lifecycle_version` field are implicitly v1.
-2. Add a schema version or lifecycle version to vault metadata (not per-note frontmatter) so the system knows which lifecycle rules to apply.
-3. Write a `check --upgrade` or `upgrade` command that detects the vault schema version and applies forward-migrations before any other operation.
-4. Test the migration path with real vaults created under v1. The 1256 existing tests create test vaults — use these as migration test fixtures.
+**How to avoid:**
+1. Decide the new URL structure before moving any files. Once decided, add `redirect_from: ["/ztlctl/old-path/"]` to the new page's frontmatter before renaming or moving the file.
+2. Verify `jekyll-redirect-from` is in the `_config.yml` plugins list. For GitHub Pages, it is in the allowlist and does not require custom build steps.
+3. Audit all cross-references (README.md, CONTRIBUTING.md, pyproject.toml `[project.urls]`, Homebrew formula description) before any file moves. Update these in the same commit as the move so they never point to a 404.
+4. Prefer keeping file paths stable where possible. If a page stays at `docs/commands.md`, its URL `/ztlctl/commands` does not change even if it gains a `parent:` frontmatter field. Hierachical nav in Just the Docs is controlled by frontmatter, not file paths.
 
-**Detection:** If `check --rebuild` on a v1 vault produces warnings or errors after the formalization changes, the migration is incomplete. If any existing test in the 797-test CLI suite fails without code changes to the test itself, the formalization broke backward compatibility.
+**Warning signs:**
+- Any file moved to a subdirectory will change its URL (e.g., `docs/reference/commands.md` → `/ztlctl/reference/commands`)
+- Internal links using `[text](commands.md)` style resolve correctly in Jekyll but hardcoded links like `[text](/ztlctl/commands)` break if the file moves
+- `jekyll-relative-links` plugin (in GitHub Pages allowlist) converts relative markdown links and will update them transparently — use relative links everywhere internally
 
-**Phase mapping:** Core Hardening phase (data model consistency) and Plugin System Formalization phase. The hardening phase should stabilize the lifecycle model before the plugin phase makes it extensible.
-
----
-
-### Pitfall 4: Action Model Becomes a God Object
-
-**What goes wrong:** The "define-once" action model tries to capture everything about an operation — its parameters, validation rules, CLI presentation, MCP metadata, event hooks, permissions, telemetry spans — in a single definition. This definition becomes a massive, deeply nested data structure that is harder to maintain than the duplication it replaced.
-
-**Why it happens:** The motivation for unification is real: the current codebase has ~29 MCP tools, ~22 CLI command files, 8 hookspecs, and 6 services, all describing overlapping but non-identical views of the same operations. The temptation is to create a single `ActionDefinition` dataclass that captures all of these concerns. But different consumers need different things:
-- CLI needs: help text, option groups, types, exit codes, output formatters
-- MCP needs: tool descriptions, arg guidance, side_effect classification, when_to_use/avoid_when
-- Events need: hook names, payload shapes, retry policies
-- Telemetry needs: span names, metric labels
-- Plugins need: pre/post hooks, capability checks
-
-**Consequences:** The `ActionDefinition` becomes a 200-field monster that nobody can reason about. Changes to CLI presentation require touching the same definition as changes to MCP catalog entries. The single definition becomes the coupling point that makes all changes risky.
-
-**Prevention:**
-1. Use a layered annotation pattern, not a monolithic definition. The core action defines: name, parameters with types, validation rules, service method to call, and return type. CLI metadata, MCP metadata, event metadata, and telemetry metadata are separate, optional annotation layers that reference the core action by name.
-2. Look at how Django REST Framework separates serializers, views, and URL routing — three separate declarations that reference the same model but serve different concerns.
-3. Set a complexity budget: if the action definition for `create_note` exceeds 50 lines, the abstraction is too heavy. The current `_impl` function is 15 lines; the current CLI command is ~40 lines; the current catalog entry is ~15 lines. Combined they are ~70 lines across 3 files. A single definition should not exceed that.
-4. Start with the simplest possible action definition (name + params + service method) and add layers only when a concrete consumer needs them.
-
-**Detection:** If defining a new action requires filling in more than 10 fields, the model is too heavy. If changing a CLI help string requires modifying the same file as changing an MCP description, the concerns are not separated.
-
-**Phase mapping:** Plugin System Formalization phase (action model design). This is the single most important design decision in v2.
+**Phase to address:**
+Infrastructure phase (URL audit before any restructuring) — must happen before any file moves.
 
 ---
 
-## Moderate Pitfalls
+### Pitfall 3: Just the Docs Navigation Sections Have No URL of Their Own Without an Index Page
 
-### Pitfall 5: Plugin Discovery Race Condition with Entry Points
+**What goes wrong:**
+In Just the Docs, a "section" is just a page marked `has_children: true` (legacy) or a page that other pages declare as their `parent:`. The section's own `title:` becomes the nav heading. If the section page is intended to be a landing page for the section (e.g., a "User Guide" overview), it must be a real `.md` file with content. If you only want the visual grouping without a landing page, users clicking the section title get a page that either has no content or shows stale placeholder content.
 
-**What goes wrong:** The current `PluginManager` uses `importlib.metadata.entry_points()` for discovery. When the formalized plugin system allows plugins to register CLI commands and MCP tools, plugin loading order matters: a plugin that registers a CLI command group must be loaded before Click builds the command tree, and an MCP tool must be registered before `register_tools()` runs. If plugins are slow to load (e.g., importing heavy dependencies like `sentence-transformers`), the CLI or MCP server starts with an incomplete tool surface.
+**Why it happens:**
+For audience-segmented docs (User Guide / Developer Guide / Agent Accessibility), the natural instinct is to create section titles as pure nav containers. But Just the Docs does not support folder-only sections — every section header must be a page. If you don't write real content for it, you're shipping an empty placeholder as a public page.
 
-**Prevention:**
-1. Split plugin discovery (finding what exists) from plugin activation (loading code). Discovery reads entry-point metadata only; activation imports the plugin module.
-2. Use lazy activation: plugins are activated on first use, not at startup. This matches the existing lazy-import pattern used throughout the codebase (e.g., `from ztlctl.services.create import CreateService` inside `_impl` functions).
-3. Set a hard timeout on plugin activation (the EventBus already has a 30-second timeout on futures — apply the same principle to plugin loading).
+**How to avoid:**
+1. Write meaningful section landing pages. A "User Guide" landing page should briefly explain what's in the section and link to the most important child pages. One paragraph + a short table of contents is sufficient.
+2. If a section has no meaningful landing content, consider whether it's a real section or just a nav_order grouping. Two to three pages rarely justify a full section.
+3. Plan section landing pages as separate deliverables in the phase scope — they are not automatically generated.
 
-**Detection:** If `ztlctl --help` takes more than 500ms on a cold start with plugins installed, plugin loading is too eager.
+**Warning signs:**
+- Section page has `title:` and `nav_order:` but no body content below the frontmatter
+- The same links appear in both the section landing page and the parent index.md (duplication)
 
-**Phase mapping:** Plugin System Formalization phase.
-
----
-
-### Pitfall 6: MCP Tool Explosion for Agents
-
-**What goes wrong:** As the plugin system allows arbitrary tool registration, the MCP tool surface grows beyond what an LLM can effectively navigate. The current 29 tools are already at the upper bound of what most models handle well. Adding plugin-contributed tools pushes past 40-50 tools, degrading agent performance because the model spends context window on tool descriptions instead of user tasks.
-
-**Why it happens:** The MCP protocol has no built-in mechanism for progressive tool disclosure. Every registered tool's description is included in the system prompt (or tool listing), consuming tokens proportional to the number of tools. The current tool catalog entries average ~150 tokens each; 50 tools = ~7,500 tokens just for tool descriptions.
-
-**Prevention:**
-1. Implement tool filtering by category (already partially supported via `discover_tools(category=...)`) and make this the default for agent sessions — agents start with only the `discovery` category active and activate others on demand.
-2. Set a maximum tool count per MCP session (e.g., 40 tools). Plugin tools that exceed this limit are available via `discover_tools` but not auto-registered.
-3. Design tool descriptions to be concise: the current `_render_tool_doc()` generates multi-line descriptions. Consider a compact mode for agents that only includes `description` + `args_guidance`, not `when_to_use` / `avoid_when`.
-4. Implement tool namespacing: plugin tools are prefixed with the plugin name (e.g., `git_commit` not `commit`) to avoid collisions and help agents disambiguate.
-
-**Detection:** If an agent consistently fails to pick the right tool on the first try, or if `discover_tools` response exceeds 4,000 tokens, the tool surface is too large.
-
-**Phase mapping:** Agentic Integration phase.
+**Phase to address:**
+Content authoring phase — section landing pages must be scoped as explicit deliverables.
 
 ---
 
-### Pitfall 7: EventBus as Implicit Coupling Layer
+### Pitfall 4: llms.txt Goes Stale Within One Release Cycle
 
-**What goes wrong:** The existing EventBus (WAL-backed async dispatch via pluggy + ThreadPoolExecutor) becomes the de facto integration backbone for the formalized plugin system. But it was designed for fire-and-forget lifecycle notifications (post_create, post_update), not for request-response interactions that plugins need (e.g., "validate this custom note type before creation" or "transform this content before persistence").
+**What goes wrong:**
+The `llms.txt` file at the docs root is a manually curated index of important URLs and descriptions. When docs pages are added, renamed, or reorganized, the file is not automatically updated. Within a release cycle, it lists deleted pages, points to stale content, or omits newly important pages. AI agents using it get outdated navigation and may cite pages that no longer exist or miss the most current content.
 
-**Why it happens:** The hookspecs are currently all `post_*` — they run after the operation completes and cannot influence the outcome. Formalizing "pre/post hooks on every core action" (per PROJECT.md) requires pre-hooks that can reject or modify the action. The EventBus's WAL-backed async dispatch is wrong for pre-hooks: you cannot asynchronously validate something that must complete before the action proceeds.
+**Why it happens:**
+There is no tooling that generates llms.txt automatically from a Jekyll site. It is always written by hand. Documentation updates happen in PRs focused on content — the llms.txt update is a side task that is easy to forget. The llms.txt specification has no staleness detection mechanism; there is no `last_updated:` field or version identifier in the canonical spec.
 
-**Prevention:**
-1. Separate the event dispatch (async, fire-and-forget, WAL-backed) from hook dispatch (synchronous, can return values, can raise to abort). Use pluggy's existing `firstresult` and `trylast`/`tryfirst` markers for synchronous pre-hooks.
-2. Pre-hooks must be synchronous and run in the service method's transaction. Post-hooks can remain async via the EventBus.
-3. Define a clear contract: pre-hooks receive the action's validated parameters and return either `None` (proceed) or raise `PluginRejectError` (abort with message). Post-hooks receive the action's result and cannot influence it.
-4. Do not route pre-hooks through the WAL. They are synchronous and do not need retry semantics.
+For ztlctl, the docs are in a separate `docs/` directory from the Python package. The package release process (`cz bump` → GitHub Release → PyPI) does not touch the docs, so a PyPI release does not trigger a docs review.
 
-**Detection:** If you find yourself adding `sync=True` to every pre-hook dispatch, the EventBus is the wrong mechanism. If pre-hook failures leave WAL entries in `failed` state that get retried (nonsensically, since the action already completed or aborted), the abstraction is leaking.
+**How to avoid:**
+1. Add a CI check: run a script in `pr-ci.yml` that verifies every URL listed in `llms.txt` resolves to an actual file in `docs/`. A broken URL means a stale entry. This catches deletions and renames automatically.
+2. Write llms.txt in terms of stable, section-level URLs rather than individual deep-link pages. Section entry points change less frequently than individual page content.
+3. Add `# Updated: YYYY-MM-DD` as a comment in the first few lines (this is not in the spec but is parseable by agents). Commit to updating this date when any section changes.
+4. Treat llms.txt as part of the docs navigation infrastructure, not as content. Put it in the same PR as any structural navigation changes.
 
-**Phase mapping:** Plugin System Formalization phase. Must be resolved before pre-hooks are exposed to plugins.
+**Warning signs:**
+- A URL in llms.txt returns a 404 from the deployed site
+- A major section added in a release has no entry in llms.txt
+- The listed descriptions no longer match what the page actually contains
 
----
-
-### Pitfall 8: Agent State Assumptions Across Tool Calls
-
-**What goes wrong:** Agents assume state persists between MCP tool calls (e.g., "I created a note, so the next `get_related` call will include it"). But the MCP server creates services per-call (each `_impl` function instantiates a new service), and graph materialization is not automatic. The agent's mental model of vault state diverges from actual state.
-
-**Why it happens:** The current MCP server creates a single `Vault` instance in `create_server()` that persists across all tool calls within a session. Database writes are visible immediately. But graph-dependent operations (related, themes, rank, bridges, gaps) depend on the in-memory NetworkX graph, which may be stale if `invalidate()` was not called. Similarly, vector embeddings are only generated if `VectorService` is available and auto-embed is enabled. The agent has no way to know whether the graph or vector index reflects its recent writes.
-
-**Prevention:**
-1. After every write operation, include a `stale_indexes` field in the response indicating which indexes may be out of date (e.g., `{"graph": true, "vectors": true}`).
-2. Auto-trigger `graph.invalidate()` after every write tool call (this is a no-op if no graph operations follow).
-3. Document in tool descriptions that graph-based tools may not reflect very recent writes unless `graph materialize` has been run.
-4. Consider adding an `ensure_fresh` parameter to graph tools that triggers a lightweight invalidation before the operation.
-
-**Detection:** If an agent creates a note and immediately calls `get_related` for that note and gets zero results, the staleness problem is real. Test this flow explicitly.
-
-**Phase mapping:** Agentic Integration phase (MCP tool surface completeness).
+**Phase to address:**
+Agent Accessibility phase (initial creation) and every subsequent docs phase (maintenance automation via CI check).
 
 ---
 
-### Pitfall 9: Copier Template Trust Escalation via Plugins
+### Pitfall 5: CLI `docs` Command Embeds Stale Documentation in the Package
 
-**What goes wrong:** The existing `WorkflowService` already executes Copier templates from external URLs (flagged in CONCERNS.md as a security risk). If plugins can register workflow modules (`register_workflow_modules` hookspec) and vault init steps (`register_vault_init_steps` hookspec), a malicious plugin could register a workflow that executes arbitrary code via Copier's Jinja2 hooks.
+**What goes wrong:**
+Implementing `ztlctl docs <query>` by bundling a snapshot of the docs into the Python package (as package data, a SQLite FTS index, or plain text files) creates a permanent staleness problem. The embedded docs reflect the state at release time. Users on v2.1 who add new notes types via plugins, or who upgrade to v2.2, get `ztlctl docs` results that describe the old behavior. There is no way to update embedded docs without upgrading the package.
 
-**Prevention:**
-1. Plugin-contributed workflow templates must be restricted to local paths only — no URL-based templates from plugins.
-2. Add a plugin capability/permission model: plugins declare what they need (`capabilities: [cli_commands, mcp_tools]`), and the system only grants those capabilities. A plugin that requests `workflow_modules` gets extra scrutiny.
-3. Run Copier with `--trust=false` for plugin-contributed templates (Copier 9.x supports this).
-4. Log all plugin-initiated template executions at WARNING level so the user can audit them.
+**Why it happens:**
+Bundling docs as package data is the simplest implementation — copy the markdown files, build a SQLite FTS index at build time, include in `pyproject.toml` `[tool.uv]` package data or `MANIFEST.in`. But ztlctl's docs are in `docs/` (a Jekyll site), not alongside the source. The package build process does not naturally include the docs directory. Someone must manually copy or pre-process the docs into the `src/ztlctl/` tree before each release, creating a high-friction process that will be skipped.
 
-**Detection:** If a plugin can cause code execution without the user's explicit knowledge, the trust boundary is broken. Audit by searching for `run_copy` and `run_update` calls that originate from plugin-contributed paths.
+Additionally, the ztlctl package already has sentence-transformers as a dependency (for vector search). Adding a bundled SQLite FTS database for docs search duplicates the search infrastructure and adds binary data to the package.
 
-**Phase mapping:** Security Hardening phase (must be addressed before plugins can contribute workflows).
+**How to avoid:**
+1. Do not embed a static doc snapshot. Instead, implement `ztlctl docs <query>` as a thin client that fetches from the live docs site or uses the deployed `llms.txt` and individual page URLs. This keeps docs always current.
+2. If offline-first is required, implement a `ztlctl docs --sync` command that downloads and caches the current docs locally (in `~/.config/ztlctl/docs_cache/`), rather than bundling at build time. Cache invalidation is version-stamped.
+3. For the initial implementation, use the GitHub Pages-deployed docs as the source of truth: the `ztlctl docs <query>` command queries a text index built from the live site, not a build-time snapshot.
+4. If a truly offline embedded index is required, use a compressed text file of page titles and anchors only (not full content) — this is kilobytes, not megabytes.
 
----
+**Warning signs:**
+- `pyproject.toml` includes `docs/*.md` or a `.db` file in package data
+- The search index file size exceeds 500KB in the installed package
+- `pip show -f ztlctl` lists docs markdown files in the package contents
 
-## Minor Pitfalls
-
-### Pitfall 10: Test Infrastructure Collapse During Refactoring
-
-**What goes wrong:** The current test suite (1256 tests) was built against the hand-crafted CLI and MCP surfaces. Introducing an auto-generation layer changes the code paths those tests exercise. Tests that mock specific Click commands or `_impl` functions may pass even though the generated surface is broken, because the mocks bypass the generation layer.
-
-**Prevention:**
-1. Add integration tests that exercise the generated CLI commands end-to-end (invoke Click commands via `CliRunner`, not by calling service methods directly).
-2. Do not delete the existing tests during the transition. Instead, add a parallel test layer for the generated surfaces.
-3. The existing MCP `_impl` functions should remain testable as-is — they are the right abstraction boundary. Test the generation layer by asserting that generated wrappers produce the same results as direct `_impl` calls.
-
-**Phase mapping:** All phases. Every refactoring step should run the full test suite before committing.
+**Phase to address:**
+Agent Accessibility phase — scope and design decision must be made explicitly before implementation.
 
 ---
 
-### Pitfall 11: Over-Engineering Custom Note Types
+### Pitfall 6: MCP Documentation Resources Duplicate Maintenance Burden
 
-**What goes wrong:** The formalized "plugins can register custom note types with custom lifecycles" feature leads to note types that are too complex (custom frontmatter schemas, custom validation rules, custom rendering) and cannot interoperate with the core query, graph, and reweave engines. A custom note type that does not conform to the base `ContentModel` contract breaks `QueryService.search()`, `GraphService.related()`, and `ReweaveService.reweave()`.
+**What goes wrong:**
+Implementing MCP doc resources by hardcoding resource URI handlers for each documentation page creates a 1:1 mapping between doc pages and resource definitions. When a doc page is added, renamed, or reorganized, both the Jekyll file and the MCP resource definition must be updated. The MCP resource list goes stale independently from the docs site.
 
-**Prevention:**
-1. Custom note types must extend `ContentModel`, not replace it. The base fields (`id`, `type`, `status`, `title`, `tags`, `links`) are non-negotiable — they are what the query, graph, and reweave engines index on.
-2. Custom lifecycle maps must be supersets of the base transitions (can add states, cannot remove `active` or `archived`).
-3. Validate at registration time that a custom note type passes a conformance test: can it be created, queried, linked, and archived using the standard service methods?
-4. Provide a `CustomNoteType` base class in the plugin SDK that enforces these constraints.
+**Why it happens:**
+The natural first implementation is to write a list of `@server.resource("ztlctl://docs/commands")` handlers in `mcp/resources.py`, each returning the text of the corresponding docs page. ztlctl already has 6 registered MCP resources (per MEMORY.md). Adding per-page doc resources as static registrations means the resource list is frozen at implementation time and requires code changes to update.
 
-**Detection:** If a custom note type cannot be found via `search()` or does not appear in `graph themes`, it violates the interoperability contract.
+MCP's `resources/list` returns all registered resources at call time. If the server has 20 hardcoded doc resource URIs but 8 of those pages have been reorganized or removed, agents calling `resources/list` get 404-equivalent errors when they try to read those resources.
 
-**Phase mapping:** Plugin System Formalization phase.
+**How to avoid:**
+1. Implement doc resources using a single parameterized resource template: `ztlctl://docs/{page}`. The handler dynamically resolves `page` to a docs file path, returning an error for pages that don't exist. This means adding new doc pages requires zero MCP code changes.
+2. Use the MCP `listChanged` notification (spec-supported) to signal when the doc resource list changes — trigger this from a CI step or a version bump event.
+3. Set `annotations.lastModified` on each resource response to the modification time of the underlying docs file. This lets agents detect stale cached content.
+4. Do not register doc resources for internal planning pages (backlog.md, research-mapping.md, roadmap.md) that will be removed in the infrastructure cleanup phase. Register only audience-facing docs.
 
----
+**Warning signs:**
+- MCP resource definitions list individual doc pages by name (not parameterized)
+- A doc page is renamed and the corresponding MCP resource still returns the old content
+- `resources/list` response includes URIs for pages that return empty or 404 content
 
-### Pitfall 12: Token Budget Miscalculation for Agent Context
-
-**What goes wrong:** The current token estimation uses `len(text) // 4` (a rough English heuristic). As agents use ztlctl with non-English vaults or with notes containing dense JSON/YAML frontmatter, the estimate diverges. Context assembly (`ContextAssembler.assemble()`) overruns the requested budget, causing the agent to receive truncated or overly large context that degrades performance.
-
-**Prevention:**
-1. Replace the `len(text) // 4` heuristic with `tiktoken` for accurate counts when the `tiktoken` package is available, falling back to the heuristic otherwise.
-2. Add a safety margin (e.g., assemble to 90% of the requested budget) to absorb estimation error.
-3. Include the actual token count (estimated or exact) in the `agent_context` response so the agent can validate its context window usage.
-
-**Detection:** If `agent_context(budget=4000)` returns content that actually consumes 5,500+ tokens, the estimation is dangerously wrong. Test with frontmatter-heavy notes.
-
-**Phase mapping:** Agentic Integration phase.
+**Phase to address:**
+Agent Accessibility phase — architecture decision must be made before any MCP resource implementation.
 
 ---
 
-## Phase-Specific Warnings
+## Technical Debt Patterns
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Core Hardening | Breaking existing vaults during lifecycle cleanup | Test migration with real v1 vaults; add schema version to vault metadata |
-| Core Hardening | `check --rebuild` depends on assumptions that change during hardening | Run rebuild integration tests after every hardening change |
-| Plugin System Formalization | Premature API freeze before action model is validated | Keep API marked `experimental`; validate with all 3 built-in plugins first |
-| Plugin System Formalization | Action model becomes a god object | Use layered annotations, not monolithic definitions; complexity budget of 50 lines per action |
-| Plugin System Formalization | EventBus misused for synchronous pre-hooks | Separate sync hook dispatch from async event dispatch |
-| CLI/MCP Unification | Parity regression — features lost during auto-generation | Build parity test suite before starting; migrate incrementally (read-only first) |
-| CLI/MCP Unification | Click and MCP type system impedance mismatch | Design type mapping layer; accept that some CLI-specific features cannot be auto-generated |
-| Agentic Integration | Tool explosion beyond LLM effective limit (~30-40 tools) | Implement progressive tool disclosure; cap auto-registered tools |
-| Agentic Integration | Agent assumes fresh state after writes but graph/vector indexes are stale | Return `stale_indexes` in write responses; auto-invalidate graph after writes |
-| Security Hardening | Plugin-contributed workflows escalate to arbitrary code execution | Restrict plugin workflows to local paths; enforce Copier `--trust=false` |
+Shortcuts that seem reasonable but create long-term problems.
+
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Copy docs files into `src/ztlctl/data/` for CLI search | Offline search works immediately | Docs go stale in every release; adds binary data to PyPI package | Never — use cache-on-demand approach |
+| Hardcode MCP resource URIs for each doc page | Simple implementation, zero abstraction | 1:1 maintenance burden; resource list goes stale independently from docs | Never — use parameterized template |
+| Write llms.txt once and never add CI verification | Fast to ship | Stale links within one docs update cycle | Only for initial release, with CI check added immediately |
+| Keep internal planning pages (backlog.md, research-mapping.md) in public docs | Avoids deciding what to expose vs. hide | Agents and users get confused by internal planning artifacts in the docs navigation | Never — remove or redirect before launch |
+| Use `nav_order: 1–12` flat ordering for all pages during migration | Avoids nav_order conflicts | Pages within sections fight for the same nav_order namespace | Temporary, for one PR only |
+| Write section landing pages as stubs ("Content coming soon") | Unblocks navigation structure work | Ships empty pages that degrade user experience and agent context quality | Never — write real content before publishing |
+
+---
+
+## Integration Gotchas
+
+Common mistakes when connecting to external services.
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| GitHub Pages + Jekyll | Moving `docs/page.md` to `docs/section/page.md` without redirects, expecting URLs to be stable | Add `redirect_from: ["/ztlctl/page"]` to the moved page's frontmatter before any file move |
+| `jekyll-redirect-from` | Assuming the redirect generates a 301 HTTP redirect | It generates a meta-refresh HTML stub (client-side, not HTTP 301); update canonical links manually |
+| Just the Docs `parent:` | Setting `parent: "User Guide"` when the parent page has `title: "User Guides"` (plural) | String comparison is exact and case-sensitive; verify with `grep -r "title:" docs/` |
+| llms.txt + GitHub Pages | Placing `llms.txt` in `docs/` expecting it to be served at `/llms.txt` | GitHub Pages serves `docs/` at `/ztlctl/`, so the file lands at `/ztlctl/llms.txt`, not `/llms.txt`; must be in repo root or configured via baseurl |
+| MCP `resources/read` | Returning full raw markdown including frontmatter YAML to agents | Strip frontmatter before returning; YAML frontmatter is navigation metadata, not agent-relevant content |
+| ztlctl package + docs | Referencing docs URLs in docstrings or CLI help text using hardcoded paths | Use the `NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL` pattern or a single `DOCS_BASE_URL` constant; never hardcode `/ztlctl/` path prefix in source |
+
+---
+
+## Performance Traps
+
+Patterns that work at small scale but fail as usage grows.
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Build-time SQLite FTS index in package | Package installs slowly; `pip install ztlctl` downloads unexpectedly large wheel | Keep docs index as a separate optional download or cache-on-demand; never include in wheel | Any size — the root issue is staleness, not scale |
+| `ztlctl docs <query>` fetches live site on every call | High latency (network round-trip) for every docs lookup from MCP clients | Implement local cache with TTL (7 days), refreshed on `--sync` flag | Network-dependent; breaks in offline environments |
+| MCP `resources/list` enumerates all individual doc pages | Response size grows linearly with doc page count; slow for agents to parse 30+ resources | Use single parameterized template `ztlctl://docs/{page}` instead of individual registrations | At ~20 resources, token cost becomes noticeable in context |
+| Just the Docs search index | Built-in JS search indexes all page content; with 50+ pages it slows initial page load | Already mitigated by Just the Docs' incremental search; not a real concern at ztlctl's docs size | At 500+ pages (not applicable here) |
+
+---
+
+## UX Pitfalls
+
+Common user experience mistakes in this domain.
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Audience-segmented nav without a clear entry point per audience | Knowledge workers land on "User Guide" and don't know where to start; agents see a flat resource list | Section landing pages must start with "If you are X, start here" guidance |
+| Removing docs pages that were in the old flat nav without redirects | Existing bookmarks and links (in GitHub issues, Homebrew docs, PyPI page) return 404 | Redirect every removed page; audit all outbound references before removal |
+| llms.txt listing every page equally | Agents prioritize low-value pages (backlog.md, roadmap.md) over core reference docs | Use the Optional section for low-priority content; put the 5 most important pages in the required section |
+| `ztlctl docs <query>` returning raw markdown with frontmatter | Agents receive `---\ntitle: Commands\nnav_order: 6\n---` as the first lines of every result | Strip frontmatter before returning; return title from frontmatter as a structured field |
+| MCP doc resources returning entire page content | Large pages exceed MCP message size limits; agents receive truncated responses without knowing they are truncated | Chunk large pages by section (H2 headings) and implement pagination or section-level URIs |
+
+---
+
+## "Looks Done But Isn't" Checklist
+
+Things that appear complete but are missing critical pieces.
+
+- [ ] **Navigation restructuring:** Section headings appear in sidebar but `parent:` values on child pages must be verified against actual parent `title:` values — run `grep -r "parent:" docs/` and cross-check
+- [ ] **URL redirects:** File moved to new path with `redirect_from:` in frontmatter, but README.md and CONTRIBUTING.md still link to old URL — audit all cross-references in non-docs files
+- [ ] **llms.txt deployment:** File written in `docs/llms.txt` but GitHub Pages serves it at `/ztlctl/llms.txt` not `/llms.txt` — verify correct placement relative to `baseurl`
+- [ ] **llms.txt content:** File exists but URLs use absolute paths not including the baseurl — test every URL in the file manually against the deployed site
+- [ ] **MCP doc resources:** Resource handler implemented but strips frontmatter only partially, returning `---` as first line — write a test that reads a resource and asserts no YAML frontmatter in response
+- [ ] **CLI `docs` command:** Command works in development (where `docs/` is on disk) but fails after `pip install` because `docs/` is not in the package — test against an installed wheel, not the source tree
+- [ ] **Internal pages removed:** `backlog.md`, `research-mapping.md`, `roadmap.md` are removed from nav but may still be accessible at their URLs if the files remain on disk — verify files are removed or explicitly excluded in `_config.yml`
+- [ ] **Section landing pages:** Pages have frontmatter and a title but body content is a placeholder — verify every section landing page has at least one paragraph of real content
+
+---
+
+## Recovery Strategies
+
+When pitfalls occur despite prevention, how to recover.
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Broken `parent:` orphaning child pages | LOW | Find mismatched parent strings with `grep`, fix frontmatter, redeploy (GitHub Pages auto-deploys on push) |
+| Broken URLs without redirects after restructure | MEDIUM | Add `redirect_from:` to all moved pages; audit and update all external references; one PR can fix all of them |
+| llms.txt deployed at wrong path (wrong baseurl) | LOW | Move file to correct location; update llms.txt URL in any documentation that references it |
+| Stale embedded docs in package | HIGH | Must release a new package version; cannot patch installed package; docs cache-on-demand approach sidesteps this |
+| MCP resources pointing to removed/renamed pages | LOW | Fix resource template handler to resolve dynamically; parameterized templates prevent recurrence |
+| Duplicate nav_order values across root and section pages | LOW | nav_order is scoped per-parent in Just the Docs (same nav_order in different sections does not conflict); only root-level pages need globally unique nav_order |
+
+---
+
+## Pitfall-to-Phase Mapping
+
+How roadmap phases should address these pitfalls.
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| `parent:` title mismatch | Navigation Restructuring | `grep -r "parent:" docs/` output matches exactly the set of section `title:` values |
+| Broken URLs from file moves | Infrastructure (URL audit before moves) | All old URLs respond with 200 or 302 after migration; README.md links verified |
+| Section pages without real content | Content Authoring | Every section landing page has >50 words of real content; no "coming soon" placeholders |
+| llms.txt placed at wrong path | Agent Accessibility | `curl https://thatdevstudio.github.io/ztlctl/llms.txt` returns 200 with expected content |
+| llms.txt going stale | Agent Accessibility (CI check on initial setup) | CI script verifies all llms.txt URLs exist as files in `docs/`; runs on every PR |
+| CLI docs embedding stale content | Agent Accessibility (architecture decision) | `pip show -f ztlctl` shows no `.db` or `.md` docs files; docs lookup uses cache-on-demand |
+| MCP resources with hardcoded page URIs | Agent Accessibility (design review) | `resources/list` response contains parameterized template, not 20+ individual resource URIs |
+| Internal planning pages left in public nav | Infrastructure cleanup phase | `docs/backlog.md`, `docs/research-mapping.md`, `docs/roadmap.md` not present in Jekyll build output |
 
 ---
 
 ## Sources
 
-- [HiddenLayer: MCP Model Context Pitfalls in an Agentic World](https://hiddenlayer.com/innovation-hub/mcp-model-context-pitfalls-in-an-agentic-world/) (MCP security pitfalls, tool poisoning, permission issues)
-- [Thoughtworks: MCP Impact on 2025](https://www.thoughtworks.com/en-us/insights/blog/generative-ai/model-context-protocol-mcp-impact-2025) (MCP ecosystem maturity and adoption risks)
-- [PySpector Plugin Sandbox Bypass CVE-2026-33139](https://advisories.gitlab.com/pkg/pypi/pyspector/CVE-2026-33139/) (plugin system security validation bypass via `getattr()`)
-- [Builder.io: Good vs Bad Refactoring](https://www.builder.io/blog/good-vs-bad-refactoring) (formalization and abstraction pitfalls)
-- [pluggy Documentation](https://pluggy.readthedocs.io/en/stable/) (hookspec patterns, firstresult, trylast/tryfirst)
-- ztlctl codebase analysis: `src/ztlctl/plugins/hookspecs.py`, `src/ztlctl/plugins/contracts.py`, `src/ztlctl/mcp/tools.py`, `src/ztlctl/plugins/event_bus.py`, `src/ztlctl/services/base.py`, `.planning/codebase/CONCERNS.md`
+- [Just the Docs — Page Levels](https://just-the-docs.com/docs/navigation/main/levels/) — `parent:` field mechanics, title exact-match requirement, `has_children` deprecation (HIGH confidence)
+- [Just the Docs — Migration and Upgrading](https://just-the-docs.com/migration/) — breaking changes across versions, nav ordering changes (HIGH confidence)
+- [jekyll/jekyll-redirect-from](https://github.com/jekyll/jekyll-redirect-from) — GitHub Pages allowlisted redirect plugin, meta-refresh implementation (HIGH confidence)
+- [Model Context Protocol — Resources spec 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/server/resources) — parameterized resource templates, `lastModified` annotation, `listChanged` notification (HIGH confidence)
+- [MCP Servers for Documentation Sites — Fern](https://buildwithfern.com/post/mcp-servers-documentation-sites) — maintenance burden patterns, auto-generation from spec (MEDIUM confidence)
+- [llmstxt.org](https://llmstxt.org/) — canonical specification, informal standard status, format rules (MEDIUM confidence — spec is community-driven and evolving)
+- [LLMS.txt: Common Mistakes to Avoid — Incremys](https://www.incremys.com/en/resources/blog/llms-txt) — staleness patterns, maintenance cadence recommendations (MEDIUM confidence)
+- [Redirects on GitHub Pages — GitHub Docs](https://docs.github.com/en/enterprise/2.13/user/articles/redirects-on-github-pages) — static host limitations, no server-side redirect support (HIGH confidence)
+- ztlctl codebase analysis: `docs/_config.yml`, `docs/*.md` frontmatter, `src/ztlctl/mcp/`, `.planning/PROJECT.md`, MEMORY.md project state
+
+---
+*Pitfalls research for: documentation restructuring — Jekyll/Just the Docs + llms.txt + CLI doc search + MCP doc resources*
+*Researched: 2026-03-20*

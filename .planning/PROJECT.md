@@ -38,9 +38,31 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ### Active
 
-<!-- Current scope. No active requirements — milestone complete. Next milestone TBD. -->
+<!-- Current scope: v2.1 Documentation -->
 
-(None — v2.0 milestone complete. Define next scope with `/gsd:new-milestone`.)
+**User Guide Track:**
+- [ ] Audience-segmented docs site with clear user vs developer navigation
+- [ ] Explanatory guides with examples and common scenarios for knowledge workers
+- [ ] Second-brain vs knowledge garden paradigm walkthroughs
+- [ ] Built-in plugin guides (Obsidian, Git, Reweave) with setup and usage examples
+- [ ] Agentic workflow recipes with step-by-step walkthroughs (research-capture, review-triage, knowledge-synthesis)
+- [ ] Session lifecycle guides for both human and agent-driven usage
+
+**Developer Guide Track:**
+- [ ] Plugin authoring guide with hookspecs, custom note types, config, capabilities
+- [ ] API reference documentation (plugin contracts, hook signatures, event types, ActionRegistry)
+- [ ] Contributing guide with architecture walkthrough for core contributors
+
+**Agent Accessibility:**
+- [ ] `llms.txt` at docs root for MCP client/agent discovery
+- [ ] `ztlctl docs <query>` CLI command for local doc search
+- [ ] MCP resource for agent-queryable documentation
+- [ ] Structured metadata agents can parse
+
+**Infrastructure:**
+- [x] MkDocs + mkdocs-shadcn migration with dark mode, GitHub Actions deploy — Phase 8
+- [x] Internal planning artifacts removed from public docs — Phase 8
+- [ ] Reorganize docs/ with audience-based navigation sections
 
 ### Out of Scope
 
@@ -91,5 +113,10 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | Pre/post-action hooks wired into all controllers | Plugins can observe/modify/reject any action via hook dispatch | ✓ Good — 63 methods across 14 controllers wired in Phase 7 |
 | Category activation is advisory metadata | FastMCP cannot deregister tools dynamically; agents use categories for tool selection heuristics | ✓ Good — documented in Phase 7, AGNT-04 description updated |
 
+| Two-track documentation (user guide + developer guide) | Knowledge workers and plugin authors have fundamentally different needs; flat docs serve neither well | — Pending |
+| llms.txt + MCP doc search for agent accessibility | Agents are a primary audience; standard machine-readable discovery + in-tool search | — Pending |
+
+| MkDocs + mkdocs-shadcn for docs site | Modern shadcn/ui aesthetic, MkDocs ecosystem for Python tools, GitHub Pages deploy | ✓ Good — `mkdocs build --strict` passes, deploy workflow ready |
+
 ---
-*Last updated: 2026-03-20 after v2.0 milestone*
+*Last updated: 2026-03-20 after Phase 8 completion*

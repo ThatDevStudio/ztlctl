@@ -1,6 +1,5 @@
 ---
 title: Command Reference
-nav_order: 6
 ---
 
 # Command Reference

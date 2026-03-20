@@ -1,6 +1,5 @@
 ---
 title: Tutorial
-nav_order: 4
 ---
 
 # Tutorial: Building Your Knowledge Vault

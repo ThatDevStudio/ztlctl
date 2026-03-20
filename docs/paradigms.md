@@ -1,6 +1,5 @@
 ---
 title: Knowledge Paradigms
-nav_order: 9
 ---
 
 # Knowledge Paradigms

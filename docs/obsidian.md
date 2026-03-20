@@ -1,6 +1,5 @@
 ---
 title: Obsidian Starter Kit
-nav_order: 8
 ---
 
 # Obsidian Starter Kit

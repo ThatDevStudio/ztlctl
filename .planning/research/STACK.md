@@ -1,191 +1,199 @@
-# Technology Stack
+# Stack Research
 
-**Project:** ztlctl v2 — Plugin Formalization, Define-Once Actions, Agentic Integration
-**Researched:** 2026-03-19
+**Domain:** Documentation site + agent accessibility layer for a Python CLI/MCP tool (ztlctl v2.1)
+**Researched:** 2026-03-20
+**Confidence:** HIGH
 
-## Scope
+> This document covers NEW stack additions for v2.1. The existing stack (Python 3.13,
+> Click, pluggy, Pydantic, FastMCP via `mcp` package) is established and unchanged.
+> The Jekyll + Just the Docs GitHub Pages pipeline is also established — do not replace it.
 
-This document covers **new** stack additions for v2. The existing stack (Python 3.13, Click, Pydantic, SQLAlchemy Core, pluggy, Rich, structlog, etc.) is established and unchanged. See `.planning/codebase/STACK.md` for the full baseline.
+---
 
-## Recommended Stack Additions
+## What Already Exists (Do Not Re-Research)
 
-### Define-Once Action System
+| Existing Capability | Status |
+|---------------------|--------|
+| Jekyll + `remote_theme: just-the-docs/just-the-docs` | Deployed; GitHub Pages auto-deploys `docs/` on push to `develop` |
+| `docs/_config.yml` with `search_enabled: true` | Built-in Just the Docs JS search, already working |
+| 16 `.md` files in `docs/` | In place |
+| `src/ztlctl/mcp/resources.py` with `ztlctl://` URIs and `_impl` pattern | In place; the doc search resource follows this pattern exactly |
+| Click command groups under `src/ztlctl/commands/` | In place; `ztlctl docs` is a new command group here |
 
-No external library. Build a custom `ActionRegistry` using Pydantic models and Python's type introspection.
+---
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| None (custom) | — | Action definition and registry | No library solves this problem well. pydanclick (58 GitHub stars, 28 commits) is too immature for a production contract. The define-once pattern requires tight control over how Pydantic models map to both Click options and MCP tool schemas — this is a ~200-line metaclass/registry, not a framework problem. |
+## Recommended Stack — New Additions Only
 
-**Confidence:** HIGH — this is an architecture decision, not a library gap.
+### Core Technologies
 
-**The pattern:**
-```python
-class Action(BaseModel):
-    """Base for all define-once actions."""
-    model_config = ConfigDict(frozen=True)
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| Just the Docs front matter (`parent:`, `nav_order:`, `has_children:`) | current remote theme (no version pin needed) | Multi-audience navigation sections (User Guide vs Developer Guide) | Zero new dependency. Pure front matter configuration. Current Just the Docs (v0.5+) supports unlimited nesting depth: set `parent: User Guide` on child pages and the theme builds the nav tree automatically. `has_children: true` is now redundant — omit it. `nav_order:` controls ordering within a section |
+| griffe2md | 1.4.0 (2026-03-06) | Auto-generate API reference Markdown from Python docstrings + type annotations | Only maintained tool that does AST-based Python extraction (no import/runtime required) AND outputs Markdown (not HTML). Outputs files suitable for dropping into `docs/developer-guide/`. Actively maintained (17 releases, latest 2026-03-06). Uses Griffe 1.x — the same extraction engine behind mkdocstrings. Jinja2 templates are customizable. Config via `pyproject.toml` |
+| `llms.txt` (hand-authored static file) | llmstxt.org spec v1 | Machine-readable documentation index for MCP clients and AI agents | The spec is trivially simple: one required H1 (`# ztlctl`), optional blockquote summary, H2 sections with markdown link lists. Served as a static file by GitHub Pages at `/ztlctl/llms.txt`. No build step, no library. The `llms-txt` PyPI package exists (v0.0.6, 2026-01-29) but is only needed for programmatic parsing — not for authoring |
+| Python stdlib (`pathlib`, `re`) | 3.13 (stdlib) | `ztlctl docs <query>` CLI command — search docs directory content at runtime | At ~20 pages, full-text indexing is overhead with no benefit. Simple line-by-line regex match across `docs/*.md` returns ranked results in milliseconds. Follows the existing `_impl` pattern (testable without MCP package). Zero new dependencies on the published package |
+| Existing FastMCP resource pattern | current (`mcp` package, already pinned) | `ztlctl://docs/search` MCP resource for agent-queryable documentation | The MCP adapter is already built. `resources.py` has 11 existing `ztlctl://` resources each with a `_<name>_impl` function. Add `ztlctl://docs/search` following the exact same pattern — same `_RESOURCE_CATALOG` entry, same `_impl` delegate. No new server, no new library |
 
-class CreateNoteAction(Action):
-    """Create a note in the vault."""
-    title: str = Field(description="Human-readable note title")
-    subtype: str | None = Field(None, description="Note subtype (knowledge, decision)")
-    tags: list[str] = Field(default_factory=list, description="Domain/scope tags")
-    body: str | None = Field(None, description="Markdown body content")
+### Supporting Libraries
+
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| `griffe` | 1.x (pulled in by griffe2md) | AST-based Python API extraction engine | Automatic dependency of griffe2md. Only interact directly if custom Jinja2 template overrides are needed beyond what griffe2md provides |
+| `llms-txt` | 0.0.6 | Parse and validate `llms.txt` programmatically | Only if a CI lint step to validate `llms.txt` format is wanted. Not needed to write or serve the file |
+
+### Development Tools
+
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| `griffe2md` CLI | Generate `docs/developer-guide/api-reference.md` from `src/ztlctl/` | Run via `uv run griffe2md src/ztlctl --output docs/developer-guide/api-reference.md --docstring-style google`. Config in `pyproject.toml` under `[tool.griffe2md]`. Output committed to `docs/` — GitHub Pages cannot run Python build steps |
+| Thin wrapper script | Prepend Jekyll front matter to griffe2md output | griffe2md does not add `---\ntitle: ...\nparent: ...\n---` front matter. A 10-line Python script wraps the CLI call and prepends the required YAML block before writing to `docs/` |
+
+---
+
+## Installation
+
+```bash
+# API reference generation — dev dependency only, not shipped in ztlctl package
+uv add --group dev griffe2md
+
+# Optional: llms.txt CI validation
+uv add --group dev llms-txt
 ```
 
-From a single `CreateNoteAction` model:
-- **CLI:** Auto-generate Click options from Pydantic fields (Field metadata provides help text, types, defaults)
-- **MCP:** Auto-generate tool schema from `model_json_schema()` (already how FastMCP works)
-- **Validation:** Pydantic handles it in both surfaces
-- **Execution:** `ActionRegistry.execute(action_instance)` routes to service layer
+No new runtime dependencies. The `ztlctl docs` command uses only Python stdlib.
 
-The existing `_impl` functions in `mcp/tools.py` (25 functions) already contain the service-calling logic. The v2 refactor promotes these into `Action` classes with Pydantic schemas, then generates CLI and MCP wrappers from the same source.
-
-#### Why NOT pydanclick or similar
-
-| Library | Stars | Status | Why Not |
-|---------|-------|--------|---------|
-| pydanclick | 58 | Low activity (28 commits) | Too thin for production contract; Click option generation is ~50 lines of custom code using `Field.metadata` |
-| clidantic | ~100 | Stale | Replaces Click groups entirely — incompatible with existing Click architecture |
-| clipstick | ~50 | Small | Not Click-based (argparse); wrong ecosystem |
-| pydantic-cli | ~200 | Abandoned | No Pydantic v2 support |
-
-**Confidence:** HIGH — evaluated all options; custom is the right call for this codebase.
-
-### MCP SDK Upgrade
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `mcp` | `>=1.26.0` | Official MCP Python SDK | Current codebase uses `mcp>=1.0`. Upgrade to 1.26+ for Streamable HTTP transport (supersedes SSE), improved tool schemas, and protocol compliance. The SDK is now maintained by the Agentic AI Foundation (Linux Foundation). |
-
-**Confidence:** HIGH — verified on PyPI (1.26.0 released 2026-01-24). Python >=3.10 required (ztlctl requires 3.13, no issue).
-
-**Key changes in 1.26:**
-- Streamable HTTP transport replaces SSE for production deployments
-- Improved client/server lifecycle management
-- Better error reporting in tool schemas
-
-#### FastMCP Standalone — Do NOT Adopt
-
-| Technology | Version | Status | Why Not |
-|------------|---------|--------|---------|
-| `fastmcp` (PrefectHQ) | 3.1.1 | Active | The standalone FastMCP diverged from the official SDK. ztlctl already uses FastMCP as bundled in the `mcp` package. Switching to the standalone would mean two competing MCP layers. The official SDK's built-in FastMCP is sufficient and avoids dependency sprawl. |
-
-**Confidence:** HIGH — the official `mcp` package bundles FastMCP 1.x patterns; standalone FastMCP 3.x adds OpenAPI-to-MCP features ztlctl does not need.
-
-### Plugin System Formalization
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| `pluggy` | `>=1.6.0` | Plugin hooks (existing, pin update) | Current pin is `>=1.4`. Upgrade to 1.6.0 (released 2025-05-15) for bugfixes. No API changes needed — pluggy's hookspec/hookimpl pattern is the right abstraction for ztlctl's plugin system. |
-
-**Confidence:** HIGH — verified on PyPI.
-
-**What pluggy already provides that v2 needs:**
-- `hookspec(firstresult=True)` for short-circuit hooks (e.g., custom note type resolution)
-- `tryfirst`/`trylast` for hook ordering (e.g., plugin CLI commands load after core)
-- Entry-point discovery (already used in v1)
-- `HookCallError` for debugging plugin failures
-
-**What to build on top of pluggy (custom):**
-- `ActionHookSpec` — pre/post hooks on every Action execution
-- `NoteTypeContribution` — plugins register custom note types with lifecycle definitions
-- `TemplateContribution` — plugins register Jinja2 template overrides
-- These extend the existing `contracts.py` dataclasses (already 13 contribution types)
-
-### Agentic Integration — Evaluation
-
-| Technology | Version | Purpose | Recommendation |
-|------------|---------|---------|----------------|
-| OpenAI Agents SDK | 0.12.5 | Agent orchestration framework | **DO NOT ADOPT** — wrong layer |
-| PydanticAI | 1.70.0 | Agent framework | **DO NOT ADOPT** — wrong layer |
-| MCP (already adopted) | >=1.26.0 | Tool/resource protocol | **USE THIS** — correct abstraction |
-
-**Confidence:** HIGH — this is an architectural decision backed by the project's core value statement.
-
-**Rationale:** ztlctl is a *tool* that agents use, not an agent itself. The project constraint says "agents should only ever have to orchestrate the tool — not build custom functionality." This means:
-
-1. **MCP is the agentic interface.** Agents connect via MCP protocol and use tools/resources/prompts. The v2 define-once pattern ensures complete MCP tool coverage with zero gaps.
-
-2. **Agent SDKs are for agent builders**, not tool builders. OpenAI Agents SDK and PydanticAI help build agents that *consume* MCP tools. ztlctl's users may use these SDKs to build agents that orchestrate ztlctl — but ztlctl itself does not need them.
-
-3. **Agent orchestration patterns** (the PROJECT.md requirement) means documenting how agents should sequence MCP tool calls (e.g., "research workflow: search -> get_document -> create_note -> reweave"). This is documentation, not a library dependency.
-
-**Exception:** If a future milestone adds an *embedded agent* (e.g., `ztlctl agent synthesize` that calls an LLM to generate notes), then PydanticAI would be the right choice because it integrates with Pydantic's type system. But this is explicitly out of scope for v2.
-
-## Supporting Libraries (No Changes)
-
-These existing dependencies need no version changes or replacements:
-
-| Library | Current Pin | Status | Notes |
-|---------|-------------|--------|-------|
-| Click | >=8.1 | Stable | CLI framework stays; Action system generates Click commands atop it |
-| Pydantic | >=2.0 | Stable | Core of the Action system; `model_json_schema()` drives MCP schema generation |
-| SQLAlchemy | >=2.0 | Stable | Core only; no ORM needed |
-| NetworkX | >=3.0 | Stable | Graph algorithms unchanged |
-| Rich | >=13.0 | Stable | Output formatting unchanged |
-| structlog | >=24.0 | Stable | Telemetry unchanged |
-| Jinja2 | >=3.1 | Stable | Template system unchanged |
-| Copier | >=9.12.0 | Stable | Workflow templates unchanged |
+---
 
 ## Alternatives Considered
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Action→CLI generation | Custom (~200 LOC) | pydanclick | Immature (58 stars), doesn't handle Click groups, would add fragile dependency for something trivial to build |
-| Action→MCP generation | Pydantic `model_json_schema()` | FastMCP standalone 3.x | Standalone diverges from official SDK; adds competing MCP layer |
-| Plugin hooks | pluggy 1.6 | stevedore, yapsy | pluggy already adopted; stevedore is heavier; yapsy is abandoned |
-| Agentic integration | MCP protocol (tool-side) | OpenAI Agents SDK | ztlctl is a tool, not an agent; SDK is wrong abstraction layer |
-| Agentic integration | MCP protocol (tool-side) | PydanticAI | Same reason; correct only if ztlctl embeds an LLM agent (out of scope) |
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| griffe2md 1.4.0 | pdoc 16.0.0 | When HTML output is acceptable and no Jekyll integration is needed. pdoc is excellent but only outputs HTML — not compatible with the existing Jekyll/Just the Docs pipeline |
+| griffe2md 1.4.0 | pydoc-markdown 4.8.2 | Never for new projects — last released June 2023; development pivoted to Novella integration which is not stable or maintained |
+| griffe2md 1.4.0 | Sphinx + autodoc + sphinx-markdown-builder | When a standalone Sphinx site is desired. Adds a parallel build pipeline, RST authoring, and Ruby+Python coordination complexity — not worth it when Jekyll already works |
+| Hand-authored `llms.txt` | sphinx-llms-txt (PyPI) | Only applicable when using Sphinx as the doc builder. Jekyll has no equivalent plugin |
+| stdlib `pathlib`+`re` | Whoosh full-text index | If the docs set grows beyond ~100 pages and ranking quality matters. Whoosh is also unmaintained (last PyPI release 2013) |
+| stdlib `pathlib`+`re` | sqlite FTS5 (already in ztlctl) | Technically feasible since ztlctl already uses SQLite+FTS5, but wiring the docs corpus into the vault database conflates documentation tooling with knowledge-base storage — avoid this coupling |
+| Existing FastMCP `_impl` pattern | Dedicated docs MCP server | The MCP adapter is already built and working. A separate server process for docs would require Claude Desktop config changes and adds operational complexity for a low-value gain |
 
-## Version Pin Updates
+---
 
-```toml
-# pyproject.toml changes
-[project]
-dependencies = [
-    # ... existing deps unchanged ...
-]
+## What NOT to Use
 
-[project.optional-dependencies]
-mcp = [
-    "mcp>=1.26.0",   # was >=1.0; upgrade for Streamable HTTP
-    "anyio>=4.0",
-]
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `pydoc-markdown` | Abandoned since 2023; Novella replacement is not stable | `griffe2md` |
+| Whoosh | Unmaintained since 2013; overkill for a ~20-page corpus | Python stdlib `re` + `pathlib` |
+| MkDocs | Replaces the entire Jekyll/GitHub Pages pipeline with no documentation quality advantage | Continue with Jekyll + Just the Docs |
+| A separate documentation HTTP server | Adds an always-on runtime dependency for a CLI tool; doc search should work offline and locally | Stdlib text search embedded in `ztlctl docs` Click command |
+| `has_children: true` in Just the Docs front matter | Redundant in current Just the Docs (v0.5+); was required in v0.3.x. Causes confusion when contributors copy old examples | Use only `parent:` on child pages; omit `has_children` |
+| Runtime imports of `griffe` in production code | griffe is a dev/build tool; importing it at runtime would add a heavy unused dependency to installed ztlctl | Keep in `--group dev` only; run as a pre-commit or release step |
+| Dynamically generating `llms.txt` at request time | Adds complexity for a file that changes only when docs change | Static committed file served by GitHub Pages |
+
+---
+
+## Stack Patterns by Feature
+
+**Multi-audience navigation (User Guide vs Developer Guide):**
+
+Create two top-level "section header" index pages:
+- `docs/user-guide/index.md` with `nav_order: 2` (no `parent:`)
+- `docs/developer-guide/index.md` with `nav_order: 3` (no `parent:`)
+
+All user guide pages:
+```yaml
+---
+title: Quick Start
+parent: User Guide
+nav_order: 1
+---
 ```
+
+All developer guide pages:
+```yaml
+---
+title: Plugin Authoring Guide
+parent: Developer Guide
+nav_order: 1
+---
+```
+
+No `_config.yml` changes needed. Just the Docs builds the nav tree entirely from front matter.
+
+**`llms.txt` file structure:**
+
+```markdown
+# ztlctl
+
+> CLI utility and MCP tool for managing a Zettelkasten knowledge system.
+> Treats CLI and MCP as auto-generated surfaces over a unified ActionRegistry.
+
+## User Guide
+
+- [Installation](https://thatdevstudio.github.io/ztlctl/user-guide/installation): Setup and requirements
+- [Quick Start](https://thatdevstudio.github.io/ztlctl/user-guide/quickstart): First vault in 5 minutes
+
+## Developer Guide
+
+- [Plugin Authoring](https://thatdevstudio.github.io/ztlctl/developer-guide/plugins): Hook specs, custom note types
+- [API Reference](https://thatdevstudio.github.io/ztlctl/developer-guide/api-reference): Auto-generated from source
+
+## Optional
+
+- [Agentic Workflow Recipes](https://thatdevstudio.github.io/ztlctl/user-guide/agentic-workflows): Agent orchestration patterns
+```
+
+**`ztlctl docs <query>` CLI command — implementation sketch:**
+
+```python
+# src/ztlctl/commands/docs.py
+def _docs_search_impl(query: str, docs_path: Path) -> list[dict]:
+    """Testable without Click. Follows _impl pattern from mcp/resources.py."""
+    pattern = re.compile(re.escape(query), re.IGNORECASE)
+    results = []
+    for md_file in sorted(docs_path.glob("**/*.md")):
+        ...  # score: title match 3x, heading 2x, body 1x
+    return sorted(results, key=lambda r: r["score"], reverse=True)[:10]
+```
+
+The `ztlctl://docs/search` MCP resource calls `_docs_search_impl` directly, just as `ztlctl://overview` calls `_overview_impl`.
+
+**API reference generation workflow:**
 
 ```bash
-# Update commands
-uv add "mcp>=1.26.0" --group mcp
+# Generate (run manually or as CI step before release)
+uv run python scripts/generate_api_ref.py
+# → runs griffe2md, prepends Jekyll front matter, writes docs/developer-guide/api-reference.md
+# → commit the output to docs/ (GitHub Pages has no Python build step)
 ```
 
-No new runtime dependencies are introduced. The v2 work is primarily architectural (Action registry, auto-generated surfaces) built on the existing stack.
+---
 
-## Architecture Implications
+## Version Compatibility
 
-### What Changes
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| griffe2md 1.4.0 | Python 3.9+ | Confirmed on PyPI; Python 3.13 is fully supported |
+| griffe2md 1.4.0 | griffe 1.x | griffe2md pins to griffe 1.x; do not install griffe 0.x alongside it |
+| llms-txt 0.0.6 | Python 3.9+ | Minimal package; no conflicts |
+| Just the Docs (remote theme) | Jekyll 3.9.x (GitHub Pages) | Remote theme is version-locked by GitHub Pages infrastructure automatically |
 
-1. **New `actions/` package** — Pydantic action models + registry (custom, ~500 LOC total)
-2. **`commands/` refactored** — Click commands auto-generated from Action models instead of hand-coded
-3. **`mcp/tools.py` refactored** — MCP tools auto-generated from same Action models; `_impl` functions become `Action.execute()` methods
-4. **`plugins/contracts.py` extended** — New contribution types for note types, lifecycles, and actions
-5. **`mcp` pin bumped** — >=1.26.0 for Streamable HTTP
-
-### What Does NOT Change
-
-- Click remains the CLI framework (actions generate Click commands, not replace Click)
-- pluggy remains the plugin framework (extended, not replaced)
-- ServiceResult remains the universal return type
-- Vault repository pattern unchanged
-- 6-layer architecture preserved (actions sit between services and commands/mcp)
+---
 
 ## Sources
 
-- [MCP Python SDK — PyPI](https://pypi.org/project/mcp/) — v1.26.0, verified 2026-03-19
-- [FastMCP standalone — PyPI](https://pypi.org/project/fastmcp/) — v3.1.1, evaluated and rejected
-- [pydanclick — GitHub](https://github.com/felix-martel/pydanclick) — 58 stars, evaluated and rejected
-- [pluggy — PyPI](https://pypi.org/project/pluggy/) — v1.6.0, verified 2026-03-19
-- [OpenAI Agents SDK — PyPI](https://pypi.org/project/openai-agents/) — v0.12.5, evaluated and rejected
-- [PydanticAI — PyPI](https://pypi.org/project/pydantic-ai/) — v1.70.0, evaluated and rejected
-- [MCP donated to Agentic AI Foundation](https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation) — protocol governance context
-- [Streamable HTTP for MCP](https://blog.cloudflare.com/streamable-http-mcp-servers-python/) — transport evolution context
+- [Just the Docs — Main Navigation](https://just-the-docs.com/docs/navigation/main/) — `parent`, `nav_order` front matter verified (HIGH)
+- [Just the Docs — Child Pages](https://just-the-docs.com/docs/navigation/children/) — auto ToC, `has_toc: false` verified (HIGH)
+- [Just the Docs — Ordering Pages](https://just-the-docs.com/docs/navigation/main/order/) — `nav_order` mechanics, `has_children` redundancy confirmed (HIGH)
+- [griffe2md GitHub](https://github.com/mkdocstrings/griffe2md) — version 1.4.0 (2026-03-06), Markdown output, pyproject.toml config confirmed (HIGH)
+- [griffe overview](https://mkdocstrings.github.io/griffe/) — AST extraction, zero-runtime-import design (HIGH)
+- [llms.txt specification](https://llmstxt.org/) — required H1, optional blockquote, H2 sections, "Optional" section semantics (HIGH)
+- [llms-txt PyPI](https://pypi.org/project/llms-txt/) — version 0.0.6, 2026-01-29 (HIGH)
+- [pdoc PyPI](https://pypi.org/project/pdoc/) — version 16.0.0, HTML-only output confirmed (HIGH)
+- [pydoc-markdown PyPI](https://pypi.org/project/pydoc-markdown/) — version 4.8.2, June 2023, development abandoned (MEDIUM)
+- [FastMCP resources pattern](https://gofastmcp.com/servers/resources) — resource decorator, string return = TextResourceContents (MEDIUM)
+- `src/ztlctl/mcp/resources.py` (direct inspection) — `_impl` pattern, `_RESOURCE_CATALOG`, `ztlctl://` URI scheme (HIGH)
+
+---
+*Stack research for: ztlctl v2.1 — Documentation overhaul with agent accessibility*
+*Researched: 2026-03-20*
