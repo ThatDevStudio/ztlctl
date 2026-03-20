@@ -106,3 +106,8 @@ def register_commands(cli: click.Group) -> None:
     from ztlctl.commands.workflow import workflow
 
     cli.add_command(workflow)
+
+    # docs (custom_presentation: --json flag requires hand-written command)
+    from ztlctl.commands.docs import docs_group
+
+    cli.add_command(docs_group)

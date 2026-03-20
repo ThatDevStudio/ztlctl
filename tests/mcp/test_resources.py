@@ -13,6 +13,8 @@ from ztlctl.mcp.resources import (
     capture_spec_impl,
     context_impl,
     decision_queue_impl,
+    docs_index_impl,
+    docs_search_resource_impl,
     garden_backlog_impl,
     overview_impl,
     register_resources,
@@ -158,13 +160,21 @@ class TestResources:
 class TestResourceCatalog:
     """Tests for resource catalog completeness."""
 
-    def test_catalog_has_15_resources(self):
-        assert len(resource_catalog()) == 15
+    def test_catalog_has_17_resources(self):
+        assert len(resource_catalog()) == 17
 
     def test_agent_reference_in_catalog(self):
         uris = {r["uri"] for r in resource_catalog()}
         assert "ztlctl://agent-reference" in uris
         assert "ztlctl://capture/spec" in uris
+
+    def test_docs_index_in_catalog(self):
+        uris = {r["uri"] for r in resource_catalog()}
+        assert "ztlctl://docs/index" in uris
+
+    def test_docs_search_in_catalog(self):
+        uris = {r["uri"] for r in resource_catalog()}
+        assert "ztlctl://docs/search" in uris
 
     def test_catalog_descriptions_reflect_review_workbench_wording(self):
         catalog = {entry["uri"]: entry["description"] for entry in resource_catalog()}
@@ -402,3 +412,52 @@ class TestRegisterResources:
                 except json.JSONDecodeError:
                     # Plain text is also fine for identity/methodology resources
                     pass
+
+
+class TestDocsResources:
+    """Tests for docs_index_impl and docs_search_resource_impl."""
+
+    def test_docs_index_impl_returns_str(self):
+        result = docs_index_impl()
+        assert isinstance(result, str)
+        # May be error string if docs/ not found in CI — that is OK
+        assert len(result) > 0
+
+    def test_docs_search_resource_impl_returns_dict_with_tool_key(self):
+        result = docs_search_resource_impl()
+        assert isinstance(result, dict)
+        assert result["tool"] == "docs_search"
+
+    def test_docs_search_resource_impl_has_required_keys(self):
+        result = docs_search_resource_impl()
+        assert "info" in result
+        assert "tool" in result
+        assert "params" in result
+
+    def test_docs_index_impl_importable(self):
+        from ztlctl.mcp.resources import docs_index_impl as _impl
+
+        assert callable(_impl)
+
+    def test_docs_search_resource_impl_importable(self):
+        from ztlctl.mcp.resources import docs_search_resource_impl as _impl
+
+        assert callable(_impl)
+
+    def test_docs_resources_registered(self, vault: Vault):
+        class _DummyServer:
+            def __init__(self) -> None:
+                self.registered_uris: list[str] = []
+
+            def resource(self, uri: str):
+                def decorator(fn):
+                    self.registered_uris.append(uri)
+                    return fn
+
+                return decorator
+
+        server = _DummyServer()
+        register_resources(server, vault)
+        registered = set(server.registered_uris)
+        assert "ztlctl://docs/index" in registered
+        assert "ztlctl://docs/search" in registered

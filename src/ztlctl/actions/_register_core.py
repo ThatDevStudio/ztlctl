@@ -21,6 +21,7 @@ def _register_core_actions() -> None:
     from ztlctl.controllers.check import CheckController
     from ztlctl.controllers.create import CreateController
     from ztlctl.controllers.discovery import DiscoveryController
+    from ztlctl.controllers.docs import DocsController
     from ztlctl.controllers.export import ExportController
     from ztlctl.controllers.graph import GraphController
     from ztlctl.controllers.ingest import IngestController
@@ -2160,6 +2161,44 @@ def _register_core_actions() -> None:
             ),
             mcp_avoid_when="Core categories are already active by default.",
             mcp_common_errors=("VALIDATION_FAILED",),
+        )
+    )
+
+    # -----------------------------------------------------------------------
+    # docs category
+    # -----------------------------------------------------------------------
+
+    registry.register(
+        ActionDefinition(
+            name="docs_search",
+            description="Search the ztlctl documentation corpus.",
+            category="docs",
+            params=(
+                ActionParam(
+                    "query",
+                    str,
+                    required=True,
+                    description="Search query string.",
+                    cli_is_argument=True,
+                    mcp_example="how to create a note",
+                ),
+                ActionParam(
+                    "limit",
+                    int,
+                    required=False,
+                    default=5,
+                    description="Maximum number of results to return.",
+                ),
+            ),
+            handler=lambda vault, **kw: DocsController(vault).search(**kw),
+            side_effect="read",
+            mcp_when_to_use=(
+                "Finding documentation pages relevant to a query without leaving the tool."
+            ),
+            mcp_avoid_when="You are searching vault notes, not ztlctl documentation.",
+            cli_group="docs",
+            cli_name="search",
+            custom_presentation=True,  # CLI is hand-written in commands/docs.py
         )
     )
 
