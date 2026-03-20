@@ -30,7 +30,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 - [x] **Phase 9: Navigation Structure** - Build two-track nav (User Guide / Developer Guide), publish llms.txt and llms-full.txt (completed 2026-03-20)
 - [x] **Phase 10: User Guide Content** - Paradigm walkthroughs, built-in plugin guides, agentic workflow recipes, session lifecycle guides (completed 2026-03-20)
 - [x] **Phase 11: Developer Guide + API Reference** - Plugin authoring guide, auto-generated API reference, architecture docs, CONTRIBUTING update (completed 2026-03-20)
-- [ ] **Phase 12: Doc Search Integration** - `ztlctl docs <query>` CLI command, `ztlctl://docs/search` MCP resource
+- [x] **Phase 12: Doc Search Integration** - `ztlctl docs <query>` CLI command, `ztlctl://docs/search` MCP resource (completed 2026-03-20)
 
 ## Phase Details
 
@@ -107,7 +107,7 @@ Plans:
   1. `ztlctl docs <query>` returns ranked results from the docs corpus with relevant excerpts
   2. An MCP client can query `ztlctl://docs/search` with a query string and receive relevant documentation passages
   3. Both CLI and MCP search use the same underlying `_impl` function following the established pattern
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 12-01-PLAN.md — Pure docs search module (services/docs.py, TDD)
@@ -133,7 +133,7 @@ Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can
 | 9. Navigation Structure | 2/2 | Complete   | 2026-03-20 | - |
 | 10. User Guide Content | 3/3 | Complete    | 2026-03-20 | - |
 | 11. Developer Guide + API Reference | 4/4 | Complete    | 2026-03-20 | - |
-| 12. Doc Search Integration | 2/3 | In Progress|  | - |
+| 12. Doc Search Integration | 3/3 | Complete   | 2026-03-20 | - |
 
 ### Phase 13: Switch GitHub Pages deploy to Actions artifact (eliminate gh-pages branch)
 
