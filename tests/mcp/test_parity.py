@@ -78,7 +78,7 @@ def test_all_actions_have_mcp_tools(parity_server: tuple[DummyServer, Any]) -> N
     registry_names = {a.name for a in registry.list_actions()}
     tool_names = set(server.tools.keys())
     assert registry_names <= tool_names, f"Actions without MCP tools: {registry_names - tool_names}"
-    assert len(registry_names) >= 59, f"Expected >= 59 actions, got {len(registry_names)}"
+    assert len(registry_names) >= 60, f"Expected >= 60 actions, got {len(registry_names)}"
 
 
 def test_tool_count_matches_registry(parity_server: tuple[DummyServer, Any]) -> None:
@@ -120,3 +120,56 @@ def test_category_coverage(parity_server: tuple[DummyServer, Any]) -> None:
         cat_actions = {a.name for a in registry.list_actions(category=category)}
         covered = cat_actions & tool_names
         assert covered, f"Category '{category}' has no registered MCP tools"
+
+
+def test_cli_and_mcp_cover_same_actions() -> None:
+    """CLI and MCP surfaces both cover all ActionDefinitions.
+
+    - MCP surface: generate_tools() covers every action in the registry.
+    - CLI surface: generate_commands() covers every non-custom action;
+      custom_presentation actions are wired via hand-written commands.
+    Together they prove both surfaces derive from a single source of truth.
+    """
+    import click
+
+    import ztlctl.actions  # noqa: F401 — populate registry
+    from ztlctl.commands.generator import generate_commands
+    from ztlctl.mcp.generator import generate_tools
+
+    registry = get_action_registry()
+    all_action_names = {a.name for a in registry.list_actions()}
+
+    # MCP: every action maps to a tool
+    mcp_server = DummyServer()
+    from unittest.mock import MagicMock
+
+    vault = MagicMock()
+    vault.plugin_manager = None
+    generate_tools(mcp_server, vault)
+    mcp_names = set(mcp_server.tools.keys())
+    assert all_action_names <= mcp_names, (
+        f"Actions not in MCP surface: {all_action_names - mcp_names}"
+    )
+
+    # CLI: every non-custom action maps to a generated command
+    cli_group = click.Group(name="ztlctl")
+    generate_commands(cli_group)
+    generated_cmds: set[str] = set()
+    for name, cmd in cli_group.commands.items():
+        if isinstance(cmd, click.Group):
+            ctx = click.Context(cmd)
+            for sub_name in cmd.list_commands(ctx):
+                generated_cmds.add(f"{name}.{sub_name}")
+        else:
+            generated_cmds.add(name)
+
+    non_custom = registry.list_actions(custom_presentation=False)
+    for action in non_custom:
+        from ztlctl.commands.generator import _derive_cli_name
+
+        cli_name = _derive_cli_name(action)
+        key = f"{action.cli_group}.{cli_name}" if action.cli_group else cli_name
+        assert key in generated_cmds, (
+            f"Action {action.name!r} not in generated CLI commands. "
+            f"Expected key {key!r} in {sorted(generated_cmds)}"
+        )
