@@ -144,6 +144,11 @@ Plugins can now contribute ordered init steps through `register_vault_init_steps
 
 Legacy `WorkspaceProfileContribution.init_scaffold` remains supported temporarily and is wrapped into the same ordered init pipeline for compatibility.
 
+## Further Reading
+
+- [Plugin Authoring Guide](plugin-guide.md) — build plugins with hookspecs, custom note types, and capability declarations
+- [API Reference](api-reference.md) — auto-generated reference for `ActionDefinition`, `ActionRegistry`, hookspecs, and plugin contracts
+
 ## Contributing
 
 See [CONTRIBUTING.md](https://github.com/ThatDevStudio/ztlctl/blob/develop/CONTRIBUTING.md) for the full contribution guide, including:
@@ -152,3 +157,4 @@ See [CONTRIBUTING.md](https://github.com/ThatDevStudio/ztlctl/blob/develop/CONTR
 - Conventional commit format
 - Pre-submit checklist
 - Code standards and dependency management
+- Dependency management (always use `uv add`, never `uv pip install`)

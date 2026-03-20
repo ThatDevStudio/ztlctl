@@ -3,6 +3,8 @@
 Auto-generated from Python source using [mkdocstrings](https://mkdocstrings.github.io/python/).
 All signatures and docstrings reflect the current `src/ztlctl/` codebase.
 
+This page documents the stable public API surface: plugin hookspecs, contribution contracts, the action system, and API versioning. Use the section headings to navigate to the module you need. For usage examples and step-by-step tutorials, see the [Plugin Authoring Guide](plugin-guide.md).
+
 !!! note "Scope"
     This reference covers the **plugin public API** only — the contracts, hookspecs, and action system
     that plugin authors and advanced integrators interact with. Internal service and infrastructure

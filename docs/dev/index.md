@@ -10,3 +10,4 @@ The Developer Guide is for contributors and integrators — those building plugi
 | [Plugin Authoring](../plugin-guide.md) | Tutorial and hookspec reference for plugin authors — build your first plugin |
 | [API Reference](../api-reference.md) | Auto-generated API reference for all public plugin contracts and the ActionRegistry |
 | [MCP Server](../mcp.md) | MCP tools, resources, prompts, and agent integration patterns |
+| [Agent System Manual](../agents.md) | Machine-readable schemas, state machines, and interaction flows for LLM consumers |
