@@ -26,6 +26,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Maps per-event hook names to post_action action names.
+# post_create is handled specially: action_name is refined using content_type
+# from the payload (e.g. "create_note", "create_reference", "create_task").
+_HOOK_TO_ACTION: dict[str, str] = {
+    "post_create": "create",  # Refined at dispatch time using content_type
+    "post_update": "update",
+    "post_close": "close",
+    "post_reweave": "reweave",
+    "post_session_start": "session_start",
+    "post_session_close": "session_close",
+    "post_check": "check",
+    "post_init": "init",
+}
+
 
 class EventBus:
     """WAL-backed async event dispatch via pluggy + ThreadPoolExecutor.
@@ -174,19 +188,37 @@ class EventBus:
         hook_name: str,
         payload: dict[str, Any],
     ) -> None:
-        """Attempt to dispatch a hook. Update WAL status on success/failure."""
+        """Attempt to dispatch a hook. Update WAL status on success/failure.
+
+        After dispatching the per-event hook, also fires post_action for any
+        migrated plugins that implement the stable post_action hookspec.
+        """
         hook_fn = getattr(self._pm.hook, hook_name, None)
         if hook_fn is None:
             self._mark_completed(event_id)
-            return
-
-        try:
-            hook_fn(**payload)
-        except Exception as exc:
-            logger.debug("Hook %s failed: %s", hook_name, exc)
-            self._mark_failed(event_id, str(exc))
         else:
-            self._mark_completed(event_id)
+            try:
+                hook_fn(**payload)
+            except Exception as exc:
+                logger.debug("Hook %s failed: %s", hook_name, exc)
+                self._mark_failed(event_id, str(exc))
+            else:
+                self._mark_completed(event_id)
+
+        # Bridge: also fire post_action so migrated plugins receive lifecycle events.
+        # This runs regardless of whether the per-event hook had subscribers or failed.
+        action_name = _HOOK_TO_ACTION.get(hook_name)
+        if action_name is not None:
+            # Refine create action name using content_type from payload
+            if hook_name == "post_create":
+                content_type = payload.get("content_type", "note")
+                action_name = f"create_{content_type}"
+            try:
+                post_action_fn = getattr(self._pm.hook, "post_action", None)
+                if post_action_fn is not None:
+                    post_action_fn(action_name=action_name, kwargs=payload, result=None)
+            except Exception:
+                logger.debug("post_action bridge failed for %s", hook_name, exc_info=True)
 
     def _mark_completed(self, event_id: int) -> None:
         """Mark an event as completed in the WAL."""
