@@ -63,7 +63,7 @@ async def _exercise_stdio_server(config_path: Path) -> None:
 
             tools = await session.list_tools()
             tool_names = {tool.name for tool in tools.tools}
-            assert {"create_note", "get_document", "discover_tools"} <= tool_names
+            assert {"create_note", "get", "search"} <= tool_names
 
             resources = await session.list_resources()
             resource_uris = {str(resource.uri) for resource in resources.resources}
@@ -80,7 +80,7 @@ async def _exercise_stdio_server(config_path: Path) -> None:
             created_id = create_payload["data"]["id"]
 
             get_result = await session.call_tool(
-                "get_document",
+                "get",
                 arguments={"content_id": created_id},
             )
             get_payload = _tool_payload(get_result)
