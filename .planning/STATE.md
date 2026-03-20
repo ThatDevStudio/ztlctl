@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Phase 14 planned — 5 plans in 3 waves
-last_updated: "2026-03-20T21:41:41.559Z"
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-20T22:10:39.712Z"
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 21
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 13 — switch-github-pages-deploy-to-actions-artifact
+**Current focus:** Phase 14 — documentation-content-refinement-and-quality-pass
 
 ## Current Position
 
-Phase: 13 (switch-github-pages-deploy-to-actions-artifact) — EXECUTING
-Plan: 1 of 1
+Phase: 14 (documentation-content-refinement-and-quality-pass) — EXECUTING
+Plan: 2 of 5
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Plan: 1 of 1
 | Phase 12-doc-search-integration P03 | 525618 | 1 tasks | 2 files |
 | Phase 12-doc-search-integration P02 | 4 | 2 tasks | 6 files |
 | Phase 13-switch-github-pages-deploy P01 | 48 | 3 tasks | 1 files |
+| Phase 14-documentation-content-refinement-and-quality-pass P01 | 3 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,8 @@ Recent decisions affecting current work:
 - [Phase 12-doc-search-integration]: [Phase 12-03]: ztlctl://docs/search is static guidance resource directing agents to docs_search MCP tool; ztlctl://docs/index serves llms.txt via lazy import pattern
 - [Phase 12-02]: DocsController.search() accepts docs_path kwarg for testability; docs category added as 15th ActionDefinition category
 - [Phase 13]: Replaced mkdocs gh-deploy with upload-pages-artifact + deploy-pages; deleted gh-pages remote branch to restore trunk-based discipline
+- [Phase 14]: [plugins.git] is the correct TOML key for git plugin config (not top-level [git]) — verified via PluginsConfig model in models.py
+- [Phase 14]: WorkflowConfig defaults are template='claude-driven', skill_set='research' (source corrected during rewrite)
 
 ### Roadmap Evolution
 
@@ -119,6 +122,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T21:41:41.556Z
-Stopped at: Phase 14 planned — 5 plans in 3 waves
-Resume file: .planning/phases/14-documentation-content-refinement-and-quality-pass/14-01-PLAN.md
+Last session: 2026-03-20T22:10:39.709Z
+Stopped at: Completed 14-01-PLAN.md
+Resume file: None
