@@ -178,6 +178,19 @@ ztlctl update ZTL-0042 --maturity budding
 - It does not treat garden work as fully automatable.
 - It does not treat operational session state as equivalent to durable knowledge artifacts.
 
+## Anti-Patterns
+
+Avoid these common mistakes when setting up a ztlctl workflow.
+
+!!! warning "Don't mix paradigm tags without namespacing"
+    Using `python` as a tag across both a second-brain research vault and a knowledge-garden vault makes retrieval ambiguous. Use namespaced tags (`lang/python`, `project/my-app`) so filters work cleanly across paradigms.
+
+!!! warning "Don't force one paradigm for all content"
+    Not every piece of knowledge needs to go through the full enrichment pipeline. Quick captures, ephemeral tasks, and reference-only notes belong in the machine layer. Reserve the garden layer for content you genuinely intend to develop into long-form insight.
+
+!!! warning "Don't let agents garden"
+    Agents operate on the machine layer (`notes/`, `ops/`). They do not create or modify content in `garden/`. Granting agents write access to garden content undermines the human-led quality guarantee that makes garden notes trustworthy.
+
 ## Intended Flow
 
 1. Capture sources and rough synthesis quickly.
@@ -188,5 +201,7 @@ ztlctl update ZTL-0042 --maturity budding
 ## Next Steps
 
 - Follow the [Tutorial](tutorial.md) to build your first vault end-to-end
-- Read [Core Concepts](concepts.md) for the full content type and maturity tier reference
+- Read [Core Concepts](concepts.md) for the full content type, ID format, and lifecycle state reference
+- Read [Best Practices](best-practices.md) for workflow patterns and anti-pattern deep dives
 - See [Agentic Workflows](agentic-workflows.md) for session lifecycle, recipe walkthroughs, and MCP integration
+- See [Plugin Authoring](plugin-guide.md) to extend paradigm support with custom note types
