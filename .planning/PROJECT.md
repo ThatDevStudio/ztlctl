@@ -54,9 +54,8 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 **Agent Accessibility:**
 - [x] `llms.txt` + `llms-full.txt` at docs root for MCP client/agent discovery — Phase 9
-- [ ] `ztlctl docs <query>` CLI command for local doc search
-- [ ] MCP resource for agent-queryable documentation
-- [ ] Structured metadata agents can parse
+- [x] `ztlctl docs <query>` CLI command with ranked results, `--json`, `--limit` — Phase 12
+- [x] MCP resources (`ztlctl://docs/index`, `ztlctl://docs/search`) + `docs_search` MCP tool — Phase 12
 
 **Infrastructure:**
 - [x] MkDocs + mkdocs-shadcn migration with dark mode, GitHub Actions deploy — Phase 8
@@ -118,4 +117,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | MkDocs + mkdocs-shadcn for docs site | Modern shadcn/ui aesthetic, MkDocs ecosystem for Python tools, GitHub Pages deploy | ✓ Good — `mkdocs build --strict` passes, deploy workflow ready |
 
 ---
-*Last updated: 2026-03-20 after Phase 11 completion*
+*Last updated: 2026-03-20 after Phase 12 completion*
