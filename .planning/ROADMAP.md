@@ -91,7 +91,7 @@ Plans:
   2. Auto-generated API reference reflects current Python docstrings/type hints for all public plugin contracts, hook signatures, event types, and ActionRegistry
   3. A core contributor can understand the ActionRegistry and controller architecture by reading the architecture documentation
   4. CONTRIBUTING.md links to the developer guide and describes the current architecture accurately
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
 - [ ] 11-01-PLAN.md — Install mkdocstrings[python]>=1.0.3, wire mkdocs.yml plugin config (paths: [src], allow_inspection: false), update CI docs workflow pip install
@@ -127,7 +127,7 @@ Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can
 | 8. MkDocs Infrastructure | v2.1 | 2/3 | In Progress | - |
 | 9. Navigation Structure | 2/2 | Complete   | 2026-03-20 | - |
 | 10. User Guide Content | 3/3 | Complete    | 2026-03-20 | - |
-| 11. Developer Guide + API Reference | v2.1 | 0/4 | Not started | - |
+| 11. Developer Guide + API Reference | 1/4 | In Progress|  | - |
 | 12. Doc Search Integration | v2.1 | 0/? | Not started | - |
 
 ### Phase 13: Switch GitHub Pages deploy to Actions artifact (eliminate gh-pages branch)
