@@ -45,6 +45,11 @@ class ReweavePlugin:
         self._vault = vault
 
     @hookimpl
+    def declare_capabilities(self) -> set[str]:
+        """Declare that this plugin uses database and filesystem operations."""
+        return {"database", "filesystem"}
+
+    @hookimpl
     def post_action(
         self,
         action_name: str,
