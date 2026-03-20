@@ -272,3 +272,19 @@ class ZtlctlHookSpec:
         ``rich_formatter`` and an ``mcp_formatter`` callable for one note type,
         enabling custom terminal and MCP output formatting.
         """
+
+    # ------------------------------------------------------------------
+    # Security — capability declarations (SECU-02)
+    # ------------------------------------------------------------------
+
+    @hookspec
+    def declare_capabilities(self) -> set[str] | None:
+        """Return the set of capabilities this plugin requires.
+
+        Valid values: ``{"filesystem", "network", "database", "git"}``.
+
+        Missing declaration is treated as a warning (not an error) in plugin
+        API v2 to avoid breaking existing plugins. Future API versions may
+        enforce declarations. Returns ``None`` or does not implement to
+        indicate no declaration.
+        """

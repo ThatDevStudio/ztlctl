@@ -64,6 +64,15 @@ class GitPlugin:
         return self._config.enabled and self._vault_root is not None
 
     # ------------------------------------------------------------------
+    # Security — capability declaration (SECU-02)
+    # ------------------------------------------------------------------
+
+    @hookimpl
+    def declare_capabilities(self) -> set[str]:
+        """Declare that this plugin uses git operations."""
+        return {"git", "filesystem"}
+
+    # ------------------------------------------------------------------
     # Lifecycle hook — single post_action replaces 8 per-event methods
     # ------------------------------------------------------------------
 

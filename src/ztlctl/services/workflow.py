@@ -351,6 +351,32 @@ class WorkflowService:
         WorkflowService._cleanup_legacy_generated_files(vault_root)
 
     @staticmethod
+    def _run_plugin_copy(
+        template_path: str | Path,
+        vault_root: Path,
+        choices: WorkflowChoices,
+        *,
+        force_trust: bool = False,
+    ) -> None:
+        """Run Copier for a plugin-contributed template.
+
+        SECURITY: Plugin templates default to unsafe=False (no hook execution).
+        Only when force_trust=True does unsafe=True allow hooks to execute.
+        Built-in templates use _run_copy() which always uses unsafe=False.
+        See SECU-01.
+        """
+        run_copy(
+            str(template_path),
+            dst_path=vault_root,
+            answers_file=str(_ANSWERS_RELATIVE_PATH),
+            data=choices.as_data(),
+            defaults=True,
+            overwrite=True,
+            quiet=True,
+            unsafe=force_trust,
+        )
+
+    @staticmethod
     def _run_update(vault_root: Path, choices: WorkflowChoices | None) -> tuple[str, list[str]]:
         warnings: list[str] = []
         update_data = None if choices is None else choices.as_data()
@@ -397,8 +423,21 @@ class WorkflowService:
 
     @staticmethod
     @traced
-    def init_workflow(vault_root: Path, choices: WorkflowChoices) -> ServiceResult:
-        """Initialize Copier-backed workflow scaffolding for a vault."""
+    def init_workflow(
+        vault_root: Path,
+        choices: WorkflowChoices,
+        *,
+        force_trust: bool = False,
+    ) -> ServiceResult:
+        """Initialize Copier-backed workflow scaffolding for a vault.
+
+        Args:
+            vault_root: Path to the vault root directory.
+            choices: Resolved workflow selections.
+            force_trust: Allow plugin template hooks to execute (unsafe=True).
+                Built-in templates always use unsafe=False regardless of this flag.
+                See SECU-01.
+        """
         vault_root = vault_root.resolve()
         validation_error = WorkflowService.validate_init_target(vault_root)
         if validation_error is not None:
@@ -460,8 +499,17 @@ class WorkflowService:
         vault_root: Path,
         *,
         choices: WorkflowChoices | None = None,
+        force_trust: bool = False,
     ) -> ServiceResult:
-        """Update workflow scaffolding using stored answers plus optional overrides."""
+        """Update workflow scaffolding using stored answers plus optional overrides.
+
+        Args:
+            vault_root: Path to the vault root directory.
+            choices: Optional choice overrides to apply during update.
+            force_trust: Allow plugin template hooks to execute (unsafe=True).
+                Built-in templates always use unsafe=False regardless of this flag.
+                See SECU-01.
+        """
         vault_root = vault_root.resolve()
         validation_error = WorkflowService.validate_update_target(vault_root)
         if validation_error is not None:

@@ -265,3 +265,88 @@ def test_budget_aware_tool_has_token_budget_kwdefault(mock_vault: Any) -> None:
     assert fn.__kwdefaults__ is not None
     assert fn.__kwdefaults__.get("token_budget") is None
     assert "token_budget" in fn.__kwdefaults__
+
+
+# ---------------------------------------------------------------------------
+# Tests — progressive tool disclosure / category activation (AGNT-04)
+# ---------------------------------------------------------------------------
+
+
+def test_default_active_categories() -> None:
+    """_DEFAULT_ACTIVE_CATEGORIES is a frozenset with the expected default categories."""
+    from ztlctl.mcp.generator import _DEFAULT_ACTIVE_CATEGORIES
+
+    assert isinstance(_DEFAULT_ACTIVE_CATEGORIES, frozenset)
+    for cat in ("creation", "mutation", "query", "graph", "lifecycle", "session"):
+        assert cat in _DEFAULT_ACTIVE_CATEGORIES, f"missing default category: {cat!r}"
+
+
+def test_get_active_categories_returns_copy() -> None:
+    """get_active_categories() returns a copy, not the internal set reference."""
+    from ztlctl.mcp.generator import get_active_categories
+
+    first = get_active_categories()
+    second = get_active_categories()
+    assert first == second
+    assert first is not second  # different object — copy, not reference
+
+
+def test_activate_category() -> None:
+    """activate_category('export') returns True and adds 'export' to active set."""
+    from ztlctl.mcp.generator import (
+        activate_category,
+        get_active_categories,
+        reset_active_categories,
+    )
+
+    reset_active_categories()
+    result = activate_category("export")
+    assert result is True
+    assert "export" in get_active_categories()
+
+
+def test_activate_nonexistent_category() -> None:
+    """activate_category with unknown category name returns False."""
+    from ztlctl.mcp.generator import activate_category
+
+    result = activate_category("nonexistent_xyz_category_that_does_not_exist")
+    assert result is False
+
+
+def test_deactivate_category() -> None:
+    """deactivate_category('export') returns True and removes export from active set."""
+    from ztlctl.mcp.generator import (
+        activate_category,
+        deactivate_category,
+        get_active_categories,
+        reset_active_categories,
+    )
+
+    reset_active_categories()
+    activate_category("export")
+    result = deactivate_category("export")
+    assert result is True
+    assert "export" not in get_active_categories()
+
+
+def test_deactivate_default_category_blocked() -> None:
+    """deactivate_category on a default category returns False and leaves it active."""
+    from ztlctl.mcp.generator import deactivate_category, get_active_categories
+
+    result = deactivate_category("creation")
+    assert result is False
+    assert "creation" in get_active_categories()
+
+
+def test_reset_active_categories() -> None:
+    """reset_active_categories() restores defaults after modification."""
+    from ztlctl.mcp.generator import (
+        _DEFAULT_ACTIVE_CATEGORIES,
+        activate_category,
+        get_active_categories,
+        reset_active_categories,
+    )
+
+    activate_category("export")
+    reset_active_categories()
+    assert get_active_categories() == set(_DEFAULT_ACTIVE_CATEGORIES)

@@ -76,13 +76,15 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - [x] Render contributions for custom note types (Rich + MCP formatters)
 - [x] Marketplace metadata convention ([tool.ztlctl-plugin] in pyproject.toml)
 - [x] GitPlugin + ReweavePlugin ported to post_action + EventBus bridge
-- [ ] Plugin access to core actions and events
+- [x] Plugin access to core actions and events (via pre_action/post_action hookspecs)
 
-**Agentic Integration:**
+**Agentic Integration & Security:** ✓ Validated in Phase 6
 - [x] Complete MCP tool surface (no gaps — agents never need workarounds)
-- [ ] Agent orchestration patterns (defined workflows agents can drive end-to-end)
-- [ ] Research and evaluate Agent SDK/protocol if warranted
-- [ ] Agentic workflow documentation (how agents should use the tool)
+- [x] Structured error recovery — ServiceError.recovery field + 36 COMMON_ERROR_RECOVERY entries
+- [x] Agent orchestration recipes — 3 MCP resources (research-capture, review-triage, knowledge-synthesis)
+- [x] Progressive tool disclosure — category-based activation (discover/activate/deactivate categories)
+- [x] Copier --trust=false for plugin-contributed templates + --force-trust override
+- [x] Plugin capability declarations (filesystem, network, database, git) with audit logging
 
 ### Out of Scope
 
@@ -127,4 +129,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | All operations through registry, no escape hatches | Complex ops get thin definitions with custom_presentation=True | ✓ Good — 59 definitions, 5 custom_presentation |
 
 ---
-*Last updated: 2026-03-20 after Phase 5 completion*
+*Last updated: 2026-03-20 after Phase 6 completion — ALL PHASES COMPLETE*

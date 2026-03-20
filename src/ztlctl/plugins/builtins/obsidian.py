@@ -453,6 +453,11 @@ class ObsidianProfilePlugin:
     """Expose the shipped Obsidian workspace profile through the plugin surface."""
 
     @hookimpl
+    def declare_capabilities(self) -> set[str]:
+        """Declare that this plugin uses filesystem operations."""
+        return {"filesystem"}
+
+    @hookimpl
     def register_workspace_profiles(self) -> list[WorkspaceProfileContribution]:
         return [
             WorkspaceProfileContribution(

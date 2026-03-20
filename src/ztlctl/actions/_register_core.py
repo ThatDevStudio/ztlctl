@@ -20,6 +20,7 @@ def _register_core_actions() -> None:
     # Lazy controller imports — avoid module-level cross-layer imports
     from ztlctl.controllers.check import CheckController
     from ztlctl.controllers.create import CreateController
+    from ztlctl.controllers.discovery import DiscoveryController
     from ztlctl.controllers.export import ExportController
     from ztlctl.controllers.graph import GraphController
     from ztlctl.controllers.ingest import IngestController
@@ -1930,6 +1931,17 @@ def _register_core_actions() -> None:
                     required=True,
                     description="Workflow scaffolding choices (profile, client, tone, etc.).",
                 ),
+                ActionParam(
+                    "force_trust",
+                    bool,
+                    required=False,
+                    default=False,
+                    description=(
+                        "Allow plugin template hooks to execute (unsafe mode). "
+                        "Built-in templates always use unsafe=False regardless of this flag."
+                    ),
+                    cli_flag=True,
+                ),
             ),
             handler=lambda vault, **kw: WorkflowController(vault).init_workflow(**kw),
             side_effect="write",
@@ -1958,6 +1970,17 @@ def _register_core_actions() -> None:
                     required=False,
                     default=None,
                     description="Optional choice overrides to apply during update.",
+                ),
+                ActionParam(
+                    "force_trust",
+                    bool,
+                    required=False,
+                    default=False,
+                    description=(
+                        "Allow plugin template hooks to execute (unsafe mode). "
+                        "Built-in templates always use unsafe=False regardless of this flag."
+                    ),
+                    cli_flag=True,
                 ),
             ),
             handler=lambda vault, **kw: WorkflowController(vault).update_workflow(**kw),
@@ -2095,5 +2118,71 @@ def _register_core_actions() -> None:
             mcp_avoid_when="You already know the self/ files are current.",
             cli_group="init",
             cli_name="staleness",
+        )
+    )
+
+    # -----------------------------------------------------------------------
+    # discovery category (AGNT-04 — progressive tool disclosure)
+    # -----------------------------------------------------------------------
+
+    registry.register(
+        ActionDefinition(
+            name="discover_categories",
+            description="List all tool categories with their active/core status and tool names.",
+            category="discovery",
+            params=(),
+            handler=lambda vault, **kw: DiscoveryController(vault).discover_categories(**kw),
+            side_effect="read",
+            mcp_when_to_use=(
+                "Use to understand the available tool surface and which categories are active."
+            ),
+            mcp_avoid_when="Unnecessary if you already know which tools you need.",
+        )
+    )
+
+    registry.register(
+        ActionDefinition(
+            name="activate_category",
+            description="Activate a tool category to include its tools in the active surface.",
+            category="discovery",
+            params=(
+                ActionParam(
+                    "category",
+                    str,
+                    required=True,
+                    description="Category name to activate.",
+                ),
+            ),
+            handler=lambda vault, **kw: DiscoveryController(vault).activate_category(**kw),
+            side_effect="write",
+            mcp_when_to_use=(
+                "Use when you need tools from an inactive category (e.g., export, workflow, admin)."
+            ),
+            mcp_avoid_when="Core categories are already active by default.",
+            mcp_common_errors=("VALIDATION_FAILED",),
+        )
+    )
+
+    registry.register(
+        ActionDefinition(
+            name="deactivate_category",
+            description="Deactivate a non-core tool category to reduce the active tool surface.",
+            category="discovery",
+            params=(
+                ActionParam(
+                    "category",
+                    str,
+                    required=True,
+                    description="Category name to deactivate.",
+                ),
+            ),
+            handler=lambda vault, **kw: DiscoveryController(vault).deactivate_category(**kw),
+            side_effect="write",
+            mcp_when_to_use="Use to reduce tool noise after finishing work in a specific category.",
+            mcp_avoid_when=(
+                "Cannot deactivate core categories "
+                "(creation, mutation, query, graph, lifecycle, session)."
+            ),
+            mcp_common_errors=("VALIDATION_FAILED", "NOT_FOUND"),
         )
     )

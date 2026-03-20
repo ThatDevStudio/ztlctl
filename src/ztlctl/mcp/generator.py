@@ -79,6 +79,63 @@ def set_vault(vault: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Progressive tool disclosure — category activation state (AGNT-04)
+# ---------------------------------------------------------------------------
+
+#: Default categories active at session start (core CRUD operations).
+_DEFAULT_ACTIVE_CATEGORIES: frozenset[str] = frozenset(
+    {"creation", "mutation", "query", "graph", "lifecycle", "session"}
+)
+
+#: Session-scoped active category set (one server process = one MCP session).
+_active_categories: set[str] = set(_DEFAULT_ACTIVE_CATEGORIES)
+
+
+def _get_all_categories() -> set[str]:
+    """Return all known category strings from the ActionRegistry."""
+    return {a.category for a in get_action_registry().list_actions()}
+
+
+def get_active_categories() -> set[str]:
+    """Return a copy of the currently active categories."""
+    return set(_active_categories)
+
+
+def activate_category(category: str) -> bool:
+    """Add *category* to active set.
+
+    Returns True if the category exists in the registry and was added.
+    Returns False if the category is not a known category name.
+    """
+    all_cats = _get_all_categories()
+    if category not in all_cats:
+        return False
+    _active_categories.add(category)
+    return True
+
+
+def deactivate_category(category: str) -> bool:
+    """Remove *category* from the active set.
+
+    Returns False if the category is a default (core) category — those
+    cannot be deactivated.  Returns False if the category is not currently
+    active.  Returns True on successful removal.
+    """
+    if category in _DEFAULT_ACTIVE_CATEGORIES:
+        return False
+    if category not in _active_categories:
+        return False
+    _active_categories.discard(category)
+    return True
+
+
+def reset_active_categories() -> None:
+    """Reset the active category set to its defaults."""
+    _active_categories.clear()
+    _active_categories.update(_DEFAULT_ACTIVE_CATEGORIES)
+
+
+# ---------------------------------------------------------------------------
 # Annotation helpers
 # ---------------------------------------------------------------------------
 

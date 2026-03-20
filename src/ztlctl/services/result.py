@@ -20,6 +20,7 @@ class ServiceError(BaseModel):
     code: str
     message: str
     detail: dict[str, Any] = Field(default_factory=dict)
+    recovery: str | None = None
 
 
 class ServiceResult(BaseModel):

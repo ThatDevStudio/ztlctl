@@ -39,15 +39,15 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Agentic Integration
 
-- [ ] **AGNT-01**: Structured error responses with machine-readable recovery guidance — extend COMMON_ERROR_RECOVERY to cover all failure modes; every ServiceResult error includes actionable "what to do next" for agents
+- [x] **AGNT-01**: Structured error responses with machine-readable recovery guidance — extend COMMON_ERROR_RECOVERY to cover all failure modes; every ServiceResult error includes actionable "what to do next" for agents
 - [x] **AGNT-02**: Token-budget-aware MCP responses — extend existing topic_packet budget parameter pattern to list_items, search, vault_review, and other high-volume MCP tools
-- [ ] **AGNT-03**: Agent orchestration recipe resources — defined multi-step workflows (research-capture, review-triage, knowledge-synthesis) exposed as MCP resources that agents can follow step-by-step
-- [ ] **AGNT-04**: Progressive tool disclosure — category-based tool activation so plugins don't overwhelm the MCP tool surface; agents can discover and activate tool categories on demand
+- [x] **AGNT-03**: Agent orchestration recipe resources — defined multi-step workflows (research-capture, review-triage, knowledge-synthesis) exposed as MCP resources that agents can follow step-by-step
+- [x] **AGNT-04**: Progressive tool disclosure — category-based tool activation so plugins don't overwhelm the MCP tool surface; agents can discover and activate tool categories on demand
 
 ### Security
 
-- [ ] **SECU-01**: Copier `--trust=false` enforcement for plugin-contributed workflow templates — restrict template hook execution; require explicit --force-trust flag for plugin templates
-- [ ] **SECU-02**: Plugin capability declarations — plugins declare what they need (filesystem, network, database, git) and the host validates access; audit logging for plugin-initiated operations
+- [x] **SECU-01**: Copier `--trust=false` enforcement for plugin-contributed workflow templates — restrict template hook execution; require explicit --force-trust flag for plugin templates
+- [x] **SECU-02**: Plugin capability declarations — plugins declare what they need (filesystem, network, database, git) and the host validates access; audit logging for plugin-initiated operations
 
 ## v2 Requirements
 
@@ -107,12 +107,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLUG-05 | Phase 5 | Complete |
 | PLUG-06 | Phase 5 | Complete |
 | PLUG-07 | Phase 5 | Complete |
-| AGNT-01 | Phase 6 | Pending |
+| AGNT-01 | Phase 6 | Complete |
 | AGNT-02 | Phase 3 | Complete |
-| AGNT-03 | Phase 6 | Pending |
-| AGNT-04 | Phase 6 | Pending |
-| SECU-01 | Phase 6 | Pending |
-| SECU-02 | Phase 6 | Pending |
+| AGNT-03 | Phase 6 | Complete |
+| AGNT-04 | Phase 6 | Complete |
+| SECU-01 | Phase 6 | Complete |
+| SECU-02 | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 27 total

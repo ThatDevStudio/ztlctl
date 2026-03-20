@@ -425,3 +425,112 @@ class TestPluginManager:
 
         assert providers == []
         assert "Skipping invalid register_source_providers contribution" in caplog.text
+
+
+class TestCapabilityDeclarations:
+    """Tests for SECU-02: plugin capability declarations and audit logging."""
+
+    def test_declare_capabilities_hookspec_exists(self) -> None:
+        """ZtlctlHookSpec has a declare_capabilities hookspec."""
+        from ztlctl.plugins.hookspecs import ZtlctlHookSpec
+
+        assert hasattr(ZtlctlHookSpec, "declare_capabilities")
+
+    def test_declare_capabilities_not_firstresult(self) -> None:
+        """declare_capabilities is NOT a firstresult hook (all plugins must be called)."""
+        from ztlctl.plugins.hookspecs import ZtlctlHookSpec
+
+        spec_opts = getattr(ZtlctlHookSpec.declare_capabilities, "ztlctl_spec", None)
+        if spec_opts is not None:
+            assert not getattr(spec_opts, "firstresult", False)
+        # Also verify it is accessible via the hook relay
+        pm = PluginManager()
+        assert hasattr(pm.hook, "declare_capabilities")
+
+    def test_valid_capabilities_pass_validation(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Plugin declaring valid capabilities produces no warning logs."""
+        import logging
+
+        class _ValidCapsPlugin:
+            @hookimpl
+            def declare_capabilities(self) -> set[str]:
+                return {"filesystem", "git"}
+
+        pm = PluginManager()
+        pm.register_plugin(_ValidCapsPlugin(), name="valid-caps")
+        with caplog.at_level(logging.WARNING, logger="ztlctl.plugins.manager"):
+            pm._validate_capabilities()
+
+        # Should not warn about this plugin's valid capabilities
+        assert "plugin.no_capabilities_declared" not in caplog.text
+        assert "plugin.invalid_capabilities" not in caplog.text
+
+    def test_capability_warning_on_missing(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Plugin without declare_capabilities logs no_capabilities_declared at debug level.
+
+        Plugin API v2 treats missing declarations as advisory (debug), not errors.
+        """
+        import logging
+
+        class _NoCapsPlugin:
+            @hookimpl
+            def post_check(self, issues_found: int, issues_fixed: int) -> None:
+                pass
+
+        pm = PluginManager()
+        pm.register_plugin(_NoCapsPlugin(), name="no-caps")
+        with caplog.at_level(logging.DEBUG, logger="ztlctl.plugins.manager"):
+            pm._validate_capabilities()
+
+        assert "plugin.no_capabilities_declared" in caplog.text
+
+    def test_capability_warning_on_invalid(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Plugin declaring unknown capability triggers invalid_capabilities warning."""
+        import logging
+
+        class _InvalidCapsPlugin:
+            @hookimpl
+            def declare_capabilities(self) -> set[str]:
+                return {"quantum"}
+
+        pm = PluginManager()
+        pm.register_plugin(_InvalidCapsPlugin(), name="invalid-caps")
+        with caplog.at_level(logging.WARNING, logger="ztlctl.plugins.manager"):
+            pm._validate_capabilities()
+
+        assert "plugin.invalid_capabilities" in caplog.text
+
+    def test_validate_capabilities_called_in_discover(self) -> None:
+        """_validate_capabilities is called during discover_and_load."""
+        from unittest.mock import patch
+
+        pm = PluginManager()
+        with patch.object(pm, "_validate_capabilities") as mock_validate:
+            pm.discover_and_load(local_dir=None, include_entrypoints=False)
+        mock_validate.assert_called_once()
+
+    def test_audit_log_entry_format(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Valid capability declaration emits capabilities_validated info log."""
+        import logging
+
+        class _AuditPlugin:
+            @hookimpl
+            def declare_capabilities(self) -> set[str]:
+                return {"database"}
+
+        pm = PluginManager()
+        pm.register_plugin(_AuditPlugin(), name="audit-plugin")
+        with caplog.at_level(logging.INFO, logger="ztlctl.plugins.manager"):
+            pm._validate_capabilities()
+
+        assert "plugin.capabilities_validated" in caplog.text
+
+    def test_valid_capabilities_constant_defined(self) -> None:
+        """VALID_CAPABILITIES frozenset is defined in manager module."""
+        from ztlctl.plugins.manager import VALID_CAPABILITIES
+
+        assert isinstance(VALID_CAPABILITIES, frozenset)
+        assert "filesystem" in VALID_CAPABILITIES
+        assert "network" in VALID_CAPABILITIES
+        assert "database" in VALID_CAPABILITIES
+        assert "git" in VALID_CAPABILITIES

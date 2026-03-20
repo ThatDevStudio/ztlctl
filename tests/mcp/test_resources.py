@@ -158,8 +158,8 @@ class TestResources:
 class TestResourceCatalog:
     """Tests for resource catalog completeness."""
 
-    def test_catalog_has_11_resources(self):
-        assert len(resource_catalog()) == 11
+    def test_catalog_has_15_resources(self):
+        assert len(resource_catalog()) == 15
 
     def test_agent_reference_in_catalog(self):
         uris = {r["uri"] for r in resource_catalog()}
@@ -262,6 +262,86 @@ class TestAgentReference:
     def test_validation_failed_recovery_excludes_tag_format_claim(self, vault: Vault):
         result = agent_reference_impl(vault)
         assert "domain/scope" not in result["common_errors"]["VALIDATION_FAILED"]
+
+
+class TestRecipeResources:
+    """Tests for recipe _impl functions (AGNT-03)."""
+
+    def test_recipe_research_capture_impl(self):
+        from ztlctl.mcp.resources import recipe_research_capture_impl
+
+        result = recipe_research_capture_impl(None)
+        assert result["name"] == "research-capture"
+        assert "description" in result
+        assert "steps" in result
+        assert len(result["steps"]) == 3
+        for step in result["steps"]:
+            for key in ("step", "action", "params", "description", "conditions"):
+                assert key in step, f"missing key {key!r} in step {step}"
+        assert result["steps"][0]["action"] == "search"
+
+    def test_recipe_review_triage_impl(self):
+        from ztlctl.mcp.resources import recipe_review_triage_impl
+
+        result = recipe_review_triage_impl(None)
+        assert result["name"] == "review-triage"
+        assert "description" in result
+        assert "steps" in result
+        assert len(result["steps"]) == 4
+        for step in result["steps"]:
+            for key in ("step", "action", "params", "description", "conditions"):
+                assert key in step, f"missing key {key!r} in step {step}"
+        assert result["steps"][0]["action"] == "work_queue"
+
+    def test_recipe_knowledge_synthesis_impl(self):
+        from ztlctl.mcp.resources import recipe_knowledge_synthesis_impl
+
+        result = recipe_knowledge_synthesis_impl(None)
+        assert result["name"] == "knowledge-synthesis"
+        assert "description" in result
+        assert "steps" in result
+        assert len(result["steps"]) == 4
+        for step in result["steps"]:
+            for key in ("step", "action", "params", "description", "conditions"):
+                assert key in step, f"missing key {key!r} in step {step}"
+        assert result["steps"][0]["action"] == "search"
+
+    def test_recipe_index_impl(self):
+        from ztlctl.mcp.resources import recipe_index_impl
+
+        result = recipe_index_impl(None)
+        assert "recipes" in result
+        assert len(result["recipes"]) == 3
+        for entry in result["recipes"]:
+            for key in ("name", "uri", "description"):
+                assert key in entry, f"missing key {key!r} in recipe entry {entry}"
+
+    def test_recipe_catalog_in_resource_catalog(self):
+        uris = {r["uri"] for r in resource_catalog()}
+        assert "ztlctl://recipes" in uris
+        assert "ztlctl://recipes/research-capture" in uris
+        assert "ztlctl://recipes/review-triage" in uris
+        assert "ztlctl://recipes/knowledge-synthesis" in uris
+
+    def test_recipe_resources_registered(self, vault: Vault):
+        class _DummyServer:
+            def __init__(self) -> None:
+                self.registered_uris: list[str] = []
+
+            def resource(self, uri: str):
+                def decorator(fn):
+                    self.registered_uris.append(uri)
+                    return fn
+
+                return decorator
+
+        server = _DummyServer()
+        register_resources(server, vault)
+        registered = set(server.registered_uris)
+        assert "ztlctl://recipes" in registered
+        assert "ztlctl://recipes/research-capture" in registered
+        assert "ztlctl://recipes/review-triage" in registered
+        assert "ztlctl://recipes/knowledge-synthesis" in registered
 
 
 class TestRegisterResources:

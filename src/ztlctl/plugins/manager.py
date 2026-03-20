@@ -30,6 +30,9 @@ PROJECT_NAME = "ztlctl"
 logger = logging.getLogger(__name__)
 _ContributionT = TypeVar("_ContributionT")
 
+#: Valid capability identifiers for ``declare_capabilities`` (SECU-02).
+VALID_CAPABILITIES: frozenset[str] = frozenset({"filesystem", "network", "database", "git"})
+
 
 class PluginManager:
     """Manages plugin discovery, loading, and hook dispatch."""
@@ -61,6 +64,7 @@ class PluginManager:
             self._discover_local(local_dir)
         self._register_content_models()
         self._register_note_types()
+        self._validate_capabilities()  # SECU-02: audit plugin capability declarations
         self._loaded = True
         return self.list_plugin_names()
 
@@ -298,6 +302,64 @@ class PluginManager:
                     "Plugin %s raised in initialize",
                     plugin_name,
                     exc_info=True,
+                )
+
+    def _validate_capabilities(self) -> None:
+        """Check plugin capability declarations and emit audit log entries.
+
+        Iterates all registered plugins and calls ``declare_capabilities`` on
+        each one. Missing declarations are logged at DEBUG level (plugin API v2
+        does not require declarations — they are advisory). Invalid declarations
+        (unknown capability names) are logged at WARNING since they indicate a
+        plugin authoring error.
+
+        Valid capability identifiers are defined by :data:`VALID_CAPABILITIES`.
+        """
+        for plugin in self._pm.get_plugins():
+            plugin_name = self._pm.get_name(plugin) or plugin.__class__.__name__
+            declare_fn = getattr(plugin, "declare_capabilities", None)
+            if declare_fn is None:
+                # Advisory in plugin API v2 — missing declaration is not an error
+                logger.debug(
+                    "plugin.no_capabilities_declared plugin=%s",
+                    plugin_name,
+                )
+                continue
+            try:
+                caps = declare_fn()
+            except Exception:
+                logger.warning(
+                    "plugin.capability_declaration_failed plugin=%s",
+                    plugin_name,
+                    exc_info=True,
+                )
+                continue
+            if caps is None:
+                logger.debug(
+                    "plugin.no_capabilities_declared plugin=%s",
+                    plugin_name,
+                )
+                continue
+            if not isinstance(caps, set):
+                logger.warning(
+                    "plugin.invalid_capabilities_type plugin=%s returned_type=%s",
+                    plugin_name,
+                    type(caps).__name__,
+                )
+                continue
+            invalid = caps - VALID_CAPABILITIES
+            if invalid:
+                logger.warning(
+                    "plugin.invalid_capabilities plugin=%s invalid=%s valid=%s",
+                    plugin_name,
+                    sorted(invalid),
+                    sorted(VALID_CAPABILITIES),
+                )
+            else:
+                logger.info(
+                    "plugin.capabilities_validated plugin=%s capabilities=%s",
+                    plugin_name,
+                    sorted(caps),
                 )
 
     # ------------------------------------------------------------------

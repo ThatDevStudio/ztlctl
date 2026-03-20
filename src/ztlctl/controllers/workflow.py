@@ -24,22 +24,25 @@ class WorkflowController(BaseController):
         self,
         vault_root: Path,
         choices: WorkflowChoices,
+        *,
+        force_trust: bool = False,
     ) -> ServiceResult:
         """Initialize Copier-backed workflow scaffolding for a vault."""
         from ztlctl.services.workflow import WorkflowService
 
-        return WorkflowService.init_workflow(vault_root, choices)
+        return WorkflowService.init_workflow(vault_root, choices, force_trust=force_trust)
 
     def update_workflow(
         self,
         vault_root: Path,
         *,
         choices: WorkflowChoices | None = None,
+        force_trust: bool = False,
     ) -> ServiceResult:
         """Update workflow scaffolding using stored answers plus optional overrides."""
         from ztlctl.services.workflow import WorkflowService
 
-        return WorkflowService.update_workflow(vault_root, choices=choices)
+        return WorkflowService.update_workflow(vault_root, choices=choices, force_trust=force_trust)
 
     def export_assets(
         self,
