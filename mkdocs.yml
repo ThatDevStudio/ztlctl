@@ -33,12 +33,14 @@ nav:
     - Command Reference: commands.md
     - Configuration: configuration.md
     - Troubleshooting: troubleshooting.md
+    - Best Practices: best-practices.md
   - Developer Guide:
     - dev/index.md
     - Contributing: development.md
     - Plugin Authoring: plugin-guide.md
     - API Reference: api-reference.md
     - MCP Server: mcp.md
+    - Agent System Manual: agents.md
 
 plugins:
   - search

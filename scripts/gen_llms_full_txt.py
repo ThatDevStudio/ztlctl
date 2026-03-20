@@ -31,11 +31,19 @@ NAV_ORDER = [
             "commands.md",
             "configuration.md",
             "troubleshooting.md",
+            "best-practices.md",
         ],
     ),
     (
         "Developer Guide",
-        ["dev/index.md", "development.md", "plugin-guide.md", "api-reference.md", "mcp.md"],
+        [
+            "dev/index.md",
+            "development.md",
+            "plugin-guide.md",
+            "api-reference.md",
+            "mcp.md",
+            "agents.md",
+        ],
     ),
 ]
 
