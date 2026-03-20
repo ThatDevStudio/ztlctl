@@ -24,7 +24,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install MkDocs dependencies
-        run: pip install mkdocs==1.6.1 mkdocs-shadcn==0.10.2 mkdocs-redirects==1.2.2
+        run: pip install mkdocs==1.6.1 mkdocs-shadcn==0.10.2 mkdocs-redirects==1.2.2 "mkdocstrings[python]>=1.0.3"
 
       - name: Configure git identity
         run: |
