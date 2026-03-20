@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.14.0 (2026-03-20)
+
+### Feat
+
+- **agentic**: add error recovery, orchestration recipes, progressive disclosure, and plugin security (Phase 6) (#108)
+
 ## v1.13.0 (2026-03-20)
 
 ### Feat
