@@ -575,20 +575,28 @@ class PluginManager:
         )
 
         def _make_create_handler(nt: str, ct: str) -> Any:
-            def _handler(vault: Any, **kwargs: Any) -> Any:
-                from ztlctl.controllers.create_ctrl import CreateController
+            _note_type = nt
+            _content_type = ct
 
-                return CreateController(vault).create_note(
-                    content_type=ct,
-                    subtype=nt,
-                    **kwargs,
-                )
+            def _handler(vault: Any, **kwargs: Any) -> Any:
+                from ztlctl.controllers.create import CreateController
+
+                ctrl = CreateController(vault)
+                title: str = kwargs.pop("title", "")
+                # Route to the correct controller method based on content_type.
+                # kwargs content varies by runtime call; use Any-typed dispatch.
+                if _content_type == "task":
+                    return ctrl.create_task(title, **kwargs)
+                if _content_type == "reference":
+                    return ctrl.create_reference(title, subtype=_note_type, **kwargs)
+                # Default: treat as note
+                return ctrl.create_note(title, subtype=_note_type, **kwargs)
 
             return _handler
 
         def _make_update_handler(nt: str) -> Any:
             def _handler(vault: Any, **kwargs: Any) -> Any:
-                from ztlctl.controllers.update_ctrl import UpdateController
+                from ztlctl.controllers.update import UpdateController
 
                 return UpdateController(vault).update(**kwargs)
 
@@ -596,9 +604,9 @@ class PluginManager:
 
         def _make_close_handler(nt: str) -> Any:
             def _handler(vault: Any, **kwargs: Any) -> Any:
-                from ztlctl.controllers.update_ctrl import UpdateController
+                from ztlctl.controllers.update import UpdateController
 
-                return UpdateController(vault).close(**kwargs)
+                return UpdateController(vault).archive(**kwargs)
 
             return _handler
 
