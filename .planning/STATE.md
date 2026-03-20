@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Completed 14-02-PLAN.md
-last_updated: "2026-03-20T22:11:51.605Z"
+stopped_at: Completed 14-03-PLAN.md
+last_updated: "2026-03-20T22:20:07.720Z"
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 21
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -64,6 +64,7 @@ Plan: 3 of 5
 | Phase 13-switch-github-pages-deploy P01 | 48 | 3 tasks | 1 files |
 | Phase 14-documentation-content-refinement-and-quality-pass P01 | 3 | 3 tasks | 3 files |
 | Phase 14-documentation-content-refinement-and-quality-pass P02 | 12 | 2 tasks | 2 files |
+| Phase 14-documentation-content-refinement-and-quality-pass P03 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Recent decisions affecting current work:
 - [Phase 14]: WorkflowConfig defaults are template='claude-driven', skill_set='research' (source corrected during rewrite)
 - [Phase 14-02]: best-practices.md uses mentor/teacher tone for human User Guide audience; anti-pattern entries with warning admonitions and summary table
 - [Phase 14-02]: agents.md uses structured data over prose (tables, JSON schemas, ASCII state machines) — content source-verified from domain/lifecycle.py and config/models.py
+- [Phase 14-03]: quickstart.md CLI commands corrected from source: init uses --name flag, session commands use ztlctl session (not agent session), reweave uses ztlctl reweave run
+- [Phase 14-03]: concepts.md lifecycle states source-verified from domain/lifecycle.py: draft/linked/connected (Note), captured/annotated (Reference), inbox/active/blocked/done/dropped (Task) — plan spec had wrong state names
+- [Phase 14-03]: concepts.md ID patterns source-verified from domain/ids.py: ztl_XXXXXXXX (notes), ref_XXXXXXXX (references), TASK-NNNN (tasks), LOG-NNNN (logs)
 
 ### Roadmap Evolution
 
@@ -125,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T22:11:51.602Z
-Stopped at: Completed 14-02-PLAN.md
+Last session: 2026-03-20T22:20:07.717Z
+Stopped at: Completed 14-03-PLAN.md
 Resume file: None
