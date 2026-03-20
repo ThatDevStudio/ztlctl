@@ -60,7 +60,8 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - [ ] Structured metadata agents can parse
 
 **Infrastructure:**
-- [ ] Remove internal planning artifacts from public docs (backlog, research-mapping, internal roadmap)
+- [x] MkDocs + mkdocs-shadcn migration with dark mode, GitHub Actions deploy — Phase 8
+- [x] Internal planning artifacts removed from public docs — Phase 8
 - [ ] Reorganize docs/ with audience-based navigation sections
 
 ### Out of Scope
@@ -115,5 +116,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | Two-track documentation (user guide + developer guide) | Knowledge workers and plugin authors have fundamentally different needs; flat docs serve neither well | — Pending |
 | llms.txt + MCP doc search for agent accessibility | Agents are a primary audience; standard machine-readable discovery + in-tool search | — Pending |
 
+| MkDocs + mkdocs-shadcn for docs site | Modern shadcn/ui aesthetic, MkDocs ecosystem for Python tools, GitHub Pages deploy | ✓ Good — `mkdocs build --strict` passes, deploy workflow ready |
+
 ---
-*Last updated: 2026-03-20 after v2.1 milestone start*
+*Last updated: 2026-03-20 after Phase 8 completion*
