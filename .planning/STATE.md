@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Completed 14-04-PLAN.md
-last_updated: "2026-03-20T22:25:03.202Z"
+stopped_at: Completed 14-05-PLAN.md
+last_updated: "2026-03-20T22:33:16.350Z"
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
@@ -66,6 +66,7 @@ Plan: 3 of 5
 | Phase 14-documentation-content-refinement-and-quality-pass P02 | 12 | 2 tasks | 2 files |
 | Phase 14-documentation-content-refinement-and-quality-pass P03 | 4 | 2 tasks | 5 files |
 | Phase 14-documentation-content-refinement-and-quality-pass P04 | 45 | 2 tasks | 5 files |
+| Phase 14-documentation-content-refinement-and-quality-pass P05 | 10 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,8 @@ Recent decisions affecting current work:
 - [Phase 14]: session commands are ztlctl session * not ztlctl agent session * — cli_group=session in ActionDefinition, no agent wrapper group
 - [Phase 14]: [Phase 14-04]: --tags is cli_multiple=True so examples must use repeatable --tags flag, not comma-separated string
 - [Phase 14]: [Phase 14-04]: ztlctl reweave -> ztlctl reweave run (cli_name=run); ztlctl check --fix -> ztlctl check fix (separate ActionDefinition with cli_group=check)
+- [Phase 14]: 17 MCP resources verified from resources.py; mcp.md updated from 11 to full list including recipe and docs/* resources
+- [Phase 14]: [Phase 14-05]: plugin-guide.md deprecated hookspecs section upgraded to !!! warning admonition for higher visibility
 
 ### Roadmap Evolution
 
@@ -133,6 +136,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T22:25:03.199Z
-Stopped at: Completed 14-04-PLAN.md
+Last session: 2026-03-20T22:33:16.347Z
+Stopped at: Completed 14-05-PLAN.md
 Resume file: None
