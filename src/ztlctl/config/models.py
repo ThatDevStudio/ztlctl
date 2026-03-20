@@ -147,11 +147,29 @@ class CheckConfig(BaseModel):
 
 
 class PluginsConfig(BaseModel):
-    """[plugins] section."""
+    """[plugins] section.
 
-    model_config = {"frozen": True}
+    The ``extra="allow"`` setting lets ztlctl.toml supply per-plugin
+    ``[plugins.<name>]`` tables that are picked up at load time for config
+    injection (PLUG-03).
+    """
+
+    model_config = {"frozen": True, "extra": "allow"}
 
     git: dict[str, Any] = Field(default_factory=lambda: {"enabled": True})
+
+    def get_plugin_config(self, name: str) -> dict[str, Any]:
+        """Return the raw config dict for *name* from extra TOML fields.
+
+        Returns an empty dict if the plugin has no ``[plugins.<name>]`` section.
+        """
+        extra = self.model_extra
+        if extra is None:
+            return {}
+        value = extra.get(name, {})
+        if isinstance(value, dict):
+            return value
+        return {}
 
 
 class GitConfig(BaseModel):

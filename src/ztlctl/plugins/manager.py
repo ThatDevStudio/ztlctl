@@ -11,6 +11,7 @@ from typing import Any, TypeVar
 
 import pluggy
 
+from ztlctl.plugins._version import PluginLoadError, check_plugin_api_version
 from ztlctl.plugins.contracts import (
     CliCommandContribution,
     McpPromptContribution,
@@ -62,9 +63,24 @@ class PluginManager:
         return self.list_plugin_names()
 
     def register_plugin(self, plugin: object, name: str | None = None) -> None:
-        """Register a plugin instance directly (e.g. built-in plugins)."""
+        """Register a plugin instance directly (e.g. built-in plugins).
+
+        Performs an API version check before completing registration.
+        Incompatible plugins are not registered and a warning is logged.
+        """
         resolved_name = name or plugin.__class__.__name__
         self._pm.register(plugin, name=resolved_name)
+
+        # Version check — unregister if incompatible, warn if deprecated.
+        try:
+            warnings = check_plugin_api_version(plugin, resolved_name)
+        except PluginLoadError as exc:
+            logger.warning("Skipping incompatible plugin %s: %s", resolved_name, exc)
+            self._pm.unregister(plugin)
+            return
+        for warning in warnings:
+            logger.warning(warning)
+
         if self._loaded:
             self._register_plugin_content_models(plugin, resolved_name)
         logger.debug("Registered plugin: %s", resolved_name)
@@ -195,6 +211,80 @@ class PluginManager:
             reserved=reserved_names,
         )
 
+    def inject_configs(self, settings: Any) -> None:
+        """Validate and inject per-plugin configuration (PLUG-03).
+
+        Iterates all registered plugins, calls ``get_config_schema`` if
+        present to retrieve a Pydantic model class, looks up the matching
+        ``[plugins.<name>]`` section from *settings.plugins*, validates the
+        raw dict against the schema, and passes the result to ``initialize``.
+
+        If validation fails the plugin receives ``initialize(config=None)``
+        and a warning is logged. Plugins without ``get_config_schema`` or
+        ``initialize`` are silently skipped.
+
+        Args:
+            settings: A :class:`~ztlctl.config.settings.ZtlSettings` instance
+                (typed as Any to avoid a circular import).
+        """
+        self._inject_plugin_configs(settings)
+
+    def _inject_plugin_configs(self, settings: Any) -> None:
+        """Internal implementation of per-plugin config injection."""
+        from pydantic import ValidationError
+
+        plugins_cfg = getattr(settings, "plugins", None)
+
+        for plugin in self._pm.get_plugins():
+            plugin_name = self._pm.get_name(plugin) or plugin.__class__.__name__
+
+            get_schema_fn = getattr(plugin, "get_config_schema", None)
+            initialize_fn = getattr(plugin, "initialize", None)
+
+            if initialize_fn is None:
+                continue
+
+            schema_cls = None
+            if get_schema_fn is not None:
+                try:
+                    schema_cls = get_schema_fn()
+                except Exception:
+                    logger.warning(
+                        "Plugin %s raised in get_config_schema",
+                        plugin_name,
+                        exc_info=True,
+                    )
+
+            raw_config: dict[str, Any] = {}
+            if plugins_cfg is not None:
+                get_fn = getattr(plugins_cfg, "get_plugin_config", None)
+                if get_fn is not None:
+                    raw_config = get_fn(plugin_name) or {}
+
+            validated_config = None
+            if schema_cls is not None and raw_config:
+                try:
+                    validated_config = schema_cls(**raw_config)
+                except (ValidationError, TypeError) as exc:
+                    logger.warning(
+                        "Plugin %s config validation failed; calling initialize(config=None): %s",
+                        plugin_name,
+                        exc,
+                    )
+                    validated_config = None
+            elif schema_cls is not None and not raw_config:
+                # Schema declared but no TOML section — pass None
+                validated_config = None
+
+            try:
+                initialize_fn(config=validated_config)
+            except Exception:
+                logger.warning(
+                    "Plugin %s raised in initialize",
+                    plugin_name,
+                    exc_info=True,
+                )
+
     # ------------------------------------------------------------------
     # Local directory discovery
     # ------------------------------------------------------------------
@@ -276,6 +366,19 @@ class PluginManager:
                     exc_info=True,
                 )
                 continue
+
+            # API version check before accepting the instance.
+            try:
+                version_warnings = check_plugin_api_version(instance, plugin_name)
+            except PluginLoadError as exc:
+                logger.warning(
+                    "Skipping incompatible entry-point plugin %s: %s",
+                    plugin_name,
+                    exc,
+                )
+                continue
+            for warning in version_warnings:
+                logger.warning(warning)
 
             self._pm.register(instance, name=plugin_name)
             logger.debug("Instantiated entry-point plugin: %s", plugin_name)

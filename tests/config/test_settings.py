@@ -98,7 +98,8 @@ class TestTomlSource:
         assert settings.workspace.profile == "core"
         assert settings.vault.client == "none"
 
-    def test_legacy_plugins_obsidian_key_is_ignored(self, tmp_path: Path) -> None:
+    def test_plugins_extra_keys_stored_for_config_injection(self, tmp_path: Path) -> None:
+        """Extra [plugins.<name>] sections are stored via extra='allow' for PLUG-03."""
         toml = tmp_path / "ztlctl.toml"
         toml.write_text(
             "[plugins]\ngit = { enabled = true }\nobsidian = { enabled = true }\n",
@@ -107,7 +108,9 @@ class TestTomlSource:
 
         settings = ZtlSettings.from_cli(vault_root=tmp_path)
 
-        assert settings.plugins.model_dump() == {"git": {"enabled": True}}
+        # git is a declared field; obsidian is stored in model_extra via extra="allow"
+        assert settings.plugins.git == {"enabled": True}
+        assert settings.plugins.get_plugin_config("obsidian") == {"enabled": True}
 
 
 class TestCliFlags:
