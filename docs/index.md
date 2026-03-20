@@ -4,32 +4,50 @@ title: Home
 
 # ZettelControl Documentation
 
-**ZettelControl** (`ztlctl`) is a local knowledge operating system for human users and AI agents. It separates agent-assisted capture and synthesis from human-led enrichment so research workflows and garden workflows stay distinct.
+**ZettelControl** (`ztlctl`) is a local knowledge operating system for human users and AI agents. It separates agent-assisted capture and synthesis from human-led enrichment so research workflows and knowledge-garden workflows stay distinct — and coexist without interference.
 
-ztlctl stores durable notes, references, and tasks as markdown files, indexes them in SQLite, and exposes them through a CLI, MCP server, and generated workflow assets. Sessions and other operational state are internal coordination mechanisms rather than part of the file-first durability contract.
+ztlctl stores durable notes, references, and tasks as markdown files, indexes them in SQLite, and exposes them through a CLI, an MCP server, and generated workflow assets.
 
-For agent-fetched web pages and multimodal captures, ztlctl persists durable source bundles beside ingested references so topic packets, drafts, and dashboard dossiers can keep citing the same evidence later.
+## What Makes ztlctl Different
 
-## Getting Started
+- **Local-first SQLite** — your vault is a directory of markdown files backed by a single `.ztlctl/ztlctl.db`; no cloud account required
+- **Graph-native** — every note, reference, and task is a node; links and reweave scores are edges; graph traversal and structural analysis are first-class commands
+- **Agent-native MCP** — 59 MCP tools, 6 resources, and 4 prompts let AI agents query, create, and navigate your vault without custom glue code
+- **Plugin ecosystem** — pluggy-based hook system with a stable versioned API; extend via local plugins or published packages
 
-- [Installation](installation.md) — Install via pip, uv, or Homebrew
-- [Quick Start](quickstart.md) — Your first vault in 9 commands
-- [Tutorial](tutorial.md) — Step-by-step guide to building a knowledge vault
+## For Knowledge Workers
 
-## Understanding ztlctl
+Build and tend a knowledge vault using the CLI and Obsidian.
 
-- [Core Concepts](concepts.md) — Content types, lifecycle states, vault structure, knowledge graph
-- [Knowledge Paradigms](paradigms.md) — Capture/synthesis and enrichment, mapped to Zettelkasten, second-brain, and garden approaches
-- [Obsidian Starter Kit](obsidian.md) — First-party Obsidian scaffold, plugin preset, and garden layout
+- [Quick Start](quickstart.md) — your first vault in 5 minutes
+- [Tutorial](tutorial.md) — step-by-step guide to building a knowledge vault
+- [Core Concepts](concepts.md) — content types, lifecycle states, vault structure, knowledge graph
+- [Knowledge Paradigms](paradigms.md) — capture/synthesis and enrichment, mapped to Zettelkasten, second-brain, and garden approaches
+- [Best Practices](best-practices.md) — workflow patterns and anti-patterns
 
-## Reference
+## For Developers and Plugin Authors
 
-- [Command Reference](commands.md) — All CLI commands, options, and filters
-- [Configuration](configuration.md) — `ztlctl.toml` settings and environment variables
-- [MCP Server](mcp.md) — Model Context Protocol discovery tools, resources, prompts, and client exports
+Extend ztlctl or integrate it into your tooling.
 
-## For Developers and Agents
+- [Development](development.md) — architecture, ActionRegistry, and local setup
+- [Plugin Authoring](plugin-guide.md) — hookspecs, plugin lifecycle, publishing
+- [API Reference](api-reference.md) — auto-generated from source
+- [MCP Server](mcp.md) — 59 tools, resources, prompts, and client export
 
-- [Agentic Workflows](agentic-workflows.md) — Sessions, context assembly, batch operations, scripting
-- [Development](development.md) — Contributing, architecture, and local setup
-- [Troubleshooting](troubleshooting.md) — Common issues and solutions
+## For AI Agents
+
+Consume and operate a ztlctl vault from an agentic context.
+
+- [agents.md](agents.md) — machine-readable system manual: tool inventory, ID formats, state machines, error codes
+- [llms.txt](llms.txt) — full documentation corpus for agent ingestion
+- [Agentic Workflows](agentic-workflows.md) — sessions, context assembly, batch operations, scripting
+
+## Quick Links
+
+| Page | Purpose |
+|------|---------|
+| [Installation](installation.md) | pip, uv, Homebrew, and dev install |
+| [Quick Start](quickstart.md) | First vault in 5 minutes |
+| [Command Reference](commands.md) | All CLI commands, options, and filters |
+| [Configuration](configuration.md) | `ztlctl.toml` settings and environment variables |
+| [Troubleshooting](troubleshooting.md) | Common issues and solutions |
