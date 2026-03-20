@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.16.0 (2026-03-20)
+
+### Feat
+
+- **docs**: migrate to MkDocs + mkdocs-shadcn, add deploy workflow (Phase 8) (#110)
+
 ## v1.15.0 (2026-03-20)
 
 ### Feat
