@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-20T02:08:09.425Z"
+stopped_at: Completed 05-plugin-formalization plan 01 (05-01-PLAN.md)
+last_updated: "2026-03-20T02:43:22.064Z"
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 16
+  completed_plans: 14
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 04 — cli-surface-generation
+**Current focus:** Phase 05 — plugin-formalization
 
 ## Current Position
 
-Phase: 04 (cli-surface-generation) — COMPLETE
-Plan: 2 of 2 (all plans complete)
+Phase: 05 (plugin-formalization) — EXECUTING
+Plan: 1 of 3
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Plan: 2 of 2 (all plans complete)
 | Phase 03-mcp-surface-generation P02 | 4 | 2 tasks | 3 files |
 | Phase 04-cli-surface-generation P01 | 9 | 2 tasks | 5 files |
 | Phase 04-cli-surface-generation P02 | 90 | 2 tasks | 16 files |
+| Phase 05-plugin-formalization PP01 | 470 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,8 @@ Recent decisions affecting current work:
 - [Phase 04-cli-surface-generation P02]: choices removed from export_dashboard viewer param — service layer normalizes 'vanilla' alias; CLI choices restriction was too strict
 - [Phase 04-cli-surface-generation P02]: _render_export content-key detection prints raw DOT/JSON to stdout enabling shell piping for export graph
 - [Phase 04-cli-surface-generation P02]: Harvest-and-reattach pattern for init group — collect generated subcommands before overwrite, re-attach to wizard group
+- [Phase 05-plugin-formalization]: plugins/_version.py private module breaks circular import between __init__.py and manager.py for API versioning helpers
+- [Phase 05-plugin-formalization]: PluginsConfig extra=allow stores arbitrary [plugins.<name>] TOML sections for PLUG-03 config injection; legacy test updated to reflect new intent
 
 ### Pending Todos
 
@@ -109,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T02:08:09.422Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-plugin-formalization/05-CONTEXT.md
+Last session: 2026-03-20T02:43:22.061Z
+Stopped at: Completed 05-plugin-formalization plan 01 (05-01-PLAN.md)
+Resume file: None
