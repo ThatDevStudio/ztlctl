@@ -107,7 +107,7 @@ Plans:
   1. `ztlctl docs <query>` returns ranked results from the docs corpus with relevant excerpts
   2. An MCP client can query `ztlctl://docs/search` with a query string and receive relevant documentation passages
   3. Both CLI and MCP search use the same underlying `_impl` function following the established pattern
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 12-01-PLAN.md — Pure docs search module (services/docs.py, TDD)
@@ -133,7 +133,7 @@ Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can
 | 9. Navigation Structure | 2/2 | Complete   | 2026-03-20 | - |
 | 10. User Guide Content | 3/3 | Complete    | 2026-03-20 | - |
 | 11. Developer Guide + API Reference | 4/4 | Complete    | 2026-03-20 | - |
-| 12. Doc Search Integration | 1/3 | In Progress|  | - |
+| 12. Doc Search Integration | 2/3 | In Progress|  | - |
 
 ### Phase 13: Switch GitHub Pages deploy to Actions artifact (eliminate gh-pages branch)
 

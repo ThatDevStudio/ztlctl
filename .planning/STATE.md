@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-03-20T20:05:08.705Z"
+stopped_at: Completed 12-03-PLAN.md
+last_updated: "2026-03-20T20:09:59.812Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -59,6 +59,7 @@ Plan: 1 of 3
 | Phase 11 P03 | 2 | 1 tasks | 2 files |
 | Phase 11-developer-guide-api-reference P04 | 3 | 2 tasks | 7 files |
 | Phase 12-doc-search-integration P01 | 3 | 2 tasks | 2 files |
+| Phase 12-doc-search-integration P03 | 525618 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,7 @@ Recent decisions affecting current work:
 - [Phase 11-04]: Action Model section placed in development.md (not CONTRIBUTING.md) to separate architecture docs from contribution workflow
 - [Phase 11-04]: mkdocs.yml nav order: Contributing > Plugin Authoring > API Reference > MCP Server for logical developer progression
 - [Phase 12-01]: TypedDict DocResult/DocError instead of bare dict for mypy strict compliance in docs.py return types
+- [Phase 12-doc-search-integration]: [Phase 12-03]: ztlctl://docs/search is static guidance resource directing agents to docs_search MCP tool; ztlctl://docs/index serves llms.txt via lazy import pattern
 
 ### Roadmap Evolution
 
@@ -112,6 +114,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T20:05:08.702Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-03-20T20:09:59.809Z
+Stopped at: Completed 12-03-PLAN.md
 Resume file: None
