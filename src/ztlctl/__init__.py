@@ -1,3 +1,3 @@
 """ztlctl — Zettelkasten Control CLI utility."""
 
-__version__ = "1.14.0"
+__version__ = "1.15.0"

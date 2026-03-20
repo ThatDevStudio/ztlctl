@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.15.0 (2026-03-20)
+
+### Feat
+
+- **v2**: complete Phase 7 wiring fixes and v2.0 milestone (#109)
+
 ## v1.14.0 (2026-03-20)
 
 ### Feat
