@@ -43,7 +43,13 @@ class GitPlugin:
 
     Stages files on lifecycle events. In batch mode (default), commits
     only at session close. In immediate mode, commits after each operation.
+
+    Implements the stable post_action hookspec (PLUG-02). The 8 per-event
+    hookimpls (post_create, post_update, etc.) have been removed; all routing
+    is done inside post_action via action_name filtering.
     """
+
+    PLUGIN_API_VERSION = 1
 
     def __init__(
         self,
@@ -58,86 +64,92 @@ class GitPlugin:
         return self._config.enabled and self._vault_root is not None
 
     # ------------------------------------------------------------------
-    # Lifecycle hooks
+    # Lifecycle hook — single post_action replaces 8 per-event methods
     # ------------------------------------------------------------------
 
     @hookimpl
-    def post_create(
+    def post_action(
         self,
-        content_type: str,
-        content_id: str,
-        title: str,
-        path: str,
-        tags: list[str],
+        action_name: str,
+        kwargs: dict[str, Any],
+        result: Any,
     ) -> None:
-        """Stage newly created files. Commit immediately if not batched."""
+        """Route lifecycle events to git operations via action_name filtering.
+
+        Handles: create_note, create_reference, create_task, update,
+        close, archive, session_close, init.
+
+        No-ops: reweave, session_start, check, check_rebuild, and any unknown
+        action names.
+
+        ``result=None`` (EventBus bridge path) is treated as a pass-through.
+        An explicit ``result.ok=False`` skips all git operations.
+        """
         if not self._enabled:
             return
+
+        # Guard: skip if result indicates failure. None = pass-through (bridge path).
+        if result is not None and (not hasattr(result, "ok") or not result.ok):
+            return
+
+        if action_name in {"create_note", "create_reference", "create_task"}:
+            self._handle_create(action_name, kwargs)
+        elif action_name == "update":
+            self._handle_update(kwargs)
+        elif action_name in {"close", "archive"}:
+            self._handle_close(kwargs)
+        elif action_name in {"reweave", "session_start", "check", "check_rebuild"}:
+            pass  # No-op
+        elif action_name == "session_close":
+            self._handle_session_close(kwargs)
+        elif action_name == "init":
+            self._handle_init(kwargs)
+        # Unknown action names are silently ignored
+
+    # ------------------------------------------------------------------
+    # Action-specific handlers
+    # ------------------------------------------------------------------
+
+    def _handle_create(self, action_name: str, kwargs: dict[str, Any]) -> None:
+        """Stage newly created files. Commit immediately if not batched."""
+        path = kwargs.get("path", ".")
         self._git_add(path)
         if not self._config.batch_commits:
+            content_type = kwargs.get("content_type", "note")
+            content_id = kwargs.get("content_id", "")
+            title = kwargs.get("title", "")
             self._git_commit(
                 f"feat: create {content_type} {_sanitize_for_commit(content_id)}"
                 f" — {_sanitize_for_commit(title)}"
             )
 
-    @hookimpl
-    def post_update(
-        self,
-        content_type: str,
-        content_id: str,
-        fields_changed: list[str],
-        path: str,
-    ) -> None:
+    def _handle_update(self, kwargs: dict[str, Any]) -> None:
         """Stage updated files. Commit immediately if not batched."""
-        if not self._enabled:
-            return
+        path = kwargs.get("path", ".")
         self._git_add(path)
         if not self._config.batch_commits:
+            content_id = kwargs.get("content_id", "")
+            fields_changed = kwargs.get("fields_changed", [])
             fields = ", ".join(fields_changed)
             self._git_commit(f"docs: update {_sanitize_for_commit(content_id)} ({fields})")
 
-    @hookimpl
-    def post_close(
-        self,
-        content_type: str,
-        content_id: str,
-        path: str,
-        summary: str,
-    ) -> None:
+    def _handle_close(self, kwargs: dict[str, Any]) -> None:
         """Stage closed/archived files. Commit immediately if not batched."""
-        if not self._enabled:
-            return
+        path = kwargs.get("path", ".")
         self._git_add(path)
         if not self._config.batch_commits:
+            content_id = kwargs.get("content_id", "")
+            summary = kwargs.get("summary", "")
             self._git_commit(
                 f"docs: close {_sanitize_for_commit(content_id)} — {_sanitize_for_commit(summary)}"
             )
 
-    @hookimpl
-    def post_reweave(
-        self,
-        source_id: str,
-        affected_ids: list[str],
-        links_added: int,
-    ) -> None:
-        """No-op — frontmatter changes are committed at session close."""
-
-    @hookimpl
-    def post_session_start(self, session_id: str) -> None:
-        """No-op — sessions don't need a git operation on start."""
-
-    @hookimpl
-    def post_session_close(
-        self,
-        session_id: str,
-        stats: dict[str, Any],
-    ) -> None:
+    def _handle_session_close(self, kwargs: dict[str, Any]) -> None:
         """Commit all staged changes at session close. Optionally push."""
-        if not self._enabled:
-            return
         if self._config.batch_commits:
             summary = self._git_staged_summary()
             if summary is not None and summary["has_staged"]:
+                session_id = kwargs.get("session_id", "")
                 parts = [
                     f"{summary['created']} created",
                     f"{summary['updated']} updated",
@@ -148,28 +160,13 @@ class GitPlugin:
         if self._config.auto_push:
             self._git_push()
 
-    @hookimpl
-    def post_check(
-        self,
-        issues_found: int,
-        issues_fixed: int,
-    ) -> None:
-        """No-op — integrity checks don't modify tracked files."""
-
-    @hookimpl
-    def post_init(
-        self,
-        vault_name: str,
-        client: str,
-        tone: str,
-    ) -> None:
+    def _handle_init(self, kwargs: dict[str, Any]) -> None:
         """Initialize git repo in new vault. Create .gitignore and initial commit."""
-        if not self._enabled:
-            return
         if self._config.auto_ignore:
             self._write_gitignore()
         self._git_init()
         self._git_add(".")
+        vault_name = kwargs.get("vault_name", "vault")
         self._git_commit(f"feat: initialize vault '{vault_name}'")
 
     # ------------------------------------------------------------------
