@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Completed 11-03-PLAN.md
-last_updated: "2026-03-20T19:07:32.929Z"
+stopped_at: Completed 11-04-PLAN.md
+last_updated: "2026-03-20T19:10:04.751Z"
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 11 (developer-guide-api-reference) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4 (COMPLETE)
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Plan: 3 of 4
 | Phase 11 P01 | 1 | 2 tasks | 4 files |
 | Phase 11 P02 | 2 | 1 tasks | 1 files |
 | Phase 11 P03 | 2 | 1 tasks | 2 files |
+| Phase 11-developer-guide-api-reference P04 | 3 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting current work:
 - [Phase 11-developer-guide-api-reference]: docs/plugin-guide.md: hookspec signatures from source only — read hookspecs.py before writing any signature documentation
 - [Phase 11-03]: Correct hookspec class name is ZtlctlHookSpec (not ZtlctlSpec) — source read confirmed
 - [Phase 11-03]: api-reference.md added to mkdocs.yml nav under Developer Guide (implicit requirement for mkdocs build to include the page)
+- [Phase 11-04]: Action Model section placed in development.md (not CONTRIBUTING.md) to separate architecture docs from contribution workflow
+- [Phase 11-04]: mkdocs.yml nav order: Contributing > Plugin Authoring > API Reference > MCP Server for logical developer progression
 
 ### Roadmap Evolution
 
@@ -107,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T19:07:32.927Z
-Stopped at: Completed 11-03-PLAN.md
+Last session: 2026-03-20T19:10:04.748Z
+Stopped at: Completed 11-04-PLAN.md
 Resume file: None
