@@ -57,6 +57,13 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - [x] Parity test suite: 59/59 ActionDefinitions exposed as MCP tools, 13/13 categories covered
 - [x] 9 previously missing tools now present (archive, supersede, upgrade, check, init, workflow)
 
+**CLI Surface Generation:** ✓ Validated in Phase 4
+- [x] Auto-generated CLI commands from ActionRegistry (generator.py replaces ~2650 lines of hand-written Click commands)
+- [x] cli_name field + cli_group assignments on all 59 ActionDefinitions
+- [x] 6 custom_presentation actions preserved (batch, update, init wizard, serve, workflow, export)
+- [x] CLI parity test suite: every non-custom ActionDefinition has a CLI command
+- [x] 13 hand-written command files deleted, replaced by runtime generation
+
 **Plugin System Formalization:**
 - [ ] Formalize "note" and "note lifecycle" as extensible core primitives
 - [ ] Formalize "action" and "event" as the core operational model
@@ -116,4 +123,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | All operations through registry, no escape hatches | Complex ops get thin definitions with custom_presentation=True | ✓ Good — 59 definitions, 5 custom_presentation |
 
 ---
-*Last updated: 2026-03-19 after Phase 3 completion*
+*Last updated: 2026-03-20 after Phase 4 completion*
