@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: MCP Surface Generation** - Auto-generate MCP tools from ActionRegistry, achieving full CLI/MCP parity (completed 2026-03-19)
 - [x] **Phase 4: CLI Surface Generation** - Auto-generate CLI commands from ActionRegistry, eliminating hand-crafted command duplication (completed 2026-03-20)
 - [x] **Phase 5: Plugin Formalization** - Publish stable plugin API with versioning, pre-hooks, config, custom note types (completed 2026-03-20)
-- [ ] **Phase 6: Agentic Integration & Security** - Agent orchestration recipes, progressive tool disclosure, plugin security hardening
+- [x] **Phase 6: Agentic Integration & Security** - Agent orchestration recipes, progressive tool disclosure, plugin security hardening (completed 2026-03-20)
 
 ## Phase Details
 
@@ -132,4 +132,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. MCP Surface Generation | 2/2 | Complete   | 2026-03-19 |
 | 4. CLI Surface Generation | 2/2 | Complete   | 2026-03-20 |
 | 5. Plugin Formalization | 3/3 | Complete   | 2026-03-20 |
-| 6. Agentic Integration & Security | 1/3 | In Progress|  |
+| 6. Agentic Integration & Security | 3/3 | Complete   | 2026-03-20 |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-03-20T04:36:29.815Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-20T04:47:03.456Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 19
 ---
 
 # Project State
@@ -60,6 +60,8 @@ Plan: 1 of 3
 | Phase 05-plugin-formalization P02 | 442 | 2 tasks | 7 files |
 | Phase 05-plugin-formalization P03 | 900 | 2 tasks | 6 files |
 | Phase 06-agentic-integration-security P01 | 10 | 1 tasks | 4 files |
+| Phase 06-agentic-integration-security P03 | 17 | 2 tasks | 10 files |
+| Phase 06-agentic-integration-security P02 | 12 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -114,6 +116,11 @@ Recent decisions affecting current work:
 - [Phase 06-agentic-integration-security]: ServiceError.recovery is optional (default None) — zero impact on 30+ existing construction sites
 - [Phase 06-agentic-integration-security]: from_result() uses result.error.recovery or COMMON_ERROR_RECOVERY.get(code) — explicit override wins over generic fallback
 - [Phase 06-agentic-integration-security]: COMMON_ERROR_RECOVERY extended from 9 to 36 entries; test_all_codes_have_recovery provides ongoing regression guard
+- [Phase 06-agentic-integration-security]: force_trust applies only to _run_plugin_copy; built-in _run_copy/_run_update always use unsafe=False
+- [Phase 06-agentic-integration-security]: Missing capability declarations logged at DEBUG (advisory in API v2); invalid declarations logged at WARNING
+- [Phase 06-agentic-integration-security]: Built-in plugins (git, obsidian, reweave) implement declare_capabilities to document access surface and avoid test noise
+- [Phase 06-agentic-integration-security]: _DEFAULT_ACTIVE_CATEGORIES frozenset guards deactivate_category -- core categories cannot be deactivated by agents
+- [Phase 06-agentic-integration-security]: Category activation state is module-level in generator.py (server-scoped) -- one MCP server process = one session
 
 ### Pending Todos
 
@@ -125,6 +132,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T04:36:29.811Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-03-20T04:47:03.453Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
