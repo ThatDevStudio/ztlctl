@@ -88,6 +88,32 @@ src/ztlctl/
 
 For the complete internal design specification (architecture decisions, invariants, implementation details), see [DESIGN.md](https://github.com/ThatDevStudio/ztlctl/blob/develop/DESIGN.md) in the repository.
 
+### Action Model
+
+ztlctl uses a 4-layer action model that connects user-facing surfaces (CLI, MCP) to service logic:
+
+| Layer | Components | Role |
+|-------|-----------|------|
+| **Data** | `ActionParam`, `ActionDefinition` | Frozen dataclasses describing an action's name, params, side effect, and surface metadata |
+| **Service** | `*Service` classes | Business logic that executes the action and returns a `ServiceResult` |
+| **Controller** | `BaseController` subclasses | Wires one `ActionDefinition` to one `Service` call; handles input coercion and error wrapping |
+| **Registry** | `ActionRegistry` (singleton) | Indexed map of all registered `ActionDefinition` objects; queried at startup |
+
+**How CLI auto-generation works:**
+At startup, the CLI generator calls `get_action_registry().list_actions(category=...)` for each command group. It iterates the returned `ActionDefinition` objects and builds Click commands from `ActionParam` metadata (`cli_is_argument`, `cli_flag`, `cli_multiple`, `cli_name`). No code generation — the CLI surface is driven entirely by the registry at import time.
+
+**How MCP auto-generation works:**
+The MCP adapter calls `get_action_registry().list_actions()` and converts each `ActionDefinition` into an MCP tool descriptor using `mcp_when_to_use`, `mcp_avoid_when`, `mcp_common_errors`, and `mcp_example` fields. Same registry, different surface formatter.
+
+**Plugin integration points:**
+1. `pre_action` fires before the Controller calls the Service — plugins can abort (return `ActionRejection`) or transform kwargs
+2. `post_action` fires after the Controller returns the `ServiceResult` — all plugins receive the call regardless of success/failure
+3. `register_note_types()` returns `NoteTypeDefinition` objects — PluginManager creates `ActionDefinition` entries in the registry for CRUD operations on each custom type
+4. `register_content_models()` extends the `CONTENT_REGISTRY` so new note subtypes are recognized by `CreateService`
+
+**ServiceResult contract:**
+Every Service method returns `ServiceResult`. Controllers unwrap it to emit exit codes (CLI) or structured responses (MCP). Plugins receive the raw `ServiceResult` via `post_action(result=...)`.
+
 ## Template Overrides
 
 Vault-specific Jinja2 overrides can live under `.ztlctl/templates/`.

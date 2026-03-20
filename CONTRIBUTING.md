@@ -2,6 +2,8 @@
 
 Thank you for your interest in contributing to ztlctl! This guide covers everything you need to get started.
 
+> **Plugin authors and integrators:** See the [Developer Guide](https://thatdevstudio.github.io/ztlctl/dev/) for the plugin authoring tutorial, hookspec reference, and auto-generated API reference.
+
 ## Table of Contents
 
 - [Development Setup](#development-setup)
@@ -42,24 +44,17 @@ uv run pytest
 
 ## Project Architecture
 
-ztlctl follows a strict 6-layer package structure where dependencies flow downward:
+ztlctl has a 6-layer package structure. For a complete architecture overview including the 4-layer action model, plugin integration points, and how CLI/MCP surfaces are auto-generated, see the [Architecture section in the Contributing guide](https://thatdevstudio.github.io/ztlctl/development/#action-model).
 
-```
-commands → output → services → config/infrastructure → domain
-```
-
-| Layer | Directory | Purpose |
-|-------|-----------|---------|
-| Domain | `src/ztlctl/domain/` | Types, enums, lifecycle rules, ID patterns |
-| Infrastructure | `src/ztlctl/infrastructure/` | SQLite/SQLAlchemy, NetworkX graph, filesystem |
-| Config | `src/ztlctl/config/` | Pydantic config models, TOML discovery |
-| Services | `src/ztlctl/services/` | Business logic (create, query, graph, reweave, ...) |
-| Output | `src/ztlctl/output/` | Rich/JSON formatters |
-| Commands | `src/ztlctl/commands/` | Click CLI commands |
-
-Additional packages: `plugins/` (pluggy hook specs), `mcp/` (MCP adapter), `templates/` (Jinja2).
-
-For the complete design specification, see [DESIGN.md](DESIGN.md).
+**Package layers (quick reference):**
+- `domain/` — types, enums, lifecycle rules (no external deps beyond pydantic)
+- `infrastructure/` — SQLite/SQLAlchemy Core, NetworkX graph, filesystem
+- `config/` — Pydantic config models, TOML loading
+- `services/` — business logic
+- `output/` — Rich/JSON formatters
+- `commands/` — Click command groups
+- `plugins/` — pluggy hookspecs and built-in plugins
+- `mcp/` — optional MCP adapter
 
 ## Branching Model
 
