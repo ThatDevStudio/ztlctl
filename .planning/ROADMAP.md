@@ -150,7 +150,7 @@ Plans:
 **Goal:** Apply the ThatDev Quality Bar across all documentation pages — source-verify every CLI example, hookspec signature, and config option; fix audit gaps; create best-practices.md and agents.md; enhance all 18 existing pages with anti-patterns, cross-links, and real-world examples
 **Requirements**: None (refinement phase, no mapped requirement IDs)
 **Depends on:** Phase 13
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 
 Plans:
 - [ ] 14-01-PLAN.md — Fix audit gaps (INT-01, FLOW-01, ZTLCTL_DOCS_PATH) and rewrite configuration.md with source-verified content
