@@ -58,6 +58,17 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
         "uri": "ztlctl://agent-reference",
         "description": ("Agent reference: tool catalog, workflows, and error recovery."),
     },
+    {
+        "uri": "ztlctl://docs/index",
+        "description": "Navigation map of all ztlctl documentation pages.",
+    },
+    {
+        "uri": "ztlctl://docs/search",
+        "description": (
+            "Documentation search guidance. "
+            "Use the docs_search tool to search the corpus by query string."
+        ),
+    },
 )
 
 
@@ -608,6 +619,28 @@ def recipe_index_impl(_vault: Any) -> dict[str, Any]:
     }
 
 
+def docs_index_impl(_vault: Any = None) -> str:
+    """Return navigation map of all documentation pages (content of docs/llms.txt)."""
+    from ztlctl.services.docs import _docs_index_impl
+
+    return _docs_index_impl()
+
+
+def docs_search_resource_impl(_vault: Any = None) -> dict[str, Any]:
+    """Return documentation search guidance for agents."""
+    return {
+        "info": (
+            "To search the documentation corpus, use the 'docs_search' MCP tool. "
+            "Call: docs_search(query='your question', limit=5)."
+        ),
+        "tool": "docs_search",
+        "params": {
+            "query": "string (required) — search terms",
+            "limit": "int (default: 5) — maximum results",
+        },
+    }
+
+
 # ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
@@ -716,6 +749,18 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(recipe_knowledge_synthesis_impl(vault), indent=2)
+
+    @server.resource("ztlctl://docs/index")  # type: ignore[untyped-decorator]
+    def docs_index_resource() -> str:
+        """Navigation map of all ztlctl documentation pages."""
+        return docs_index_impl(vault)
+
+    @server.resource("ztlctl://docs/search")  # type: ignore[untyped-decorator]
+    def docs_search_guide_resource() -> str:
+        """Documentation search guidance — use docs_search tool for queries."""
+        import json
+
+        return json.dumps(docs_search_resource_impl(vault), indent=2)
 
     plugin_manager = getattr(vault, "plugin_manager", None)
     if plugin_manager is None:
