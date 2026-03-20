@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 09 (navigation-structure) — EXECUTING
-Plan: 2 of 2
+Phase: 09 (navigation-structure) — COMPLETE
+Plan: 2 of 2 (all complete)
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Plan: 2 of 2
 | Phase 08-mkdocs-infrastructure P02 | 136 | 2 tasks | 19 files |
 | Phase 08-mkdocs-infrastructure P03 | 1 | 1 tasks | 1 files |
 | Phase 09-navigation-structure P01 | 1 | 1 tasks | 3 files |
+| Phase 09-navigation-structure P02 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ Recent decisions affecting current work:
 - [Phase 08-03]: Pinned exact versions in CI: mkdocs==1.6.1, mkdocs-shadcn==0.10.2, mkdocs-redirects==1.2.2
 - [Phase 09-01]: Pages stay in docs/ root — MkDocs nav nesting is config-driven, no file moves needed (avoids URL breakage)
 - [Phase 09-01]: Section index files in docs/guide/ and docs/dev/ subdirs with ../ relative links to docs/*.md targets
+- [Phase 09-02]: llms.txt hand-authored (not generated) — spec is stable and file is small enough to maintain manually
+- [Phase 09-02]: gen_llms_full_txt.py uses NAV_ORDER (not mkdocs.yml parsing) to stay stdlib-only (no PyYAML dep)
+- [Phase 09-02]: strip_frontmatter() silently strips --- blocks before concatenation so YAML never pollutes agent corpus
 
 ### Pending Todos
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T17:47:00Z
-Stopped at: Completed 09-01-PLAN.md
-Resume file: .planning/phases/09-navigation-structure/09-02-PLAN.md
+Last session: 2026-03-20T17:47:30Z
+Stopped at: Completed 09-02-PLAN.md
+Resume file: .planning/phases/09-navigation-structure/09-02-SUMMARY.md

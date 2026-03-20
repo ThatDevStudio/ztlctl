@@ -32,8 +32,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Agent Accessibility
 
-- [ ] **AGNT-01**: `llms.txt` at docs root with project summary and section links per llmstxt.org spec
-- [ ] **AGNT-02**: `llms-full.txt` with concatenated documentation content for single-context-load consumption
+- [x] **AGNT-01**: `llms.txt` at docs root with project summary and section links per llmstxt.org spec
+- [x] **AGNT-02**: `llms-full.txt` with concatenated documentation content for single-context-load consumption
 - [ ] **AGNT-03**: `ztlctl docs <query>` CLI command for local documentation search with ranked results
 - [ ] **AGNT-04**: `ztlctl://docs/search` MCP resource for agent-queryable documentation following existing _impl pattern
 
@@ -78,8 +78,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DVGD-02 | Phase 11 | Pending |
 | DVGD-03 | Phase 11 | Pending |
 | DVGD-04 | Phase 11 | Pending |
-| AGNT-01 | Phase 9 | Pending |
-| AGNT-02 | Phase 9 | Pending |
+| AGNT-01 | Phase 9 | Complete |
+| AGNT-02 | Phase 9 | Complete |
 | AGNT-03 | Phase 12 | Pending |
 | AGNT-04 | Phase 12 | Pending |
 
