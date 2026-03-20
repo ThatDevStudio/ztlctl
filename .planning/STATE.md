@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-03-20T01:09:49.634Z"
+stopped_at: Completed 05-plugin-formalization plan 03 (05-03-PLAN.md)
+last_updated: "2026-03-20T03:07:50.427Z"
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
+  completed_phases: 5
+  total_plans: 16
+  completed_plans: 16
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 04 — cli-surface-generation
+**Current focus:** Phase 05 — plugin-formalization
 
 ## Current Position
 
-Phase: 04 (cli-surface-generation) — COMPLETE
-Plan: 2 of 2 (all plans complete)
+Phase: 05 (plugin-formalization) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -56,6 +56,9 @@ Plan: 2 of 2 (all plans complete)
 | Phase 03-mcp-surface-generation P02 | 4 | 2 tasks | 3 files |
 | Phase 04-cli-surface-generation P01 | 9 | 2 tasks | 5 files |
 | Phase 04-cli-surface-generation P02 | 90 | 2 tasks | 16 files |
+| Phase 05-plugin-formalization PP01 | 470 | 2 tasks | 11 files |
+| Phase 05-plugin-formalization P02 | 442 | 2 tasks | 7 files |
+| Phase 05-plugin-formalization P03 | 900 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -98,6 +101,15 @@ Recent decisions affecting current work:
 - [Phase 04-cli-surface-generation P02]: choices removed from export_dashboard viewer param — service layer normalizes 'vanilla' alias; CLI choices restriction was too strict
 - [Phase 04-cli-surface-generation P02]: _render_export content-key detection prints raw DOT/JSON to stdout enabling shell piping for export graph
 - [Phase 04-cli-surface-generation P02]: Harvest-and-reattach pattern for init group — collect generated subcommands before overwrite, re-attach to wizard group
+- [Phase 05-plugin-formalization]: plugins/_version.py private module breaks circular import between __init__.py and manager.py for API versioning helpers
+- [Phase 05-plugin-formalization]: PluginsConfig extra=allow stores arbitrary [plugins.<name>] TOML sections for PLUG-03 config injection; legacy test updated to reflect new intent
+- [Phase 05-plugin-formalization P02]: Injectable note_registry/action_registry params on _register_note_types() for test isolation without monkeypatching module-level singletons
+- [Phase 05-plugin-formalization P02]: content_type dispatch in create handler routes to create_task/create_reference/create_note based on NoteTypeDefinition.content_type
+- [Phase 05-plugin-formalization P02]: close handler maps to UpdateController.archive() — the actual method name in UpdateController
+- [Phase 05-plugin-formalization P02]: render_contributions() is lazy (on-demand); _register_note_types() is eager (called in discover_and_load()) for CLI/MCP generators to pick up plugin types at load time
+- [Phase 05-plugin-formalization]: GitPlugin post_action uses _handle_* private methods for each action group — keeps routing method short and handlers testable
+- [Phase 05-plugin-formalization]: EventBus bridge fires post_action REGARDLESS of per-event hook subscribers; bridge exception isolation prevents WAL status corruption
+- [Phase 05-plugin-formalization]: result=None treated as pass-through on EventBus bridge path; result.ok=False guard only skips explicit controller-dispatched failures
 
 ### Pending Todos
 
@@ -109,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T01:05:00.000Z
-Stopped at: Completed 04-02-PLAN.md
-Resume file: .planning/phases/04-cli-surface-generation/04-02-SUMMARY.md
+Last session: 2026-03-20T03:03:33.841Z
+Stopped at: Completed 05-plugin-formalization plan 03 (05-03-PLAN.md)
+Resume file: None

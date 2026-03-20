@@ -7,12 +7,17 @@ from typing import TYPE_CHECKING, Any
 import pluggy
 
 if TYPE_CHECKING:
+    from pydantic import BaseModel
+
     from ztlctl.domain.content import ContentModel
+    from ztlctl.domain.registry import NoteTypeDefinition
     from ztlctl.plugins.contracts import (
+        ActionRejection,
         CliCommandContribution,
         McpPromptContribution,
         McpResourceContribution,
         McpToolContribution,
+        RenderContribution,
         SourceProviderContribution,
         VaultInitStepContribution,
         WorkflowModuleContribution,
@@ -25,7 +30,64 @@ hookspec = pluggy.HookspecMarker("ztlctl")
 class ZtlctlHookSpec:
     """Hook specifications for the ztlctl plugin system."""
 
+    # ------------------------------------------------------------------
+    # Generic action hooks (PLUG-02) — preferred over per-event hooks
+    # ------------------------------------------------------------------
+
+    @hookspec(firstresult=True)
+    def pre_action(
+        self, action_name: str, kwargs: dict[str, Any]
+    ) -> ActionRejection | dict[str, Any] | None:
+        """Called before action execution.
+
+        Return an :class:`~ztlctl.plugins.contracts.ActionRejection` to abort
+        the action, a modified *kwargs* dict to replace the original keyword
+        arguments, or ``None`` to pass through unchanged.
+
+        This is a ``firstresult`` hook — the first plugin returning a non-``None``
+        value wins and subsequent plugins are not called.
+        """
+
     @hookspec
+    def post_action(self, action_name: str, kwargs: dict[str, Any], result: Any) -> None:
+        """Called after action execution with the ServiceResult.
+
+        All registered plugins receive this hook regardless of the action outcome.
+        """
+
+    # ------------------------------------------------------------------
+    # Plugin configuration (PLUG-03)
+    # ------------------------------------------------------------------
+
+    @hookspec(firstresult=True)
+    def get_config_schema(self) -> type[BaseModel] | None:
+        """Return the Pydantic model class used to validate this plugin's config.
+
+        The schema is retrieved once at load time. If the ``[plugins.<name>]``
+        TOML section exists, its contents are validated against the returned
+        model and then passed to :meth:`initialize`.
+        """
+
+    @hookspec
+    def initialize(self, config: BaseModel | None) -> None:
+        """Called once after plugin loading with validated configuration.
+
+        *config* is a validated Pydantic model instance if a schema was
+        declared via :meth:`get_config_schema` and a matching TOML section
+        exists, otherwise ``None``.
+        """
+
+    # ------------------------------------------------------------------
+    # Deprecated per-event lifecycle hooks
+    # Prefer implementing post_action and filtering by action_name.
+    # ------------------------------------------------------------------
+
+    @hookspec(
+        warn_on_impl=DeprecationWarning(
+            "post_create is deprecated since plugin API v2; "
+            "implement post_action and filter by action_name instead"
+        )
+    )
     def post_create(
         self,
         content_type: str,
@@ -36,7 +98,12 @@ class ZtlctlHookSpec:
     ) -> None:
         """Called after content creation."""
 
-    @hookspec
+    @hookspec(
+        warn_on_impl=DeprecationWarning(
+            "post_update is deprecated since plugin API v2; "
+            "implement post_action and filter by action_name instead"
+        )
+    )
     def post_update(
         self,
         content_type: str,
@@ -46,7 +113,12 @@ class ZtlctlHookSpec:
     ) -> None:
         """Called after content update."""
 
-    @hookspec
+    @hookspec(
+        warn_on_impl=DeprecationWarning(
+            "post_close is deprecated since plugin API v2; "
+            "implement post_action and filter by action_name instead"
+        )
+    )
     def post_close(
         self,
         content_type: str,
@@ -56,7 +128,12 @@ class ZtlctlHookSpec:
     ) -> None:
         """Called after close/archive."""
 
-    @hookspec
+    @hookspec(
+        warn_on_impl=DeprecationWarning(
+            "post_reweave is deprecated since plugin API v2; "
+            "implement post_action and filter by action_name instead"
+        )
+    )
     def post_reweave(
         self,
         source_id: str,
@@ -65,11 +142,21 @@ class ZtlctlHookSpec:
     ) -> None:
         """Called after reweave completes."""
 
-    @hookspec
+    @hookspec(
+        warn_on_impl=DeprecationWarning(
+            "post_session_start is deprecated since plugin API v2; "
+            "implement post_action and filter by action_name instead"
+        )
+    )
     def post_session_start(self, session_id: str) -> None:
         """Called after a session begins."""
 
-    @hookspec
+    @hookspec(
+        warn_on_impl=DeprecationWarning(
+            "post_session_close is deprecated since plugin API v2; "
+            "implement post_action and filter by action_name instead"
+        )
+    )
     def post_session_close(
         self,
         session_id: str,
@@ -77,7 +164,12 @@ class ZtlctlHookSpec:
     ) -> None:
         """Called after a session closes."""
 
-    @hookspec
+    @hookspec(
+        warn_on_impl=DeprecationWarning(
+            "post_check is deprecated since plugin API v2; "
+            "implement post_action and filter by action_name instead"
+        )
+    )
     def post_check(
         self,
         issues_found: int,
@@ -85,7 +177,12 @@ class ZtlctlHookSpec:
     ) -> None:
         """Called after integrity check."""
 
-    @hookspec
+    @hookspec(
+        warn_on_impl=DeprecationWarning(
+            "post_init is deprecated since plugin API v2; "
+            "implement post_action and filter by action_name instead"
+        )
+    )
     def post_init(
         self,
         vault_name: str,
@@ -94,7 +191,12 @@ class ZtlctlHookSpec:
     ) -> None:
         """Called after vault init."""
 
-    @hookspec
+    @hookspec(
+        warn_on_impl=DeprecationWarning(
+            "post_init_profile is deprecated since plugin API v2; "
+            "implement post_action and filter by action_name instead"
+        )
+    )
     def post_init_profile(
         self,
         vault_name: str,
@@ -108,6 +210,10 @@ class ZtlctlHookSpec:
         selected profile during init. It is descriptive metadata, not a promise
         of future lifecycle management by ztlctl.
         """
+
+    # ------------------------------------------------------------------
+    # Extension contribution hooks
+    # ------------------------------------------------------------------
 
     @hookspec
     def register_content_models(self) -> dict[str, type[ContentModel]] | None:
@@ -144,3 +250,25 @@ class ZtlctlHookSpec:
     @hookspec
     def register_source_providers(self) -> list[SourceProviderContribution] | None:
         """Return plugin-provided source ingestion providers."""
+
+    # ------------------------------------------------------------------
+    # Custom note type + rendering hooks (PLUG-05, PLUG-06)
+    # ------------------------------------------------------------------
+
+    @hookspec
+    def register_note_types(self) -> list[NoteTypeDefinition] | None:
+        """Return NoteTypeDefinitions to register into NoteTypeRegistry + ActionRegistry.
+
+        PluginManager will auto-create create/update/close ActionDefinitions for
+        each registered NoteTypeDefinition and add them to the ActionRegistry so
+        the CLI and MCP generators pick them up automatically.
+        """
+
+    @hookspec
+    def register_render_contributions(self) -> list[RenderContribution] | None:
+        """Return render contributions for custom note types.
+
+        Each :class:`~ztlctl.plugins.contracts.RenderContribution` provides a
+        ``rich_formatter`` and an ``mcp_formatter`` callable for one note type,
+        enabling custom terminal and MCP output formatting.
+        """

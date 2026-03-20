@@ -11,11 +11,13 @@ from typing import Any, TypeVar
 
 import pluggy
 
+from ztlctl.plugins._version import PluginLoadError, check_plugin_api_version
 from ztlctl.plugins.contracts import (
     CliCommandContribution,
     McpPromptContribution,
     McpResourceContribution,
     McpToolContribution,
+    RenderContribution,
     SourceProviderContribution,
     VaultInitStepContribution,
     WorkflowModuleContribution,
@@ -58,13 +60,29 @@ class PluginManager:
         if local_dir is not None:
             self._discover_local(local_dir)
         self._register_content_models()
+        self._register_note_types()
         self._loaded = True
         return self.list_plugin_names()
 
     def register_plugin(self, plugin: object, name: str | None = None) -> None:
-        """Register a plugin instance directly (e.g. built-in plugins)."""
+        """Register a plugin instance directly (e.g. built-in plugins).
+
+        Performs an API version check before completing registration.
+        Incompatible plugins are not registered and a warning is logged.
+        """
         resolved_name = name or plugin.__class__.__name__
         self._pm.register(plugin, name=resolved_name)
+
+        # Version check — unregister if incompatible, warn if deprecated.
+        try:
+            warnings = check_plugin_api_version(plugin, resolved_name)
+        except PluginLoadError as exc:
+            logger.warning("Skipping incompatible plugin %s: %s", resolved_name, exc)
+            self._pm.unregister(plugin)
+            return
+        for warning in warnings:
+            logger.warning(warning)
+
         if self._loaded:
             self._register_plugin_content_models(plugin, resolved_name)
         logger.debug("Registered plugin: %s", resolved_name)
@@ -195,6 +213,93 @@ class PluginManager:
             reserved=reserved_names,
         )
 
+    def render_contributions(
+        self,
+        *,
+        reserved_types: set[str] | None = None,
+    ) -> list[RenderContribution]:
+        """Collect plugin render contributions for custom note types (PLUG-06)."""
+        return self._collect_contributions(
+            "register_render_contributions",
+            RenderContribution,
+            key_fn=lambda item: item.note_type,
+            reserved=reserved_types,
+        )
+
+    def inject_configs(self, settings: Any) -> None:
+        """Validate and inject per-plugin configuration (PLUG-03).
+
+        Iterates all registered plugins, calls ``get_config_schema`` if
+        present to retrieve a Pydantic model class, looks up the matching
+        ``[plugins.<name>]`` section from *settings.plugins*, validates the
+        raw dict against the schema, and passes the result to ``initialize``.
+
+        If validation fails the plugin receives ``initialize(config=None)``
+        and a warning is logged. Plugins without ``get_config_schema`` or
+        ``initialize`` are silently skipped.
+
+        Args:
+            settings: A :class:`~ztlctl.config.settings.ZtlSettings` instance
+                (typed as Any to avoid a circular import).
+        """
+        self._inject_plugin_configs(settings)
+
+    def _inject_plugin_configs(self, settings: Any) -> None:
+        """Internal implementation of per-plugin config injection."""
+        from pydantic import ValidationError
+
+        plugins_cfg = getattr(settings, "plugins", None)
+
+        for plugin in self._pm.get_plugins():
+            plugin_name = self._pm.get_name(plugin) or plugin.__class__.__name__
+
+            get_schema_fn = getattr(plugin, "get_config_schema", None)
+            initialize_fn = getattr(plugin, "initialize", None)
+
+            if initialize_fn is None:
+                continue
+
+            schema_cls = None
+            if get_schema_fn is not None:
+                try:
+                    schema_cls = get_schema_fn()
+                except Exception:
+                    logger.warning(
+                        "Plugin %s raised in get_config_schema",
+                        plugin_name,
+                        exc_info=True,
+                    )
+
+            raw_config: dict[str, Any] = {}
+            if plugins_cfg is not None:
+                get_fn = getattr(plugins_cfg, "get_plugin_config", None)
+                if get_fn is not None:
+                    raw_config = get_fn(plugin_name) or {}
+
+            validated_config = None
+            if schema_cls is not None and raw_config:
+                try:
+                    validated_config = schema_cls(**raw_config)
+                except (ValidationError, TypeError) as exc:
+                    logger.warning(
+                        "Plugin %s config validation failed; calling initialize(config=None): %s",
+                        plugin_name,
+                        exc,
+                    )
+                    validated_config = None
+            elif schema_cls is not None and not raw_config:
+                # Schema declared but no TOML section — pass None
+                validated_config = None
+
+            try:
+                initialize_fn(config=validated_config)
+            except Exception:
+                logger.warning(
+                    "Plugin %s raised in initialize",
+                    plugin_name,
+                    exc_info=True,
+                )
+
     # ------------------------------------------------------------------
     # Local directory discovery
     # ------------------------------------------------------------------
@@ -277,8 +382,279 @@ class PluginManager:
                 )
                 continue
 
+            # API version check before accepting the instance.
+            try:
+                version_warnings = check_plugin_api_version(instance, plugin_name)
+            except PluginLoadError as exc:
+                logger.warning(
+                    "Skipping incompatible entry-point plugin %s: %s",
+                    plugin_name,
+                    exc,
+                )
+                continue
+            for warning in version_warnings:
+                logger.warning(warning)
+
             self._pm.register(instance, name=plugin_name)
             logger.debug("Instantiated entry-point plugin: %s", plugin_name)
+
+    def _register_note_types(
+        self,
+        *,
+        note_registry: Any = None,
+        action_registry: Any = None,
+    ) -> None:
+        """Register plugin-contributed NoteTypeDefinitions and auto-create ActionDefinitions.
+
+        Iterates all results from ``register_note_types`` hooks, registers each
+        :class:`~ztlctl.domain.registry.NoteTypeDefinition` into the
+        :class:`~ztlctl.domain.registry.NoteTypeRegistry` singleton (or a
+        provided test registry), and auto-creates ``create_*``, ``update_*``,
+        ``close_*`` ActionDefinitions into the ActionRegistry.
+
+        Duplicate registrations are logged as warnings and skipped — they do
+        not raise.
+
+        Args:
+            note_registry: Override NoteTypeRegistry for testing. Defaults to
+                the module-level singleton.
+            action_registry: Override ActionRegistry for testing. Defaults to
+                the module-level singleton.
+        """
+        from ztlctl.domain.registry import NoteTypeDefinition, get_note_type_registry
+
+        if note_registry is None:
+            note_registry = get_note_type_registry()
+        if action_registry is None:
+            from ztlctl.actions.registry import get_action_registry
+
+            action_registry = get_action_registry()
+
+        try:
+            hook_results = self._pm.hook.register_note_types()
+        except Exception:
+            logger.warning("Failed to collect note type registrations from plugins", exc_info=True)
+            return
+
+        for plugin_items in hook_results:
+            if plugin_items is None:
+                continue
+            if not isinstance(plugin_items, list):
+                logger.warning("register_note_types returned non-list value; skipping")
+                continue
+            for item in plugin_items:
+                if not isinstance(item, NoteTypeDefinition):
+                    logger.warning(
+                        "register_note_types returned non-NoteTypeDefinition item %r; skipping",
+                        item,
+                    )
+                    continue
+                try:
+                    note_registry.register(item)
+                except ValueError:
+                    logger.warning(
+                        "Skipping duplicate note type registration %r from plugin",
+                        item.name,
+                    )
+                    continue
+                self._register_note_type_actions(item, action_registry=action_registry)
+
+    def _register_note_type_actions(
+        self,
+        ntd: Any,
+        *,
+        action_registry: Any = None,
+    ) -> None:
+        """Auto-create create/update/close ActionDefinitions for a plugin note type.
+
+        Each :class:`~ztlctl.domain.registry.NoteTypeDefinition` registered by
+        a plugin gets three corresponding ActionDefinitions so the CLI and MCP
+        generators pick them up automatically without any extra plugin code.
+
+        Args:
+            ntd: The NoteTypeDefinition to create actions for.
+            action_registry: Override ActionRegistry for testing.
+        """
+        from ztlctl.actions.definitions import ActionDefinition, ActionParam
+
+        if action_registry is None:
+            from ztlctl.actions.registry import get_action_registry
+
+            action_registry = get_action_registry()
+
+        ntd_name: str = ntd.name
+        content_type: str = ntd.content_type
+
+        # Common params for create action
+        create_params = (
+            ActionParam(
+                name="title",
+                type=str,
+                required=True,
+                description=f"Title of the {ntd_name}",
+            ),
+            ActionParam(
+                name="tags",
+                type=list,
+                required=False,
+                default=None,
+                description="Comma-separated tags",
+                cli_multiple=True,
+            ),
+            ActionParam(
+                name="links",
+                type=list,
+                required=False,
+                default=None,
+                description="IDs or titles to link to",
+                cli_multiple=True,
+            ),
+            ActionParam(
+                name="body",
+                type=str,
+                required=False,
+                default=None,
+                description=f"Body content for the {ntd_name}",
+            ),
+        )
+
+        # Params for update action
+        update_params = (
+            ActionParam(
+                name="content_id",
+                type=str,
+                required=True,
+                description=f"ID of the {ntd_name} to update",
+            ),
+            ActionParam(
+                name="title",
+                type=str,
+                required=False,
+                default=None,
+                description="New title",
+            ),
+            ActionParam(
+                name="tags",
+                type=list,
+                required=False,
+                default=None,
+                description="New tags",
+                cli_multiple=True,
+            ),
+            ActionParam(
+                name="body",
+                type=str,
+                required=False,
+                default=None,
+                description="New body content",
+            ),
+            ActionParam(
+                name="status",
+                type=str,
+                required=False,
+                default=None,
+                description="New status",
+            ),
+        )
+
+        # Params for close action
+        close_params = (
+            ActionParam(
+                name="content_id",
+                type=str,
+                required=True,
+                description=f"ID of the {ntd_name} to close",
+            ),
+            ActionParam(
+                name="summary",
+                type=str,
+                required=False,
+                default=None,
+                description="Closing summary",
+            ),
+        )
+
+        def _make_create_handler(nt: str, ct: str) -> Any:
+            _note_type = nt
+            _content_type = ct
+
+            def _handler(vault: Any, **kwargs: Any) -> Any:
+                from ztlctl.controllers.create import CreateController
+
+                ctrl = CreateController(vault)
+                title: str = kwargs.pop("title", "")
+                # Route to the correct controller method based on content_type.
+                # kwargs content varies by runtime call; use Any-typed dispatch.
+                if _content_type == "task":
+                    return ctrl.create_task(title, **kwargs)
+                if _content_type == "reference":
+                    return ctrl.create_reference(title, subtype=_note_type, **kwargs)
+                # Default: treat as note
+                return ctrl.create_note(title, subtype=_note_type, **kwargs)
+
+            return _handler
+
+        def _make_update_handler(nt: str) -> Any:
+            def _handler(vault: Any, **kwargs: Any) -> Any:
+                from ztlctl.controllers.update import UpdateController
+
+                return UpdateController(vault).update(**kwargs)
+
+            return _handler
+
+        def _make_close_handler(nt: str) -> Any:
+            def _handler(vault: Any, **kwargs: Any) -> Any:
+                from ztlctl.controllers.update import UpdateController
+
+                return UpdateController(vault).archive(**kwargs)
+
+            return _handler
+
+        actions = [
+            ActionDefinition(
+                name=f"create_{ntd_name}",
+                description=f"Create a new {ntd_name}",
+                category="creation",
+                params=create_params,
+                handler=_make_create_handler(ntd_name, content_type),
+                side_effect="write",
+                cli_group=content_type,
+                cli_name=ntd_name,
+                mcp_when_to_use=(f"Use when the user wants to create a new {ntd_name}."),
+            ),
+            ActionDefinition(
+                name=f"update_{ntd_name}",
+                description=f"Update an existing {ntd_name}",
+                category="mutation",
+                params=update_params,
+                handler=_make_update_handler(ntd_name),
+                side_effect="write",
+                cli_group=content_type,
+                cli_name=f"update-{ntd_name}",
+                mcp_when_to_use=(f"Use when the user wants to update a {ntd_name}."),
+            ),
+            ActionDefinition(
+                name=f"close_{ntd_name}",
+                description=f"Close a {ntd_name}",
+                category="mutation",
+                params=close_params,
+                handler=_make_close_handler(ntd_name),
+                side_effect="write",
+                cli_group=content_type,
+                cli_name=f"close-{ntd_name}",
+                mcp_when_to_use=(f"Use when the user wants to close or archive a {ntd_name}."),
+            ),
+        ]
+
+        for action in actions:
+            try:
+                action_registry.register(action)
+            except ValueError:
+                logger.warning(
+                    "Skipping duplicate action registration %r for note type %r",
+                    action.name,
+                    ntd_name,
+                )
 
     def _register_content_models(self) -> None:
         """Load plugin-provided content subtype models into the domain registry."""

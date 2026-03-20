@@ -65,6 +65,31 @@ def immediate_plugin(git_vault: Path) -> GitPlugin:
     )
 
 
+def _make_ok_result(**data: object) -> object:
+    """Return a mock ServiceResult-like object with ok=True."""
+
+    class _Result:
+        ok = True
+
+        def __init__(self, d: dict) -> None:
+            self.data = d
+
+    return _Result(dict(data))
+
+
+def _make_failed_result() -> object:
+    """Return a mock ServiceResult-like object with ok=False."""
+
+    class _Result:
+        ok = False
+        data: dict[str, object]  # type: ignore[assignment]
+
+        def __init__(self) -> None:
+            self.data = {}
+
+    return _Result()
+
+
 def _git_log(cwd: Path) -> list[str]:
     """Get commit messages from git log."""
     result = subprocess.run(
@@ -90,105 +115,247 @@ def _staged_files(cwd: Path) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Tests — post_create
+# Tests — PLUGIN_API_VERSION
 # ---------------------------------------------------------------------------
 
 
-class TestGitPluginPostCreate:
-    """Tests for the post_create hook."""
+def test_plugin_api_version():
+    """GitPlugin must declare PLUGIN_API_VERSION = 1."""
+    assert GitPlugin.PLUGIN_API_VERSION == 1
 
-    def test_stages_file(self, plugin: GitPlugin, git_vault: Path):
+
+# ---------------------------------------------------------------------------
+# Tests — post_action: create actions
+# ---------------------------------------------------------------------------
+
+
+class TestGitPluginPostActionCreate:
+    """Tests for post_action with create action names."""
+
+    def test_post_action_create_note_stages_file(self, plugin: GitPlugin, git_vault: Path):
         note = git_vault / "notes" / "N-0001.md"
         note.parent.mkdir(parents=True, exist_ok=True)
         note.write_text("# Test", encoding="utf-8")
 
-        plugin.post_create(
-            content_type="note",
-            content_id="N-0001",
-            title="Test",
-            path="notes/N-0001.md",
-            tags=["test"],
+        result = _make_ok_result(path="notes/N-0001.md")
+        plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Test",
+                "path": "notes/N-0001.md",
+                "tags": ["test"],
+            },
+            result=result,
         )
 
         staged = _staged_files(git_vault)
         assert "notes/N-0001.md" in staged
 
-    def test_commits_immediately_when_not_batched(
+    def test_post_action_create_note_commits_immediately_when_not_batched(
         self, immediate_plugin: GitPlugin, git_vault: Path
     ):
         note = git_vault / "notes" / "N-0001.md"
         note.parent.mkdir(parents=True, exist_ok=True)
         note.write_text("# Test", encoding="utf-8")
 
-        immediate_plugin.post_create(
-            content_type="note",
-            content_id="N-0001",
-            title="Test",
-            path="notes/N-0001.md",
-            tags=["test"],
+        result = _make_ok_result(path="notes/N-0001.md")
+        immediate_plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Test",
+                "path": "notes/N-0001.md",
+                "tags": ["test"],
+            },
+            result=result,
         )
 
         log = _git_log(git_vault)
         assert any("N-0001" in msg for msg in log)
 
-    def test_skips_when_disabled(self, git_vault: Path):
-        plugin = GitPlugin(
-            config=GitConfig(enabled=False),
-            vault_root=git_vault,
+    def test_post_action_create_reference_stages_file(self, plugin: GitPlugin, git_vault: Path):
+        ref = git_vault / "notes" / "R-0001.md"
+        ref.parent.mkdir(parents=True, exist_ok=True)
+        ref.write_text("# Ref", encoding="utf-8")
+
+        result = _make_ok_result(path="notes/R-0001.md")
+        plugin.post_action(
+            action_name="create_reference",
+            kwargs={
+                "content_type": "reference",
+                "content_id": "R-0001",
+                "title": "Ref",
+                "path": "notes/R-0001.md",
+                "tags": [],
+            },
+            result=result,
         )
+
+        staged = _staged_files(git_vault)
+        assert "notes/R-0001.md" in staged
+
+    def test_post_action_create_task_stages_file(self, plugin: GitPlugin, git_vault: Path):
+        task = git_vault / "ops" / "tasks" / "TASK-0001.md"
+        task.parent.mkdir(parents=True, exist_ok=True)
+        task.write_text("# Task", encoding="utf-8")
+
+        result = _make_ok_result(path="ops/tasks/TASK-0001.md")
+        plugin.post_action(
+            action_name="create_task",
+            kwargs={
+                "content_type": "task",
+                "content_id": "TASK-0001",
+                "title": "Task",
+                "path": "ops/tasks/TASK-0001.md",
+                "tags": [],
+            },
+            result=result,
+        )
+
+        staged = _staged_files(git_vault)
+        assert "ops/tasks/TASK-0001.md" in staged
+
+    def test_post_action_skips_when_disabled(self, git_vault: Path):
+        plugin = GitPlugin(config=GitConfig(enabled=False), vault_root=git_vault)
         note = git_vault / "notes" / "N-0001.md"
         note.parent.mkdir(parents=True, exist_ok=True)
         note.write_text("# Test", encoding="utf-8")
 
-        plugin.post_create(
-            content_type="note",
-            content_id="N-0001",
-            title="Test",
-            path="notes/N-0001.md",
-            tags=[],
+        result = _make_ok_result(path="notes/N-0001.md")
+        plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Test",
+                "path": "notes/N-0001.md",
+                "tags": [],
+            },
+            result=result,
         )
 
         staged = _staged_files(git_vault)
         assert staged == []
 
-
-# ---------------------------------------------------------------------------
-# Tests — post_update / post_close
-# ---------------------------------------------------------------------------
-
-
-class TestGitPluginPostUpdate:
-    """Tests for the post_update hook."""
-
-    def test_stages_updated_file(self, plugin: GitPlugin, git_vault: Path):
+    def test_post_action_skips_failed_result(self, plugin: GitPlugin, git_vault: Path):
+        """post_action should not stage/commit when result.ok is False."""
         note = git_vault / "notes" / "N-0001.md"
         note.parent.mkdir(parents=True, exist_ok=True)
-        note.write_text("# Updated", encoding="utf-8")
+        note.write_text("# Test", encoding="utf-8")
 
-        plugin.post_update(
-            content_type="note",
-            content_id="N-0001",
-            fields_changed=["title"],
-            path="notes/N-0001.md",
+        result = _make_failed_result()
+        plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Test",
+                "path": "notes/N-0001.md",
+                "tags": [],
+            },
+            result=result,
+        )
+
+        staged = _staged_files(git_vault)
+        assert staged == []
+
+    def test_post_action_none_result_proceeds(self, plugin: GitPlugin, git_vault: Path):
+        """result=None (EventBus bridge path) should proceed with git operations."""
+        note = git_vault / "notes" / "N-0001.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text("# Test", encoding="utf-8")
+
+        plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Test",
+                "path": "notes/N-0001.md",
+                "tags": [],
+            },
+            result=None,
         )
 
         staged = _staged_files(git_vault)
         assert "notes/N-0001.md" in staged
 
 
-class TestGitPluginPostClose:
-    """Tests for the post_close hook."""
+# ---------------------------------------------------------------------------
+# Tests — post_action: update action
+# ---------------------------------------------------------------------------
 
-    def test_stages_closed_file(self, plugin: GitPlugin, git_vault: Path):
+
+class TestGitPluginPostActionUpdate:
+    """Tests for post_action with update action name."""
+
+    def test_post_action_update_stages_file(self, plugin: GitPlugin, git_vault: Path):
+        note = git_vault / "notes" / "N-0001.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text("# Updated", encoding="utf-8")
+
+        result = _make_ok_result(path="notes/N-0001.md")
+        plugin.post_action(
+            action_name="update",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "fields_changed": ["title"],
+                "path": "notes/N-0001.md",
+            },
+            result=result,
+        )
+
+        staged = _staged_files(git_vault)
+        assert "notes/N-0001.md" in staged
+
+
+# ---------------------------------------------------------------------------
+# Tests — post_action: close/archive actions
+# ---------------------------------------------------------------------------
+
+
+class TestGitPluginPostActionClose:
+    """Tests for post_action with close/archive action names."""
+
+    def test_post_action_close_stages_file(self, plugin: GitPlugin, git_vault: Path):
         note = git_vault / "notes" / "N-0001.md"
         note.parent.mkdir(parents=True, exist_ok=True)
         note.write_text("# Closed", encoding="utf-8")
 
-        plugin.post_close(
-            content_type="note",
-            content_id="N-0001",
-            path="notes/N-0001.md",
-            summary="archived",
+        result = _make_ok_result(path="notes/N-0001.md")
+        plugin.post_action(
+            action_name="close",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "path": "notes/N-0001.md",
+                "summary": "archived",
+            },
+            result=result,
+        )
+
+        staged = _staged_files(git_vault)
+        assert "notes/N-0001.md" in staged
+
+    def test_post_action_archive_stages_file(self, plugin: GitPlugin, git_vault: Path):
+        note = git_vault / "notes" / "N-0001.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text("# Archived", encoding="utf-8")
+
+        result = _make_ok_result(path="notes/N-0001.md")
+        plugin.post_action(
+            action_name="archive",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "path": "notes/N-0001.md",
+                "summary": "done",
+            },
+            result=result,
         )
 
         staged = _staged_files(git_vault)
@@ -201,44 +368,53 @@ class TestGitPluginPostClose:
 
 
 class TestGitPluginSessionClose:
-    """Tests for the post_session_close hook."""
+    """Tests for post_action with session_close action name."""
 
-    def test_batch_commit_at_session_close(self, plugin: GitPlugin, git_vault: Path):
+    def test_post_action_session_close_batch_commit(self, plugin: GitPlugin, git_vault: Path):
         # Stage some files first
         note = git_vault / "notes" / "N-0001.md"
         note.parent.mkdir(parents=True, exist_ok=True)
         note.write_text("# Note", encoding="utf-8")
-        plugin.post_create(
-            content_type="note",
-            content_id="N-0001",
-            title="Note",
-            path="notes/N-0001.md",
-            tags=[],
+        result = _make_ok_result(path="notes/N-0001.md")
+        plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Note",
+                "path": "notes/N-0001.md",
+                "tags": [],
+            },
+            result=result,
         )
 
-        plugin.post_session_close(
-            session_id="LOG-0001",
-            stats={"created": 0, "updated": 0},
+        plugin.post_action(
+            action_name="session_close",
+            kwargs={"session_id": "LOG-0001", "stats": {"created": 0, "updated": 0}},
+            result=None,
         )
 
         log = _git_log(git_vault)
         assert any("LOG-0001" in msg for msg in log)
         assert any("1 created, 0 updated" in msg for msg in log)
 
-    def test_session_close_skips_commit_when_nothing_staged(
+    def test_post_action_session_close_skips_commit_when_nothing_staged(
         self, plugin: GitPlugin, git_vault: Path
     ):
         before = _git_log(git_vault)
 
-        plugin.post_session_close(
-            session_id="LOG-0001",
-            stats={"created": 99, "updated": 99},
+        plugin.post_action(
+            action_name="session_close",
+            kwargs={"session_id": "LOG-0001", "stats": {"created": 99, "updated": 99}},
+            result=None,
         )
 
         after = _git_log(git_vault)
         assert after == before
 
-    def test_session_close_reports_renamed_files(self, plugin: GitPlugin, git_vault: Path):
+    def test_post_action_session_close_reports_renamed_files(
+        self, plugin: GitPlugin, git_vault: Path
+    ):
         tracked = git_vault / "notes" / "N-0001.md"
         tracked.parent.mkdir(parents=True, exist_ok=True)
         tracked.write_text("# Renamed", encoding="utf-8")
@@ -261,15 +437,16 @@ class TestGitPluginSessionClose:
             check=True,
         )
 
-        plugin.post_session_close(
-            session_id="LOG-0002",
-            stats={"created": 0, "updated": 0},
+        plugin.post_action(
+            action_name="session_close",
+            kwargs={"session_id": "LOG-0002", "stats": {"created": 0, "updated": 0}},
+            result=None,
         )
 
         log = _git_log(git_vault)
         assert any("LOG-0002" in msg and "1 renamed" in msg for msg in log)
 
-    def test_auto_push_calls_git_push(self, git_vault: Path):
+    def test_post_action_auto_push_calls_git_push(self, git_vault: Path):
         push_plugin = GitPlugin(
             config=GitConfig(auto_push=True, batch_commits=True),
             vault_root=git_vault,
@@ -279,9 +456,10 @@ class TestGitPluginSessionClose:
             mock_run.return_value = subprocess.CompletedProcess(
                 args=[], returncode=0, stdout="", stderr=""
             )
-            push_plugin.post_session_close(
-                session_id="LOG-0001",
-                stats={"created": 0, "updated": 0},
+            push_plugin.post_action(
+                action_name="session_close",
+                kwargs={"session_id": "LOG-0001", "stats": {"created": 0, "updated": 0}},
+                result=None,
             )
 
         # Verify git push was called
@@ -290,26 +468,30 @@ class TestGitPluginSessionClose:
 
 
 # ---------------------------------------------------------------------------
-# Tests — post_init
+# Tests — post_action: init action
 # ---------------------------------------------------------------------------
 
 
-class TestGitPluginInit:
-    """Tests for the post_init hook."""
+class TestGitPluginPostActionInit:
+    """Tests for post_action with init action name."""
 
-    def test_creates_gitignore(self, tmp_path: Path):
+    def test_post_action_init_creates_gitignore(self, tmp_path: Path):
         plugin = GitPlugin(
             config=GitConfig(auto_ignore=True),
             vault_root=tmp_path,
         )
-        plugin.post_init(vault_name="test-vault", client="obsidian", tone="research-partner")
+        plugin.post_action(
+            action_name="init",
+            kwargs={"vault_name": "test-vault", "client": "obsidian", "tone": "research-partner"},
+            result=None,
+        )
 
         gitignore = tmp_path / ".gitignore"
         assert gitignore.exists()
         content = gitignore.read_text(encoding="utf-8")
         assert "backups" in content
 
-    def test_runs_git_init(self, tmp_path: Path):
+    def test_post_action_init_runs_git_init(self, tmp_path: Path):
         plugin = GitPlugin(
             config=GitConfig(auto_ignore=True),
             vault_root=tmp_path,
@@ -325,11 +507,15 @@ class TestGitPluginInit:
             capture_output=True,
         )
 
-        plugin.post_init(vault_name="test-vault", client="obsidian", tone="research-partner")
+        plugin.post_action(
+            action_name="init",
+            kwargs={"vault_name": "test-vault", "client": "obsidian", "tone": "research-partner"},
+            result=None,
+        )
 
         assert (tmp_path / ".git").is_dir()
 
-    def test_initial_commit(self, tmp_path: Path):
+    def test_post_action_init_initial_commit(self, tmp_path: Path):
         # Set up git config
         subprocess.run(
             ["git", "init"],
@@ -351,20 +537,135 @@ class TestGitPluginInit:
             config=GitConfig(auto_ignore=True),
             vault_root=tmp_path,
         )
-        plugin.post_init(vault_name="test-vault", client="obsidian", tone="research-partner")
+        plugin.post_action(
+            action_name="init",
+            kwargs={"vault_name": "test-vault", "client": "obsidian", "tone": "research-partner"},
+            result=None,
+        )
 
         log = _git_log(tmp_path)
         assert any("test-vault" in msg for msg in log)
 
-    def test_skips_gitignore_when_auto_ignore_off(self, tmp_path: Path):
+    def test_post_action_init_skips_gitignore_when_auto_ignore_off(self, tmp_path: Path):
         plugin = GitPlugin(
             config=GitConfig(auto_ignore=False),
             vault_root=tmp_path,
         )
-        plugin.post_init(vault_name="test-vault", client="obsidian", tone="research-partner")
+        plugin.post_action(
+            action_name="init",
+            kwargs={"vault_name": "test-vault", "client": "obsidian", "tone": "research-partner"},
+            result=None,
+        )
 
         gitignore = tmp_path / ".gitignore"
         assert not gitignore.exists()
+
+
+# ---------------------------------------------------------------------------
+# Tests — post_action: no-op actions
+# ---------------------------------------------------------------------------
+
+
+class TestGitPluginNoOpActions:
+    """Tests for post_action with no-op action names (reweave, session_start, check)."""
+
+    def test_post_action_reweave_is_noop(self, plugin: GitPlugin, git_vault: Path):
+        """reweave action should not stage or commit."""
+        before = _git_log(git_vault)
+        plugin.post_action(
+            action_name="reweave",
+            kwargs={"source_id": "N-0001", "affected_ids": [], "links_added": 3},
+            result=None,
+        )
+        after = _git_log(git_vault)
+        assert after == before
+
+    def test_post_action_session_start_is_noop(self, plugin: GitPlugin, git_vault: Path):
+        """session_start action should not stage or commit."""
+        before = _git_log(git_vault)
+        plugin.post_action(
+            action_name="session_start",
+            kwargs={"session_id": "LOG-0001"},
+            result=None,
+        )
+        after = _git_log(git_vault)
+        assert after == before
+
+    def test_post_action_check_is_noop(self, plugin: GitPlugin, git_vault: Path):
+        """check action should not stage or commit."""
+        before = _git_log(git_vault)
+        plugin.post_action(
+            action_name="check",
+            kwargs={"issues_found": 2, "issues_fixed": 1},
+            result=None,
+        )
+        after = _git_log(git_vault)
+        assert after == before
+
+
+# ---------------------------------------------------------------------------
+# Tests — batch vs immediate mode
+# ---------------------------------------------------------------------------
+
+
+class TestGitPluginCommitModes:
+    """Tests that distinguish batch mode vs immediate mode behavior."""
+
+    def test_batch_mode_defers_commit(self, plugin: GitPlugin, git_vault: Path):
+        """Batch mode stages on post_action create but does NOT commit until session close."""
+        note = git_vault / "notes" / "N-0099.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text("# Batch Note", encoding="utf-8")
+
+        commits_before = _git_log(git_vault)
+
+        result = _make_ok_result(path="notes/N-0099.md")
+        plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0099",
+                "title": "Batch Note",
+                "path": "notes/N-0099.md",
+                "tags": [],
+            },
+            result=result,
+        )
+
+        # File is staged but no new commit yet
+        staged = _staged_files(git_vault)
+        assert "notes/N-0099.md" in staged
+        commits_after = _git_log(git_vault)
+        assert len(commits_after) == len(commits_before), (
+            "Batch mode should not commit on post_action create"
+        )
+
+    def test_immediate_mode_commits_per_event(self, immediate_plugin: GitPlugin, git_vault: Path):
+        """Immediate mode commits after every post_action create."""
+        note = git_vault / "notes" / "N-0098.md"
+        note.parent.mkdir(parents=True, exist_ok=True)
+        note.write_text("# Immediate Note", encoding="utf-8")
+
+        commits_before = _git_log(git_vault)
+
+        result = _make_ok_result(path="notes/N-0098.md")
+        immediate_plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0098",
+                "title": "Immediate Note",
+                "path": "notes/N-0098.md",
+                "tags": [],
+            },
+            result=result,
+        )
+
+        commits_after = _git_log(git_vault)
+        assert len(commits_after) == len(commits_before) + 1, (
+            "Immediate mode should commit on each post_action create"
+        )
+        assert any("N-0098" in msg for msg in commits_after)
 
 
 # ---------------------------------------------------------------------------
@@ -382,12 +683,16 @@ class TestGitPluginErrors:
         )
         with patch("subprocess.run", side_effect=FileNotFoundError("git not found")):
             # Should not raise
-            plugin.post_create(
-                content_type="note",
-                content_id="N-0001",
-                title="Test",
-                path="notes/N-0001.md",
-                tags=[],
+            plugin.post_action(
+                action_name="create_note",
+                kwargs={
+                    "content_type": "note",
+                    "content_id": "N-0001",
+                    "title": "Test",
+                    "path": "notes/N-0001.md",
+                    "tags": [],
+                },
+                result=None,
             )
 
     def test_not_a_git_repo_does_not_raise(self, tmp_path: Path):
@@ -401,82 +706,33 @@ class TestGitPluginErrors:
         note.write_text("# Test", encoding="utf-8")
 
         # Should not raise even though there's no git repo
-        plugin.post_create(
-            content_type="note",
-            content_id="N-0001",
-            title="Test",
-            path="notes/N-0001.md",
-            tags=[],
+        plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Test",
+                "path": "notes/N-0001.md",
+                "tags": [],
+            },
+            result=None,
         )
 
     def test_no_vault_root_is_noop(self):
         """Plugin with no vault_root should silently skip all operations."""
         plugin = GitPlugin(config=GitConfig(enabled=True), vault_root=None)
-        plugin.post_create(
-            content_type="note",
-            content_id="N-0001",
-            title="Test",
-            path="notes/N-0001.md",
-            tags=[],
+        plugin.post_action(
+            action_name="create_note",
+            kwargs={
+                "content_type": "note",
+                "content_id": "N-0001",
+                "title": "Test",
+                "path": "notes/N-0001.md",
+                "tags": [],
+            },
+            result=None,
         )
         # No error raised
-
-
-# ---------------------------------------------------------------------------
-# Tests — batch vs immediate mode
-# ---------------------------------------------------------------------------
-
-
-class TestGitPluginCommitModes:
-    """Tests that distinguish batch mode vs immediate mode behavior."""
-
-    def test_git_plugin_batch_mode_defers_commit(self, plugin: GitPlugin, git_vault: Path):
-        """Batch mode stages on post_create but does NOT commit until session close."""
-        note = git_vault / "notes" / "N-0099.md"
-        note.parent.mkdir(parents=True, exist_ok=True)
-        note.write_text("# Batch Note", encoding="utf-8")
-
-        commits_before = _git_log(git_vault)
-
-        plugin.post_create(
-            content_type="note",
-            content_id="N-0099",
-            title="Batch Note",
-            path="notes/N-0099.md",
-            tags=[],
-        )
-
-        # File is staged but no new commit yet
-        staged = _staged_files(git_vault)
-        assert "notes/N-0099.md" in staged
-        commits_after = _git_log(git_vault)
-        assert len(commits_after) == len(commits_before), (
-            "Batch mode should not commit on post_create"
-        )
-
-    def test_git_plugin_immediate_mode_commits_per_event(
-        self, immediate_plugin: GitPlugin, git_vault: Path
-    ):
-        """Immediate mode commits after every post_create without waiting for session close."""
-        note = git_vault / "notes" / "N-0098.md"
-        note.parent.mkdir(parents=True, exist_ok=True)
-        note.write_text("# Immediate Note", encoding="utf-8")
-
-        commits_before = _git_log(git_vault)
-
-        immediate_plugin.post_create(
-            content_type="note",
-            content_id="N-0098",
-            title="Immediate Note",
-            path="notes/N-0098.md",
-            tags=[],
-        )
-
-        commits_after = _git_log(git_vault)
-        assert len(commits_after) == len(commits_before) + 1, (
-            "Immediate mode should commit on each post_create"
-        )
-        assert any("N-0098" in msg for msg in commits_after)
 
 
 # ---------------------------------------------------------------------------

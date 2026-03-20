@@ -151,3 +151,87 @@ class SourceProviderContribution:
     description: str
     schemes: tuple[str, ...]
     fetch: Callable[[SourceFetchRequest], SourceFetchResult]
+
+
+# ---------------------------------------------------------------------------
+# Custom note type rendering (PLUG-06)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RenderContribution:
+    """Plugin-provided rendering for a custom note type.
+
+    Fields
+    ------
+    note_type
+        The note type name this contribution applies to (e.g. ``"sprint"``).
+    rich_formatter
+        Callable that receives a ``dict[str, Any]`` of note data and returns
+        a Rich-formatted string for terminal display.
+    mcp_formatter
+        Callable that receives a ``dict[str, Any]`` of note data and returns
+        a ``dict[str, Any]`` suitable for MCP tool responses.
+    """
+
+    note_type: str
+    rich_formatter: Callable[[dict[str, Any]], str]
+    mcp_formatter: Callable[[dict[str, Any]], dict[str, Any]]
+
+
+# ---------------------------------------------------------------------------
+# Action hook contracts (PLUG-02)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ActionRejection:
+    """Returned from ``pre_action`` to abort action execution.
+
+    A plugin's ``pre_action`` implementation can return an instance of this
+    class to prevent the registered action handler from running. The caller
+    (BaseController._dispatch_pre_action) converts this into an appropriate
+    error ServiceResult.
+    """
+
+    reason: str
+    code: str = "plugin_rejected"
+    detail: dict[str, Any] = field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Plugin marketplace metadata (PLUG-07)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PluginMetadata:
+    """Structured metadata from ``[tool.ztlctl-plugin]`` in a plugin's pyproject.toml.
+
+    Used for future plugin discoverability and marketplace listing. Plugin
+    authors include this section in their ``pyproject.toml`` to declare
+    compatibility and capabilities.
+
+    Fields
+    ------
+    name
+        Plugin display name.
+    version
+        Plugin version string (e.g. ``"1.0.0"``).
+    author
+        Author or organization name.
+    capabilities
+        Tuple of capability identifiers the plugin provides
+        (e.g. ``("register_note_types", "register_cli_commands")``).
+    ztlctl_api_version
+        The ``PLUGIN_API_VERSION`` integer this plugin was built against.
+    description
+        Optional human-readable description.
+    """
+
+    name: str
+    version: str
+    author: str
+    capabilities: tuple[str, ...]
+    ztlctl_api_version: int
+    description: str = ""

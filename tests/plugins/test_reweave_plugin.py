@@ -18,8 +18,34 @@ from ztlctl.services.result import ServiceError, ServiceResult
 _PATCH_TARGET = "ztlctl.services.reweave.ReweaveService"
 
 
+def _make_ok_result(content_id: str = "ztl_12345678") -> ServiceResult:
+    return ServiceResult(
+        ok=True,
+        op="reweave",
+        data={"count": 2, "suggestions": []},
+    )
+
+
+def _make_failed_result() -> ServiceResult:
+    return ServiceResult(
+        ok=False,
+        op="reweave",
+        error=ServiceError(code="NOT_FOUND", message="no target"),
+    )
+
+
 # ---------------------------------------------------------------------------
-# Unit tests — plugin in isolation
+# Tests — PLUGIN_API_VERSION
+# ---------------------------------------------------------------------------
+
+
+def test_plugin_api_version() -> None:
+    """ReweavePlugin must declare PLUGIN_API_VERSION = 1."""
+    assert ReweavePlugin.PLUGIN_API_VERSION == 1
+
+
+# ---------------------------------------------------------------------------
+# Unit tests — plugin in isolation via post_action
 # ---------------------------------------------------------------------------
 
 
@@ -36,12 +62,16 @@ class TestReweavePluginUnit:
         plugin = ReweavePlugin(vault=v)
 
         with patch(_PATCH_TARGET) as mock:
-            plugin.post_create(
-                content_type="note",
-                content_id="ztl_12345678",
-                title="Test",
-                path="notes/test.md",
-                tags=[],
+            plugin.post_action(
+                action_name="create_note",
+                kwargs={
+                    "content_type": "note",
+                    "content_id": "ztl_12345678",
+                    "title": "Test",
+                    "path": "notes/test.md",
+                    "tags": [],
+                },
+                result=None,
             )
             mock.assert_not_called()
 
@@ -55,56 +85,139 @@ class TestReweavePluginUnit:
         plugin = ReweavePlugin(vault=v)
 
         with patch(_PATCH_TARGET) as mock:
-            plugin.post_create(
-                content_type="note",
-                content_id="ztl_12345678",
-                title="Test",
-                path="notes/test.md",
-                tags=[],
+            plugin.post_action(
+                action_name="create_note",
+                kwargs={
+                    "content_type": "note",
+                    "content_id": "ztl_12345678",
+                    "title": "Test",
+                    "path": "notes/test.md",
+                    "tags": [],
+                },
+                result=None,
             )
             mock.assert_not_called()
 
-    def test_calls_reweave_service(self, vault_root: Any) -> None:
-        """Plugin calls ReweaveService.reweave() with the content_id."""
+    def test_post_action_create_note_calls_reweave_service(self, vault_root: Any) -> None:
+        """post_action(create_note) calls ReweaveService.reweave() with the content_id."""
         vault = Vault(ZtlSettings.from_cli(vault_root=vault_root))
         plugin = ReweavePlugin(vault=vault)
 
-        mock_result = ServiceResult(
-            ok=True,
-            op="reweave",
-            data={"count": 2, "suggestions": []},
-        )
+        mock_result = _make_ok_result()
         with patch(_PATCH_TARGET) as mock_cls:
             mock_cls.return_value.reweave.return_value = mock_result
-            plugin.post_create(
-                content_type="note",
-                content_id="ztl_12345678",
-                title="Test",
-                path="notes/test.md",
-                tags=[],
+            plugin.post_action(
+                action_name="create_note",
+                kwargs={
+                    "content_type": "note",
+                    "content_id": "ztl_12345678",
+                    "title": "Test",
+                    "path": "notes/test.md",
+                    "tags": [],
+                },
+                result=None,
             )
             mock_cls.assert_called_once_with(vault)
             mock_cls.return_value.reweave.assert_called_once_with(
                 content_id="ztl_12345678",
             )
 
-    def test_skips_non_graph_content_types(self, vault_root: Any) -> None:
-        """Plugin skips tasks/logs; only notes and references reweave."""
+    def test_post_action_create_reference_calls_reweave_service(self, vault_root: Any) -> None:
+        """post_action(create_reference) triggers reweave."""
+        vault = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        plugin = ReweavePlugin(vault=vault)
+
+        mock_result = _make_ok_result()
+        with patch(_PATCH_TARGET) as mock_cls:
+            mock_cls.return_value.reweave.return_value = mock_result
+            plugin.post_action(
+                action_name="create_reference",
+                kwargs={
+                    "content_type": "reference",
+                    "content_id": "ztl_refref01",
+                    "title": "Ref",
+                    "path": "notes/ref.md",
+                    "tags": [],
+                },
+                result=None,
+            )
+            mock_cls.return_value.reweave.assert_called_once_with(
+                content_id="ztl_refref01",
+            )
+
+    def test_post_action_create_task_skipped(self, vault_root: Any) -> None:
+        """post_action(create_task) should not trigger reweave."""
         vault = Vault(ZtlSettings.from_cli(vault_root=vault_root))
         plugin = ReweavePlugin(vault=vault)
 
         with patch(_PATCH_TARGET) as mock_cls:
-            plugin.post_create(
-                content_type="task",
-                content_id="TASK-0001",
-                title="Task",
-                path="ops/tasks/TASK-0001.md",
-                tags=[],
+            plugin.post_action(
+                action_name="create_task",
+                kwargs={
+                    "content_type": "task",
+                    "content_id": "TASK-0001",
+                    "title": "Task",
+                    "path": "ops/tasks/TASK-0001.md",
+                    "tags": [],
+                },
+                result=None,
             )
             mock_cls.assert_not_called()
 
+    def test_post_action_update_skipped(self, vault_root: Any) -> None:
+        """post_action(update) should not trigger reweave."""
+        vault = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        plugin = ReweavePlugin(vault=vault)
+
+        with patch(_PATCH_TARGET) as mock_cls:
+            plugin.post_action(
+                action_name="update",
+                kwargs={"content_id": "ztl_12345678", "path": "notes/test.md"},
+                result=None,
+            )
+            mock_cls.assert_not_called()
+
+    def test_post_action_skips_failed_result(self, vault: Vault) -> None:
+        """post_action should not call reweave when result.ok is False."""
+        plugin = ReweavePlugin(vault=vault)
+
+        with patch(_PATCH_TARGET) as mock_cls:
+            plugin.post_action(
+                action_name="create_note",
+                kwargs={
+                    "content_type": "note",
+                    "content_id": "ztl_12345678",
+                    "title": "Test",
+                    "path": "notes/test.md",
+                    "tags": [],
+                },
+                result=_make_failed_result(),
+            )
+            mock_cls.assert_not_called()
+
+    def test_post_action_none_result_proceeds(self, vault_root: Any) -> None:
+        """result=None (EventBus bridge path) should proceed with reweave."""
+        vault = Vault(ZtlSettings.from_cli(vault_root=vault_root))
+        plugin = ReweavePlugin(vault=vault)
+
+        mock_result = _make_ok_result()
+        with patch(_PATCH_TARGET) as mock_cls:
+            mock_cls.return_value.reweave.return_value = mock_result
+            plugin.post_action(
+                action_name="create_note",
+                kwargs={
+                    "content_type": "note",
+                    "content_id": "ztl_12345678",
+                    "title": "Test",
+                    "path": "notes/test.md",
+                    "tags": [],
+                },
+                result=None,
+            )
+            mock_cls.return_value.reweave.assert_called_once()
+
     def test_skips_decision_note_subtype(self, vault: Vault) -> None:
-        """Decision notes are excluded from post-create reweave."""
+        """Decision notes are excluded from post-action reweave."""
         with vault.engine.begin() as conn:
             conn.execute(
                 insert(nodes).values(
@@ -121,12 +234,16 @@ class TestReweavePluginUnit:
 
         plugin = ReweavePlugin(vault=vault)
         with patch(_PATCH_TARGET) as mock_cls:
-            plugin.post_create(
-                content_type="note",
-                content_id="ztl_decision1",
-                title="Decision Note",
-                path="notes/ztl_decision1.md",
-                tags=[],
+            plugin.post_action(
+                action_name="create_note",
+                kwargs={
+                    "content_type": "note",
+                    "content_id": "ztl_decision1",
+                    "title": "Decision Note",
+                    "path": "notes/ztl_decision1.md",
+                    "tags": [],
+                },
+                result=None,
             )
             mock_cls.assert_not_called()
 
@@ -134,20 +251,20 @@ class TestReweavePluginUnit:
         """Plugin does not raise on reweave failure (per plugin invariant)."""
         plugin = ReweavePlugin(vault=vault)
 
-        mock_result = ServiceResult(
-            ok=False,
-            op="reweave",
-            error=ServiceError(code="NOT_FOUND", message="no target"),
-        )
+        mock_result = _make_failed_result()
         with patch(_PATCH_TARGET) as mock_cls:
             mock_cls.return_value.reweave.return_value = mock_result
             # Should not raise
-            plugin.post_create(
-                content_type="note",
-                content_id="ztl_12345678",
-                title="Test",
-                path="notes/test.md",
-                tags=[],
+            plugin.post_action(
+                action_name="create_note",
+                kwargs={
+                    "content_type": "note",
+                    "content_id": "ztl_12345678",
+                    "title": "Test",
+                    "path": "notes/test.md",
+                    "tags": [],
+                },
+                result=None,
             )
 
 
