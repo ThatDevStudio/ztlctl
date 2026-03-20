@@ -97,13 +97,13 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ## Context
 
-**Existing codebase:** 1622 tests, mypy strict, ruff clean across 12 services, 13 controllers, 59 registered actions, 9 command groups, 3 built-in plugins, auto-generated MCP adapter (59 tools from ActionRegistry), and semantic search. The v1 architecture is a clean 6-layer structure (domain → infrastructure → config → services → output → commands) with a Vault repository pattern.
+**Existing codebase:** 1781 tests, mypy strict, ruff clean across 12 services, 14 controllers, 59 registered actions, 9 command groups, 3 built-in plugins, auto-generated MCP adapter (59 tools from ActionRegistry), and semantic search. The architecture is a clean 6-layer structure (domain → infrastructure → config → services → output → commands) with a Vault repository pattern and a 4-layer action model (Data/Service/Controller/Registry).
 
-**Key architectural insight from user:** CLI and MCP should be "presentation wrappers around a core construct" — this means the current hand-crafted CLI commands and MCP tools need to evolve into auto-generated surfaces over formalized actions. This is the single biggest architectural shift in v2.
+**Key architectural insight from user:** CLI and MCP are "presentation wrappers around a core construct" — auto-generated surfaces over formalized actions via ActionRegistry. This was the single biggest architectural shift in v2 and is now fully realized.
 
-**Known technical debt:** Hardcoded embedding dimensions, unenforced config settings (backup_retention_days), graph materialize not auto-triggered, EventBus timeout not configurable, dead-letter event accumulation, MCP server missing graceful shutdown.
+**Known technical debt:** Hardcoded embedding dimensions, EventBus timeout not configurable, dead-letter event accumulation, MCP server missing graceful shutdown. (backup_retention_days and graph materialize were fixed in Phase 1.)
 
-**Known test gaps:** Session, reweave, and check services excluded from coverage; all plugin code excluded; MCP layer has zero coverage; _impl pattern investment is wasted without tests.
+**Known test gaps:** Resolved — coverage omit reduced to __main__.py only; 87.66% overall coverage. All service, plugin, and MCP layers now measured.
 
 **Target audience:** Small group of users, building toward broader adoption. Tool must work fully without agentic systems.
 
@@ -121,7 +121,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| CLI/MCP as auto-generated presentation layers | Define-once, use-everywhere — reduces duplication, ensures parity | — Pending |
+| CLI/MCP as auto-generated presentation layers | Define-once, use-everywhere — reduces duplication, ensures parity | ✓ Good — 59 ActionDefinitions auto-generate both CLI and MCP surfaces |
 | Formalize note lifecycle as extensible primitive | Plugins need to define custom note types with custom lifecycles | ✓ Good — NoteTypeDefinition + NoteTypeRegistry in domain/registry.py |
 | Research Agent SDK/protocol viability | User's instinct is define-once interfaces; SDK adds value only if research proves it | — Pending |
 | Core hardening before plugin formalization | Tool must be standalone-capable before extending; fixes foundation first | ✓ Good — Phase 1 complete |
@@ -129,4 +129,8 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | All operations through registry, no escape hatches | Complex ops get thin definitions with custom_presentation=True | ✓ Good — 59 definitions, 5 custom_presentation |
 
 ---
-*Last updated: 2026-03-20 after Phase 6 completion — ALL PHASES COMPLETE*
+| Pre/post-action hooks wired into all controllers | Plugins can observe/modify/reject any action via hook dispatch | ✓ Good — 63 methods across 14 controllers wired in Phase 7 |
+| Category activation is advisory metadata | FastMCP cannot deregister tools dynamically; agents use categories for tool selection heuristics | ✓ Good — documented in Phase 7, AGNT-04 description updated |
+
+---
+*Last updated: 2026-03-20 after Phase 7 completion — ALL PHASES COMPLETE (including gap closure)*
