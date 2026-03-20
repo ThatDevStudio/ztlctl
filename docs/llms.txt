@@ -1,0 +1,28 @@
+# ztlctl
+
+> A local knowledge operating system for human users and AI agents.
+> Zettelkasten-based CLI and MCP tool for building personal knowledge graphs — capture, link, query, and surface knowledge from a local SQLite vault.
+
+## Getting Started
+
+- [Home](https://thatdevstudio.github.io/ztlctl/): Landing page and project overview
+- [Installation](https://thatdevstudio.github.io/ztlctl/installation/): Install via pip, uv, or Homebrew
+- [Quick Start](https://thatdevstudio.github.io/ztlctl/quickstart/): Your first vault in under 5 minutes
+
+## User Guide
+
+- [User Guide](https://thatdevstudio.github.io/ztlctl/guide/): User Guide section overview and navigation
+- [Tutorial](https://thatdevstudio.github.io/ztlctl/tutorial/): Hands-on walkthrough: create notes, link them, run a session
+- [Core Concepts](https://thatdevstudio.github.io/ztlctl/concepts/): Content types, lifecycle states, and vault structure
+- [Knowledge Paradigms](https://thatdevstudio.github.io/ztlctl/paradigms/): Second-brain vs knowledge garden — which fits your workflow
+- [Obsidian Starter Kit](https://thatdevstudio.github.io/ztlctl/obsidian/): Set up Obsidian as a visual frontend for your vault
+- [Agentic Workflows](https://thatdevstudio.github.io/ztlctl/agentic-workflows/): Orchestrate AI agents with ztlctl as their note substrate
+- [Command Reference](https://thatdevstudio.github.io/ztlctl/commands/): Every CLI command and flag
+- [Configuration](https://thatdevstudio.github.io/ztlctl/configuration/): Config file options, vault settings, and environment variables
+- [Troubleshooting](https://thatdevstudio.github.io/ztlctl/troubleshooting/): Common problems and solutions
+
+## Developer Guide
+
+- [Developer Guide](https://thatdevstudio.github.io/ztlctl/dev/): Developer Guide section overview and navigation
+- [Contributing](https://thatdevstudio.github.io/ztlctl/development/): Architecture overview, branch workflow, and contribution process
+- [MCP Server](https://thatdevstudio.github.io/ztlctl/mcp/): MCP tools, resources, prompts, and agent integration patterns
