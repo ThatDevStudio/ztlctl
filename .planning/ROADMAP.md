@@ -75,7 +75,12 @@ Plans:
   2. A reader can set up and use each built-in plugin (Obsidian, Git, Reweave) by following the guide alone
   3. A reader can run a complete research-capture, review-triage, or knowledge-synthesis workflow end-to-end using the recipe walkthroughs
   4. A reader can understand the session lifecycle for both human-driven and agent-driven usage with concrete command examples
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Expand docs/paradigms.md into comprehensive second-brain vs knowledge-garden comparison guide with scenarios
+- [ ] 10-02-PLAN.md — Enhance docs/obsidian.md, create docs/plugins.md (Git + Reweave guides), update mkdocs.yml nav and llms infra
+- [ ] 10-03-PLAN.md — Expand docs/agentic-workflows.md with 3 recipe walkthroughs and session lifecycle guides, regenerate llms-full.txt
 
 ### Phase 11: Developer Guide + API Reference
 **Goal**: Plugin authors have a complete, accurate reference for every hookspec, custom note type, and config contract — and contributors have an architecture walkthrough that matches the current codebase
@@ -115,6 +120,6 @@ Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can
 | 7. Plugin & Agentic Wiring Fixes | v2.0 | 3/3 | Complete | 2026-03-20 |
 | 8. MkDocs Infrastructure | v2.1 | 2/3 | In Progress | - |
 | 9. Navigation Structure | 2/2 | Complete   | 2026-03-20 | - |
-| 10. User Guide Content | v2.1 | 0/? | Not started | - |
+| 10. User Guide Content | v2.1 | 0/3 | Not started | - |
 | 11. Developer Guide + API Reference | v2.1 | 0/? | Not started | - |
 | 12. Doc Search Integration | v2.1 | 0/? | Not started | - |
