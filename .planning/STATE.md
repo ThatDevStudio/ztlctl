@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-20T04:22:28.953Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-20T04:36:29.815Z"
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 19
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -59,6 +59,7 @@ Plan: 1 of 3
 | Phase 05-plugin-formalization PP01 | 470 | 2 tasks | 11 files |
 | Phase 05-plugin-formalization P02 | 442 | 2 tasks | 7 files |
 | Phase 05-plugin-formalization P03 | 900 | 2 tasks | 6 files |
+| Phase 06-agentic-integration-security P01 | 10 | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,9 @@ Recent decisions affecting current work:
 - [Phase 05-plugin-formalization]: GitPlugin post_action uses _handle_* private methods for each action group — keeps routing method short and handlers testable
 - [Phase 05-plugin-formalization]: EventBus bridge fires post_action REGARDLESS of per-event hook subscribers; bridge exception isolation prevents WAL status corruption
 - [Phase 05-plugin-formalization]: result=None treated as pass-through on EventBus bridge path; result.ok=False guard only skips explicit controller-dispatched failures
+- [Phase 06-agentic-integration-security]: ServiceError.recovery is optional (default None) — zero impact on 30+ existing construction sites
+- [Phase 06-agentic-integration-security]: from_result() uses result.error.recovery or COMMON_ERROR_RECOVERY.get(code) — explicit override wins over generic fallback
+- [Phase 06-agentic-integration-security]: COMMON_ERROR_RECOVERY extended from 9 to 36 entries; test_all_codes_have_recovery provides ongoing regression guard
 
 ### Pending Todos
 
@@ -121,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T04:05:25.804Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-agentic-integration-security/06-CONTEXT.md
+Last session: 2026-03-20T04:36:29.811Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None
