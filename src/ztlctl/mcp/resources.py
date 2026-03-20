@@ -17,6 +17,19 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
         "uri": "ztlctl://context",
         "description": "Full vault context: identity, methodology, and overview.",
     },
+    {"uri": "ztlctl://recipes", "description": "Index of available agent orchestration recipes."},
+    {
+        "uri": "ztlctl://recipes/research-capture",
+        "description": "Research-capture workflow: search, create notes, link evidence.",
+    },
+    {
+        "uri": "ztlctl://recipes/review-triage",
+        "description": "Review-triage workflow: work queue, inspect, update, archive stale.",
+    },
+    {
+        "uri": "ztlctl://recipes/knowledge-synthesis",
+        "description": "Knowledge-synthesis workflow: search, find gaps, draft, reweave.",
+    },
     {"uri": "ztlctl://self/identity", "description": "The vault's identity document."},
     {"uri": "ztlctl://self/methodology", "description": "The vault's methodology document."},
     {"uri": "ztlctl://overview", "description": "Vault overview with counts and recent items."},
@@ -443,6 +456,159 @@ def agent_reference_impl(_vault: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Orchestration recipe resources (AGNT-03)
+# ---------------------------------------------------------------------------
+
+
+def recipe_research_capture_impl(_vault: Any) -> dict[str, Any]:
+    """Return the research-capture orchestration recipe."""
+    return {
+        "name": "research-capture",
+        "description": (
+            "Capture research findings: search existing content, "
+            "create synthesis notes, link evidence."
+        ),
+        "steps": [
+            {
+                "step": 1,
+                "action": "search",
+                "params": {"query": "{topic}", "limit": 10},
+                "description": ("Search for existing content on the topic to avoid duplication."),
+                "conditions": [],
+            },
+            {
+                "step": 2,
+                "action": "create_note",
+                "params": {"title": "{synthesis_title}", "maturity": "seed"},
+                "description": "Create a seed note to capture the synthesis.",
+                "conditions": ["skip if step 1 returns a note with identical title"],
+            },
+            {
+                "step": 3,
+                "action": "reweave",
+                "params": {"content_id": "{step_2.content_id}"},
+                "description": ("Connect the new note to related content found in step 1."),
+                "conditions": [],
+            },
+        ],
+    }
+
+
+def recipe_review_triage_impl(_vault: Any) -> dict[str, Any]:
+    """Return the review-triage orchestration recipe."""
+    return {
+        "name": "review-triage",
+        "description": (
+            "Triage the work queue: inspect items, update stale notes, "
+            "archive completed or obsolete ones."
+        ),
+        "steps": [
+            {
+                "step": 1,
+                "action": "work_queue",
+                "params": {},
+                "description": "Fetch the scored work queue to find items needing attention.",
+                "conditions": [],
+            },
+            {
+                "step": 2,
+                "action": "get_document",
+                "params": {"content_id": "{step_1.items[0].id}"},
+                "description": "Inspect the top-priority item in detail.",
+                "conditions": ["repeat for each item in the work queue"],
+            },
+            {
+                "step": 3,
+                "action": "update",
+                "params": {"content_id": "{step_2.id}", "changes": {}},
+                "description": ("Update the item (e.g. advance maturity, correct tags, add body)."),
+                "conditions": ["skip if item needs no changes"],
+            },
+            {
+                "step": 4,
+                "action": "archive",
+                "params": {"content_id": "{step_2.id}"},
+                "description": "Archive items that are complete or no longer relevant.",
+                "conditions": ["only if item is complete or stale beyond recovery"],
+            },
+        ],
+    }
+
+
+def recipe_knowledge_synthesis_impl(_vault: Any) -> dict[str, Any]:
+    """Return the knowledge-synthesis orchestration recipe."""
+    return {
+        "name": "knowledge-synthesis",
+        "description": (
+            "Synthesize knowledge from existing content: search, find gaps, "
+            "draft a synthesis note, reweave connections."
+        ),
+        "steps": [
+            {
+                "step": 1,
+                "action": "search",
+                "params": {"query": "{topic}", "limit": 20},
+                "description": "Gather existing content on the synthesis topic.",
+                "conditions": [],
+            },
+            {
+                "step": 2,
+                "action": "gaps",
+                "params": {"top": 10},
+                "description": "Identify structural holes that the synthesis could bridge.",
+                "conditions": [],
+            },
+            {
+                "step": 3,
+                "action": "draft_from_topic",
+                "params": {"topic": "{topic}", "target": "note"},
+                "description": "Draft a synthesis note from the accumulated topic material.",
+                "conditions": ["skip if step 1 already returned a mature synthesis note"],
+            },
+            {
+                "step": 4,
+                "action": "reweave",
+                "params": {"content_id": "{step_3.content_id}"},
+                "description": "Connect the synthesis note into the knowledge graph.",
+                "conditions": [],
+            },
+        ],
+    }
+
+
+def recipe_index_impl(_vault: Any) -> dict[str, Any]:
+    """Return an index of all available orchestration recipes."""
+    return {
+        "recipes": [
+            {
+                "name": "research-capture",
+                "uri": "ztlctl://recipes/research-capture",
+                "description": (
+                    "Capture research findings: search existing content, "
+                    "create synthesis notes, link evidence."
+                ),
+            },
+            {
+                "name": "review-triage",
+                "uri": "ztlctl://recipes/review-triage",
+                "description": (
+                    "Triage the work queue: inspect items, update stale notes, "
+                    "archive completed or obsolete ones."
+                ),
+            },
+            {
+                "name": "knowledge-synthesis",
+                "uri": "ztlctl://recipes/knowledge-synthesis",
+                "description": (
+                    "Synthesize knowledge from existing content: search, find gaps, "
+                    "draft a synthesis note, reweave connections."
+                ),
+            },
+        ]
+    }
+
+
+# ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
 
@@ -522,6 +688,34 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(agent_reference_impl(vault), indent=2)
+
+    @server.resource("ztlctl://recipes")  # type: ignore[untyped-decorator]
+    def recipes_index_resource() -> str:
+        """Index of available agent orchestration recipes."""
+        import json
+
+        return json.dumps(recipe_index_impl(vault), indent=2)
+
+    @server.resource("ztlctl://recipes/research-capture")  # type: ignore[untyped-decorator]
+    def recipe_research_capture_resource() -> str:
+        """Research-capture workflow: search, create notes, link evidence."""
+        import json
+
+        return json.dumps(recipe_research_capture_impl(vault), indent=2)
+
+    @server.resource("ztlctl://recipes/review-triage")  # type: ignore[untyped-decorator]
+    def recipe_review_triage_resource() -> str:
+        """Review-triage workflow: work queue, inspect, update, archive stale."""
+        import json
+
+        return json.dumps(recipe_review_triage_impl(vault), indent=2)
+
+    @server.resource("ztlctl://recipes/knowledge-synthesis")  # type: ignore[untyped-decorator]
+    def recipe_knowledge_synthesis_resource() -> str:
+        """Knowledge-synthesis workflow: search, find gaps, draft, reweave."""
+        import json
+
+        return json.dumps(recipe_knowledge_synthesis_impl(vault), indent=2)
 
     plugin_manager = getattr(vault, "plugin_manager", None)
     if plugin_manager is None:

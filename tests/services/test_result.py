@@ -66,3 +66,11 @@ class TestServiceError:
     def test_default_detail(self) -> None:
         error = ServiceError(code="E001", message="bad")
         assert error.detail == {}
+
+    def test_service_error_recovery_field_default_none(self) -> None:
+        error = ServiceError(code="X", message="Y")
+        assert error.recovery is None
+
+    def test_service_error_with_recovery(self) -> None:
+        error = ServiceError(code="X", message="Y", recovery="Do Z")
+        assert error.recovery == "Do Z"
