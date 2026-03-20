@@ -17,6 +17,7 @@ from ztlctl.plugins.contracts import (
     McpPromptContribution,
     McpResourceContribution,
     McpToolContribution,
+    RenderContribution,
     SourceProviderContribution,
     VaultInitStepContribution,
     WorkflowModuleContribution,
@@ -59,6 +60,7 @@ class PluginManager:
         if local_dir is not None:
             self._discover_local(local_dir)
         self._register_content_models()
+        self._register_note_types()
         self._loaded = True
         return self.list_plugin_names()
 
@@ -209,6 +211,19 @@ class PluginManager:
             SourceProviderContribution,
             key_fn=lambda item: item.name,
             reserved=reserved_names,
+        )
+
+    def render_contributions(
+        self,
+        *,
+        reserved_types: set[str] | None = None,
+    ) -> list[RenderContribution]:
+        """Collect plugin render contributions for custom note types (PLUG-06)."""
+        return self._collect_contributions(
+            "register_render_contributions",
+            RenderContribution,
+            key_fn=lambda item: item.note_type,
+            reserved=reserved_types,
         )
 
     def inject_configs(self, settings: Any) -> None:
@@ -382,6 +397,256 @@ class PluginManager:
 
             self._pm.register(instance, name=plugin_name)
             logger.debug("Instantiated entry-point plugin: %s", plugin_name)
+
+    def _register_note_types(
+        self,
+        *,
+        note_registry: Any = None,
+        action_registry: Any = None,
+    ) -> None:
+        """Register plugin-contributed NoteTypeDefinitions and auto-create ActionDefinitions.
+
+        Iterates all results from ``register_note_types`` hooks, registers each
+        :class:`~ztlctl.domain.registry.NoteTypeDefinition` into the
+        :class:`~ztlctl.domain.registry.NoteTypeRegistry` singleton (or a
+        provided test registry), and auto-creates ``create_*``, ``update_*``,
+        ``close_*`` ActionDefinitions into the ActionRegistry.
+
+        Duplicate registrations are logged as warnings and skipped — they do
+        not raise.
+
+        Args:
+            note_registry: Override NoteTypeRegistry for testing. Defaults to
+                the module-level singleton.
+            action_registry: Override ActionRegistry for testing. Defaults to
+                the module-level singleton.
+        """
+        from ztlctl.domain.registry import NoteTypeDefinition, get_note_type_registry
+
+        if note_registry is None:
+            note_registry = get_note_type_registry()
+        if action_registry is None:
+            from ztlctl.actions.registry import get_action_registry
+
+            action_registry = get_action_registry()
+
+        try:
+            hook_results = self._pm.hook.register_note_types()
+        except Exception:
+            logger.warning("Failed to collect note type registrations from plugins", exc_info=True)
+            return
+
+        for plugin_items in hook_results:
+            if plugin_items is None:
+                continue
+            if not isinstance(plugin_items, list):
+                logger.warning("register_note_types returned non-list value; skipping")
+                continue
+            for item in plugin_items:
+                if not isinstance(item, NoteTypeDefinition):
+                    logger.warning(
+                        "register_note_types returned non-NoteTypeDefinition item %r; skipping",
+                        item,
+                    )
+                    continue
+                try:
+                    note_registry.register(item)
+                except ValueError:
+                    logger.warning(
+                        "Skipping duplicate note type registration %r from plugin",
+                        item.name,
+                    )
+                    continue
+                self._register_note_type_actions(item, action_registry=action_registry)
+
+    def _register_note_type_actions(
+        self,
+        ntd: Any,
+        *,
+        action_registry: Any = None,
+    ) -> None:
+        """Auto-create create/update/close ActionDefinitions for a plugin note type.
+
+        Each :class:`~ztlctl.domain.registry.NoteTypeDefinition` registered by
+        a plugin gets three corresponding ActionDefinitions so the CLI and MCP
+        generators pick them up automatically without any extra plugin code.
+
+        Args:
+            ntd: The NoteTypeDefinition to create actions for.
+            action_registry: Override ActionRegistry for testing.
+        """
+        from ztlctl.actions.definitions import ActionDefinition, ActionParam
+
+        if action_registry is None:
+            from ztlctl.actions.registry import get_action_registry
+
+            action_registry = get_action_registry()
+
+        ntd_name: str = ntd.name
+        content_type: str = ntd.content_type
+
+        # Common params for create action
+        create_params = (
+            ActionParam(
+                name="title",
+                type=str,
+                required=True,
+                description=f"Title of the {ntd_name}",
+            ),
+            ActionParam(
+                name="tags",
+                type=list,
+                required=False,
+                default=None,
+                description="Comma-separated tags",
+                cli_multiple=True,
+            ),
+            ActionParam(
+                name="links",
+                type=list,
+                required=False,
+                default=None,
+                description="IDs or titles to link to",
+                cli_multiple=True,
+            ),
+            ActionParam(
+                name="body",
+                type=str,
+                required=False,
+                default=None,
+                description=f"Body content for the {ntd_name}",
+            ),
+        )
+
+        # Params for update action
+        update_params = (
+            ActionParam(
+                name="content_id",
+                type=str,
+                required=True,
+                description=f"ID of the {ntd_name} to update",
+            ),
+            ActionParam(
+                name="title",
+                type=str,
+                required=False,
+                default=None,
+                description="New title",
+            ),
+            ActionParam(
+                name="tags",
+                type=list,
+                required=False,
+                default=None,
+                description="New tags",
+                cli_multiple=True,
+            ),
+            ActionParam(
+                name="body",
+                type=str,
+                required=False,
+                default=None,
+                description="New body content",
+            ),
+            ActionParam(
+                name="status",
+                type=str,
+                required=False,
+                default=None,
+                description="New status",
+            ),
+        )
+
+        # Params for close action
+        close_params = (
+            ActionParam(
+                name="content_id",
+                type=str,
+                required=True,
+                description=f"ID of the {ntd_name} to close",
+            ),
+            ActionParam(
+                name="summary",
+                type=str,
+                required=False,
+                default=None,
+                description="Closing summary",
+            ),
+        )
+
+        def _make_create_handler(nt: str, ct: str) -> Any:
+            def _handler(vault: Any, **kwargs: Any) -> Any:
+                from ztlctl.controllers.create_ctrl import CreateController
+
+                return CreateController(vault).create_note(
+                    content_type=ct,
+                    subtype=nt,
+                    **kwargs,
+                )
+
+            return _handler
+
+        def _make_update_handler(nt: str) -> Any:
+            def _handler(vault: Any, **kwargs: Any) -> Any:
+                from ztlctl.controllers.update_ctrl import UpdateController
+
+                return UpdateController(vault).update(**kwargs)
+
+            return _handler
+
+        def _make_close_handler(nt: str) -> Any:
+            def _handler(vault: Any, **kwargs: Any) -> Any:
+                from ztlctl.controllers.update_ctrl import UpdateController
+
+                return UpdateController(vault).close(**kwargs)
+
+            return _handler
+
+        actions = [
+            ActionDefinition(
+                name=f"create_{ntd_name}",
+                description=f"Create a new {ntd_name}",
+                category="creation",
+                params=create_params,
+                handler=_make_create_handler(ntd_name, content_type),
+                side_effect="write",
+                cli_group=content_type,
+                cli_name=ntd_name,
+                mcp_when_to_use=(f"Use when the user wants to create a new {ntd_name}."),
+            ),
+            ActionDefinition(
+                name=f"update_{ntd_name}",
+                description=f"Update an existing {ntd_name}",
+                category="mutation",
+                params=update_params,
+                handler=_make_update_handler(ntd_name),
+                side_effect="write",
+                cli_group=content_type,
+                cli_name=f"update-{ntd_name}",
+                mcp_when_to_use=(f"Use when the user wants to update a {ntd_name}."),
+            ),
+            ActionDefinition(
+                name=f"close_{ntd_name}",
+                description=f"Close a {ntd_name}",
+                category="mutation",
+                params=close_params,
+                handler=_make_close_handler(ntd_name),
+                side_effect="write",
+                cli_group=content_type,
+                cli_name=f"close-{ntd_name}",
+                mcp_when_to_use=(f"Use when the user wants to close or archive a {ntd_name}."),
+            ),
+        ]
+
+        for action in actions:
+            try:
+                action_registry.register(action)
+            except ValueError:
+                logger.warning(
+                    "Skipping duplicate action registration %r for note type %r",
+                    action.name,
+                    ntd_name,
+                )
 
     def _register_content_models(self) -> None:
         """Load plugin-provided content subtype models into the domain registry."""

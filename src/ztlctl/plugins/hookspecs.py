@@ -10,12 +10,14 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from ztlctl.domain.content import ContentModel
+    from ztlctl.domain.registry import NoteTypeDefinition
     from ztlctl.plugins.contracts import (
         ActionRejection,
         CliCommandContribution,
         McpPromptContribution,
         McpResourceContribution,
         McpToolContribution,
+        RenderContribution,
         SourceProviderContribution,
         VaultInitStepContribution,
         WorkflowModuleContribution,
@@ -248,3 +250,25 @@ class ZtlctlHookSpec:
     @hookspec
     def register_source_providers(self) -> list[SourceProviderContribution] | None:
         """Return plugin-provided source ingestion providers."""
+
+    # ------------------------------------------------------------------
+    # Custom note type + rendering hooks (PLUG-05, PLUG-06)
+    # ------------------------------------------------------------------
+
+    @hookspec
+    def register_note_types(self) -> list[NoteTypeDefinition] | None:
+        """Return NoteTypeDefinitions to register into NoteTypeRegistry + ActionRegistry.
+
+        PluginManager will auto-create create/update/close ActionDefinitions for
+        each registered NoteTypeDefinition and add them to the ActionRegistry so
+        the CLI and MCP generators pick them up automatically.
+        """
+
+    @hookspec
+    def register_render_contributions(self) -> list[RenderContribution] | None:
+        """Return render contributions for custom note types.
+
+        Each :class:`~ztlctl.plugins.contracts.RenderContribution` provides a
+        ``rich_formatter`` and an ``mcp_formatter`` callable for one note type,
+        enabling custom terminal and MCP output formatting.
+        """
