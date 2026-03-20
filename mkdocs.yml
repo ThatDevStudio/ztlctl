@@ -22,16 +22,20 @@ nav:
   - Home: index.md
   - Installation: installation.md
   - Quick Start: quickstart.md
-  - Tutorial: tutorial.md
-  - Core Concepts: concepts.md
-  - Knowledge Paradigms: paradigms.md
-  - Obsidian Starter Kit: obsidian.md
-  - Command Reference: commands.md
-  - Configuration: configuration.md
-  - MCP Server: mcp.md
-  - Agentic Workflows: agentic-workflows.md
-  - Troubleshooting: troubleshooting.md
-  - Development: development.md
+  - User Guide:
+    - guide/index.md
+    - Tutorial: tutorial.md
+    - Core Concepts: concepts.md
+    - Knowledge Paradigms: paradigms.md
+    - Obsidian Starter Kit: obsidian.md
+    - Agentic Workflows: agentic-workflows.md
+    - Command Reference: commands.md
+    - Configuration: configuration.md
+    - Troubleshooting: troubleshooting.md
+  - Developer Guide:
+    - dev/index.md
+    - Contributing: development.md
+    - MCP Server: mcp.md
 
 plugins:
   - search
