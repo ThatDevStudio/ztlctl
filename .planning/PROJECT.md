@@ -41,7 +41,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 <!-- Current scope: v2.1 Documentation -->
 
 **User Guide Track:**
-- [ ] Audience-segmented docs site with clear user vs developer navigation
+- [x] Audience-segmented docs site with clear user vs developer navigation — Phase 9
 - [ ] Explanatory guides with examples and common scenarios for knowledge workers
 - [ ] Second-brain vs knowledge garden paradigm walkthroughs
 - [ ] Built-in plugin guides (Obsidian, Git, Reweave) with setup and usage examples
@@ -54,7 +54,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - [ ] Contributing guide with architecture walkthrough for core contributors
 
 **Agent Accessibility:**
-- [ ] `llms.txt` at docs root for MCP client/agent discovery
+- [x] `llms.txt` + `llms-full.txt` at docs root for MCP client/agent discovery — Phase 9
 - [ ] `ztlctl docs <query>` CLI command for local doc search
 - [ ] MCP resource for agent-queryable documentation
 - [ ] Structured metadata agents can parse
@@ -119,4 +119,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | MkDocs + mkdocs-shadcn for docs site | Modern shadcn/ui aesthetic, MkDocs ecosystem for Python tools, GitHub Pages deploy | ✓ Good — `mkdocs build --strict` passes, deploy workflow ready |
 
 ---
-*Last updated: 2026-03-20 after Phase 8 completion*
+*Last updated: 2026-03-20 after Phase 9 completion*
