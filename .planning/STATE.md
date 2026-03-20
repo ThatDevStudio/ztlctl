@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Platform
-status: shipped
-stopped_at: v2.0 milestone completed
-last_updated: "2026-03-20T07:00:00.000Z"
+milestone: v2.1
+milestone_name: Documentation
+status: defining_requirements
+stopped_at: Defining requirements for v2.1
+last_updated: "2026-03-20T08:00:00.000Z"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 22
-  completed_plans: 22
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -19,12 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** v2.0 shipped — planning next milestone
+**Current focus:** v2.1 Documentation — defining requirements
 
 ## Current Position
 
-Milestone v2.0 Platform — SHIPPED 2026-03-20
-All 7 phases, 22 plans complete. 27/27 requirements satisfied.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-20 — Milestone v2.1 started
 
 ## Performance Metrics
 
