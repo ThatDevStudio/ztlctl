@@ -1930,6 +1930,17 @@ def _register_core_actions() -> None:
                     required=True,
                     description="Workflow scaffolding choices (profile, client, tone, etc.).",
                 ),
+                ActionParam(
+                    "force_trust",
+                    bool,
+                    required=False,
+                    default=False,
+                    description=(
+                        "Allow plugin template hooks to execute (unsafe mode). "
+                        "Built-in templates always use unsafe=False regardless of this flag."
+                    ),
+                    cli_flag=True,
+                ),
             ),
             handler=lambda vault, **kw: WorkflowController(vault).init_workflow(**kw),
             side_effect="write",
@@ -1958,6 +1969,17 @@ def _register_core_actions() -> None:
                     required=False,
                     default=None,
                     description="Optional choice overrides to apply during update.",
+                ),
+                ActionParam(
+                    "force_trust",
+                    bool,
+                    required=False,
+                    default=False,
+                    description=(
+                        "Allow plugin template hooks to execute (unsafe mode). "
+                        "Built-in templates always use unsafe=False regardless of this flag."
+                    ),
+                    cli_flag=True,
                 ),
             ),
             handler=lambda vault, **kw: WorkflowController(vault).update_workflow(**kw),
