@@ -34,8 +34,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [x] **AGNT-01**: `llms.txt` at docs root with project summary and section links per llmstxt.org spec
 - [x] **AGNT-02**: `llms-full.txt` with concatenated documentation content for single-context-load consumption
-- [ ] **AGNT-03**: `ztlctl docs <query>` CLI command for local documentation search with ranked results
-- [ ] **AGNT-04**: `ztlctl://docs/search` MCP resource for agent-queryable documentation following existing _impl pattern
+- [x] **AGNT-03**: `ztlctl docs <query>` CLI command for local documentation search with ranked results
+- [x] **AGNT-04**: `ztlctl://docs/search` MCP resource for agent-queryable documentation following existing _impl pattern
 
 ## v2 Requirements
 
@@ -80,8 +80,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DVGD-04 | Phase 11 | Complete |
 | AGNT-01 | Phase 9 | Complete |
 | AGNT-02 | Phase 9 | Complete |
-| AGNT-03 | Phase 12 | Pending |
-| AGNT-04 | Phase 12 | Pending |
+| AGNT-03 | Phase 12 | Complete |
+| AGNT-04 | Phase 12 | Complete |
 
 **Coverage:**
 - v1 requirements: 18 total
