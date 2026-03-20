@@ -22,10 +22,15 @@ def _tool_payload(result: Any) -> dict[str, Any]:
     content = getattr(result, "content", [])
     if content:
         text = getattr(content[0], "text", None)
-        if isinstance(text, str):
+        if isinstance(text, str) and text:
             return json.loads(text)
 
-    raise AssertionError("Tool result did not expose structured or text content")
+    # Provide diagnostic info on failure
+    is_error = getattr(result, "isError", False)
+    texts = [getattr(c, "text", "") for c in content] if content else []
+    raise AssertionError(
+        f"Tool result did not expose valid content. isError={is_error}, content_texts={texts!r}"
+    )
 
 
 def _resource_text(result: Any) -> str:
