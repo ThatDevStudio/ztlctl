@@ -96,12 +96,12 @@ Plans:
   3. Plugin configuration is read from `[plugins.<name>]` sections in ztlctl.toml and validated against plugin-declared schemas
   4. A plugin can register a custom NoteTypeDefinition that automatically gains create/update/close CLI commands and MCP tools, plus custom Rich and MCP rendering
   5. GitPlugin and ReweavePlugin are ported to the new hookspecs, validating the API before it is marked stable
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-- [ ] 05-03: TBD
+- [ ] 05-01-PLAN.md — API versioning + pre/post-action hooks + plugin config infrastructure (PLUG-01, PLUG-02, PLUG-03)
+- [ ] 05-02-PLAN.md — Custom note types + render contributions + marketplace metadata (PLUG-05, PLUG-06, PLUG-07)
+- [ ] 05-03-PLAN.md — GitPlugin + ReweavePlugin migration to new hookspecs (PLUG-01, PLUG-02)
 
 ### Phase 6: Agentic Integration & Security
 **Goal**: Agents can orchestrate ztlctl end-to-end without workarounds, with structured error recovery and progressive tool disclosure, and plugin-contributed workflows are security-constrained
