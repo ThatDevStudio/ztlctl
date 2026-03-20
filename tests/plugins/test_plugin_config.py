@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pluggy
 import pytest
 from pydantic import BaseModel
 
 from ztlctl.config.models import PluginsConfig
+from ztlctl.config.settings import ZtlSettings
+from ztlctl.infrastructure.vault import Vault
 from ztlctl.plugins import PLUGIN_API_VERSION
 from ztlctl.plugins.contracts import ActionRejection
 from ztlctl.plugins.manager import PluginManager
@@ -389,3 +392,22 @@ class TestBaseControllerDispatch:
 
         assert result_kwargs is original_kwargs
         assert rejection is None
+
+
+# ---------------------------------------------------------------------------
+# Vault wiring: init_event_bus calls inject_configs (PLUG-03)
+# ---------------------------------------------------------------------------
+
+
+class TestVaultInjectConfigsWiring:
+    def test_init_event_bus_calls_inject_configs(self, vault_root: Path) -> None:
+        """Vault.init_event_bus() calls pm.inject_configs(settings) after discover_and_load."""
+        settings = ZtlSettings.from_cli(vault_root=vault_root, no_reweave=True)
+        v = Vault(settings)
+        try:
+            with patch.object(PluginManager, "inject_configs") as mock_inject:
+                v.init_event_bus(sync=True)
+                assert mock_inject.called
+                assert mock_inject.call_args.args[0] is settings
+        finally:
+            v.close()
