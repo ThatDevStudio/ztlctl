@@ -12,7 +12,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **INFR-01**: Migrate from Jekyll + Just the Docs to MkDocs + mkdocs-shadcn theme with dark mode, modern shadcn/ui aesthetic
 - [x] **INFR-02**: Remove internal planning artifacts from public docs site (backlog.md, research-mapping.md, internal roadmap.md)
 - [x] **INFR-03**: Exclude docs/plans/ directory from published site via mkdocs.yml config
-- [ ] **INFR-04**: Set up GitHub Actions workflow for MkDocs gh-deploy to GitHub Pages
+- [x] **INFR-04**: Set up GitHub Actions workflow for MkDocs gh-deploy to GitHub Pages
 - [x] **INFR-05**: Add redirect handling for changed URLs to preserve existing links
 
 ### User Guide
@@ -67,7 +67,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFR-01 | Phase 8 | Complete |
 | INFR-02 | Phase 8 | Complete |
 | INFR-03 | Phase 8 | Complete |
-| INFR-04 | Phase 8 | Pending |
+| INFR-04 | Phase 8 | Complete |
 | INFR-05 | Phase 8 | Complete |
 | UGDE-01 | Phase 9 | Pending |
 | UGDE-02 | Phase 10 | Pending |

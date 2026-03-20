@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
-status: unknown
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-03-20T16:14:43.260Z"
+status: executing
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-03-20T16:16:32.000Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 08 (mkdocs-infrastructure) — EXECUTING
-Plan: 2 of 3
+Phase: 08 (mkdocs-infrastructure) — COMPLETE
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Plan: 2 of 3
 *Updated after each plan completion*
 | Phase 08-mkdocs-infrastructure P01 | 5 | 1 tasks | 4 files |
 | Phase 08-mkdocs-infrastructure P02 | 136 | 2 tasks | 19 files |
+| Phase 08-mkdocs-infrastructure P03 | 1 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,9 @@ Recent decisions affecting current work:
 - [Phase 08-01]: docs/index.md For Developers and Agents section reduced to 3 links: agentic-workflows.md, development.md, troubleshooting.md
 - [Phase 08-02]: mkdocs.yml at project root with shadcn theme, exclude_docs for plans/, full nav listing all 13 pages
 - [Phase 08-02]: site/ added to .gitignore as MkDocs build artifact (auto-fix)
+- [Phase 08-03]: workflow-level permissions: contents: write (not job-level) for gh-pages push access
+- [Phase 08-03]: pip install (not uv) in CI — docs workflow only needs mkdocs tools, not full ztlctl env
+- [Phase 08-03]: Pinned exact versions in CI: mkdocs==1.6.1, mkdocs-shadcn==0.10.2, mkdocs-redirects==1.2.2
 
 ### Pending Todos
 
@@ -77,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T16:14:43.257Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-03-20T16:16:32.000Z
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None
