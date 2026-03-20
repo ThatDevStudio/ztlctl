@@ -48,9 +48,9 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - [x] Session lifecycle guides for human and agent-driven usage (485 lines total) — Phase 10
 
 **Developer Guide Track:**
-- [ ] Plugin authoring guide with hookspecs, custom note types, config, capabilities
-- [ ] API reference documentation (plugin contracts, hook signatures, event types, ActionRegistry)
-- [ ] Contributing guide with architecture walkthrough for core contributors
+- [x] Plugin authoring guide (719 lines, 8-step tutorial, 16 hookspecs, complete example) — Phase 11
+- [x] Auto-generated API reference via mkdocstrings (5 public modules) — Phase 11
+- [x] Architecture docs (4-layer action model) + CONTRIBUTING.md cross-links — Phase 11
 
 **Agent Accessibility:**
 - [x] `llms.txt` + `llms-full.txt` at docs root for MCP client/agent discovery — Phase 9
@@ -118,4 +118,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | MkDocs + mkdocs-shadcn for docs site | Modern shadcn/ui aesthetic, MkDocs ecosystem for Python tools, GitHub Pages deploy | ✓ Good — `mkdocs build --strict` passes, deploy workflow ready |
 
 ---
-*Last updated: 2026-03-20 after Phase 10 completion*
+*Last updated: 2026-03-20 after Phase 11 completion*
