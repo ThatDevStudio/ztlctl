@@ -151,4 +151,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. CLI Surface Generation | 2/2 | Complete   | 2026-03-20 |
 | 5. Plugin Formalization | 3/3 | Complete   | 2026-03-20 |
 | 6. Agentic Integration & Security | 3/3 | Complete   | 2026-03-20 |
-| 7. Plugin & Agentic Wiring Fixes | 0/3 | Not started |  |
+| 7. Plugin & Agentic Wiring Fixes | 2/3 | In Progress|  |

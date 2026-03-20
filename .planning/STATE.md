@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 7 context gathered
-last_updated: "2026-03-20T05:22:35.743Z"
+stopped_at: Completed 07-plugin-agentic-wiring-fixes-01-PLAN.md
+last_updated: "2026-03-20T05:46:33.350Z"
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 19
-  completed_plans: 19
+  total_plans: 22
+  completed_plans: 20
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 06 — agentic-integration-security
+**Current focus:** Phase 07 — plugin-agentic-wiring-fixes
 
 ## Current Position
 
-Phase: 06 (agentic-integration-security) — EXECUTING
+Phase: 07 (plugin-agentic-wiring-fixes) — EXECUTING
 Plan: 1 of 3
 
 ## Performance Metrics
@@ -62,6 +62,7 @@ Plan: 1 of 3
 | Phase 06-agentic-integration-security P01 | 10 | 1 tasks | 4 files |
 | Phase 06-agentic-integration-security P03 | 17 | 2 tasks | 10 files |
 | Phase 06-agentic-integration-security P02 | 12 | 2 tasks | 8 files |
+| Phase 07-plugin-agentic-wiring-fixes P01 | 4 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,9 @@ Recent decisions affecting current work:
 - [Phase 06-agentic-integration-security]: Built-in plugins (git, obsidian, reweave) implement declare_capabilities to document access surface and avoid test noise
 - [Phase 06-agentic-integration-security]: _DEFAULT_ACTIVE_CATEGORIES frozenset guards deactivate_category -- core categories cannot be deactivated by agents
 - [Phase 06-agentic-integration-security]: Category activation state is module-level in generator.py (server-scoped) -- one MCP server process = one session
+- [Phase 07-plugin-agentic-wiring-fixes]: PLUG-03 wired via pm.inject_configs(self._settings) immediately after discover_and_load() in vault.init_event_bus()
+- [Phase 07-plugin-agentic-wiring-fixes]: ACTION_REJECTED inserted alphabetically in COMMON_ERROR_RECOVERY; detail= forwarded from ServiceError to McpError in from_result()
+- [Phase 07-plugin-agentic-wiring-fixes]: AGNT-04 advisory comment placed directly after _active_categories assignment in generator.py; category activation is metadata only (FastMCP does not support dynamic tool deregistration)
 
 ### Pending Todos
 
@@ -132,6 +136,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:22:35.740Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-plugin-agentic-wiring-fixes/07-CONTEXT.md
+Last session: 2026-03-20T05:46:33.347Z
+Stopped at: Completed 07-plugin-agentic-wiring-fixes-01-PLAN.md
+Resume file: None
