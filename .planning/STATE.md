@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-plugin-formalization plan 02 (05-02-PLAN.md)
-last_updated: "2026-03-20T02:52:10Z"
+stopped_at: Completed 05-plugin-formalization plan 03 (05-03-PLAN.md)
+last_updated: "2026-03-20T03:03:33.843Z"
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -58,6 +58,7 @@ Plan: 2 of 3
 | Phase 04-cli-surface-generation P02 | 90 | 2 tasks | 16 files |
 | Phase 05-plugin-formalization PP01 | 470 | 2 tasks | 11 files |
 | Phase 05-plugin-formalization P02 | 442 | 2 tasks | 7 files |
+| Phase 05-plugin-formalization P03 | 900 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,9 @@ Recent decisions affecting current work:
 - [Phase 05-plugin-formalization P02]: content_type dispatch in create handler routes to create_task/create_reference/create_note based on NoteTypeDefinition.content_type
 - [Phase 05-plugin-formalization P02]: close handler maps to UpdateController.archive() — the actual method name in UpdateController
 - [Phase 05-plugin-formalization P02]: render_contributions() is lazy (on-demand); _register_note_types() is eager (called in discover_and_load()) for CLI/MCP generators to pick up plugin types at load time
+- [Phase 05-plugin-formalization]: GitPlugin post_action uses _handle_* private methods for each action group — keeps routing method short and handlers testable
+- [Phase 05-plugin-formalization]: EventBus bridge fires post_action REGARDLESS of per-event hook subscribers; bridge exception isolation prevents WAL status corruption
+- [Phase 05-plugin-formalization]: result=None treated as pass-through on EventBus bridge path; result.ok=False guard only skips explicit controller-dispatched failures
 
 ### Pending Todos
 
@@ -117,6 +121,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T02:43:22.061Z
-Stopped at: Completed 05-plugin-formalization plan 01 (05-01-PLAN.md)
+Last session: 2026-03-20T03:03:33.841Z
+Stopped at: Completed 05-plugin-formalization plan 03 (05-03-PLAN.md)
 Resume file: None
