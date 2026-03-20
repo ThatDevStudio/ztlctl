@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v2.0 Platform** — Phases 1-7 (shipped 2026-03-20)
-- 🚧 **v2.1 Documentation** — Phases 8-12 (in progress)
+- 🚧 **v2.1 Documentation** — Phases 8-14 (in progress)
 
 ## Phases
 
@@ -117,7 +117,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 8 → 9 → 10 → 11 → 12
+Phases execute in numeric order: 8 → 9 → 10 → 11 → 12 → 13 → 14
 Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can be parallelized.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -144,3 +144,17 @@ Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can
 
 Plans:
 - [ ] 13-01-PLAN.md — Rewrite docs.yml for artifact deployment, verify live site, delete gh-pages branch
+
+### Phase 14: Documentation content refinement and quality pass
+
+**Goal:** Apply the ThatDev Quality Bar across all documentation pages — source-verify every CLI example, hookspec signature, and config option; fix audit gaps; create best-practices.md and agents.md; enhance all 18 existing pages with anti-patterns, cross-links, and real-world examples
+**Requirements**: None (refinement phase, no mapped requirement IDs)
+**Depends on:** Phase 13
+**Plans:** 5 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — Fix audit gaps (INT-01, FLOW-01, ZTLCTL_DOCS_PATH) and rewrite configuration.md with source-verified content
+- [ ] 14-02-PLAN.md — Create best-practices.md (anti-pattern reference) and agents.md (machine-readable system manual)
+- [ ] 14-03-PLAN.md — User Guide quality pass: Getting Started + foundational pages (index, installation, quickstart, concepts, paradigms)
+- [ ] 14-04-PLAN.md — User Guide quality pass: workflow/reference pages (tutorial, obsidian, plugins, agentic-workflows, commands)
+- [ ] 14-05-PLAN.md — Developer Guide quality pass + infrastructure wiring (mkdocs.yml nav, llms.txt, gen script, regenerate llms-full.txt, build verify)
