@@ -64,30 +64,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFR-01 | — | Pending |
-| INFR-02 | — | Pending |
-| INFR-03 | — | Pending |
-| INFR-04 | — | Pending |
-| INFR-05 | — | Pending |
-| UGDE-01 | — | Pending |
-| UGDE-02 | — | Pending |
-| UGDE-03 | — | Pending |
-| UGDE-04 | — | Pending |
-| UGDE-05 | — | Pending |
-| DVGD-01 | — | Pending |
-| DVGD-02 | — | Pending |
-| DVGD-03 | — | Pending |
-| DVGD-04 | — | Pending |
-| AGNT-01 | — | Pending |
-| AGNT-02 | — | Pending |
-| AGNT-03 | — | Pending |
-| AGNT-04 | — | Pending |
+| INFR-01 | Phase 8 | Pending |
+| INFR-02 | Phase 8 | Pending |
+| INFR-03 | Phase 8 | Pending |
+| INFR-04 | Phase 8 | Pending |
+| INFR-05 | Phase 8 | Pending |
+| UGDE-01 | Phase 9 | Pending |
+| UGDE-02 | Phase 10 | Pending |
+| UGDE-03 | Phase 10 | Pending |
+| UGDE-04 | Phase 10 | Pending |
+| UGDE-05 | Phase 10 | Pending |
+| DVGD-01 | Phase 11 | Pending |
+| DVGD-02 | Phase 11 | Pending |
+| DVGD-03 | Phase 11 | Pending |
+| DVGD-04 | Phase 11 | Pending |
+| AGNT-01 | Phase 9 | Pending |
+| AGNT-02 | Phase 9 | Pending |
+| AGNT-03 | Phase 12 | Pending |
+| AGNT-04 | Phase 12 | Pending |
 
 **Coverage:**
 - v1 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-20 after initial definition*
+*Last updated: 2026-03-20 after roadmap creation*
