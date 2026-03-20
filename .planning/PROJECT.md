@@ -64,14 +64,18 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - [x] CLI parity test suite: every non-custom ActionDefinition has a CLI command
 - [x] 13 hand-written command files deleted, replaced by runtime generation
 
-**Plugin System Formalization:**
-- [ ] Formalize "note" and "note lifecycle" as extensible core primitives
-- [ ] Formalize "action" and "event" as the core operational model
+**Plugin System Formalization:** ✓ Validated in Phase 5
+- [x] Formalize "note" and "note lifecycle" as extensible core primitives
+- [x] Formalize "action" and "event" as the core operational model
 - [x] Define-once interface: CLI and MCP as auto-generated presentation layers over core actions
-- [ ] Plugins can register custom note types with custom lifecycles
-- [ ] Plugins can register CLI commands and MCP tools
-- [ ] Plugins can extend templates
-- [ ] Plugins can hook pre/post on every core action
+- [x] Plugins can register custom note types with custom lifecycles (auto-gain CLI + MCP)
+- [x] Plugins can register CLI commands and MCP tools (via ActionRegistry)
+- [x] Plugins can hook pre/post on every core action (pre_action/post_action hookspecs)
+- [x] Plugin API versioning (PLUGIN_API_VERSION=1) + deprecated hookspec warnings
+- [x] Plugin config from [plugins.<name>] in ztlctl.toml, Pydantic-validated
+- [x] Render contributions for custom note types (Rich + MCP formatters)
+- [x] Marketplace metadata convention ([tool.ztlctl-plugin] in pyproject.toml)
+- [x] GitPlugin + ReweavePlugin ported to post_action + EventBus bridge
 - [ ] Plugin access to core actions and events
 
 **Agentic Integration:**
@@ -123,4 +127,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | All operations through registry, no escape hatches | Complex ops get thin definitions with custom_presentation=True | ✓ Good — 59 definitions, 5 custom_presentation |
 
 ---
-*Last updated: 2026-03-20 after Phase 4 completion*
+*Last updated: 2026-03-20 after Phase 5 completion*
