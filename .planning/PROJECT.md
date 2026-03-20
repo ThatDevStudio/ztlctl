@@ -60,7 +60,8 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 **Infrastructure:**
 - [x] MkDocs + mkdocs-shadcn migration with dark mode, GitHub Actions deploy — Phase 8
 - [x] Internal planning artifacts removed from public docs — Phase 8
-- [ ] Reorganize docs/ with audience-based navigation sections
+- [x] Reorganize docs/ with audience-based navigation sections — Phase 9
+- [x] Switch GitHub Pages deploy to Actions artifact (eliminate gh-pages branch) — Phase 13
 
 ### Out of Scope
 
@@ -117,4 +118,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | MkDocs + mkdocs-shadcn for docs site | Modern shadcn/ui aesthetic, MkDocs ecosystem for Python tools, GitHub Pages deploy | ✓ Good — `mkdocs build --strict` passes, deploy workflow ready |
 
 ---
-*Last updated: 2026-03-20 after Phase 12 completion*
+*Last updated: 2026-03-20 after Phase 13 completion — ALL PHASES COMPLETE*
