@@ -50,10 +50,24 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - [x] 59 ActionDefinitions registered covering all public controller methods
 - [x] custom_presentation=True on complex operations (batch, init, workflow)
 
+**MCP Surface Generation:** ✓ Validated in Phase 3
+- [x] Auto-generated MCP tools from ActionRegistry (generator.py replaces 1499-line tools.py)
+- [x] McpResponse/McpError Pydantic models for typed MCP responses
+- [x] Token-budget-aware truncation on high-volume tools (list_items, search, vault_review, decision_support)
+- [x] Parity test suite: 59/59 ActionDefinitions exposed as MCP tools, 13/13 categories covered
+- [x] 9 previously missing tools now present (archive, supersede, upgrade, check, init, workflow)
+
+**CLI Surface Generation:** ✓ Validated in Phase 4
+- [x] Auto-generated CLI commands from ActionRegistry (generator.py replaces ~2650 lines of hand-written Click commands)
+- [x] cli_name field + cli_group assignments on all 59 ActionDefinitions
+- [x] 6 custom_presentation actions preserved (batch, update, init wizard, serve, workflow, export)
+- [x] CLI parity test suite: every non-custom ActionDefinition has a CLI command
+- [x] 13 hand-written command files deleted, replaced by runtime generation
+
 **Plugin System Formalization:**
 - [ ] Formalize "note" and "note lifecycle" as extensible core primitives
 - [ ] Formalize "action" and "event" as the core operational model
-- [ ] Define-once interface: CLI and MCP as auto-generated presentation layers over core actions
+- [x] Define-once interface: CLI and MCP as auto-generated presentation layers over core actions
 - [ ] Plugins can register custom note types with custom lifecycles
 - [ ] Plugins can register CLI commands and MCP tools
 - [ ] Plugins can extend templates
@@ -61,7 +75,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - [ ] Plugin access to core actions and events
 
 **Agentic Integration:**
-- [ ] Complete MCP tool surface (no gaps — agents never need workarounds)
+- [x] Complete MCP tool surface (no gaps — agents never need workarounds)
 - [ ] Agent orchestration patterns (defined workflows agents can drive end-to-end)
 - [ ] Research and evaluate Agent SDK/protocol if warranted
 - [ ] Agentic workflow documentation (how agents should use the tool)
@@ -77,7 +91,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ## Context
 
-**Existing codebase:** 1665 tests, mypy strict, ruff clean across 12 services, 13 controllers, 59 registered actions, 9 command groups, 3 built-in plugins, MCP adapter, and semantic search. The v1 architecture is a clean 6-layer structure (domain → infrastructure → config → services → output → commands) with a Vault repository pattern.
+**Existing codebase:** 1622 tests, mypy strict, ruff clean across 12 services, 13 controllers, 59 registered actions, 9 command groups, 3 built-in plugins, auto-generated MCP adapter (59 tools from ActionRegistry), and semantic search. The v1 architecture is a clean 6-layer structure (domain → infrastructure → config → services → output → commands) with a Vault repository pattern.
 
 **Key architectural insight from user:** CLI and MCP should be "presentation wrappers around a core construct" — this means the current hand-crafted CLI commands and MCP tools need to evolve into auto-generated surfaces over formalized actions. This is the single biggest architectural shift in v2.
 
@@ -109,4 +123,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | All operations through registry, no escape hatches | Complex ops get thin definitions with custom_presentation=True | ✓ Good — 59 definitions, 5 custom_presentation |
 
 ---
-*Last updated: 2026-03-19 after Phase 2 completion*
+*Last updated: 2026-03-20 after Phase 4 completion*

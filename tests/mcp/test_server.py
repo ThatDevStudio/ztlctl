@@ -38,7 +38,7 @@ class TestServerAvailability:
             patch("ztlctl.mcp.server.mcp_available", True),
             patch("ztlctl.mcp.server._FastMCP", DummyFastMCP),
             patch("ztlctl.infrastructure.vault.Vault.init_event_bus") as init_bus,
-            patch("ztlctl.mcp.tools.register_tools"),
+            patch("ztlctl.mcp.generator.generate_tools"),
             patch("ztlctl.mcp.resources.register_resources"),
             patch("ztlctl.mcp.prompts.register_prompts"),
         ):

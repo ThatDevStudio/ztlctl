@@ -1,13 +1,13 @@
-"""Command: vault initialization (named init_cmd to avoid shadowing builtins)."""
+"""Command group: vault initialization wizard and self/ regeneration."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 
-from ztlctl.commands._base import DynamicProfileOption, ZtlCommand
+from ztlctl.commands._base import DynamicProfileOption, ZtlGroup
 from ztlctl.workspace_profiles import DEFAULT_PROFILE, discover_init_profiles
 
 if TYPE_CHECKING:
@@ -15,14 +15,26 @@ if TYPE_CHECKING:
 
 _INIT_EXAMPLES = """\
   ztlctl init
-  ztlctl init /path/to/vault --name my-research
-  ztlctl init . --name lab --profile obsidian --tone research-partner --topics "ai,engineering"
-  ztlctl init . --name scratch --profile core --tone minimal
-  ztlctl init --no-interact --name test --tone minimal /tmp/vault"""
+  ztlctl init --path /path/to/vault --name my-research
+  ztlctl init --name lab --profile obsidian --tone research-partner --topics "ai,engineering"
+  ztlctl init --name scratch --profile core --tone minimal
+  ztlctl init --no-interact --name test --tone minimal"""
 
 
-@click.command("init", cls=ZtlCommand, examples=_INIT_EXAMPLES)
-@click.argument("path", required=False, default=".")
+class _InitGroup(ZtlGroup):
+    """Click Group for init that runs the vault wizard when no subcommand is given."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("invoke_without_command", True)
+        super().__init__(*args, **kwargs)
+
+
+@click.group(
+    "init",
+    cls=_InitGroup,
+    examples=_INIT_EXAMPLES,
+)
+@click.option("--path", "vault_path_str", default=".", help="Vault directory (default: cwd).")
 @click.option("--name", default=None, help="Vault name.")
 @click.option(
     "--profile",
@@ -54,7 +66,7 @@ _INIT_EXAMPLES = """\
 @click.pass_obj
 def init_cmd(
     app: AppContext,
-    path: str,
+    vault_path_str: str,
     name: str | None,
     profile: str | None,
     client: str | None,
@@ -63,7 +75,12 @@ def init_cmd(
     no_workflow: bool,
 ) -> None:
     """Initialize a new ztlctl vault."""
-    vault_path = Path(path).resolve()
+    ctx = click.get_current_context()
+    if ctx.invoked_subcommand is not None:
+        # A subcommand was specified — let it handle execution.
+        return
+
+    vault_path = Path(vault_path_str).resolve()
     interactive = not app.settings.no_interact
 
     # Interactive prompts for missing options
@@ -125,3 +142,7 @@ def init_cmd(
             }
         )
     app.emit(result)
+
+
+# Alias for use in register_commands
+init_wizard_group = init_cmd

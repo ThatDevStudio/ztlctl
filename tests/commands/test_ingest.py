@@ -13,11 +13,19 @@ from ztlctl.cli import cli
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestIngestCommands:
-    def test_ingest_text_from_stdin_json(self, cli_runner: CliRunner) -> None:
+    def test_ingest_text_json(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--json", "ingest", "text", "CLI Capture", "--stdin", "--as", "reference"],
-            input="Captured body",
+            [
+                "--json",
+                "ingest",
+                "text",
+                "CLI Capture",
+                "--body-text",
+                "Captured body",
+                "--target-type",
+                "reference",
+            ],
         )
 
         assert result.exit_code == 0, result.output
@@ -31,7 +39,16 @@ class TestIngestCommands:
 
         result = cli_runner.invoke(
             cli,
-            ["--json", "ingest", "file", str(source), "--title", "Imported File", "--as", "note"],
+            [
+                "--json",
+                "ingest",
+                "file",
+                str(source),
+                "--title",
+                "Imported File",
+                "--target-type",
+                "note",
+            ],
         )
 
         assert result.exit_code == 0, result.output
@@ -42,7 +59,14 @@ class TestIngestCommands:
     def test_ingest_url_without_provider_returns_error(self, cli_runner: CliRunner) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--json", "ingest", "url", "https://example.com/article", "--as", "reference"],
+            [
+                "--json",
+                "ingest",
+                "url",
+                "https://example.com/article",
+                "--target-type",
+                "reference",
+            ],
         )
 
         assert result.exit_code != 0
@@ -127,7 +151,7 @@ class MockProviderPlugin:
                 "https://example.com/article",
                 "--provider",
                 "mock-web",
-                "--as",
+                "--target-type",
                 "reference",
             ],
         )

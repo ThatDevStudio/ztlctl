@@ -48,6 +48,12 @@ class ActionParam:
         an option.
     cli_flag
         When ``True``, rendered as a boolean Click flag (``--verbose``).
+    cli_name
+        Override the Click option/argument name. When ``None``, the CLI
+        name is derived from ``name`` by replacing underscores with hyphens
+        (e.g. ``content_type`` → ``--content-type``). Use this to expose a
+        friendlier flag name (e.g. ``cli_name="type"`` → ``--type``) while
+        keeping a Python-safe internal ``name``.
     mcp_example
         Example value shown in MCP tool docs (``"find notes about python"``).
     """
@@ -61,6 +67,7 @@ class ActionParam:
     cli_multiple: bool = False
     cli_is_argument: bool = False
     cli_flag: bool = False
+    cli_name: str | None = None
     mcp_example: str = ""
 
 
@@ -136,6 +143,13 @@ class ActionDefinition:
     cli_group: str | None = None
     cli_examples: str = ""
     cli_interactive_params: tuple[str, ...] = ()
+    cli_name: str | None = None
+    """Explicit CLI command name (``cli_name``) override.
+
+    When ``None``, the generator derives the name from ``action.name`` by
+    stripping the ``cli_group`` prefix (if present) and replacing
+    underscores with hyphens.
+    """
 
     # Presentation escape hatch
     custom_presentation: bool = False

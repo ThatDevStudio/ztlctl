@@ -9,6 +9,8 @@ and expensive module-level imports at startup.
 
 from __future__ import annotations
 
+from typing import Any
+
 
 def _register_core_actions() -> None:
     """Register all built-in ActionDefinitions into the singleton registry."""
@@ -55,8 +57,7 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional note subtype: knowledge or decision.",
-                    choices=("knowledge", "decision"),
+                    description="Optional subtype (e.g. knowledge, decision, or plugin-defined).",
                 ),
                 ActionParam(
                     "tags",
@@ -290,6 +291,8 @@ def _register_core_actions() -> None:
             side_effect="read",
             mcp_when_to_use="Getting a quick overview of vault size.",
             mcp_avoid_when="You need a filtered listing or full-text search.",
+            cli_group="query",
+            cli_name="count",
         )
     )
 
@@ -314,6 +317,7 @@ def _register_core_actions() -> None:
                     default=None,
                     description="Optional filter: note, reference, task, or log.",
                     choices=("note", "reference", "task", "log"),
+                    cli_name="type",
                 ),
                 ActionParam(
                     "tag",
@@ -327,7 +331,8 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional space filter.",
+                    description="Filter by vault space: notes, ops, or self.",
+                    choices=("notes", "ops", "self"),
                 ),
                 ActionParam(
                     "rank_by",
@@ -358,6 +363,7 @@ def _register_core_actions() -> None:
             mcp_when_to_use="Finding content by keywords with optional type, tag, or space filter.",
             mcp_avoid_when="You already have an exact ID or only need a filtered listing.",
             mcp_common_errors=("EMPTY_QUERY",),
+            cli_group="query",
         )
     )
 
@@ -381,6 +387,7 @@ def _register_core_actions() -> None:
             mcp_when_to_use="Retrieving the full content of a known item.",
             mcp_avoid_when="You still need to discover the correct target item.",
             mcp_common_errors=("NOT_FOUND",),
+            cli_group="query",
         )
     )
 
@@ -397,6 +404,7 @@ def _register_core_actions() -> None:
                     default=None,
                     description="Optional type filter: note, reference, task, or log.",
                     choices=("note", "reference", "task", "log"),
+                    cli_name="type",
                 ),
                 ActionParam(
                     "status",
@@ -439,7 +447,8 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional space filter.",
+                    description="Filter by vault space: notes, ops, or self.",
+                    choices=("notes", "ops", "self"),
                 ),
                 ActionParam(
                     "since",
@@ -461,8 +470,8 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default="recency",
-                    description="Sort mode: recency.",
-                    choices=("recency",),
+                    description="Sort mode: recency, title, type, or priority.",
+                    choices=("recency", "title", "type", "priority"),
                 ),
                 ActionParam(
                     "limit",
@@ -476,6 +485,8 @@ def _register_core_actions() -> None:
             side_effect="read",
             mcp_when_to_use="Browsing and filtering the vault without keyword search.",
             mcp_avoid_when="You need ranked full-text results or a single exact document.",
+            cli_group="query",
+            cli_name="list",
         )
     )
 
@@ -490,13 +501,15 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional space filter for scoped task queues.",
+                    description="Filter by vault space: notes, ops, or self.",
+                    choices=("notes", "ops", "self"),
                 ),
             ),
             handler=lambda vault, **kw: QueryController(vault).work_queue(**kw),
             side_effect="read",
             mcp_when_to_use="Finding the next task to work on from the scored queue.",
             mcp_avoid_when="You are looking for notes, references, or broad listings.",
+            cli_group="query",
         )
     )
 
@@ -525,6 +538,8 @@ def _register_core_actions() -> None:
             side_effect="read",
             mcp_when_to_use="Before creating content, to reuse existing tag conventions.",
             mcp_avoid_when="You are searching for content rather than tag taxonomy.",
+            cli_group="query",
+            cli_name="tags",
         )
     )
 
@@ -546,13 +561,16 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default=None,
-                    description="Optional space filter.",
+                    description="Filter by vault space: notes, ops, or self.",
+                    choices=("notes", "ops", "self"),
                 ),
             ),
             handler=lambda vault, **kw: QueryController(vault).decision_support(**kw),
             side_effect="read",
             mcp_when_to_use="Preparing to make or document a decision with nearby vault evidence.",
             mcp_avoid_when="Simple search is enough or the topic has no existing vault content.",
+            cli_group="query",
+            cli_name="decision-support",
         )
     )
 
@@ -590,6 +608,8 @@ def _register_core_actions() -> None:
             side_effect="read",
             mcp_when_to_use="You need a topic-focused retrieval bundle without an active session.",
             mcp_avoid_when="A single document lookup or plain search result list is sufficient.",
+            cli_group="query",
+            cli_name="packet",
         )
     )
 
@@ -634,6 +654,8 @@ def _register_core_actions() -> None:
             side_effect="read",
             mcp_when_to_use="You want a durable draft derived from topic evidence.",
             mcp_avoid_when="You only need the packet itself, not a draft artifact.",
+            cli_group="query",
+            cli_name="draft",
         )
     )
 
@@ -662,6 +684,8 @@ def _register_core_actions() -> None:
             side_effect="read",
             mcp_when_to_use="Periodic maintenance, triage, and finding stale nodes.",
             mcp_avoid_when="You only need a focused document lookup.",
+            cli_group="query",
+            cli_name="review",
         )
     )
 
@@ -867,6 +891,8 @@ def _register_core_actions() -> None:
             side_effect="write",
             mcp_when_to_use="After bulk imports or vault changes to refresh graph metrics.",
             mcp_avoid_when="Metrics were already computed recently.",
+            cli_group="graph",
+            cli_name="materialize",
         )
     )
 
@@ -906,6 +932,7 @@ def _register_core_actions() -> None:
                 "INVALID_TRANSITION",
                 "UNKNOWN_TYPE",
             ),
+            custom_presentation=True,
         )
     )
 
@@ -929,6 +956,8 @@ def _register_core_actions() -> None:
             mcp_when_to_use="Marking an item complete or archived.",
             mcp_avoid_when="You only need to edit fields without changing lifecycle state.",
             mcp_common_errors=("NOT_FOUND",),
+            cli_group=None,
+            cli_name="archive",
         )
     )
 
@@ -958,6 +987,8 @@ def _register_core_actions() -> None:
             mcp_when_to_use="Replacing an outdated decision with a newer one.",
             mcp_avoid_when="The old decision is still valid or no replacement exists.",
             mcp_common_errors=("NOT_FOUND", "INVALID_TRANSITION"),
+            cli_group=None,
+            cli_name="supersede",
         )
     )
 
@@ -1000,6 +1031,8 @@ def _register_core_actions() -> None:
             mcp_when_to_use="After creating or updating content, to discover and add useful links.",
             mcp_avoid_when="The vault is still too small for meaningful graph-based suggestions.",
             mcp_common_errors=("NOT_FOUND",),
+            cli_group="reweave",
+            cli_name="run",
         )
     )
 
@@ -1029,6 +1062,8 @@ def _register_core_actions() -> None:
             side_effect="write",
             mcp_when_to_use="After significant vault changes to remove obsolete low-scoring links.",
             mcp_avoid_when="The vault is new or reweave has not run yet.",
+            cli_group="reweave",
+            cli_name="prune",
         )
     )
 
@@ -1050,6 +1085,8 @@ def _register_core_actions() -> None:
             side_effect="write",
             mcp_when_to_use="Reversing an incorrect or undesired reweave operation.",
             mcp_avoid_when="No reweave operations have been recorded.",
+            cli_group="reweave",
+            cli_name="undo",
         )
     )
 
@@ -1207,6 +1244,7 @@ def _register_core_actions() -> None:
             mcp_avoid_when="No session is active.",
             mcp_common_errors=("NO_ACTIVE_SESSION",),
             cli_group="session",
+            cli_name="log",
         )
     )
 
@@ -1311,6 +1349,7 @@ def _register_core_actions() -> None:
             mcp_avoid_when="The session has no pinned or decision entries.",
             mcp_common_errors=("NOT_FOUND",),
             cli_group="session",
+            cli_name="extract",
         )
     )
 
@@ -1407,6 +1446,7 @@ def _register_core_actions() -> None:
             mcp_when_to_use="Before ingesting URLs or when diagnosing missing provider support.",
             mcp_avoid_when="You already know the provider you need and are ingesting text.",
             cli_group="ingest",
+            cli_name="providers",
         )
     )
 
@@ -1474,6 +1514,7 @@ def _register_core_actions() -> None:
             mcp_avoid_when="You are authoring a note or reference without source normalization.",
             mcp_common_errors=("VALIDATION_FAILED", "UNKNOWN_TYPE"),
             cli_group="ingest",
+            cli_name="text",
         )
     )
 
@@ -1542,6 +1583,7 @@ def _register_core_actions() -> None:
             mcp_avoid_when="You are ingesting a URL or raw text string.",
             mcp_common_errors=("NOT_FOUND", "VALIDATION_FAILED", "UNKNOWN_TYPE"),
             cli_group="ingest",
+            cli_name="file",
         )
     )
 
@@ -1617,12 +1659,23 @@ def _register_core_actions() -> None:
             mcp_avoid_when="You are ingesting raw text or a local file.",
             mcp_common_errors=("VALIDATION_FAILED", "NO_PROVIDER", "UNKNOWN_TYPE"),
             cli_group="ingest",
+            cli_name="url",
         )
     )
 
     # -----------------------------------------------------------------------
     # export category
     # -----------------------------------------------------------------------
+
+    def _make_export_filters(
+        content_type: str | None = None,
+        **_kw: object,
+    ) -> Any:
+        from ztlctl.services.export import ExportFilters
+
+        if content_type is None:
+            return None
+        return ExportFilters(content_type=content_type)
 
     registry.register(
         ActionDefinition(
@@ -1637,12 +1690,24 @@ def _register_core_actions() -> None:
                     description="Destination directory for exported markdown files.",
                     cli_is_argument=True,
                 ),
+                ActionParam(
+                    "content_type",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Filter by content type (note, reference, task).",
+                    cli_name="type",
+                ),
             ),
-            handler=lambda vault, **kw: ExportController(vault).export_markdown(**kw),
+            handler=lambda vault, **kw: ExportController(vault).export_markdown(
+                kw["output_dir"],
+                filters=_make_export_filters(**kw),
+            ),
             side_effect="read",
             mcp_when_to_use="Exporting vault content as plain markdown files.",
             mcp_avoid_when="You need a graph export or structured index.",
             cli_group="export",
+            cli_name="markdown",
         )
     )
 
@@ -1659,12 +1724,24 @@ def _register_core_actions() -> None:
                     description="Destination directory for exported index files.",
                     cli_is_argument=True,
                 ),
+                ActionParam(
+                    "content_type",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Filter by content type (note, reference, task).",
+                    cli_name="type",
+                ),
             ),
-            handler=lambda vault, **kw: ExportController(vault).export_indexes(**kw),
+            handler=lambda vault, **kw: ExportController(vault).export_indexes(
+                kw["output_dir"],
+                filters=_make_export_filters(**kw),
+            ),
             side_effect="read",
             mcp_when_to_use="Generating navigational index files grouped by type and topic.",
             mcp_avoid_when="You need raw markdown files or a graph export.",
             cli_group="export",
+            cli_name="indexes",
         )
     )
 
@@ -1681,20 +1758,42 @@ def _register_core_actions() -> None:
                     default="dot",
                     description="Export format: dot or json.",
                     choices=("dot", "json"),
+                    cli_name="format",
+                ),
+                ActionParam(
+                    "output_file",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Output file path (default: stdout).",
+                    cli_name="output",
+                ),
+                ActionParam(
+                    "content_type",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Filter by content type (note, reference, task).",
+                    cli_name="type",
                 ),
             ),
-            handler=lambda vault, **kw: ExportController(vault).export_graph(**kw),
+            handler=lambda vault, **kw: ExportController(vault).export_graph(
+                fmt=kw.get("fmt", "dot"),
+                output_file=kw.get("output_file"),
+                filters=_make_export_filters(**kw),
+            ),
             side_effect="read",
             mcp_when_to_use="Exporting the knowledge graph for visualization or external analysis.",
             mcp_avoid_when="You need markdown content files rather than the graph structure.",
             cli_group="export",
+            cli_name="graph",
         )
     )
 
     registry.register(
         ActionDefinition(
             name="export_dashboard",
-            description="Export an external review workbench plus review and dossier artifacts.",
+            description="Export an external review dashboard and JSON review indexes.",
             category="export",
             params=(
                 ActionParam(
@@ -1709,21 +1808,40 @@ def _register_core_actions() -> None:
                     str,
                     required=False,
                     default="obsidian",
-                    description="Client viewer: obsidian or none.",
-                    choices=("obsidian", "none"),
+                    # Note: no choices — service layer normalizes "vanilla" alias.
+                    description="Client viewer: obsidian, none (or legacy alias vanilla).",
                 ),
             ),
-            handler=lambda vault, **kw: ExportController(vault).export_dashboard(**kw),
+            handler=lambda vault, **kw: ExportController(vault).export_dashboard(
+                kw["output_dir"],
+                viewer=kw.get("viewer", "obsidian"),
+            ),
             side_effect="read",
             mcp_when_to_use="Generating a review workbench for use in an external tool.",
             mcp_avoid_when="You only need a graph or raw markdown export.",
             cli_group="export",
+            cli_name="dashboard",
         )
     )
 
     # -----------------------------------------------------------------------
     # vector category
     # -----------------------------------------------------------------------
+
+    registry.register(
+        ActionDefinition(
+            name="vector_status",
+            description="Check semantic search availability and index status.",
+            category="vector",
+            params=(),
+            handler=lambda vault, **kw: VectorController(vault).status(),
+            side_effect="read",
+            mcp_when_to_use="Checking whether semantic search is available before using it.",
+            mcp_avoid_when="You already know semantic search is available.",
+            cli_group="vector",
+            cli_name="status",
+        )
+    )
 
     registry.register(
         ActionDefinition(
@@ -1736,6 +1854,7 @@ def _register_core_actions() -> None:
             mcp_when_to_use="After bulk imports or model changes to refresh the vector index.",
             mcp_avoid_when="The index is already up to date.",
             cli_group="vector",
+            cli_name="reindex",
         )
     )
 
@@ -1753,6 +1872,8 @@ def _register_core_actions() -> None:
             side_effect="read",
             mcp_when_to_use="Checking whether the vault DB schema is up to date before upgrading.",
             mcp_avoid_when="You want to apply migrations immediately.",
+            cli_group="upgrade",
+            cli_name="check",
         )
     )
 
@@ -1766,6 +1887,8 @@ def _register_core_actions() -> None:
             side_effect="write",
             mcp_when_to_use="Upgrading the vault DB schema to the current head.",
             mcp_avoid_when="The vault is already at the current schema version.",
+            cli_group="upgrade",
+            cli_name="apply",
         )
     )
 
@@ -1779,6 +1902,8 @@ def _register_core_actions() -> None:
             side_effect="write",
             mcp_when_to_use="Initializing the migration tracking for a newly created vault.",
             mcp_avoid_when="The vault already has migration history.",
+            cli_group="upgrade",
+            cli_name="stamp",
         )
     )
 
@@ -1953,6 +2078,8 @@ def _register_core_actions() -> None:
             side_effect="write",
             mcp_when_to_use="Refreshing self/ agent context files after configuration changes.",
             mcp_avoid_when="The self/ files are already current.",
+            cli_group="init",
+            cli_name="regenerate",
         )
     )
 
@@ -1966,5 +2093,7 @@ def _register_core_actions() -> None:
             side_effect="read",
             mcp_when_to_use="Checking whether self/ agent context files need regeneration.",
             mcp_avoid_when="You already know the self/ files are current.",
+            cli_group="init",
+            cli_name="staleness",
         )
     )

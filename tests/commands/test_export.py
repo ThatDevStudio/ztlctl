@@ -1,4 +1,4 @@
-"""Tests for export CLI commands (markdown, indexes, graph)."""
+"""Tests for export CLI commands (markdown, indexes, graph, dashboard)."""
 
 from __future__ import annotations
 
@@ -15,12 +15,12 @@ from ztlctl.cli import cli
 class TestExportMarkdownCommand:
     def test_export_markdown(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         output = tmp_path / "md-export"
-        result = cli_runner.invoke(cli, ["export", "markdown", "--output", str(output)])
+        result = cli_runner.invoke(cli, ["export", "markdown", str(output)])
         assert result.exit_code == 0
 
     def test_export_markdown_json(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         output = tmp_path / "md-json"
-        result = cli_runner.invoke(cli, ["--json", "export", "markdown", "--output", str(output)])
+        result = cli_runner.invoke(cli, ["--json", "export", "markdown", str(output)])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
@@ -39,7 +39,7 @@ class TestExportMarkdownCommand:
 
         result = cli_runner.invoke(
             cli,
-            ["--json", "export", "markdown", "--type", "note", "--output", str(output)],
+            ["--json", "export", "markdown", str(output), "--type", "note"],
         )
 
         assert result.exit_code == 0
@@ -51,12 +51,12 @@ class TestExportMarkdownCommand:
 class TestExportIndexesCommand:
     def test_export_indexes(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         output = tmp_path / "idx-export"
-        result = cli_runner.invoke(cli, ["export", "indexes", "--output", str(output)])
+        result = cli_runner.invoke(cli, ["export", "indexes", str(output)])
         assert result.exit_code == 0
 
     def test_export_indexes_json(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         output = tmp_path / "idx-json"
-        result = cli_runner.invoke(cli, ["--json", "export", "indexes", "--output", str(output)])
+        result = cli_runner.invoke(cli, ["--json", "export", "indexes", str(output)])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
@@ -64,7 +64,7 @@ class TestExportIndexesCommand:
 
     def test_export_indexes_creates_index_file(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         output = tmp_path / "idx-files"
-        cli_runner.invoke(cli, ["export", "indexes", "--output", str(output)])
+        cli_runner.invoke(cli, ["export", "indexes", str(output)])
         assert (Path(output) / "index.md").is_file()
 
     def test_export_indexes_filters_by_type(self, cli_runner: CliRunner, tmp_path: Path) -> None:
@@ -74,7 +74,7 @@ class TestExportIndexesCommand:
 
         result = cli_runner.invoke(
             cli,
-            ["--json", "export", "indexes", "--type", "note", "--output", str(output)],
+            ["--json", "export", "indexes", str(output), "--type", "note"],
         )
 
         assert result.exit_code == 0
@@ -139,7 +139,7 @@ class TestExportDashboardCommand:
         output = tmp_path / "dashboard-json"
         result = cli_runner.invoke(
             cli,
-            ["--json", "export", "dashboard", "--viewer", "obsidian", "--output", str(output)],
+            ["--json", "export", "dashboard", str(output), "--viewer", "obsidian"],
         )
 
         assert result.exit_code == 0, result.output
@@ -154,7 +154,7 @@ class TestExportDashboardCommand:
         output = tmp_path / "dashboard-none"
         result = cli_runner.invoke(
             cli,
-            ["export", "dashboard", "--viewer", "none", "--output", str(output)],
+            ["export", "dashboard", str(output), "--viewer", "none"],
         )
 
         assert result.exit_code == 0, result.output
@@ -166,7 +166,7 @@ class TestExportDashboardCommand:
         output = tmp_path / "dashboard-alias"
         result = cli_runner.invoke(
             cli,
-            ["--json", "export", "dashboard", "--viewer", "vanilla", "--output", str(output)],
+            ["--json", "export", "dashboard", str(output), "--viewer", "vanilla"],
         )
 
         assert result.exit_code == 0, result.output

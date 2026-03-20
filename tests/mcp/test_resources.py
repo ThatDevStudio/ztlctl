@@ -192,11 +192,10 @@ class TestAgentReference:
     def test_tool_categories_grouped(self, vault: Vault):
         result = agent_reference_impl(vault)
         cats = result["tool_categories"]
-        assert "discovery" in cats
+        # Categories reflect ActionRegistry (59 actions across 13 categories)
         assert "creation" in cats
         assert "query" in cats
         assert "graph" in cats
-        assert "analysis" in cats
         assert "session" in cats
         assert "lifecycle" in cats
 

@@ -120,13 +120,13 @@ You are capturing knowledge into the vault.
 
 def vault_orientation_impl(vault: Any) -> str:
     """Generate onboarding instructions for an agent entering the vault."""
+    from ztlctl.mcp.generator import tool_catalog
     from ztlctl.mcp.resources import (
         overview_impl,
         resource_catalog,
         self_identity_impl,
         self_methodology_impl,
     )
-    from ztlctl.mcp.tools import tool_catalog
 
     identity = self_identity_impl(vault)
     methodology = self_methodology_impl(vault)

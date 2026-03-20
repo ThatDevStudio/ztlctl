@@ -31,13 +31,13 @@
           "template": "claude/.claude/commands/ztlctl-session.md.jinja",
           "output": ".claude/commands/ztlctl-session.md",
           "resources": ["ztlctl://context"],
-          "tools": ["session_status", "create_log", "list_items", "work_queue"]
+          "tools": ["status", "start", "list_items", "work_queue"]
         },
         {
           "template": "claude/.claude/commands/ztlctl-capture.md.jinja",
           "output": ".claude/commands/ztlctl-capture.md",
           "resources": ["ztlctl://capture/spec"],
-          "tools": ["search", "list_tags", "list_source_providers", "ingest_source", "create_note", "create_reference", "create_task", "garden_seed", "reweave"],
+          "tools": ["search", "list_tags", "list_providers", "ingest_text", "ingest_url", "create_note", "create_reference", "create_task", "reweave"],
           "prompts": ["capture_web_source", "capture_multimodal_source"]
         },
         {
@@ -50,37 +50,37 @@
         {
           "template": "claude/.claude/commands/ztlctl-seed.md.jinja",
           "output": ".claude/commands/ztlctl-seed.md",
-          "tools": ["garden_seed", "session_status"]
+          "tools": ["create_note", "status"]
         },
         {
           "template": "claude/.claude/agents/knowledge-synthesizer.md.jinja",
           "output": ".claude/agents/knowledge-synthesizer.md",
-          "tools": ["search", "get_document", "get_related", "topic_packet", "draft_from_topic", "graph_themes", "graph_path", "list_items", "create_note", "reweave"],
+          "tools": ["search", "get", "related", "topic_packet", "draft_from_topic", "themes", "path", "list_items", "create_note", "reweave"],
           "prompts": ["topic_learn", "topic_decision"]
         },
         {
           "template": "claude/.claude/agents/vault-analyst.md.jinja",
           "output": ".claude/agents/vault-analyst.md",
           "resources": ["ztlctl://review/dashboard", "ztlctl://decision-queue"],
-          "tools": ["vault_review", "graph_bridges", "decision_support", "work_queue", "topic_packet", "draft_from_topic"],
+          "tools": ["vault_review", "bridges", "decision_support", "work_queue", "topic_packet", "draft_from_topic"],
           "prompts": ["topic_review"]
         },
         {
           "template": "claude/.claude/skills/vault-methodology/SKILL.md.jinja",
           "output": ".claude/skills/vault-methodology/SKILL.md",
           "resources": ["ztlctl://capture/spec"],
-          "tools": ["create_note", "create_reference", "create_task", "garden_seed", "ingest_source", "list_source_providers", "list_tags", "reweave"],
+          "tools": ["create_note", "create_reference", "create_task", "ingest_text", "ingest_url", "list_providers", "list_tags", "reweave"],
           "prompts": ["capture_web_source", "capture_multimodal_source"]
         },
         {
           "template": "claude/.claude/skills/session-workflow/SKILL.md.jinja",
           "output": ".claude/skills/session-workflow/SKILL.md",
-          "tools": ["session_status", "create_log", "work_queue", "session_close", "graph_themes", "graph_gaps", "graph_bridges"]
+          "tools": ["status", "start", "work_queue", "close", "themes", "gaps", "bridges"]
         },
         {
           "template": "claude/.claude/skills/graph-intelligence/SKILL.md.jinja",
           "output": ".claude/skills/graph-intelligence/SKILL.md",
-          "tools": ["graph_themes", "graph_rank", "graph_path", "graph_gaps", "graph_bridges", "get_related"]
+          "tools": ["themes", "rank", "path", "gaps", "bridges", "related"]
         }
       ]
     },
@@ -90,25 +90,25 @@
           "template": "codex/AGENTS.md.jinja",
           "output": "AGENTS.md",
           "resources": ["ztlctl://review/dashboard", "ztlctl://garden/backlog", "ztlctl://decision-queue", "ztlctl://capture/spec"],
-          "tools": ["session_status", "create_log", "session_close", "create_note", "create_reference", "create_task", "garden_seed", "ingest_source", "list_source_providers", "reweave", "vault_review", "list_tags", "search", "get_document", "get_related", "topic_packet", "draft_from_topic", "graph_themes", "graph_rank", "graph_path", "graph_gaps", "graph_bridges", "decision_support", "work_queue"],
+          "tools": ["status", "start", "close", "create_note", "create_reference", "create_task", "ingest_text", "ingest_url", "list_providers", "reweave", "vault_review", "list_tags", "search", "get", "related", "topic_packet", "draft_from_topic", "themes", "rank", "path", "gaps", "bridges", "decision_support", "work_queue"],
           "prompts": ["topic_learn", "topic_review", "topic_decision", "capture_web_source", "capture_multimodal_source"]
         },
         {
           "template": "codex/.ztlctl/codex/skills/methodology.md.jinja",
           "output": ".ztlctl/codex/skills/methodology.md",
           "resources": ["ztlctl://capture/spec"],
-          "tools": ["create_note", "create_reference", "create_task", "garden_seed", "ingest_source", "list_source_providers", "list_tags", "reweave"],
+          "tools": ["create_note", "create_reference", "create_task", "ingest_text", "ingest_url", "list_providers", "list_tags", "reweave"],
           "prompts": ["capture_web_source", "capture_multimodal_source"]
         },
         {
           "template": "codex/.ztlctl/codex/skills/session-workflow.md.jinja",
           "output": ".ztlctl/codex/skills/session-workflow.md",
-          "tools": ["session_status", "create_log", "work_queue", "session_close", "graph_themes", "graph_gaps", "graph_bridges"]
+          "tools": ["status", "start", "work_queue", "close", "themes", "gaps", "bridges"]
         },
         {
           "template": "codex/.ztlctl/codex/skills/graph-intelligence.md.jinja",
           "output": ".ztlctl/codex/skills/graph-intelligence.md",
-          "tools": ["graph_themes", "graph_rank", "graph_path", "graph_gaps", "graph_bridges", "get_related"]
+          "tools": ["themes", "rank", "path", "gaps", "bridges", "related"]
         }
       ]
     }

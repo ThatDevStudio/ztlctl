@@ -20,12 +20,20 @@ def _tool_payload(result: Any) -> dict[str, Any]:
         return structured
 
     content = getattr(result, "content", [])
+    is_error = getattr(result, "isError", False)
+    texts = [getattr(c, "text", "") for c in content] if content else []
+
+    if is_error:
+        raise AssertionError(f"Tool returned error: {texts!r}")
+
     if content:
         text = getattr(content[0], "text", None)
-        if isinstance(text, str):
+        if isinstance(text, str) and text:
             return json.loads(text)
 
-    raise AssertionError("Tool result did not expose structured or text content")
+    raise AssertionError(
+        f"Tool result did not expose valid content. isError={is_error}, content_texts={texts!r}"
+    )
 
 
 def _resource_text(result: Any) -> str:
@@ -63,7 +71,7 @@ async def _exercise_stdio_server(config_path: Path) -> None:
 
             tools = await session.list_tools()
             tool_names = {tool.name for tool in tools.tools}
-            assert {"create_note", "get_document", "discover_tools"} <= tool_names
+            assert {"create_note", "get", "search"} <= tool_names
 
             resources = await session.list_resources()
             resource_uris = {str(resource.uri) for resource in resources.resources}
@@ -80,7 +88,7 @@ async def _exercise_stdio_server(config_path: Path) -> None:
             created_id = create_payload["data"]["id"]
 
             get_result = await session.call_tool(
-                "get_document",
+                "get",
                 arguments={"content_id": created_id},
             )
             get_payload = _tool_payload(get_result)

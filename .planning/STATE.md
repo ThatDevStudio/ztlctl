@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-action-registry/02-04-PLAN.md
-last_updated: "2026-03-19T21:53:54.164Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-20T01:09:49.634Z"
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  completed_phases: 4
+  total_plans: 13
+  completed_plans: 13
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 02 — action-registry
+**Current focus:** Phase 04 — cli-surface-generation
 
 ## Current Position
 
-Phase: 02 (action-registry) — EXECUTING
-Plan: 2 of 4
+Phase: 04 (cli-surface-generation) — COMPLETE
+Plan: 2 of 2 (all plans complete)
 
 ## Performance Metrics
 
@@ -52,6 +52,10 @@ Plan: 2 of 4
 | Phase 02-action-registry P02 | 3 | 2 tasks | 12 files |
 | Phase 02-action-registry P03 | 4 | 2 tasks | 11 files |
 | Phase 02-action-registry P04 | 10 | 3 tasks | 5 files |
+| Phase 03-mcp-surface-generation P01 | 15 | 2 tasks | 16 files |
+| Phase 03-mcp-surface-generation P02 | 4 | 2 tasks | 3 files |
+| Phase 04-cli-surface-generation P01 | 9 | 2 tasks | 5 files |
+| Phase 04-cli-surface-generation P02 | 90 | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -82,6 +86,18 @@ Recent decisions affecting current work:
 - [Phase 02-action-registry]: InitController named init_ctrl.py to avoid shadowing __init__.py
 - [Phase 02-action-registry]: Factory lambda handlers: lambda vault, **kw: Controller(vault).method(**kw) for stateless per-call controller construction
 - [Phase 02-action-registry]: 59 ActionDefinitions registered (plan required >=45) — all 13 categories covered at module load time
+- [Phase 03-mcp-surface-generation]: McpResponse.warnings is list[str] | None (not list[str]) so model_dump(exclude_none=True) omits empty warnings — matching old _to_mcp_response() behavior
+- [Phase 03-mcp-surface-generation]: tool_catalog()/common_error_recovery() compatibility shims added to generator.py for callers previously importing from mcp/tools
+- [Phase 03-mcp-surface-generation]: manifest.json tool names updated to ActionRegistry names (session_status->status, create_log->start, graph_themes->themes, etc.)
+- [Phase 03-mcp-surface-generation]: PREVIOUSLY_MISSING test set uses actual registry names (apply, check_pending, stamp_current, check) not plan-doc names — corrected at test time
+- [Phase 03-mcp-surface-generation]: Budget-aware MCP tools: BUDGET_AWARE_ACTIONS frozenset gates injection; _apply_token_budget() truncates first list-valued field iteratively from tail
+- [Phase 04-cli-surface-generation]: update action marked custom_presentation=True — keeps hand-written update.py which decomposes changes dict into individual flags
+- [Phase 04-cli-surface-generation]: reweave/prune/undo grouped under cli_group="reweave" subgroup; archive/supersede stay top-level (cli_group=None)
+- [Phase 04-cli-surface-generation]: @click.pass_obj callback uses positional-only app param (def callback(app, /, **kwargs)) to satisfy mypy strict arg-type check
+- [Phase 04-cli-surface-generation P02]: ActionParam.cli_name field cleanly separates CLI flag name from Python kwarg name — generator uses param_decls=[option_name, p.name] to map --type -> content_type kwarg
+- [Phase 04-cli-surface-generation P02]: choices removed from export_dashboard viewer param — service layer normalizes 'vanilla' alias; CLI choices restriction was too strict
+- [Phase 04-cli-surface-generation P02]: _render_export content-key detection prints raw DOT/JSON to stdout enabling shell piping for export graph
+- [Phase 04-cli-surface-generation P02]: Harvest-and-reattach pattern for init group — collect generated subcommands before overwrite, re-attach to wizard group
 
 ### Pending Todos
 
@@ -93,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T21:49:39.175Z
-Stopped at: Completed 02-action-registry/02-04-PLAN.md
-Resume file: None
+Last session: 2026-03-20T01:05:00.000Z
+Stopped at: Completed 04-02-PLAN.md
+Resume file: .planning/phases/04-cli-surface-generation/04-02-SUMMARY.md

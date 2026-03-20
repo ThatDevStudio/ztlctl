@@ -14,8 +14,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Core Hardening** - Stabilize data model, close tech debt, fix performance, formalize note types, add vault schema versioning
 - [ ] **Phase 2: Action Registry** - Build the define-once ActionDefinition/ActionRegistry infrastructure as internal abstraction
-- [ ] **Phase 3: MCP Surface Generation** - Auto-generate MCP tools from ActionRegistry, achieving full CLI/MCP parity
-- [ ] **Phase 4: CLI Surface Generation** - Auto-generate CLI commands from ActionRegistry, eliminating hand-crafted command duplication
+- [x] **Phase 3: MCP Surface Generation** - Auto-generate MCP tools from ActionRegistry, achieving full CLI/MCP parity (completed 2026-03-19)
+- [x] **Phase 4: CLI Surface Generation** - Auto-generate CLI commands from ActionRegistry, eliminating hand-crafted command duplication (completed 2026-03-20)
 - [ ] **Phase 5: Plugin Formalization** - Publish stable plugin API with versioning, pre-hooks, config, custom note types
 - [ ] **Phase 6: Agentic Integration & Security** - Agent orchestration recipes, progressive tool disclosure, plugin security hardening
 
@@ -65,11 +65,11 @@ Plans:
   2. Hand-written `register_tools()` code (~280 lines) is replaced by ActionRegistry-driven generation
   3. MCP tools that return large result sets (list, search, vault_review) accept a token-budget parameter and truncate responses accordingly
   4. A parity test suite verifies that every CLI command has a corresponding MCP tool with equivalent parameters
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — McpResponse model + MCP tool generator + server.py wiring + tools.py deletion (ACTN-03)
+- [ ] 03-02-PLAN.md — Token-budget truncation for high-volume tools + parity test suite (AGNT-02, PLUG-04)
 
 ### Phase 4: CLI Surface Generation
 **Goal**: CLI commands are auto-generated from the ActionRegistry, eliminating hand-crafted Click command duplication while preserving interactive and complex command behaviors
@@ -80,11 +80,11 @@ Plans:
   2. Complex commands (batch, init wizard, serve, interactive create) retain hand-written implementations via documented escape hatch pattern
   3. Generated CLI commands support --verbose, --json, progressive disclosure, and exit codes identically to hand-written predecessors
   4. The parity test suite from Phase 3 continues to pass, confirming CLI/MCP equivalence is maintained by construction
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — ActionDefinition CLI metadata + CLI command generator module + unit tests (ACTN-04, ACTN-05)
+- [ ] 04-02-PLAN.md — Generator wiring, command file migration, dynamic catalog, CLI parity tests (ACTN-04, ACTN-05)
 
 ### Phase 5: Plugin Formalization
 **Goal**: Third-party plugin authors have a stable, versioned API to register custom note types, actions, hooks, and configuration
@@ -122,13 +122,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Hardening | 4/5 | In Progress|  |
 | 2. Action Registry | 3/4 | In Progress|  |
-| 3. MCP Surface Generation | 0/2 | Not started | - |
-| 4. CLI Surface Generation | 0/2 | Not started | - |
+| 3. MCP Surface Generation | 2/2 | Complete   | 2026-03-19 |
+| 4. CLI Surface Generation | 2/2 | Complete   | 2026-03-20 |
 | 5. Plugin Formalization | 0/3 | Not started | - |
 | 6. Agentic Integration & Security | 0/2 | Not started | - |

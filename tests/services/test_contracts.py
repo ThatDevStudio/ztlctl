@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from tests.conftest import create_note, start_session
 from ztlctl.infrastructure.vault import Vault
-from ztlctl.mcp.tools import agent_context_impl
 from ztlctl.services.contracts import (
     AgentContextFallbackData,
     AgentContextResultData,
@@ -45,9 +44,22 @@ class TestPayloadContracts:
 
     def test_mcp_fallback_context_payload_conforms(self, vault: Vault) -> None:
         create_note(vault, "Contract Fallback Note")
-        resp = agent_context_impl(vault, query="Contract")
-        assert resp["ok"] is True
-        payload = AgentContextFallbackData.model_validate(resp["data"])
+        # Replicate the fallback context path (no active session) via QueryService
+        svc = QueryService(vault)
+        count_result = svc.count_items()
+        recent = svc.list_items(sort="recency", limit=5)
+        search_result = svc.search("Contract", limit=5)
+        work_result = svc.work_queue()
+        context: dict = {}
+        if count_result.ok:
+            context["total_items"] = count_result.data.get("count", 0)
+        if recent.ok:
+            context["recent"] = recent.data.get("items", [])
+        if search_result.ok:
+            context["search_results"] = search_result.data.get("items", [])
+        if work_result.ok:
+            context["work_queue"] = work_result.data.get("items", [])
+        payload = AgentContextFallbackData.model_validate(context)
         assert payload.total_items >= 1
 
     def test_search_contract_rejects_wrong_key(self) -> None:

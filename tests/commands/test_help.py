@@ -39,9 +39,9 @@ HELP_COMMANDS: list[tuple[list[str], list[str]]] = [
     (["graph", "bridges", "--help"], ["--top"]),
     # -- export group --
     (["export", "--help"], ["markdown", "indexes", "graph"]),
-    (["export", "markdown", "--help"], ["--output"]),
-    (["export", "indexes", "--help"], ["--output"]),
-    (["export", "graph", "--help"], ["--format", "--output"]),
+    (["export", "markdown", "--help"], ["OUTPUT_DIR"]),
+    (["export", "indexes", "--help"], ["OUTPUT_DIR"]),
+    (["export", "graph", "--help"], ["--format"]),
     # -- workflow group --
     (["workflow", "--help"], ["init", "update", "export", "validate"]),
     (
@@ -54,46 +54,51 @@ HELP_COMMANDS: list[tuple[list[str], list[str]]] = [
     ),
     (["workflow", "export", "--help"], ["--client"]),
     (["workflow", "validate", "--help"], ["--client"]),
-    # -- check --
-    (["check", "--help"], ["--fix", "--rebuild", "--rollback", "--level"]),
-    # -- reweave --
-    (["reweave", "--help"], ["Reweave links", "--undo-id", "--auto-link-related"]),
+    # -- check group --
+    (["check", "--help"], ["check", "fix", "rebuild", "rollback"]),
+    (["check", "check", "--help"], ["--min-severity"]),
+    (["check", "fix", "--help"], ["--level"]),
+    (["check", "rebuild", "--help"], []),
+    (["check", "rollback", "--help"], []),
+    # -- reweave group --
+    (["reweave", "--help"], ["run", "prune", "undo"]),
+    (["reweave", "run", "--help"], ["--dry-run", "--content-id"]),
+    (["reweave", "prune", "--help"], ["--dry-run"]),
+    (["reweave", "undo", "--help"], ["--reweave-id"]),
     # -- update --
     (["update", "--help"], ["--title", "--status", "--tags", "--topic", "--body", "--maturity"]),
     # -- archive --
     (["archive", "--help"], ["CONTENT_ID"]),
     # -- supersede --
     (["supersede", "--help"], ["OLD_ID", "NEW_ID"]),
-    # -- init --
+    # -- init group --
     (
         ["init", "--help"],
         ["--name", "--profile", "--client", "--tone", "--topics", "--no-workflow"],
     ),
+    (["init", "regenerate", "--help"], ["Re-render"]),
     # -- garden --
     (["garden", "--help"], ["seed"]),
     (["garden", "seed", "--help"], ["--tags", "--topic"]),
     # -- vector group --
-    (["vector", "--help"], ["status", "reindex"]),
-    (["vector", "status", "--help"], []),
+    (["vector", "--help"], ["reindex"]),
     (["vector", "reindex", "--help"], []),
     # -- serve --
     (["serve", "--help"], ["MCP server"]),
-    # -- extract --
-    (["extract", "--help"], ["SESSION_ID", "--title"]),
-    # -- upgrade --
-    (["upgrade", "--help"], ["--check"]),
-    # -- agent group --
-    (["agent", "--help"], ["session", "regenerate"]),
-    (["agent", "regenerate", "--help"], ["Re-render"]),
-    (["agent", "session", "--help"], ["start", "close", "reopen"]),
-    # -- agent session subcommands --
-    (["agent", "session", "cost", "--help"], []),
-    (["agent", "session", "log", "--help"], []),
-    (["agent", "context", "--help"], []),
-    (["agent", "brief", "--help"], []),
-    # -- agent help surfaces --
-    (["agent", "--help"], ["context", "brief", "session"]),
-    (["agent", "session", "--help"], ["start", "close", "reopen", "cost", "log"]),
+    # -- session group --
+    (["session", "--help"], ["start", "close", "reopen", "context", "brief"]),
+    (["session", "start", "--help"], ["TOPIC"]),
+    (["session", "close", "--help"], ["--summary"]),
+    (["session", "reopen", "--help"], ["SESSION_ID"]),
+    (["session", "cost", "--help"], []),
+    (["session", "log", "--help"], []),
+    (["session", "context", "--help"], []),
+    (["session", "brief", "--help"], []),
+    (["session", "extract", "--help"], ["SESSION_ID"]),
+    # -- upgrade group --
+    (["upgrade", "--help"], ["apply", "check", "stamp"]),
+    (["upgrade", "apply", "--help"], []),
+    (["upgrade", "check", "--help"], []),
 ]
 
 

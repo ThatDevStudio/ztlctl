@@ -16,7 +16,7 @@ class TestInitCommandNonInteractive:
     def test_init_basic(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--no-interact", "init", str(tmp_path), "--name", "test-vault"],
+            ["--no-interact", "init", "--path", str(tmp_path), "--name", "test-vault"],
         )
         assert result.exit_code == 0
         assert "init_vault" in result.output
@@ -24,7 +24,7 @@ class TestInitCommandNonInteractive:
     def test_init_json_output(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--json", "--no-interact", "init", str(tmp_path), "--name", "json-vault"],
+            ["--json", "--no-interact", "init", "--path", str(tmp_path), "--name", "json-vault"],
         )
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -39,6 +39,7 @@ class TestInitCommandNonInteractive:
                 "--json",
                 "--no-interact",
                 "init",
+                "--path",
                 str(tmp_path),
                 "--name",
                 "full-vault",
@@ -66,6 +67,7 @@ class TestInitCommandNonInteractive:
                 "--json",
                 "--no-interact",
                 "init",
+                "--path",
                 str(tmp_path),
                 "--name",
                 "nowf",
@@ -79,18 +81,18 @@ class TestInitCommandNonInteractive:
     def test_init_existing_vault_fails(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         cli_runner.invoke(
             cli,
-            ["--no-interact", "init", str(tmp_path), "--name", "first"],
+            ["--no-interact", "init", "--path", str(tmp_path), "--name", "first"],
         )
         result = cli_runner.invoke(
             cli,
-            ["--no-interact", "init", str(tmp_path), "--name", "second"],
+            ["--no-interact", "init", "--path", str(tmp_path), "--name", "second"],
         )
         assert result.exit_code == 1
 
     def test_init_defaults_without_flags(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--json", "--no-interact", "init", str(tmp_path), "--name", "defaults"],
+            ["--json", "--no-interact", "init", "--path", str(tmp_path), "--name", "defaults"],
         )
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -107,6 +109,7 @@ class TestInitCommandNonInteractive:
                 "--json",
                 "--no-interact",
                 "init",
+                "--path",
                 str(tmp_path),
                 "--name",
                 "alias-vault",
@@ -124,7 +127,7 @@ class TestInitCommandNonInteractive:
     def test_init_creates_directories(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         cli_runner.invoke(
             cli,
-            ["--no-interact", "init", str(tmp_path), "--name", "dirs"],
+            ["--no-interact", "init", "--path", str(tmp_path), "--name", "dirs"],
         )
         assert (tmp_path / ".ztlctl").is_dir()
         assert (tmp_path / "self").is_dir()
@@ -139,6 +142,7 @@ class TestInitCommandNonInteractive:
                 "--json",
                 "--no-interact",
                 "init",
+                "--path",
                 str(tmp_path),
                 "--name",
                 "obsidian-json",
@@ -161,6 +165,7 @@ class TestInitCommandNonInteractive:
             [
                 "--no-interact",
                 "init",
+                "--path",
                 str(tmp_path),
                 "--name",
                 "obsidian-output",
@@ -191,7 +196,7 @@ class TestInitCommandInteractive:
     def test_init_interactive_prompts(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--json", "init", str(tmp_path)],
+            ["--json", "init", "--path", str(tmp_path)],
             input="my-vault\ncore\nresearch-partner\nai,ml\n",
         )
         assert result.exit_code == 0
@@ -203,7 +208,7 @@ class TestInitCommandInteractive:
         # Press enter for all defaults
         result = cli_runner.invoke(
             cli,
-            ["--json", "init", str(tmp_path)],
+            ["--json", "init", "--path", str(tmp_path)],
             input="\n\n\n\n",
         )
         assert result.exit_code == 0
@@ -217,7 +222,16 @@ class TestInitCommandInteractive:
     ) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--json", "init", str(tmp_path), "--name", "partial", "--profile", "core"],
+            [
+                "--json",
+                "init",
+                "--path",
+                str(tmp_path),
+                "--name",
+                "partial",
+                "--profile",
+                "core",
+            ],
             input="assistant\nweb\n",
         )
         assert result.exit_code == 0
@@ -230,7 +244,7 @@ class TestInitCommandInteractive:
     def test_init_empty_topics_interactive(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         result = cli_runner.invoke(
             cli,
-            ["--json", "init", str(tmp_path)],
+            ["--json", "init", "--path", str(tmp_path)],
             input="empty-topics\ncore\nminimal\n\n",
         )
         assert result.exit_code == 0

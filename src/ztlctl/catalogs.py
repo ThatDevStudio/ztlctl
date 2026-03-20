@@ -76,46 +76,53 @@ class WorkflowAssetManifest(TypedDict):
     clients: dict[str, WorkflowAssetClientSpec]
 
 
-_CLI_COMMAND_CATALOG: tuple[CliCommandCatalogEntry, ...] = (
-    {"name": "agent", "kind": "group", "summary": "Manage sessions, context, and agent workflows."},
-    {"name": "archive", "kind": "command", "summary": "Archive a content item by ID."},
-    {"name": "check", "kind": "command", "summary": "Check vault integrity and repair issues."},
-    {"name": "create", "kind": "group", "summary": "Create notes, references, and tasks."},
-    {"name": "export", "kind": "group", "summary": "Export vault content and dashboards."},
-    {
-        "name": "extract",
-        "kind": "command",
-        "summary": "Extract a decision note from a session log.",
-    },
-    {"name": "garden", "kind": "group", "summary": "Cultivate knowledge with the garden persona."},
-    {"name": "graph", "kind": "group", "summary": "Traverse and analyze the knowledge graph."},
-    {
-        "name": "ingest",
-        "kind": "group",
-        "summary": "Ingest text and source material into the vault.",
-    },
-    {"name": "init", "kind": "command", "summary": "Initialize a new ztlctl vault."},
-    {"name": "query", "kind": "group", "summary": "Search, list, and query vault content."},
-    {"name": "reweave", "kind": "command", "summary": "Densify the knowledge graph with links."},
-    {"name": "serve", "kind": "command", "summary": "Start the MCP server."},
-    {"name": "supersede", "kind": "command", "summary": "Supersede an accepted decision."},
-    {"name": "update", "kind": "command", "summary": "Update content metadata or body."},
-    {"name": "upgrade", "kind": "command", "summary": "Run pending database migrations."},
-    {"name": "vector", "kind": "group", "summary": "Manage semantic search indexing."},
-    {"name": "workflow", "kind": "group", "summary": "Manage workflow templates and exports."},
-)
-
-
 def cli_command_catalog() -> tuple[CliCommandCatalogEntry, ...]:
-    """Return the core CLI command catalog."""
-    return _CLI_COMMAND_CATALOG
+    """Return the core CLI command catalog, derived from ActionRegistry."""
+    import ztlctl.actions  # noqa: F401 — ensure registry populated
+    from ztlctl.actions.registry import get_action_registry
+
+    registry = get_action_registry()
+    seen_groups: set[str] = set()
+    entries: list[CliCommandCatalogEntry] = []
+
+    for action in registry.list_actions():
+        if action.cli_group and action.cli_group not in seen_groups:
+            seen_groups.add(action.cli_group)
+            entries.append(
+                {
+                    "name": action.cli_group,
+                    "kind": "group",
+                    "summary": action.description,  # First action in group
+                }
+            )
+        elif action.cli_group is None and not action.custom_presentation:
+            entries.append(
+                {
+                    "name": action.name.replace("_", "-"),
+                    "kind": "command",
+                    "summary": action.description,
+                }
+            )
+
+    # Add custom_presentation entries that don't come from registry iteration
+    for name, kind, summary in [
+        ("garden", "group", "Cultivate knowledge with the garden persona."),
+        ("init", "command", "Initialize a new ztlctl vault."),
+        ("serve", "command", "Start the MCP server."),
+        ("update", "command", "Update content metadata or body."),
+        ("workflow", "group", "Manage workflow templates and exports."),
+    ]:
+        if name not in seen_groups and not any(e["name"] == name for e in entries):
+            entries.append({"name": name, "kind": kind, "summary": summary})  # type: ignore[typeddict-item]
+
+    return tuple(sorted(entries, key=lambda e: e["name"]))
 
 
 def mcp_tool_catalog(vault: object | None = None) -> tuple[ToolCatalogEntry, ...]:
     """Return the authoritative MCP tool catalog."""
-    from ztlctl.mcp.tools import tool_catalog
+    from ztlctl.mcp.generator import tool_catalog
 
-    return tool_catalog(vault)
+    return tool_catalog(vault)  # type: ignore[return-value]
 
 
 def mcp_resource_catalog(vault: object | None = None) -> tuple[ResourceCatalogEntry, ...]:

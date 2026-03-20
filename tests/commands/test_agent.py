@@ -1,4 +1,4 @@
-"""Tests for agent CLI commands (regenerate)."""
+"""Tests for init regenerate CLI command (previously agent regenerate)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from ztlctl.cli import cli
 
 @pytest.mark.usefixtures("_isolated_vault")
 class TestAgentRegenerate:
-    """Tests for `agent regenerate` subcommand."""
+    """Tests for `init regenerate` subcommand."""
 
     def test_regenerate_succeeds(self, cli_runner: CliRunner) -> None:
         init_result = cli_runner.invoke(
@@ -32,7 +32,7 @@ class TestAgentRegenerate:
         )
         assert init_result.exit_code == 0
 
-        result = cli_runner.invoke(cli, ["agent", "regenerate"])
+        result = cli_runner.invoke(cli, ["init", "regenerate"])
         assert result.exit_code == 0
         assert "regenerate_self" in result.output
 
@@ -54,7 +54,7 @@ class TestAgentRegenerate:
         )
         assert init_result.exit_code == 0
 
-        result = cli_runner.invoke(cli, ["--json", "agent", "regenerate"])
+        result = cli_runner.invoke(cli, ["--json", "init", "regenerate"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
@@ -68,7 +68,7 @@ class TestAgentRegenerateNoConfig:
     ) -> None:
         monkeypatch.chdir(tmp_path)
 
-        result = cli_runner.invoke(cli, ["--json", "agent", "regenerate"])
+        result = cli_runner.invoke(cli, ["--json", "init", "regenerate"])
 
         assert result.exit_code == 1
         data = json.loads(result.output)

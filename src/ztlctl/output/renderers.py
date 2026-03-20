@@ -691,9 +691,18 @@ def _render_init(result: ServiceResult, console: Console, *, verbose: bool = Fal
 
 
 def _render_export(result: ServiceResult, console: Console, *, verbose: bool = False) -> None:
-    """Render export results with output path and counts."""
-    _status_line(console, result)
+    """Render export results with output path and counts.
+
+    For ``export_graph`` results that include raw ``content`` (no output_file
+    was provided), the content is printed directly to stdout so that callers
+    can pipe it — matching the behaviour of the old hand-written command.
+    """
     d = result.data
+    # Graph content: print raw to stdout and return — no status decoration.
+    if "content" in d:
+        console.print(d["content"], highlight=False, markup=False)
+        return
+    _status_line(console, result)
     for key in ("output_dir", "output_file", "format"):
         if key in d:
             _field(console, key, d[key])

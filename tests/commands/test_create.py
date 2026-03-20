@@ -127,63 +127,51 @@ class TestCreateTaskCommand:
 
 
 @pytest.mark.usefixtures("_isolated_vault")
-class TestCreateInteractivePrompts:
-    """Interactive prompts fire when --no-interact and --json are absent.
+class TestCreateNonInteractive:
+    """Generated create commands are non-interactive; options are passed via flags."""
 
-    ``_is_interactive`` checks ``sys.stdin.isatty()`` which returns False
-    in CliRunner, so prompt-testing methods monkeypatch it to return True.
-    Skip-prompt tests don't patch it (naturally non-interactive in tests).
-    """
-
-    def test_note_tags_prompt(self, cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Providing tags via stdin when no --tags flag is given."""
-        monkeypatch.setattr("ztlctl.commands.create._is_interactive", lambda _app: True)
+    def test_note_with_tags_flag(self, cli_runner: CliRunner) -> None:
+        """Tags passed via --tags flag."""
         result = cli_runner.invoke(
             cli,
-            ["create", "note", "Prompted Tags"],
-            input="ai/ml, dev/ops\n\n",  # tags prompt, topic prompt
+            ["--json", "create", "note", "Tagged Note", "--tags", "ai/ml", "--tags", "dev/ops"],
         )
         assert result.exit_code == 0
-        assert "OK" in result.output
+        data = json.loads(result.output)
+        assert data["ok"] is True
 
-    def test_note_topic_prompt(
-        self, cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Providing topic via stdin."""
-        monkeypatch.setattr("ztlctl.commands.create._is_interactive", lambda _app: True)
+    def test_note_with_topic_flag(self, cli_runner: CliRunner) -> None:
+        """Topic passed via --topic flag."""
         result = cli_runner.invoke(
             cli,
-            ["create", "note", "Topic Prompted"],
-            input="\nmathematics\n",
+            ["--json", "create", "note", "Topic Note", "--topic", "mathematics"],
         )
         assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
 
-    def test_reference_url_prompt(
-        self, cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Providing URL via stdin when no --url flag is given."""
-        monkeypatch.setattr("ztlctl.commands.create._is_interactive", lambda _app: True)
+    def test_reference_with_url_flag(self, cli_runner: CliRunner) -> None:
+        """URL passed via --url flag."""
         result = cli_runner.invoke(
             cli,
-            ["create", "reference", "Ref Prompted"],
-            input="https://example.com\n\n",
+            ["--json", "create", "reference", "Ref", "--url", "https://example.com"],
         )
         assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
 
-    def test_task_priority_prompt(
-        self, cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Providing priority/impact/effort via stdin."""
-        monkeypatch.setattr("ztlctl.commands.create._is_interactive", lambda _app: True)
+    def test_task_with_priority_flag(self, cli_runner: CliRunner) -> None:
+        """Priority passed via --priority flag."""
         result = cli_runner.invoke(
             cli,
-            ["create", "task", "Task Prompted"],
-            input="high\nhigh\nlow\n",
+            ["--json", "create", "task", "Task", "--priority", "high"],
         )
         assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["ok"] is True
 
-    def test_no_interact_skips_prompts(self, cli_runner: CliRunner) -> None:
-        """--no-interact flag prevents prompting (no stdin needed)."""
+    def test_create_note_no_interact(self, cli_runner: CliRunner) -> None:
+        """--no-interact flag works with generated command."""
         result = cli_runner.invoke(
             cli,
             ["--no-interact", "--json", "create", "note", "No Prompt Note"],
@@ -192,8 +180,8 @@ class TestCreateInteractivePrompts:
         data = json.loads(result.output)
         assert data["ok"] is True
 
-    def test_json_mode_skips_prompts(self, cli_runner: CliRunner) -> None:
-        """--json flag prevents prompting (no stdin needed)."""
+    def test_create_task_json_mode(self, cli_runner: CliRunner) -> None:
+        """--json flag works with generated command."""
         result = cli_runner.invoke(
             cli,
             ["--json", "create", "task", "JSON Task"],
@@ -201,15 +189,3 @@ class TestCreateInteractivePrompts:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ok"] is True
-
-    def test_provided_flags_skip_prompt(
-        self, cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Explicit --tags flag skips the tag prompt (only topic prompt fires)."""
-        monkeypatch.setattr("ztlctl.commands.create._is_interactive", lambda _app: True)
-        result = cli_runner.invoke(
-            cli,
-            ["create", "note", "Pre-Tagged", "--tags", "ai/ml"],
-            input="\n",  # Only topic prompt should fire
-        )
-        assert result.exit_code == 0

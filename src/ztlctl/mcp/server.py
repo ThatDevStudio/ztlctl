@@ -47,9 +47,9 @@ def create_server(
 
     from ztlctl.config.settings import ZtlSettings
     from ztlctl.infrastructure.vault import Vault
+    from ztlctl.mcp.generator import generate_tools
     from ztlctl.mcp.prompts import register_prompts
     from ztlctl.mcp.resources import register_resources
-    from ztlctl.mcp.tools import register_tools
 
     settings = ZtlSettings.from_cli(vault_root=vault_root)
     vault = Vault(settings)
@@ -57,7 +57,7 @@ def create_server(
 
     server = _FastMCP("ztlctl", host=host, port=port)
 
-    register_tools(server, vault)
+    generate_tools(server, vault)
     register_resources(server, vault)
     register_prompts(server, vault)
 
