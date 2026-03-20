@@ -1,0 +1,1474 @@
+# Getting Started
+
+# ZettelControl Documentation
+
+**ZettelControl** (`ztlctl`) is a local knowledge operating system for human users and AI agents. It separates agent-assisted capture and synthesis from human-led enrichment so research workflows and garden workflows stay distinct.
+
+ztlctl stores durable notes, references, and tasks as markdown files, indexes them in SQLite, and exposes them through a CLI, MCP server, and generated workflow assets. Sessions and other operational state are internal coordination mechanisms rather than part of the file-first durability contract.
+
+For agent-fetched web pages and multimodal captures, ztlctl persists durable source bundles beside ingested references so topic packets, drafts, and dashboard dossiers can keep citing the same evidence later.
+
+## Getting Started
+
+- [Installation](installation.md) — Install via pip, uv, or Homebrew
+- [Quick Start](quickstart.md) — Your first vault in 9 commands
+- [Tutorial](tutorial.md) — Step-by-step guide to building a knowledge vault
+
+## Understanding ztlctl
+
+- [Core Concepts](concepts.md) — Content types, lifecycle states, vault structure, knowledge graph
+- [Knowledge Paradigms](paradigms.md) — Capture/synthesis and enrichment, mapped to Zettelkasten, second-brain, and garden approaches
+- [Obsidian Starter Kit](obsidian.md) — First-party Obsidian scaffold, plugin preset, and garden layout
+
+## Reference
+
+- [Command Reference](commands.md) — All CLI commands, options, and filters
+- [Configuration](configuration.md) — `ztlctl.toml` settings and environment variables
+- [MCP Server](mcp.md) — Model Context Protocol discovery tools, resources, prompts, and client exports
+
+## For Developers and Agents
+
+- [Agentic Workflows](agentic-workflows.md) — Sessions, context assembly, batch operations, scripting
+- [Development](development.md) — Contributing, architecture, and local setup
+- [Troubleshooting](troubleshooting.md) — Common issues and solutions
+
+
+---
+
+# Installation
+
+## Quick Install
+
+```bash
+pip install ztlctl
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install ztlctl
+```
+
+Or with Homebrew:
+
+```bash
+brew tap ThatDev/ztlctl
+brew install ThatDev/ztlctl/ztlctl
+```
+
+The Homebrew formula installs the base CLI. Optional extras such as MCP support or semantic search are available through `pip` or `uv`, not through Homebrew.
+
+## Optional Extras
+
+### MCP Server Support
+
+For [Model Context Protocol](mcp.md) integration with AI clients like Claude Desktop:
+
+```bash
+pip install ztlctl[mcp]
+```
+
+### Semantic Search
+
+For vector-based similarity search using sentence-transformers:
+
+```bash
+pip install ztlctl[semantic]
+```
+
+### Community Algorithms
+
+For advanced graph algorithms (Leiden community detection):
+
+```bash
+pip install ztlctl[community]
+```
+
+### All Extras
+
+```bash
+pip install ztlctl[mcp,semantic,community]
+```
+
+## Verify Installation
+
+```bash
+ztlctl --version
+```
+
+## Requirements
+
+- **Python 3.13+**
+- SQLite with FTS5 support (included in standard Python builds)
+
+
+---
+
+# Quick Start
+
+Get a knowledge vault running in 10 commands:
+
+```bash
+# 1. Initialize a new vault
+ztlctl init my-vault --topics "python,architecture,devops"
+
+# 2. Enter the vault directory
+cd my-vault
+
+# 3. Start a research session
+ztlctl agent session start "Learning Python async patterns"
+
+# 4. Create notes as you learn
+ztlctl create note "Asyncio Event Loop" --tags "lang/python,concept/concurrency"
+ztlctl create note "Async vs Threading" --tags "lang/python,concept/concurrency"
+
+# 5. Capture a source
+ztlctl create reference "Python asyncio docs" --url "https://docs.python.org/3/library/asyncio.html"
+
+# Or ingest raw source notes when you already have the text locally
+# ztlctl ingest text "Asyncio source notes" --stdin --as reference
+
+# 6. Track tasks that emerge
+ztlctl create task "Refactor API to use async" --priority high --impact high
+
+# 7. Let the graph grow — reweave discovers connections
+ztlctl reweave --auto-link-related
+
+# 8. Search your knowledge
+ztlctl query search "async patterns" --rank-by relevance
+
+# 9. Build a review packet
+ztlctl query packet --topic architecture --mode review
+
+# 10. Close the session when done
+ztlctl agent session close --summary "Mapped async patterns, identified refactoring task"
+```
+
+## Next Steps
+
+- [Tutorial](tutorial.md) — Full step-by-step guide to building a knowledge vault
+- [Core Concepts](concepts.md) — Understand content types, lifecycle states, and the knowledge graph
+- [Knowledge Paradigms](paradigms.md) — Understand capture/synthesis vs enrichment
+- [Command Reference](commands.md) — All available commands and options
+
+
+---
+
+# User Guide
+
+# User Guide
+
+ztlctl's User Guide is for knowledge workers building personal knowledge systems — whether you're a researcher, writer, product manager, or student. These guides show you how to think in zettelkasten, capture ideas, build connections, and retrieve knowledge on demand.
+
+**Not sure where to start?** Try the [Quick Start](../quickstart.md) or the [Tutorial](../tutorial.md).
+
+## In This Guide
+
+| Page | What it covers |
+|------|----------------|
+| [Tutorial](../tutorial.md) | Hands-on walkthrough: create notes, link them, run a session |
+| [Core Concepts](../concepts.md) | Content types, lifecycle states, and vault structure |
+| [Knowledge Paradigms](../paradigms.md) | Second-brain vs knowledge garden — which fits your workflow |
+| [Obsidian Starter Kit](../obsidian.md) | Set up Obsidian as a visual frontend for your vault |
+| [Agentic Workflows](../agentic-workflows.md) | Orchestrate AI agents with ztlctl as their note substrate |
+| [Command Reference](../commands.md) | Every CLI command and flag |
+| [Configuration](../configuration.md) | Config file options, vault settings, and environment variables |
+| [Troubleshooting](../troubleshooting.md) | Common problems and solutions |
+
+
+---
+
+# Tutorial: Building Your Knowledge Vault
+
+This tutorial walks through creating and managing a knowledge vault from capture through enrichment.
+
+## Step 1: Initialize Your Vault
+
+```bash
+ztlctl init research-vault --name "Research Notes" --profile obsidian --topics "ml,systems,papers"
+cd research-vault
+```
+
+This creates the directory structure, config file, SQLite database, generated identity files, and the selected workspace scaffold. With `--profile obsidian`, init also writes the first-party Obsidian starter kit, creates the human-owned `garden/` layer, and prints a checklist for installing the curated Obsidian community plugins. After that scaffold, `.obsidian/` is yours to customize in Obsidian.
+
+**Options:**
+- `--name TEXT` — Vault display name
+- `--profile TEXT` — Workspace profile used by initialization and self/workflow generation; `core` is always available and installed profile ids are discovered dynamically
+- `--tone [research-partner|assistant|minimal]` — Agent personality for self/ files
+- `--topics TEXT` — Comma-separated topic directories
+- `--no-workflow` — Skip workflow template setup
+
+## Step 2: Capture Knowledge
+
+**Create a note** — your primary unit of knowledge:
+
+```bash
+ztlctl create note "Transformer Architecture" \
+  --tags "ml/transformers,concept/architecture" \
+  --topic ml
+```
+
+**Create a reference** — capture an external source:
+
+```bash
+ztlctl create reference "Attention Is All You Need" \
+  --url "https://arxiv.org/abs/1706.03762" \
+  --subtype article \
+  --tags "ml/transformers,papers/seminal"
+```
+
+**Ingest text directly** — useful when an agent or another tool already has the source text:
+
+```bash
+ztlctl ingest text "Transformer reading notes" --stdin --as reference
+```
+
+**Quick capture with garden seed** — when you want minimal friction:
+
+```bash
+ztlctl garden seed "Idea: attention mechanisms for code review" \
+  --tags "ml/attention" --topic ml
+```
+
+Seeds start at `seed` maturity and can grow to `budding` then `evergreen` as you develop them.
+
+## Step 3: Work with Tasks
+
+```bash
+ztlctl create task "Read BERT paper" --priority high --impact high --effort low
+ztlctl create task "Implement attention visualization" --priority medium
+```
+
+View your prioritized work queue:
+
+```bash
+ztlctl query work-queue
+```
+
+Tasks are scored by priority x impact / effort and presented in actionable order.
+
+## Step 4: Connect Knowledge
+
+**Automatic link discovery** — reweave analyzes all content and suggests connections:
+
+```bash
+ztlctl reweave --auto-link-related
+```
+
+**Dry run** to preview what would change:
+
+```bash
+ztlctl reweave --dry-run
+```
+
+**Target a specific note:**
+
+```bash
+ztlctl reweave --id ztl_a1b2c3d4
+```
+
+Reweave uses a 4-signal scoring algorithm:
+1. **BM25** (35%) — lexical similarity between content bodies
+2. **Tag Jaccard** (25%) — tag overlap between items
+3. **Graph Proximity** (25%) — existing network distance
+4. **Topic Match** (15%) — shared topic directory
+
+## Step 5: Query and Explore
+
+**Full-text search:**
+
+```bash
+ztlctl query search "transformer attention" --rank-by relevance
+ztlctl query search "python async" --rank-by recency --type note
+ztlctl query search "architecture" --rank-by graph  # PageRank-boosted
+ztlctl query search "architecture" --rank-by review # review-oriented rerank
+ztlctl query search "oauth" --rank-by garden        # enrichment-oriented rerank
+```
+
+**List with filters:**
+
+```bash
+ztlctl query list --type note --status draft
+ztlctl query list --tag "ml/transformers" --sort recency
+ztlctl query list --maturity seed --since 2025-01-01
+ztlctl query list --include-archived --sort title
+```
+
+**Get a specific item:**
+
+```bash
+ztlctl query get ztl_a1b2c3d4
+```
+
+**Decision support** — aggregate context for a decision:
+
+```bash
+ztlctl query decision-support --topic architecture
+ztlctl query packet --topic architecture --mode learn
+ztlctl query draft --topic architecture --target note
+```
+
+## Step 6: Analyze the Graph
+
+**Find related content** via spreading activation:
+
+```bash
+ztlctl graph related ztl_a1b2c3d4 --depth 2 --top 10
+```
+
+**Discover topic clusters:**
+
+```bash
+ztlctl graph themes
+```
+
+**Find the most important nodes** (PageRank):
+
+```bash
+ztlctl graph rank --top 20
+```
+
+**Find the shortest path** between two ideas:
+
+```bash
+ztlctl graph path ztl_a1b2c3d4 ztl_e5f6g7h8
+```
+
+**Find structural gaps** — orphan notes with no connections:
+
+```bash
+ztlctl graph gaps --top 10
+```
+
+**Find bridge nodes** — key connectors between clusters:
+
+```bash
+ztlctl graph bridges --top 10
+```
+
+## Step 7: Update and Evolve
+
+**Update metadata:**
+
+```bash
+ztlctl update ztl_a1b2c3d4 --title "New Title" --tags "new/tag"
+ztlctl update ztl_a1b2c3d4 --status linked
+ztlctl update ztl_a1b2c3d4 --maturity budding  # Grow a garden note
+```
+
+**Archive** — soft-delete that preserves graph edges:
+
+```bash
+ztlctl archive ztl_a1b2c3d4
+```
+
+**Supersede a decision:**
+
+```bash
+ztlctl supersede ztl_old_decision ztl_new_decision
+```
+
+## Step 8: Export and Share
+
+**Export markdown** — portable copy of all content:
+
+```bash
+ztlctl export markdown --output ./export/
+```
+
+**Generate indexes** — type and topic groupings:
+
+```bash
+ztlctl export indexes --output ./indexes/
+```
+
+**Export the knowledge graph:**
+
+```bash
+ztlctl export graph --format dot --output graph.dot  # For Graphviz
+ztlctl export graph --format json --output graph.json # For D3.js / vis.js
+```
+
+**Export a dashboard** for enrichment work:
+
+```bash
+ztlctl export dashboard --viewer obsidian --output ./dashboard/
+```
+
+This dashboard is an external review workbench. It helps you review machine-layer work queues, stale/orphan signals, and topic dossiers before doing human-led garden work in Obsidian.
+
+This export now includes:
+
+- `dashboard.md`
+- `review-queue.json`
+- `decision-queue.json`
+- `garden-backlog.json`
+- `topic-review-summary.json`
+- `topics/<topic>.md` and `topics/<topic>.json` dossiers for the busiest recent topics
+
+## Step 9: Maintain Integrity
+
+**Check vault health:**
+
+```bash
+ztlctl check
+```
+
+**Auto-fix detected issues:**
+
+```bash
+ztlctl check --fix
+ztlctl check --fix --level aggressive  # More thorough repairs
+```
+
+**Full rebuild** — re-derive the entire database from files:
+
+```bash
+ztlctl check --rebuild
+```
+
+**Rollback** to the last backup:
+
+```bash
+ztlctl check --rollback
+```
+
+## Next Steps
+
+- [Core Concepts](concepts.md) — Deeper understanding of content types and lifecycle
+- [Agentic Workflows](agentic-workflows.md) — Using ztlctl with AI agents
+- [Knowledge Paradigms](paradigms.md) — Capture/synthesis and enrichment across those paradigms
+
+
+---
+
+# Core Concepts
+
+## Content Types
+
+ztlctl manages three durable authored artifact types plus one operational session type:
+
+| Type | Purpose | Initial Status | ID Format |
+|------|---------|---------------|-----------|
+| **Note** | Ideas, knowledge, decisions | `draft` | `ztl_<hash>` |
+| **Reference** | External sources (articles, tools, specs) | `captured` | `ref_<hash>` |
+| **Task** | Actionable work items | `inbox` | `TASK-NNNN` |
+| **Log** | Session coordination state and session entries | `open` | `LOG-NNNN` |
+
+Notes, references, and tasks are the file-first durability contract. Sessions, session logs, generated `self/` files, and event/WAL state are internal or generated mechanisms that can be rebuilt or regenerated.
+
+Ingested references may also carry a durable source bundle under `sources/<reference-id>/`. That bundle is an attached source artifact for the reference, not a separate top-level knowledge item.
+
+## Content Subtypes
+
+Notes and references can be further classified:
+
+- **Note subtypes**: `knowledge` (long-lived insight), `decision` (architectural/design choice)
+- **Reference subtypes**: `article`, `tool`, `spec`
+- **Garden maturity**: `seed` (raw capture) → `budding` (developing) → `evergreen` (polished)
+
+## Lifecycle States
+
+Each content type follows a defined state machine:
+
+```
+Note:      draft → linked (1+ outgoing link) → connected (3+ outgoing links)
+Reference: captured → annotated
+Task:      inbox → active → done | blocked | dropped
+Decision:  proposed → accepted → superseded
+Log:       open ↔ closed (reopenable)
+```
+
+Status transitions are enforced — you cannot skip states or make invalid transitions.
+
+## Vault Structure
+
+```
+my-vault/
+├── ztlctl.toml          # Configuration
+├── .ztlctl/
+│   └── ztlctl.db        # SQLite index, session state, graph data, FTS5
+├── self/
+│   ├── identity.md      # Generated identity
+│   └── methodology.md   # Generated methodology
+├── notes/
+│   ├── python/
+│   │   └── ztl_a1b2c3d4.md
+│   └── architecture/
+│       ├── ztl_e5f6g7h8.md
+│       └── ref_deadbeef.md
+├── sources/
+│   └── ref_deadbeef/
+│       ├── bundle.json
+│       └── normalized.md
+└── ops/
+    └── tasks/
+        └── TSK-0001.md
+```
+
+`ztlctl check --rebuild` reconstructs durable authored artifacts and derived indexes from the markdown files. It does not treat session rows or other operational state as part of the file-first guarantee.
+
+## Tags
+
+Tags use a `domain/scope` format for structured categorization:
+
+```bash
+--tags "lang/python"        # domain=lang, scope=python
+--tags "concept/concurrency" # domain=concept, scope=concurrency
+--tags "status/wip"         # domain=status, scope=wip
+```
+
+Unscoped tags (e.g., `python`) work but generate a warning — the domain/scope format enables powerful filtering.
+
+## Knowledge Graph
+
+Every content item is a node. Edges are created through:
+
+- **Frontmatter links**: Explicit `links:` in YAML frontmatter
+- **Wikilinks**: `[[Note Title]]` references in body text
+- **Reweave**: Automated link discovery via 4-signal scoring (BM25 lexical similarity, Jaccard tag overlap, graph proximity, topic match)
+
+The graph powers `ztlctl graph` commands for traversal, analysis, and structural insight. See the [Command Reference](commands.md) for all graph commands.
+
+
+---
+
+# Knowledge Paradigms
+
+ztlctl uses a two-layer model instead of collapsing every knowledge method into one workflow.
+
+## Capture and Synthesis
+
+This layer is where agents and humans work together to capture sources, create durable references and notes, and assemble enough context for learning or decision-making.
+
+It draws most heavily from:
+
+- **Zettelkasten** for atomic notes, explicit links, and graph-driven discovery
+- **Second-brain patterns** for broad capture, topic routing, and action-oriented follow-up
+- **Agentic workflows** for structured research sessions, ingestion, topic packets, and review loops
+
+Typical commands:
+
+```bash
+ztlctl agent session start "oauth architecture"
+ztlctl ingest text "OAuth RFC Notes" --stdin --as reference
+ztlctl create note "Token exchange trade-offs" --topic auth
+ztlctl query packet --topic auth --mode learn
+ztlctl query draft --topic auth --target note
+ztlctl reweave
+```
+
+## Enrichment
+
+This layer is where the human user takes over to deepen, reorganize, and mature the captured foundation knowledge.
+
+It is closest to the knowledge-garden model:
+
+- promote notes from `seed` to `budding` to `evergreen`
+- revisit weakly connected or stale notes
+- refine wording, structure, and pedagogy
+- use agents conversationally against captured knowledge rather than asking them to replace the garden work
+
+Typical commands:
+
+```bash
+ztlctl garden seed "Question: what breaks token rotation?"
+ztlctl query list --maturity seed --sort recency
+ztlctl query packet --topic auth --mode review
+ztlctl export dashboard --viewer obsidian --output ./dashboard
+ztlctl update ztl_abc123 --maturity budding
+```
+
+The exported dashboard is an external review workbench built from machine-layer signals. It complements `garden/` by helping you triage what to tend next, but it does not export the literal `garden/` directory or replace Obsidian as the place where garden work happens.
+
+## How The Paradigms Map
+
+| Paradigm | ztlctl role |
+|----------|-------------|
+| **Zettelkasten** | Durable note/reference creation, graph links, reweave, related-content traversal |
+| **Second brain** | Broad capture, references, tasks, topic organization, agent-assisted retrieval |
+| **Knowledge garden** | Human-led enrichment, maturity tracking, backlog review, and dashboard-guided tending from machine-layer review signals |
+
+## What ztlctl Does Not Claim
+
+- It does not force PARA or any other organizational method as the canonical ontology.
+- It does not treat garden work as fully automatable.
+- It does not treat operational session state as equivalent to durable knowledge artifacts.
+
+The intended flow is:
+
+1. Capture sources and rough synthesis quickly.
+2. Use search, packets, and reweave to stabilize the foundation knowledge layer.
+3. Use packets, drafts, and dashboard dossiers to turn captured evidence into reviewable work.
+4. Enrich that foundation through slower, human-led garden work.
+
+
+---
+
+# Obsidian Starter Kit
+
+The first-party `obsidian` workspace profile scaffolds a curated Obsidian starter kit for hybrid knowledge work.
+
+It creates:
+
+- `.obsidian/` starter configuration scaffolded during init
+- `garden/` directories and templates owned by the human after scaffold
+- install and verification guidance shown during `ztlctl init --profile obsidian`
+
+It does **not**:
+
+- download community plugin binaries
+- enable plugins automatically inside Obsidian
+- index `garden/` through the ztlctl core
+
+## What Gets Scaffolded
+
+The Obsidian starter kit writes:
+
+- `.obsidian/app.json`
+- `.obsidian/appearance.json`
+- `.obsidian/core-plugins.json`
+- `.obsidian/community-plugins.json`
+- `.obsidian/templates.json`
+- `.obsidian/graph.json`
+- `.obsidian/snippets/ztlctl.css`
+- `.obsidian/snippets/garden-layers.css`
+- plugin config files for `folder-notes`, `omnisearch`, and `obsidian-book-search-plugin`
+- `garden/README.md`
+- `garden/notes/`, `garden/groves/`, `garden/library/`, `garden/canvases/`, `garden/attachments/`
+- `garden/templates/note.md`, `grove.md`, and `book.md`
+
+## Curated Community Plugin Preset
+
+The generated `.obsidian/community-plugins.json` expects you to install:
+
+- `dataview`
+- `templater-obsidian`
+- `folder-notes`
+- `omnisearch`
+- `obsidian-book-search-plugin`
+
+ztlctl writes config and guidance for those plugins, but it does not ship the plugin binaries.
+
+## Ownership
+
+- Core-managed paths: `ztlctl.toml`, `.ztlctl/`, `self/`, `notes/`, `ops/`
+- Profile-associated scaffold surface: `.obsidian/`
+- Human-managed paths: `garden/`
+
+`ztlctl` writes the `.obsidian/` starter files during init, then leaves them for you to customize in Obsidian or by editing the files directly. `garden/` is intentionally outside default indexing and mutation. The core vault model still indexes only `notes/` and `ops/`.
+
+## First Open in Obsidian
+
+After `ztlctl init --profile obsidian`:
+
+1. Open the vault in Obsidian and trust it.
+2. Install the curated community plugins from Settings -> Community plugins.
+3. Enable those plugins so the scaffolded config in `.obsidian/` takes effect.
+4. Verify that new notes target `garden/notes`, attachments target `garden/attachments`, templates point at `garden/templates`, and both CSS snippets are enabled.
+
+The same checklist is printed during init and stored in `garden/README.md`. `ztlctl` does not later validate or rewrite your `.obsidian/` changes.
+
+## Relationship to Export
+
+`ztlctl export dashboard --viewer obsidian` is an external review workbench, not part of the starter kit itself. It gives you portable markdown and JSON review artifacts for triage and topic review, but it does not export the literal `garden/` directory and it does not mirror `.obsidian/` workspace state.
+
+
+---
+
+# Agentic Workflows
+
+ztlctl is designed for agent-assisted capture and synthesis. Every command supports `--json`, sessions provide operational coordination, and topic packets provide read-oriented retrieval even when no session is active.
+
+## Capture and Synthesis Workflow
+
+Sessions are operational coordination state, not durable authored knowledge. Use them to structure research work, then turn findings into notes, references, and tasks:
+
+```bash
+# Agent starts a focused research session
+ztlctl agent session start "API design patterns" --json
+
+# Agent captures sources and synthesis
+ztlctl ingest text "API source notes" --stdin --as reference --json
+ztlctl create note "REST vs GraphQL trade-offs" \
+  --tags "architecture/api" --session LOG-0001 --json
+
+# Agent logs its reasoning and costs
+ztlctl agent session log "Analyzed 5 API frameworks" --cost 1200 --json
+ztlctl agent session log "Key insight: GraphQL better for nested data" --pin --json
+
+# Agent checks token budget
+ztlctl agent session cost --report 50000 --json
+
+# Agent requests context for continued work
+ztlctl agent context --topic "api" --budget 4000 --json
+
+# Agent closes session, triggering capture/synthesis cleanup
+ztlctl agent session close --summary "Mapped API paradigms" --json
+```
+
+## Ingestion
+
+Core ingestion is text-first:
+
+- raw text via `ztlctl ingest text`
+- markdown and plain text files via `ztlctl ingest file`
+- URLs via `ztlctl ingest url`, but only when a source-provider plugin is installed
+
+```bash
+ztlctl ingest text "OAuth notes" --stdin --as reference --json
+ztlctl ingest file ./source.md --as note --json
+ztlctl ingest providers --json
+```
+
+URL ingestion is provider-backed by design. The core tool does not ship a built-in remote fetcher in the base install.
+
+For agent-fetched web and multimodal workflows, use a bundle-first handoff:
+
+1. Fetch or extract the source outside ztlctl.
+2. Normalize the capture into plain text plus a nested `source_bundle`.
+3. Call MCP `ingest_source` with `content=<normalized text>` and `source_bundle=<bundle>`.
+4. Let ztlctl persist the bundle beside the ingested reference under `sources/<reference-id>/`.
+
+Read `ztlctl://capture/spec` for the exact bundle contract. The flat evidence-envelope fields (`source_kind`, `modalities`, `capture_agent`, `capture_method`, `citations`, `excerpts`, and `artifacts`) still work, but ztlctl now normalizes them into the durable source bundle format internally.
+
+## Context Assembly (5-Layer System)
+
+The `agent context` command builds a token-budgeted payload with 5 layers:
+
+| Layer | Content | Budget |
+|-------|---------|--------|
+| 0 — Identity | `self/identity.md` + `self/methodology.md` | Always included |
+| 1 — Operational | Active session, recent decisions, work queue, log entries | Always included |
+| 2 — Topic | Notes and references matching the session topic | Budget-dependent |
+| 3 — Graph | 1-hop neighbors of Layer 2 content | Budget-dependent |
+| 4 — Background | Recent activity, structural gaps | Budget-dependent |
+
+The system tracks token usage per layer and reports pressure status (`normal`, `caution`, `exceeded`).
+
+```bash
+# Get full context with default 8000-token budget
+ztlctl agent context --json
+
+# Focus on a topic with custom budget
+ztlctl agent context --topic "architecture" --budget 4000 --json
+
+# Quick orientation (no session required)
+ztlctl agent brief --json
+```
+
+## Topic Packets
+
+Use topic packets when you want conversational retrieval without depending on an active session:
+
+```bash
+ztlctl query packet --topic architecture --mode learn --json
+ztlctl query packet --topic architecture --mode review --json
+ztlctl query packet --topic architecture --mode decision --json
+```
+
+Packets combine topic-matched notes, references, decisions, tasks, graph-adjacent material, evidence excerpts, supporting/conflicting links, stale items, bridge candidates, suggested actions, ranking explanations, and provenance maps so an agent can continue reasoning from captured knowledge rather than only from recent session state.
+
+Packets now merge topic-scoped items with search-ranked items, so a reference tagged to a topic is still available for review and learning even when its title/body is a weak lexical match for the topic string itself.
+
+When a packet should become durable work, draft from it directly:
+
+```bash
+ztlctl query draft --topic architecture --target note --json
+ztlctl query draft --topic architecture --mode review --target task --json
+ztlctl query draft --topic architecture --mode decision --target decision --json
+```
+
+For a portable human review surface outside the vault, use `ztlctl export dashboard --viewer ... --output ...`. That export is an external review workbench for machine-layer queues, stale/orphan signals, and topic dossiers; it complements `garden/` but does not write into the vault or mirror `.obsidian/` state.
+
+## Session Close Enrichment Pipeline
+
+When a session closes, ztlctl automatically runs:
+
+1. **Cross-session reweave** — discovers connections for all notes created in the session
+2. **Orphan sweep** — attempts to connect orphan notes (0 outgoing edges)
+3. **Integrity check** — validates vault consistency
+4. **Graph materialization** — updates PageRank, degree, and betweenness metrics
+
+Each step can be toggled in `ztlctl.toml`:
+
+```toml
+[session]
+close_reweave = true
+close_orphan_sweep = true
+close_integrity_check = true
+```
+
+## Decision Extraction
+
+Extract decisions from session logs into permanent decision notes:
+
+```bash
+# Extracts pinned/decision entries from the session log
+ztlctl extract LOG-0001 --title "Decision: Use GraphQL for nested queries"
+```
+
+This creates a decision note (`subtype=decision`, status `proposed`) linked to the session via a `derived_from` edge.
+
+## MCP Server Integration
+
+ztlctl includes a Model Context Protocol (MCP) server for direct integration with AI clients like Claude Desktop and Codex-compatible environments:
+
+```bash
+ztlctl serve --transport stdio
+```
+
+Use the discovery flow in MCP clients:
+
+1. `discover_tools`
+2. `describe_tool`
+3. `ztlctl://agent-reference`
+
+For enrichment-focused agents, the most useful read models are:
+
+- `ztlctl://review/dashboard`
+- `ztlctl://garden/backlog`
+- `ztlctl://decision-queue`
+- `ztlctl://capture/spec`
+
+The MCP prompt layer now also includes `topic_learn`, `topic_review`, `topic_decision`, `capture_web_source`, and `capture_multimodal_source`.
+
+See the [MCP Server](mcp.md) page for tool categories, resources, prompts, and exported client assets.
+
+## Batch Operations
+
+For programmatic creation, use batch mode with a JSON file:
+
+```bash
+echo '[
+  {"type": "note", "title": "Concept A", "tags": ["domain/scope"]},
+  {"type": "reference", "title": "Source B", "url": "https://example.com"},
+  {"type": "task", "title": "Follow up on C", "priority": "high"}
+]' > items.json
+
+ztlctl create batch items.json --json
+ztlctl create batch items.json --partial  # Continue on individual failures
+```
+
+## Scripting with JSON Output
+
+Every command supports `--json` for structured output:
+
+```bash
+# Create and capture the ID
+ID=$(ztlctl create note "My Note" --json | jq -r '.data.id')
+
+# Query and process results
+ztlctl query search "python" --json | jq '.data.items[].title'
+
+# Check vault health programmatically
+ERRORS=$(ztlctl check --json | jq '.data.issues | map(select(.severity == "error")) | length')
+```
+
+
+---
+
+# Command Reference
+
+## Global Options
+
+Every command supports these flags:
+
+| Flag | Description |
+|------|-------------|
+| `--version` | Show version and exit |
+| `--json` | Structured JSON output (for scripting and agents) |
+| `-q, --quiet` | Minimal output |
+| `-v, --verbose` | Detailed output with debug info |
+| `--log-json` | Structured JSON log output to stderr |
+| `--no-interact` | Non-interactive mode (no prompts) |
+| `--no-reweave` | Skip automatic reweave on creation |
+| `-c, --config TEXT` | Override config file path |
+| `--sync` | Force synchronous event dispatch |
+
+Most commands also support `--examples` to show usage examples.
+
+## Commands at a Glance
+
+| Command | Purpose |
+|---------|---------|
+| `init [PATH]` | Initialize a new vault |
+| `create note TITLE` | Create a note |
+| `create reference TITLE` | Create a reference |
+| `create task TITLE` | Create a task |
+| `create batch FILE` | Batch create from JSON |
+| `query search QUERY` | Full-text search |
+| `query get ID` | Get item by ID |
+| `query list` | List with filters |
+| `query work-queue` | Prioritized task queue |
+| `query decision-support` | Decision context aggregation |
+| `query packet` | Topic-scoped learning/review packet |
+| `query draft` | Draft a note, task, or decision from a topic packet |
+| `graph related ID` | Find related content |
+| `graph themes` | Discover topic clusters |
+| `graph rank` | PageRank importance |
+| `graph path SRC DST` | Shortest path between nodes |
+| `graph gaps` | Find structural holes |
+| `graph bridges` | Find bridge nodes |
+| `graph unlink SRC DST` | Remove link between two nodes |
+| `graph materialize` | Compute and store graph metrics |
+| `agent session start TOPIC` | Start a session |
+| `agent session close` | Close with enrichment pipeline |
+| `agent session reopen ID` | Reopen a closed session |
+| `agent session cost` | Token cost tracking |
+| `agent session log MSG` | Append log entry |
+| `agent context` | Token-budgeted context payload |
+| `agent brief` | Quick orientation summary |
+| `agent regenerate` | Re-render self/ files |
+| `check` | Integrity check/fix/rebuild |
+| `update ID` | Update metadata or body |
+| `reweave` | Automated link discovery |
+| `archive ID` | Soft-delete content |
+| `supersede OLD NEW` | Mark decision as superseded |
+| `extract SESSION_ID` | Extract decision from session |
+| `export markdown` | Export as portable markdown |
+| `export indexes` | Generate type/topic indexes |
+| `export graph` | Export graph (DOT or JSON) |
+| `export dashboard` | Export an external review workbench with dashboard, review queues, and topic dossiers |
+| `garden seed TITLE` | Quick-capture seed note |
+| `ingest text TITLE` | Ingest raw text into a note or reference |
+| `ingest file PATH` | Ingest a markdown or text file |
+| `ingest url URL` | Ingest a URL through an installed source provider |
+| `ingest providers` | List installed source providers |
+| `serve` | Start MCP server |
+| `upgrade` | Run database migrations |
+| `vector status` | Check semantic search availability |
+| `vector reindex` | Rebuild the vector index |
+| `workflow init` | Initialize workflow scaffolding |
+| `workflow update` | Update workflow scaffolding |
+| `workflow export` | Export agent workflow assets (Claude/Codex) |
+| `workflow validate` | Validate exported workflow assets |
+
+## Search Ranking Modes
+
+The `--rank-by` option on `query search` supports seven modes:
+
+| Mode | Algorithm | Best For |
+|------|-----------|----------|
+| `relevance` | BM25 | General lexical search |
+| `recency` | BM25 with time decay | Recent-but-relevant work |
+| `graph` | BM25 x PageRank boost | Finding well-connected content |
+| `semantic` | Vector similarity | Meaning-based retrieval |
+| `hybrid` | BM25 + vector merge | Mixed lexical and semantic discovery |
+| `review` | Enrichment rerank over search results | Stale, weakly connected, review-worthy items |
+| `garden` | Enrichment rerank with provenance/maturity signals | Human-led enrichment and garden work |
+
+Search results in JSON mode now include a `ranking` block with reasons and signal scores so agents can explain why an item surfaced.
+
+## Query Filters
+
+The `query list` command supports composable filters:
+
+```bash
+# Combine any of these:
+--type note|reference|task|log
+--status draft|linked|connected|inbox|active|done|...
+--tag "domain/scope"
+--topic "python"
+--subtype knowledge|decision|article|tool|spec
+--maturity seed|budding|evergreen
+--space notes|ops|self
+--since 2025-01-01
+--include-archived
+--sort recency|title|type|priority
+--limit 50
+```
+
+## Ingestion
+
+Use ingestion when the source material should be normalized into a durable artifact:
+
+```bash
+ztlctl ingest text "OAuth Notes" --stdin --as reference
+ztlctl ingest file ./source.md --as note
+ztlctl ingest providers
+ztlctl ingest url https://example.com/spec --provider my-provider --as reference
+```
+
+URL ingestion is provider-backed. If no source provider is installed, `ingest url` returns `NO_PROVIDER` and suggests `ztlctl ingest providers`.
+
+For richer agent-driven capture, the MCP `ingest_source` tool accepts a nested `source_bundle` object. ztlctl persists that bundle beside the created reference under `sources/<reference-id>/bundle.json` plus `sources/<reference-id>/normalized.md`.
+
+Read `ztlctl://capture/spec` for the exact bundle contract. The older flat evidence-envelope fields (`source_kind`, `modalities`, `capture_agent`, `capture_method`, `citations`, `excerpts`, and `artifacts`) still work, but ztlctl now lifts them into the durable source bundle format internally.
+
+## Topic Packets and Drafts
+
+Use packets when you want a conversational bundle rather than a flat result list:
+
+```bash
+ztlctl query packet --topic architecture --mode learn
+ztlctl query packet --topic architecture --mode review
+ztlctl query packet --topic architecture --mode decision
+```
+
+Packets now include evidence excerpts, supporting/conflicting links, stale items, bridge candidates, suggested actions, and ranking explanations.
+
+Packets also merge topic-scoped items with search-ranked items, so topic-tagged references and notes still surface even when the topic string is not a strong lexical match.
+
+Use drafts when you want the next durable artifact sketched from the packet:
+
+```bash
+ztlctl query draft --topic architecture --target note
+ztlctl query draft --topic architecture --mode review --target task
+ztlctl query draft --topic architecture --mode decision --target decision
+```
+
+
+---
+
+# Configuration
+
+ztlctl uses a `ztlctl.toml` file at the vault root. Settings can be overridden via CLI flags or `ZTLCTL_*` environment variables.
+
+## Key Configuration Sections
+
+```toml
+[vault]
+name = "my-vault"
+
+[workspace]
+profile = "core"  # workspace profile: core by default; installed profile ids are dynamic
+
+[agent]
+tone = "research-partner"  # or "assistant", "minimal"
+
+[agent.context]
+default_budget = 8000      # Token budget for context assembly
+layer_2_max_notes = 10     # Max notes in topic layer
+layer_3_max_hops = 1       # Graph traversal depth
+
+[reweave]
+enabled = true
+min_score_threshold = 0.6  # Minimum score to suggest a link
+max_links_per_note = 5
+lexical_weight = 0.35      # BM25 weight
+tag_weight = 0.25          # Tag Jaccard weight
+graph_weight = 0.25        # Graph proximity weight
+topic_weight = 0.15        # Topic match weight
+
+[garden]
+seed_age_warning_days = 7
+evergreen_min_key_points = 5
+evergreen_min_bidirectional_links = 3
+
+[search]
+half_life_days = 30.0      # Time-decay half-life for recency ranking
+semantic_weight = 0.5      # Hybrid lexical/semantic weighting
+
+[ingest]
+enabled = true
+auto_reweave = true
+default_target_type = "reference"
+
+[ingest.providers]
+# Provider-specific overrides live here when installed plugins support them
+
+[session]
+close_reweave = true       # Reweave on session close
+close_orphan_sweep = true  # Connect orphan notes on close
+close_integrity_check = true
+
+[check]
+backup_retention_days = 30
+backup_max_count = 10
+
+[git]
+enabled = true
+auto_push = true
+commit_style = "conventional"
+
+[mcp]
+enabled = true
+transport = "stdio"
+
+[exports.dashboard]
+include_work_queue = true
+include_recent_decisions = true
+include_garden_backlog = true
+topic_dossier_limit = 5
+```
+
+## Environment Variables
+
+Any setting can be overridden with a `ZTLCTL_` prefix:
+
+```bash
+ZTLCTL_REWEAVE__MIN_SCORE_THRESHOLD=0.4 ztlctl reweave
+ZTLCTL_AGENT__CONTEXT__DEFAULT_BUDGET=16000 ztlctl agent context
+```
+
+Nested keys use double underscores (`__`) as separators.
+
+## Notes
+
+- `[workspace].profile` is the canonical workspace selector. `core` is always available; additional profiles come from installed plugins.
+- `[vault].client` is a deprecated compatibility input. Legacy values `none` and `vanilla` map to `profile = "core"` during settings load.
+- `workspace.profile = "obsidian"` enables the first-party Obsidian starter kit during `ztlctl init`. That scaffold writes `.obsidian/` config, `garden/` templates, and a plugin-install checklist, but it does not download Obsidian community plugins for you and it does not later validate or rewrite `.obsidian/`.
+- `[plugins].obsidian` is obsolete and ignored when present in older configs. The only canonical built-in plugin config section today is `[plugins].git`.
+- URL ingestion is provider-backed. Base ztlctl supports text and markdown ingestion directly; remote fetching comes from installed source-provider plugins.
+- Core-managed paths are `ztlctl.toml`, `.ztlctl/`, `self/`, `notes/`, and `ops/`. Profile-associated scaffold paths identify workspace assets created by a profile during init, such as `.obsidian/`. Human-managed paths such as `garden/` remain outside default core indexing and mutation.
+- Dashboard export still uses `--viewer` because it is a render target, not a workspace selector.
+
+
+---
+
+# Troubleshooting
+
+## Common Issues
+
+### "ztlctl: command not found"
+
+**Cause**: The CLI is not on your PATH.
+
+**Fix**:
+- If installed with `pip install ztlctl`, ensure your Python scripts directory is on PATH
+- If installed with `uv tool install ztlctl`, ensure `~/.local/bin` is on PATH
+- Verify: `python -m ztlctl --version`
+
+### "No vault found"
+
+**Cause**: ztlctl must be run from a vault root (directory containing `ztlctl.toml`) or a subdirectory.
+
+**Fix**:
+```bash
+# Initialize a new vault
+ztlctl init my-vault
+cd my-vault
+
+# Or specify a config path
+ztlctl --config /path/to/ztlctl.toml <command>
+```
+
+### "Database locked"
+
+**Cause**: Another process has an open connection to the SQLite database.
+
+**Fix**:
+- Close other ztlctl processes or MCP server instances
+- If the issue persists after closing all processes, the WAL file may be stale:
+  ```bash
+  # This is safe — SQLite will recover on next connection
+  rm .ztlctl/ztlctl.db-wal .ztlctl/ztlctl.db-shm
+  ```
+
+### "MCP server not starting"
+
+**Cause**: Missing the `[mcp]` optional extra.
+
+**Fix**:
+```bash
+pip install ztlctl[mcp]
+# or
+uv tool install ztlctl --with mcp
+```
+
+### "Semantic search not available"
+
+**Cause**: Missing the `[semantic]` optional extra.
+
+**Fix**:
+```bash
+pip install ztlctl[semantic]
+```
+
+Check status: `ztlctl vector status`
+
+### "Reweave finds no connections"
+
+**Possible causes**:
+- `min_score_threshold` is too high (default: 0.6)
+- Not enough content for meaningful similarity
+
+**Fix**:
+```bash
+# Lower the threshold
+ZTLCTL_REWEAVE__MIN_SCORE_THRESHOLD=0.3 ztlctl reweave --auto-link-related
+
+# Or update ztlctl.toml
+# [reweave]
+# min_score_threshold = 0.4
+```
+
+### Vault appears corrupted
+
+**Fix** — rebuild the database from files:
+```bash
+# Full rebuild from markdown files on disk
+ztlctl check --rebuild
+```
+
+If that fails, delete the database and rebuild:
+```bash
+rm .ztlctl/ztlctl.db
+ztlctl check --rebuild
+```
+
+### Rollback to last backup
+
+```bash
+ztlctl check --rollback
+```
+
+Backups are retained for 30 days (configurable via `[check] backup_retention_days`).
+
+## Getting Help
+
+- [GitHub Issues](https://github.com/ThatDevStudio/ztlctl/issues) — Bug reports and feature requests
+- [GitHub Discussions](https://github.com/ThatDevStudio/ztlctl/discussions) — Questions and community support
+
+
+---
+
+# Developer Guide
+
+# Developer Guide
+
+The Developer Guide is for contributors and integrators — those building plugins, extending ztlctl's capabilities, or integrating it into agent systems via MCP.
+
+## In This Guide
+
+| Page | What it covers |
+|------|----------------|
+| [Contributing](../development.md) | Architecture overview, branch workflow, and contribution process |
+| [MCP Server](../mcp.md) | MCP tools, resources, prompts, and agent integration patterns |
+
+
+---
+
+# Development
+
+## Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/ThatDevStudio/ztlctl.git
+cd ztlctl
+
+# Install all development dependencies
+uv sync --group dev
+
+# Verify the installation
+uv run ztlctl --version
+
+# Run the test suite
+uv run pytest
+```
+
+## Development Commands
+
+```bash
+uv run ztlctl --help                             # Run the CLI
+uv run pytest --cov --cov-report=term-missing    # Tests with coverage
+uv run ruff check .                              # Lint
+uv run ruff format .                             # Format
+uv run mypy src/                                 # Type check
+uv run pre-commit run --all-files                # All pre-commit hooks
+```
+
+## CI/CD Pipeline
+
+GitHub Actions exposes two CI/CD workflows:
+
+- `PR CI` runs on pull requests to `develop` and exposes the required `Validate PR` check.
+- `Release Pipeline` runs only after changes land on `develop`, then performs merge validation,
+  release, publish, and Homebrew sync as dependent jobs.
+
+`Validate PR` covers lint, format, type checking, package build, security audit, the full pytest
+suite, the MCP stdio integration test, and commit lint. `Validate Merge` in the release pipeline
+re-runs the merge validation after landing on `develop` and adds the semantic CI smoke test using
+the lightweight internal `semantic-ci` dependency group.
+
+The release workflow builds `dist/release-manifest.json` and treats it as the source of truth
+for release version, tag, asset path, download URL, and source tarball hash. Downstream publish
+and Homebrew steps consume that manifest instead of rediscovering release metadata.
+
+## Homebrew Formula
+
+The Homebrew tap publishes `ztlctl` at `ThatDev/ztlctl`.
+
+```bash
+# Build release assets for an existing tag
+python3 scripts/build_release_manifest.py --release-tag v1.7.1 --output dist/release-manifest.json
+
+# Generate the Homebrew formula from the release manifest
+python3 scripts/update_homebrew_formula.py --manifest dist/release-manifest.json --output dist/ztlctl.rb
+```
+
+The formula is now a derived release artifact rather than a checked-in source file. It uses the
+release tarball as the stable source, installs the CLI into a Python virtualenv, and derives both
+runtime and build-backend resources from the repository's `uv.lock`.
+
+## Architecture
+
+ztlctl follows a strict 6-layer package structure where dependencies flow downward:
+
+```
+commands → output → services → config/infrastructure → domain
+```
+
+```
+src/ztlctl/
+├── domain/          # Types, enums, lifecycle rules, ID patterns
+├── infrastructure/  # SQLite/SQLAlchemy, NetworkX graph, filesystem
+├── config/          # Pydantic config models, TOML discovery
+├── services/        # Business logic (create, query, graph, reweave, ...)
+├── output/          # Rich/JSON formatters
+├── commands/        # Click CLI commands
+├── plugins/         # Pluggy hook specs and built-in plugins
+├── mcp/             # MCP server adapter
+└── templates/       # Jinja2 templates for content creation
+```
+
+For the complete internal design specification (architecture decisions, invariants, implementation details), see [DESIGN.md](https://github.com/ThatDevStudio/ztlctl/blob/develop/DESIGN.md) in the repository.
+
+## Template Overrides
+
+Vault-specific Jinja2 overrides can live under `.ztlctl/templates/`.
+
+- Self-document templates: `.ztlctl/templates/self/identity.md.j2` or `.ztlctl/templates/identity.md.j2`
+- Content body templates: `.ztlctl/templates/content/note.md.j2` or `.ztlctl/templates/note.md.j2`
+
+ztlctl checks those override paths first and falls back to the bundled package templates when no user template exists.
+
+## Workflow Templates
+
+`ztlctl workflow init` and `ztlctl workflow update` scaffold vault workflow guidance using a packaged Copier template.
+
+- Choices: source control (`git|none`), profile (dynamic installed profile ids, with deprecated `none` and `vanilla` aliases resolving to `core`), workflow (`claude-driven|agent-generic|manual`), skill set (`research|engineering|minimal`)
+- Answers file: `.ztlctl/workflow-answers.yml`
+- Generated guidance: `.ztlctl/workflow/`
+
+`ztlctl init` applies the default workflow scaffold automatically unless `--no-workflow` is passed.
+
+## Plugin Init Hooks
+
+Plugins can now contribute ordered init steps through `register_vault_init_steps()`.
+
+- Each step receives a normalized `VaultInitContext`
+- Steps can create files, emit warnings, and return structured setup instructions
+- `ztlctl init` aggregates those instructions into the result payload and prints them under `Next steps`
+- The first-party Obsidian profile plugin uses this surface to scaffold `.obsidian/`, seed `garden/`, and print plugin-install guidance before handing `.obsidian/` off to the user for further customization
+
+Legacy `WorkspaceProfileContribution.init_scaffold` remains supported temporarily and is wrapped into the same ordered init pipeline for compatibility.
+
+## Contributing
+
+See [CONTRIBUTING.md](https://github.com/ThatDevStudio/ztlctl/blob/develop/CONTRIBUTING.md) for the full contribution guide, including:
+
+- Branching model and PR workflow
+- Conventional commit format
+- Pre-submit checklist
+- Code standards and dependency management
+
+
+---
+
+# MCP Server
+
+The MCP (Model Context Protocol) server exposes ztlctl's discovery-first tool surface to AI clients.
+
+## Setup
+
+```bash
+# Install with MCP support
+pip install ztlctl[mcp]
+
+# Start the server
+ztlctl serve --transport stdio
+```
+
+## Claude Desktop Integration
+
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "ztlctl": {
+      "command": "ztlctl",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+## Discovery Pattern
+
+The intended call sequence is:
+
+1. `discover_tools` to narrow the surface by category
+2. `describe_tool` to inspect a specific contract
+3. `ztlctl://agent-reference` when the client needs a single onboarding payload
+
+## Tool Categories
+
+| Category | Tools |
+|----------|-------|
+| Discovery | `discover_tools`, `describe_tool`, `list_tags`, `list_source_providers` |
+| Creation | `create_note`, `create_reference`, `create_task`, `create_log`, `garden_seed`, `ingest_source` |
+| Lifecycle | `update_content`, `close_content`, `reweave` |
+| Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue`, `topic_packet`, `draft_from_topic` |
+| Analysis | `decision_support`, `vault_review` |
+| Graph | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
+| Session | `session_close`, `session_status` |
+
+Notable additions for agent workflows:
+
+- `ingest_source` normalizes text, files, and provider-backed URLs into notes or references
+- `ingest_source` accepts a nested `source_bundle` contract for agent-fetched web and multimodal captures, while still supporting the older flat evidence fields
+- ingested references persist source bundles under `sources/<reference-id>/` so later packets, drafts, and dossier exports can reuse the same evidence
+- `list_source_providers` lets clients discover installed URL-ingestion providers
+- `topic_packet` assembles topic-scoped learning, review, and decision bundles
+- `draft_from_topic` turns a topic packet into a note, task, or decision draft without writing to the vault
+- `create_note` accepts authored `body`, `key_points`, `aliases`, and `links`
+- `create_reference` accepts `subtype` for `article`, `tool`, or `spec`
+- `vault_review` returns a review-ready aggregate snapshot
+- `session_status` lets clients reason about active-session state without inferring from errors
+
+## Generated Client Assets
+
+For project-local Claude and Codex setup, export generated workflow assets from the packaged templates:
+
+```bash
+ztlctl workflow export --client both
+```
+
+This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting files derived from the same portable workflow source. The exported guidance treats MCP as canonical when available and the CLI as the fallback contract.
+
+## Available Resources
+
+| Resource | Description |
+|----------|-------------|
+| `ztlctl://self/identity` | Agent identity document |
+| `ztlctl://self/methodology` | Agent methodology document |
+| `ztlctl://overview` | Vault statistics and structure |
+| `ztlctl://work-queue` | Prioritized task list |
+| `ztlctl://review/dashboard` | External review workbench snapshot |
+| `ztlctl://garden/backlog` | Enrichment backlog signals from stale seeds and orphan notes |
+| `ztlctl://decision-queue` | Recent decisions plus active work queue |
+| `ztlctl://capture/spec` | Source-bundle contract for agent capture and ingest handoff |
+| `ztlctl://topics` | Available topic directories |
+| `ztlctl://context` | Full assembled context |
+| `ztlctl://agent-reference` | Onboarding payload with tool guidance and workflow examples |
+
+## Available Prompts
+
+| Prompt | Description |
+|--------|-------------|
+| `research_session` | Start a structured research session |
+| `knowledge_capture` | Guided knowledge capture workflow |
+| `vault_orientation` | Orient to the current vault state |
+| `decision_record` | Record an architectural decision |
+| `topic_learn` | Gather and learn from a topic packet |
+| `topic_review` | Review a topic for stale and weakly connected knowledge |
+| `topic_decision` | Prepare a decision-ready topic packet and draft |
+| `capture_web_source` | Turn a fetched web page into a source bundle for ingest |
+| `capture_multimodal_source` | Turn extracted multimodal evidence into a source bundle for ingest |
+
+
+---
