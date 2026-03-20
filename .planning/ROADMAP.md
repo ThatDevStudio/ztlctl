@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: CLI Surface Generation** - Auto-generate CLI commands from ActionRegistry, eliminating hand-crafted command duplication (completed 2026-03-20)
 - [x] **Phase 5: Plugin Formalization** - Publish stable plugin API with versioning, pre-hooks, config, custom note types (completed 2026-03-20)
 - [x] **Phase 6: Agentic Integration & Security** - Agent orchestration recipes, progressive tool disclosure, plugin security hardening (completed 2026-03-20)
-- [ ] **Phase 7: Plugin & Agentic Wiring Fixes** - Close integration gaps from milestone audit: wire pre/post-action hooks, connect plugin config, forward error detail, resolve category activation
+- [x] **Phase 7: Plugin & Agentic Wiring Fixes** - Close integration gaps from milestone audit: wire pre/post-action hooks, connect plugin config, forward error detail, resolve category activation (completed 2026-03-20)
 
 ## Phase Details
 
@@ -151,4 +151,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. CLI Surface Generation | 2/2 | Complete   | 2026-03-20 |
 | 5. Plugin Formalization | 3/3 | Complete   | 2026-03-20 |
 | 6. Agentic Integration & Security | 3/3 | Complete   | 2026-03-20 |
-| 7. Plugin & Agentic Wiring Fixes | 2/3 | In Progress|  |
+| 7. Plugin & Agentic Wiring Fixes | 3/3 | Complete   | 2026-03-20 |

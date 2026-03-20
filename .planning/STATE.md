@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 07-plugin-agentic-wiring-fixes-02-PLAN.md
-last_updated: "2026-03-20T05:47:25.849Z"
+stopped_at: Completed 07-plugin-agentic-wiring-fixes-03-PLAN.md
+last_updated: "2026-03-20T05:51:00.000Z"
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 22
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 
 ## Current Position
 
-Phase: 07 (plugin-agentic-wiring-fixes) — EXECUTING
-Plan: 2 of 3
+Phase: 07 (plugin-agentic-wiring-fixes) — COMPLETE
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -129,6 +129,8 @@ Recent decisions affecting current work:
 - [Phase 07-plugin-agentic-wiring-fixes]: dispatch_post_create excluded from CreateController kwargs — internal CreateService flag not exposed to plugins
 - [Phase 07-plugin-agentic-wiring-fixes]: export_graph post-processing stays after service call but before post_action dispatch so post_action sees final result
 - [Phase 07-plugin-agentic-wiring-fixes]: Service calls always reference kwargs[key] not original local variables so plugin-modified kwargs take effect
+- [Phase 07-plugin-agentic-wiring-fixes]: VectorController.status() uses action name 'vector_status' (not 'status') to avoid collision with SessionController.status
+- [Phase 07-plugin-agentic-wiring-fixes]: WorkflowController read_answers/profile_choices/default_choices are NOT wired — they return non-ServiceResult types and are helper methods, not actions
 
 ### Pending Todos
 
@@ -140,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:47:25.846Z
-Stopped at: Completed 07-plugin-agentic-wiring-fixes-02-PLAN.md
+Last session: 2026-03-20T05:51:00.000Z
+Stopped at: Completed 07-plugin-agentic-wiring-fixes-03-PLAN.md
 Resume file: None
