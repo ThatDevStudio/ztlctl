@@ -4,51 +4,165 @@ title: Knowledge Paradigms
 
 # Knowledge Paradigms
 
-ztlctl uses a two-layer model instead of collapsing every knowledge method into one workflow.
+ztlctl uses a two-layer model instead of collapsing every knowledge method into one workflow. The first layer — capture and synthesis — is where agents and humans work together to collect sources, build references, and develop rough understanding. The second layer — enrichment — is where the human user takes over to deepen, reorganize, and mature that foundation. Second-brain and knowledge-garden approaches are not competing methods: they map naturally to these two layers, and ztlctl supports both simultaneously.
 
-## Capture and Synthesis
+## Second-Brain vs Knowledge Garden
 
-This layer is where agents and humans work together to capture sources, create durable references and notes, and assemble enough context for learning or decision-making.
+### At a Glance
 
-It draws most heavily from:
+| Dimension | Second-Brain (Capture Layer) | Knowledge Garden (Enrichment Layer) |
+|-----------|------------------------------|--------------------------------------|
+| Primary question | "What did I learn?" | "What do I understand?" |
+| Capture style | Broad, fast, reference-driven | Selective, slow, insight-driven |
+| Content types | Notes, references, tasks, ingested sources | Garden seeds, budding notes, evergreen notes |
+| Organization | Topic routing, session batching | Maturity tiers, backlink structure |
+| Enrichment | Automated (reweave, sessions) | Human-led (Obsidian, dashboard review) |
+| ztlctl commands | `create`, `ingest`, `session`, `query search` | `garden seed`, `update --maturity`, `export dashboard`, `query packet --mode review` |
+| Agent role | Agent captures, synthesizes, triages | Agent assists conversationally, does not garden |
 
-- **Zettelkasten** for atomic notes, explicit links, and graph-driven discovery
-- **Second-brain patterns** for broad capture, topic routing, and action-oriented follow-up
-- **Agentic workflows** for structured research sessions, ingestion, topic packets, and review loops
+Both approaches coexist in a single vault. Content captured in the machine layer (`notes/`, `ops/`) is indexed, searchable, and reweaved automatically. Garden content lives in `garden/` — ztlctl never indexes or mutates that directory. The two layers complement rather than replace each other.
 
-Typical commands:
+## Choose Your Path
+
+**"I want to research a new technology or topic"**
+
+Use the second-brain capture-first approach. Start a focused session, ingest sources and create synthesis notes as understanding develops, and let reweave connect the material automatically.
+
+→ See [Scenario 1: Researching a New Technology](#scenario-1-researching-a-new-technology-second-brain-approach)
+
+---
+
+**"I have captured material and want to deepen my understanding"**
+
+Use the knowledge-garden enrichment-first approach. Surface seed notes waiting for attention, review the work queue for stale or actionable items, and promote notes as understanding matures.
+
+→ See [Scenario 2: Tending Existing Knowledge](#scenario-2-tending-existing-knowledge-knowledge-garden-approach)
+
+---
+
+**"I want both — capture now, tend later"**
+
+They coexist by design. Capture in the machine layer (`notes/`, `ops/`) using `create`, `ingest`, and `session`. Tend in the garden layer (`garden/`) using Obsidian or `ztlctl update`. ztlctl never indexes or mutates `garden/` content, so the two workflows never interfere.
+
+→ See [Scenario 3: Agent-Assisted Hybrid](#scenario-3-agent-assisted-hybrid-both-paradigms)
+
+---
+
+## Scenario 1: Researching a New Technology (Second-Brain Approach)
+
+You're investigating OAuth security. Start a focused session to keep context anchored, ingest sources as you find them, and build synthesis notes as understanding develops.
 
 ```bash
-ztlctl agent session start "oauth architecture"
-ztlctl ingest text "OAuth RFC Notes" --stdin --as reference
-ztlctl create note "Token exchange trade-offs" --topic auth
+# Start a focused research session
+ztlctl agent session start "oauth security"
+```
+
+The session creates a coordination log and anchors all subsequent work to the `oauth security` topic context.
+
+```bash
+# Ingest sources as references
+ztlctl ingest text "RFC 6749 notes" --stdin --as reference --tags "auth/oauth"
+```
+
+Each ingested source becomes a `reference` in the machine layer with a stored source bundle under `sources/`.
+
+```bash
+# Create synthesis notes as understanding develops
+ztlctl create note "OAuth 2.0 threat model" \
+  --tags "auth/oauth,security" \
+  --topic auth
+```
+
+Notes start at `draft` status and progress through `linked` → `connected` as reweave adds links.
+
+```bash
+# Build a learning packet from captured material
 ztlctl query packet --topic auth --mode learn
-ztlctl query draft --topic auth --target note
-ztlctl reweave
 ```
 
-## Enrichment
-
-This layer is where the human user takes over to deepen, reorganize, and mature the captured foundation knowledge.
-
-It is closest to the knowledge-garden model:
-
-- promote notes from `seed` to `budding` to `evergreen`
-- revisit weakly connected or stale notes
-- refine wording, structure, and pedagogy
-- use agents conversationally against captured knowledge rather than asking them to replace the garden work
-
-Typical commands:
+The learning packet aggregates your captured references and notes into a structured context block for review or agent handoff.
 
 ```bash
-ztlctl garden seed "Question: what breaks token rotation?"
-ztlctl query list --maturity seed --sort recency
-ztlctl query packet --topic auth --mode review
-ztlctl export dashboard --viewer obsidian --output ./dashboard
-ztlctl update ztl_abc123 --maturity budding
+# Draft a synthesis note from the packet
+ztlctl query draft --topic auth --target note
 ```
 
-The exported dashboard is an external review workbench built from machine-layer signals. It complements `garden/` by helping you triage what to tend next, but it does not export the literal `garden/` directory or replace Obsidian as the place where garden work happens.
+```bash
+# Close session — triggers reweave, orphan sweep, and integrity check automatically
+ztlctl agent session close --summary "Mapped OAuth threat surface"
+```
+
+!!! note
+    At session close, ztlctl automatically runs cross-session reweave to connect the new notes, an orphan sweep to link any isolated notes, and an integrity check. No manual step needed.
+
+---
+
+## Scenario 2: Tending Existing Knowledge (Knowledge-Garden Approach)
+
+You have a vault with captured material and want to deepen your understanding of the auth topic. Surface what needs attention, review the work queue, and promote notes as understanding matures.
+
+```bash
+# Surface seed notes waiting for enrichment
+ztlctl query list --maturity seed --sort recency
+```
+
+Seed notes are raw captures — garden seeds you planted but haven't developed yet.
+
+```bash
+# Review the work queue for stale or actionable items
+ztlctl query work-queue
+```
+
+The work queue scores all actionable items by priority, impact, and effort, presenting them in the order most worth your attention.
+
+```bash
+# Get a review packet for the topic you're tending
+ztlctl query packet --topic auth --mode review
+```
+
+The review packet surfaces stale notes, weakly connected items, and decision-support context for the topic — machine-layer signals to guide where human tending is most valuable.
+
+```bash
+# Promote a note as understanding deepens
+ztlctl update ZTL-0001 --maturity budding
+```
+
+Maturity tiers — `seed` → `budding` → `evergreen` — track how thoroughly a note has been developed.
+
+```bash
+# Export a dashboard for visual review in Obsidian
+ztlctl export dashboard --viewer obsidian --output ./dashboard
+```
+
+!!! note
+    Garden work happens in Obsidian (the `garden/` directory) or directly via `ztlctl update`. The exported dashboard is a review workbench — machine-layer signals to guide where human tending is most valuable, not a mirror of `garden/` state.
+
+---
+
+## Scenario 3: Agent-Assisted Hybrid (Both Paradigms)
+
+You're working alongside an agent. The agent captures research in the machine layer; you tend connections and deepen notes in the garden layer. Neither workflow disrupts the other.
+
+```bash
+# Agent captures research in the machine layer
+ztlctl create note "Distributed consensus trade-offs" --tags "systems/consensus" --topic systems
+```
+
+```bash
+# Human reviews agent-captured seeds and promotes them
+ztlctl query list --maturity seed --sort recency
+ztlctl update ZTL-0042 --maturity budding
+```
+
+```bash
+# Human tends connections in Obsidian's garden/ layer (no ztlctl command needed)
+# ztlctl does not index or mutate garden/ content
+```
+
+!!! tip
+    The garden layer is entirely human-owned. Agents can assist conversationally — answering questions against captured knowledge — but they do not create or modify garden content. This separation ensures your long-form insight work stays under your control.
+
+---
 
 ## How The Paradigms Map
 
@@ -64,9 +178,15 @@ The exported dashboard is an external review workbench built from machine-layer 
 - It does not treat garden work as fully automatable.
 - It does not treat operational session state as equivalent to durable knowledge artifacts.
 
-The intended flow is:
+## Intended Flow
 
 1. Capture sources and rough synthesis quickly.
 2. Use search, packets, and reweave to stabilize the foundation knowledge layer.
 3. Use packets, drafts, and dashboard dossiers to turn captured evidence into reviewable work.
 4. Enrich that foundation through slower, human-led garden work.
+
+## Next Steps
+
+- Follow the [Tutorial](tutorial.md) to build your first vault end-to-end
+- Read [Core Concepts](concepts.md) for the full content type and maturity tier reference
+- See [Agentic Workflows](agentic-workflows.md) for session lifecycle, recipe walkthroughs, and MCP integration
