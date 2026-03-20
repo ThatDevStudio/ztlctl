@@ -18,6 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: CLI Surface Generation** - Auto-generate CLI commands from ActionRegistry, eliminating hand-crafted command duplication (completed 2026-03-20)
 - [x] **Phase 5: Plugin Formalization** - Publish stable plugin API with versioning, pre-hooks, config, custom note types (completed 2026-03-20)
 - [x] **Phase 6: Agentic Integration & Security** - Agent orchestration recipes, progressive tool disclosure, plugin security hardening (completed 2026-03-20)
+- [ ] **Phase 7: Plugin & Agentic Wiring Fixes** - Close integration gaps from milestone audit: wire pre/post-action hooks, connect plugin config, forward error detail, resolve category activation
 
 ## Phase Details
 
@@ -120,10 +121,22 @@ Plans:
 - [ ] 06-02-PLAN.md — Orchestration recipe resources + progressive tool disclosure (AGNT-03, AGNT-04)
 - [ ] 06-03-PLAN.md — Plugin Copier trust enforcement + capability declarations + audit logging (SECU-01, SECU-02)
 
+### Phase 7: Plugin & Agentic Wiring Fixes
+**Goal**: Close all integration gaps identified by the v2.0 milestone audit — wire pre/post-action hooks into controllers, connect plugin config injection, forward error detail to MCP, and resolve category activation semantics
+**Depends on**: Phase 6
+**Requirements**: PLUG-02, PLUG-03, AGNT-01, AGNT-04
+**Gap Closure**: Closes gaps from v2.0-MILESTONE-AUDIT.md
+**Success Criteria** (what must be TRUE):
+  1. Every controller method calls `_dispatch_pre_action()` before service delegation and `_dispatch_post_action()` after — a plugin returning `ActionRejection` actually prevents execution
+  2. `vault.init_event_bus()` calls `pm.inject_configs(self._settings)` after `pm.discover_and_load()` — plugins receive validated TOML config at startup
+  3. `McpResponse.from_result()` forwards `result.error.detail` into `McpError.detail` — agents receive full structured error context
+  4. Category activation either gates `generate_tools()` output or is documented as advisory metadata (design decision resolved)
+**Plans**: TBD (created by /gsd:plan-phase 7)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -133,3 +146,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 4. CLI Surface Generation | 2/2 | Complete   | 2026-03-20 |
 | 5. Plugin Formalization | 3/3 | Complete   | 2026-03-20 |
 | 6. Agentic Integration & Security | 3/3 | Complete   | 2026-03-20 |
+| 7. Plugin & Agentic Wiring Fixes | 0/? | Not started |  |
