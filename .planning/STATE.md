@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-03-20T19:04:50.986Z"
+stopped_at: Completed 11-03-PLAN.md
+last_updated: "2026-03-20T19:07:32.929Z"
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -56,6 +56,7 @@ Plan: 3 of 4
 | Phase 10 P03 | 3 | 2 tasks | 2 files |
 | Phase 11 P01 | 1 | 2 tasks | 4 files |
 | Phase 11 P02 | 2 | 1 tasks | 1 files |
+| Phase 11 P03 | 2 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,8 @@ Recent decisions affecting current work:
 - [Phase 11]: allow_inspection: false + paths: [src] mandated for mkdocstrings to prevent dynamic import failures in CI docs env (no ztlctl runtime deps installed)
 - [Phase 11]: No show_inheritance_diagram in mkdocstrings config — mkdocs-shadcn has alpha-status mkdocstrings support
 - [Phase 11-developer-guide-api-reference]: docs/plugin-guide.md: hookspec signatures from source only — read hookspecs.py before writing any signature documentation
+- [Phase 11-03]: Correct hookspec class name is ZtlctlHookSpec (not ZtlctlSpec) — source read confirmed
+- [Phase 11-03]: api-reference.md added to mkdocs.yml nav under Developer Guide (implicit requirement for mkdocs build to include the page)
 
 ### Roadmap Evolution
 
@@ -104,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T19:04:50.931Z
-Stopped at: Completed 11-02-PLAN.md
+Last session: 2026-03-20T19:07:32.927Z
+Stopped at: Completed 11-03-PLAN.md
 Resume file: None

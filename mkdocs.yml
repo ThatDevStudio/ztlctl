@@ -36,8 +36,9 @@ nav:
   - Developer Guide:
     - dev/index.md
     - Contributing: development.md
-    - MCP Server: mcp.md
+    - Plugin Authoring: plugin-guide.md
     - API Reference: api-reference.md
+    - MCP Server: mcp.md
 
 plugins:
   - search
