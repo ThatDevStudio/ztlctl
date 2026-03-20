@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Core Hardening** - Stabilize data model, close tech debt, fix performance, formalize note types, add vault schema versioning
 - [ ] **Phase 2: Action Registry** - Build the define-once ActionDefinition/ActionRegistry infrastructure as internal abstraction
 - [x] **Phase 3: MCP Surface Generation** - Auto-generate MCP tools from ActionRegistry, achieving full CLI/MCP parity (completed 2026-03-19)
-- [ ] **Phase 4: CLI Surface Generation** - Auto-generate CLI commands from ActionRegistry, eliminating hand-crafted command duplication
+- [x] **Phase 4: CLI Surface Generation** - Auto-generate CLI commands from ActionRegistry, eliminating hand-crafted command duplication (completed 2026-03-20)
 - [ ] **Phase 5: Plugin Formalization** - Publish stable plugin API with versioning, pre-hooks, config, custom note types
 - [ ] **Phase 6: Agentic Integration & Security** - Agent orchestration recipes, progressive tool disclosure, plugin security hardening
 
@@ -129,6 +129,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. Core Hardening | 4/5 | In Progress|  |
 | 2. Action Registry | 3/4 | In Progress|  |
 | 3. MCP Surface Generation | 2/2 | Complete   | 2026-03-19 |
-| 4. CLI Surface Generation | 1/2 | In Progress|  |
+| 4. CLI Surface Generation | 2/2 | Complete   | 2026-03-20 |
 | 5. Plugin Formalization | 0/3 | Not started | - |
 | 6. Agentic Integration & Security | 0/2 | Not started | - |
