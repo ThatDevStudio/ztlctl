@@ -113,11 +113,12 @@ Plans:
   3. MCP tool surface supports category-based activation — agents can discover tool categories and activate/deactivate them, preventing tool explosion from plugins
   4. Plugin-contributed Copier workflow templates execute with `--trust=false` by default, requiring explicit `--force-trust` to run template hooks
   5. Plugins declare required capabilities (filesystem, network, database, git) and the host validates access at load time with audit logging for plugin-initiated operations
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md — Structured error recovery field + COMMON_ERROR_RECOVERY extension (AGNT-01)
+- [ ] 06-02-PLAN.md — Orchestration recipe resources + progressive tool disclosure (AGNT-03, AGNT-04)
+- [ ] 06-03-PLAN.md — Plugin Copier trust enforcement + capability declarations + audit logging (SECU-01, SECU-02)
 
 ## Progress
 
@@ -131,4 +132,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. MCP Surface Generation | 2/2 | Complete   | 2026-03-19 |
 | 4. CLI Surface Generation | 2/2 | Complete   | 2026-03-20 |
 | 5. Plugin Formalization | 3/3 | Complete   | 2026-03-20 |
-| 6. Agentic Integration & Security | 0/2 | Not started | - |
+| 6. Agentic Integration & Security | 0/3 | Not started | - |
