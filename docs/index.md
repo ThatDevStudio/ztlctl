@@ -31,9 +31,6 @@ For agent-fetched web pages and multimodal captures, ztlctl persists durable sou
 
 ## For Developers and Agents
 
-- [Product Roadmap](roadmap.md) — Forward-looking priorities from the post-backlog baseline
 - [Agentic Workflows](agentic-workflows.md) — Sessions, context assembly, batch operations, scripting
-- [Research to ztlctl Mapping](research-mapping.md) — Conceptual bridge from the original `research` workspace to the current product
-- [Hybrid Workspace Closure Record](backlog.md) — Historical record of the completed hybrid-workspace gap closure
 - [Development](development.md) — Contributing, architecture, and local setup
 - [Troubleshooting](troubleshooting.md) — Common issues and solutions
