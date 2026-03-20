@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-plugin-formalization plan 01 (05-01-PLAN.md)
-last_updated: "2026-03-20T02:43:22.064Z"
+stopped_at: Completed 05-plugin-formalization plan 02 (05-02-PLAN.md)
+last_updated: "2026-03-20T02:52:10Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 ## Current Position
 
 Phase: 05 (plugin-formalization) — EXECUTING
-Plan: 1 of 3
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Plan: 1 of 3
 | Phase 04-cli-surface-generation P01 | 9 | 2 tasks | 5 files |
 | Phase 04-cli-surface-generation P02 | 90 | 2 tasks | 16 files |
 | Phase 05-plugin-formalization PP01 | 470 | 2 tasks | 11 files |
+| Phase 05-plugin-formalization P02 | 442 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,10 @@ Recent decisions affecting current work:
 - [Phase 04-cli-surface-generation P02]: Harvest-and-reattach pattern for init group — collect generated subcommands before overwrite, re-attach to wizard group
 - [Phase 05-plugin-formalization]: plugins/_version.py private module breaks circular import between __init__.py and manager.py for API versioning helpers
 - [Phase 05-plugin-formalization]: PluginsConfig extra=allow stores arbitrary [plugins.<name>] TOML sections for PLUG-03 config injection; legacy test updated to reflect new intent
+- [Phase 05-plugin-formalization P02]: Injectable note_registry/action_registry params on _register_note_types() for test isolation without monkeypatching module-level singletons
+- [Phase 05-plugin-formalization P02]: content_type dispatch in create handler routes to create_task/create_reference/create_note based on NoteTypeDefinition.content_type
+- [Phase 05-plugin-formalization P02]: close handler maps to UpdateController.archive() — the actual method name in UpdateController
+- [Phase 05-plugin-formalization P02]: render_contributions() is lazy (on-demand); _register_note_types() is eager (called in discover_and_load()) for CLI/MCP generators to pick up plugin types at load time
 
 ### Pending Todos
 

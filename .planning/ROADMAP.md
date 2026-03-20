@@ -130,5 +130,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 2. Action Registry | 3/4 | In Progress|  |
 | 3. MCP Surface Generation | 2/2 | Complete   | 2026-03-19 |
 | 4. CLI Surface Generation | 2/2 | Complete   | 2026-03-20 |
-| 5. Plugin Formalization | 0/3 | Not started | - |
+| 5. Plugin Formalization | 2/3 | In Progress|  |
 | 6. Agentic Integration & Security | 0/2 | Not started | - |

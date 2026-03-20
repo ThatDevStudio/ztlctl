@@ -33,9 +33,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **PLUG-02**: Pre-action hooks with modification and cancellation — synchronous dispatch via pluggy firstresult pattern; plugins can modify action inputs or return a rejection to abort the action before execution
 - [x] **PLUG-03**: Plugin configuration via `[plugins.<name>]` sections in ztlctl.toml — passed to plugins during initialization; validated against plugin-declared config schema
 - [x] **PLUG-04**: Complete MCP tool parity with CLI — archive, extract, supersede, upgrade, check, init, workflow commands all have MCP tool equivalents (achieved by construction via ActionRegistry)
-- [ ] **PLUG-05**: Custom note types with custom lifecycles registered by plugins — plugins register NoteTypeDefinitions that automatically gain CLI commands (create, update, close) and MCP tools
-- [ ] **PLUG-06**: Plugin-contributed content type rendering — custom note types control their Rich CLI output and MCP response format via render contribution contracts
-- [ ] **PLUG-07**: Plugin marketplace metadata convention — structured metadata (name, version, author, capabilities, compatibility) in pyproject.toml `[tool.ztlctl-plugin]` section for future discoverability
+- [x] **PLUG-05**: Custom note types with custom lifecycles registered by plugins — plugins register NoteTypeDefinitions that automatically gain CLI commands (create, update, close) and MCP tools
+- [x] **PLUG-06**: Plugin-contributed content type rendering — custom note types control their Rich CLI output and MCP response format via render contribution contracts
+- [x] **PLUG-07**: Plugin marketplace metadata convention — structured metadata (name, version, author, capabilities, compatibility) in pyproject.toml `[tool.ztlctl-plugin]` section for future discoverability
 
 ### Agentic Integration
 
@@ -104,9 +104,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLUG-02 | Phase 5 | Complete |
 | PLUG-03 | Phase 5 | Complete |
 | PLUG-04 | Phase 3 | Complete |
-| PLUG-05 | Phase 5 | Pending |
-| PLUG-06 | Phase 5 | Pending |
-| PLUG-07 | Phase 5 | Pending |
+| PLUG-05 | Phase 5 | Complete |
+| PLUG-06 | Phase 5 | Complete |
+| PLUG-07 | Phase 5 | Complete |
 | AGNT-01 | Phase 6 | Pending |
 | AGNT-02 | Phase 3 | Complete |
 | AGNT-03 | Phase 6 | Pending |
