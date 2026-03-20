@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import pytest
+
 from ztlctl.services.docs import (
     _docs_index_impl,
     _docs_search_impl,
