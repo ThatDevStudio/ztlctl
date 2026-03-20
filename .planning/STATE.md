@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-03-20T16:21:50.581Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-20T17:52:38.180Z"
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 2
+  total_plans: 5
+  completed_plans: 5
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 08 — mkdocs-infrastructure
+**Current focus:** Phase 09 — navigation-structure
 
 ## Current Position
 
-Phase: 08 (mkdocs-infrastructure) — COMPLETE
-Plan: 3 of 3
+Phase: 09 (navigation-structure) — COMPLETE
+Plan: 2 of 2 (all complete)
 
 ## Performance Metrics
 
@@ -49,6 +49,8 @@ Plan: 3 of 3
 | Phase 08-mkdocs-infrastructure P01 | 5 | 1 tasks | 4 files |
 | Phase 08-mkdocs-infrastructure P02 | 136 | 2 tasks | 19 files |
 | Phase 08-mkdocs-infrastructure P03 | 1 | 1 tasks | 1 files |
+| Phase 09-navigation-structure P01 | 1 | 1 tasks | 3 files |
+| Phase 09-navigation-structure P02 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -68,6 +70,11 @@ Recent decisions affecting current work:
 - [Phase 08-03]: workflow-level permissions: contents: write (not job-level) for gh-pages push access
 - [Phase 08-03]: pip install (not uv) in CI — docs workflow only needs mkdocs tools, not full ztlctl env
 - [Phase 08-03]: Pinned exact versions in CI: mkdocs==1.6.1, mkdocs-shadcn==0.10.2, mkdocs-redirects==1.2.2
+- [Phase 09-01]: Pages stay in docs/ root — MkDocs nav nesting is config-driven, no file moves needed (avoids URL breakage)
+- [Phase 09-01]: Section index files in docs/guide/ and docs/dev/ subdirs with ../ relative links to docs/*.md targets
+- [Phase 09-02]: llms.txt hand-authored (not generated) — spec is stable and file is small enough to maintain manually
+- [Phase 09-02]: gen_llms_full_txt.py uses NAV_ORDER (not mkdocs.yml parsing) to stay stdlib-only (no PyYAML dep)
+- [Phase 09-02]: strip_frontmatter() silently strips --- blocks before concatenation so YAML never pollutes agent corpus
 
 ### Pending Todos
 
@@ -81,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T16:16:32.000Z
-Stopped at: Completed 08-03-PLAN.md
-Resume file: None
+Last session: 2026-03-20T17:47:30Z
+Stopped at: Completed 09-02-PLAN.md
+Resume file: .planning/phases/09-navigation-structure/09-02-SUMMARY.md

@@ -27,7 +27,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 **Milestone Goal:** A production docs site that serves knowledge workers, plugin authors, and AI agents — each finding exactly what they need without wading through the others' content.
 
 - [ ] **Phase 8: MkDocs Infrastructure** - Migrate from Jekyll to MkDocs + mkdocs-shadcn, clean up internal artifacts, wire GitHub Actions deploy
-- [ ] **Phase 9: Navigation Structure** - Build two-track nav (User Guide / Developer Guide), publish llms.txt and llms-full.txt
+- [x] **Phase 9: Navigation Structure** - Build two-track nav (User Guide / Developer Guide), publish llms.txt and llms-full.txt (completed 2026-03-20)
 - [ ] **Phase 10: User Guide Content** - Paradigm walkthroughs, built-in plugin guides, agentic workflow recipes, session lifecycle guides
 - [ ] **Phase 11: Developer Guide + API Reference** - Plugin authoring guide, auto-generated API reference, architecture docs, CONTRIBUTING update
 - [ ] **Phase 12: Doc Search Integration** - `ztlctl docs <query>` CLI command, `ztlctl://docs/search` MCP resource
@@ -60,7 +60,11 @@ Plans:
   2. `llms.txt` is served at the docs root per llmstxt.org spec with project summary and section links
   3. `llms-full.txt` is served at the docs root with concatenated documentation content for single-context-load consumption
   4. All existing docs pages are reachable under the new two-track structure with no broken internal links
-**Plans**: TBD
+**Plans:** 2/2 plans complete
+
+Plans:
+- [ ] 09-01-PLAN.md — Restructure mkdocs.yml nav into two tracks and create docs/guide/index.md + docs/dev/index.md
+- [ ] 09-02-PLAN.md — Author docs/llms.txt per llmstxt.org spec, write scripts/gen_llms_full_txt.py, generate docs/llms-full.txt
 
 ### Phase 10: User Guide Content
 **Goal**: Knowledge workers have concrete, example-driven guides for every core workflow — from understanding the paradigm to running agentic sessions
@@ -109,8 +113,8 @@ Note: Phase 10 and Phase 11 depend on Phase 9 but not on each other — they can
 | 5. Plugin Formalization | v2.0 | 3/3 | Complete | 2026-03-20 |
 | 6. Agentic Integration & Security | v2.0 | 3/3 | Complete | 2026-03-20 |
 | 7. Plugin & Agentic Wiring Fixes | v2.0 | 3/3 | Complete | 2026-03-20 |
-| 8. MkDocs Infrastructure | 2/3 | In Progress|  | - |
-| 9. Navigation Structure | v2.1 | 0/? | Not started | - |
+| 8. MkDocs Infrastructure | v2.1 | 2/3 | In Progress | - |
+| 9. Navigation Structure | 2/2 | Complete   | 2026-03-20 | - |
 | 10. User Guide Content | v2.1 | 0/? | Not started | - |
 | 11. Developer Guide + API Reference | v2.1 | 0/? | Not started | - |
 | 12. Doc Search Integration | v2.1 | 0/? | Not started | - |

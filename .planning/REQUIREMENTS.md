@@ -17,7 +17,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### User Guide
 
-- [ ] **UGDE-01**: Two-track navigation with User Guide and Developer Guide as top-level sections
+- [x] **UGDE-01**: Two-track navigation with User Guide and Developer Guide as top-level sections
 - [ ] **UGDE-02**: Second-brain vs knowledge garden paradigm walkthroughs with examples and common scenarios
 - [ ] **UGDE-03**: Built-in plugin guides — Obsidian setup and integration, Git plugin usage, Reweave plugin behavior
 - [ ] **UGDE-04**: Agentic workflow recipe walkthroughs — research-capture, review-triage, knowledge-synthesis with step-by-step examples
@@ -32,8 +32,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Agent Accessibility
 
-- [ ] **AGNT-01**: `llms.txt` at docs root with project summary and section links per llmstxt.org spec
-- [ ] **AGNT-02**: `llms-full.txt` with concatenated documentation content for single-context-load consumption
+- [x] **AGNT-01**: `llms.txt` at docs root with project summary and section links per llmstxt.org spec
+- [x] **AGNT-02**: `llms-full.txt` with concatenated documentation content for single-context-load consumption
 - [ ] **AGNT-03**: `ztlctl docs <query>` CLI command for local documentation search with ranked results
 - [ ] **AGNT-04**: `ztlctl://docs/search` MCP resource for agent-queryable documentation following existing _impl pattern
 
@@ -69,7 +69,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFR-03 | Phase 8 | Complete |
 | INFR-04 | Phase 8 | Complete |
 | INFR-05 | Phase 8 | Complete |
-| UGDE-01 | Phase 9 | Pending |
+| UGDE-01 | Phase 9 | Complete |
 | UGDE-02 | Phase 10 | Pending |
 | UGDE-03 | Phase 10 | Pending |
 | UGDE-04 | Phase 10 | Pending |
@@ -78,8 +78,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DVGD-02 | Phase 11 | Pending |
 | DVGD-03 | Phase 11 | Pending |
 | DVGD-04 | Phase 11 | Pending |
-| AGNT-01 | Phase 9 | Pending |
-| AGNT-02 | Phase 9 | Pending |
+| AGNT-01 | Phase 9 | Complete |
+| AGNT-02 | Phase 9 | Complete |
 | AGNT-03 | Phase 12 | Pending |
 | AGNT-04 | Phase 12 | Pending |
 
