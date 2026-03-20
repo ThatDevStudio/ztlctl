@@ -78,6 +78,7 @@ dev = [
     "mkdocs>=1.6.1",
     "mkdocs-shadcn>=0.10.2",
     "mkdocs-redirects>=1.2.2",
+    "mkdocstrings[python]>=1.0.3",
     { include-group = "test" },
     { include-group = "lint" },
 ]

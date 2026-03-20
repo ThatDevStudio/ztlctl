@@ -26,4 +26,6 @@
 
 - [Developer Guide](https://thatdevstudio.github.io/ztlctl/dev/): Developer Guide section overview and navigation
 - [Contributing](https://thatdevstudio.github.io/ztlctl/development/): Architecture overview, branch workflow, and contribution process
+- [Plugin Authoring](https://thatdevstudio.github.io/ztlctl/plugin-guide/): Tutorial and hookspec reference for building ztlctl plugins
+- [API Reference](https://thatdevstudio.github.io/ztlctl/api-reference/): Auto-generated API reference for plugin contracts, hookspecs, and the ActionRegistry
 - [MCP Server](https://thatdevstudio.github.io/ztlctl/mcp/): MCP tools, resources, prompts, and agent integration patterns

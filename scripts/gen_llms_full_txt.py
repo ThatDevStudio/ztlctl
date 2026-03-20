@@ -35,7 +35,7 @@ NAV_ORDER = [
     ),
     (
         "Developer Guide",
-        ["dev/index.md", "development.md", "mcp.md"],
+        ["dev/index.md", "development.md", "plugin-guide.md", "api-reference.md", "mcp.md"],
     ),
 ]
 

@@ -25,10 +25,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Developer Guide
 
-- [ ] **DVGD-01**: Plugin authoring guide — hookspecs, custom note types, config schemas, capability declarations, marketplace metadata
-- [ ] **DVGD-02**: Auto-generated API reference from Python docstrings/type hints via griffe/mkdocstrings
-- [ ] **DVGD-03**: ActionRegistry and controller architecture documentation for core contributors
-- [ ] **DVGD-04**: Update CONTRIBUTING.md with current architecture walkthrough and link to developer guide
+- [x] **DVGD-01**: Plugin authoring guide — hookspecs, custom note types, config schemas, capability declarations, marketplace metadata
+- [x] **DVGD-02**: Auto-generated API reference from Python docstrings/type hints via griffe/mkdocstrings
+- [x] **DVGD-03**: ActionRegistry and controller architecture documentation for core contributors
+- [x] **DVGD-04**: Update CONTRIBUTING.md with current architecture walkthrough and link to developer guide
 
 ### Agent Accessibility
 
@@ -74,10 +74,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UGDE-03 | Phase 10 | Complete |
 | UGDE-04 | Phase 10 | Complete |
 | UGDE-05 | Phase 10 | Complete |
-| DVGD-01 | Phase 11 | Pending |
-| DVGD-02 | Phase 11 | Pending |
-| DVGD-03 | Phase 11 | Pending |
-| DVGD-04 | Phase 11 | Pending |
+| DVGD-01 | Phase 11 | Complete |
+| DVGD-02 | Phase 11 | Complete |
+| DVGD-03 | Phase 11 | Complete |
+| DVGD-04 | Phase 11 | Complete |
 | AGNT-01 | Phase 9 | Complete |
 | AGNT-02 | Phase 9 | Complete |
 | AGNT-03 | Phase 12 | Pending |

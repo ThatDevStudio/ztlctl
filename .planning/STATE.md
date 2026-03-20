@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Documentation
 status: unknown
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-03-20T18:34:00.066Z"
+stopped_at: Completed 11-04-PLAN.md
+last_updated: "2026-03-20T19:14:40.448Z"
 progress:
-  total_phases: 5
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  total_phases: 6
+  completed_phases: 4
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 10 — user-guide-content
+**Current focus:** Phase 11 — developer-guide-api-reference
 
 ## Current Position
 
-Phase: 10 (user-guide-content) — EXECUTING
-Plan: 1 of 3
+Phase: 11 (developer-guide-api-reference) — EXECUTING
+Plan: 4 of 4 (COMPLETE)
 
 ## Performance Metrics
 
@@ -54,6 +54,10 @@ Plan: 1 of 3
 | Phase 10-user-guide-content P01 | 3 | 1 tasks | 3 files |
 | Phase 10-user-guide-content P02 | 4 | 2 tasks | 5 files |
 | Phase 10 P03 | 3 | 2 tasks | 2 files |
+| Phase 11 P01 | 1 | 2 tasks | 4 files |
+| Phase 11 P02 | 2 | 1 tasks | 1 files |
+| Phase 11 P03 | 2 | 1 tasks | 2 files |
+| Phase 11-developer-guide-api-reference P04 | 3 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -82,6 +86,17 @@ Recent decisions affecting current work:
 - [Phase 10-01]: Committed untracked docs/plugins.md and mkdocs.yml nav entry (from plan 02) to fix pre-existing broken link blocking mkdocs build --strict
 - [Phase 10]: [Phase 10-03]: Recipe walkthroughs inserted after MCP Server Integration section — preserves logical flow from concepts to concrete usage
 - [Phase 10]: [Phase 10-03]: Session Lifecycle section placed between Recipe Walkthroughs and Batch Operations — sessions tie recipes together
+- [Phase 11]: allow_inspection: false + paths: [src] mandated for mkdocstrings to prevent dynamic import failures in CI docs env (no ztlctl runtime deps installed)
+- [Phase 11]: No show_inheritance_diagram in mkdocstrings config — mkdocs-shadcn has alpha-status mkdocstrings support
+- [Phase 11-developer-guide-api-reference]: docs/plugin-guide.md: hookspec signatures from source only — read hookspecs.py before writing any signature documentation
+- [Phase 11-03]: Correct hookspec class name is ZtlctlHookSpec (not ZtlctlSpec) — source read confirmed
+- [Phase 11-03]: api-reference.md added to mkdocs.yml nav under Developer Guide (implicit requirement for mkdocs build to include the page)
+- [Phase 11-04]: Action Model section placed in development.md (not CONTRIBUTING.md) to separate architecture docs from contribution workflow
+- [Phase 11-04]: mkdocs.yml nav order: Contributing > Plugin Authoring > API Reference > MCP Server for logical developer progression
+
+### Roadmap Evolution
+
+- Phase 13 added: Switch GitHub Pages deploy to Actions artifact (eliminate gh-pages branch)
 
 ### Pending Todos
 
@@ -95,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T18:30:00.799Z
-Stopped at: Completed 10-03-PLAN.md
+Last session: 2026-03-20T19:10:04.748Z
+Stopped at: Completed 11-04-PLAN.md
 Resume file: None
