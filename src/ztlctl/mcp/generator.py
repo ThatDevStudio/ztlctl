@@ -157,36 +157,14 @@ def _make_tool_fn(
 ) -> Callable[..., dict[str, Any]]:
     """Create a decorated tool function for an ActionDefinition.
 
-    The produced function has:
-    - ``__name__`` == ``action.name``
-    - ``__doc__`` == rendered docstring
-    - ``__annotations__`` == mapped from action.params
-    - ``__kwdefaults__`` == defaults for optional params (or None if none)
+    The produced function has an explicit signature with named parameters
+    (not ``**kwargs``) so that ``inspect.signature()`` — which FastMCP uses
+    to build its Pydantic input model — sees real parameter names and types.
 
     For actions in ``BUDGET_AWARE_ACTIONS``, an additional ``token_budget``
     keyword-only parameter (``int | None``, default ``None``) is injected.
-    When set, large list-valued fields in the response are truncated to fit.
-
-    Note: ``functools.wraps`` is intentionally NOT used — it would overwrite
-    the dynamically set ``__annotations__`` breaking ``inspect.signature()``.
     """
     is_budget_aware = action.name in BUDGET_AWARE_ACTIONS
-
-    if is_budget_aware:
-
-        def tool_fn(**kwargs: Any) -> dict[str, Any]:
-            token_budget: int | None = kwargs.pop("token_budget", None)
-            result = action.handler(vault, **kwargs)
-            response = McpResponse.from_result(result).model_dump(exclude_none=True)
-            response["data"] = _apply_token_budget(response.get("data", {}), token_budget)
-            return response
-
-    else:
-
-        def tool_fn(**kwargs: Any) -> dict[str, Any]:  # type: ignore[misc]
-            result = action.handler(vault, **kwargs)
-            return McpResponse.from_result(result).model_dump(exclude_none=True)
-
     annotations = {**_build_annotations(action.params), "return": dict}
     defaults = _build_defaults(action.params)
 
@@ -194,11 +172,47 @@ def _make_tool_fn(
         annotations["token_budget"] = int | None
         defaults["token_budget"] = None
 
+    # Build an explicit parameter list so inspect.signature() sees named
+    # params (not **kwargs).  FastMCP uses inspect to build Pydantic models.
+    param_names = [p.name for p in action.params]
+    if is_budget_aware:
+        param_names.append("token_budget")
+
+    param_str = ", ".join(param_names) if param_names else ""
+    kw_pass = ", ".join(f"{n}={n}" for n in param_names)
+
+    if is_budget_aware:
+        # Remove token_budget from the kwargs passed to handler
+        handler_kw = ", ".join(f"{n}={n}" for n in param_names if n != "token_budget")
+        fn_body = (
+            f"def _fn({param_str}):\n"
+            f"    result = _handler(_vault, {handler_kw})\n"
+            f"    response = _McpResponse.from_result(result).model_dump(exclude_none=True)\n"
+            f"    response['data'] = _budget_fn(response.get('data', {{}}), token_budget)\n"
+            f"    return response\n"
+        )
+    else:
+        fn_body = (
+            f"def _fn({param_str}):\n"
+            f"    result = _handler(_vault, {kw_pass})\n"
+            f"    return _McpResponse.from_result(result).model_dump(exclude_none=True)\n"
+        )
+
+    local_ns: dict[str, Any] = {
+        "_handler": action.handler,
+        "_vault": vault,
+        "_McpResponse": McpResponse,
+        "_budget_fn": _apply_token_budget,
+    }
+    exec(fn_body, local_ns)
+    tool_fn = local_ns["_fn"]
+
     tool_fn.__name__ = action.name
+    tool_fn.__qualname__ = action.name
     tool_fn.__doc__ = _render_action_doc(action)
     tool_fn.__annotations__ = annotations
     tool_fn.__kwdefaults__ = defaults if defaults else None
-    return tool_fn
+    return tool_fn  # type: ignore[no-any-return]
 
 
 # ---------------------------------------------------------------------------
