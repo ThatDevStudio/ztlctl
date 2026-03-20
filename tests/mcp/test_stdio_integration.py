@@ -20,14 +20,17 @@ def _tool_payload(result: Any) -> dict[str, Any]:
         return structured
 
     content = getattr(result, "content", [])
+    is_error = getattr(result, "isError", False)
+    texts = [getattr(c, "text", "") for c in content] if content else []
+
+    if is_error:
+        raise AssertionError(f"Tool returned error: {texts!r}")
+
     if content:
         text = getattr(content[0], "text", None)
         if isinstance(text, str) and text:
             return json.loads(text)
 
-    # Provide diagnostic info on failure
-    is_error = getattr(result, "isError", False)
-    texts = [getattr(c, "text", "") for c in content] if content else []
     raise AssertionError(
         f"Tool result did not expose valid content. isError={is_error}, content_texts={texts!r}"
     )
