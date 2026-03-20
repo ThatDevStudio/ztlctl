@@ -466,7 +466,10 @@ class TestCapabilityDeclarations:
         assert "plugin.invalid_capabilities" not in caplog.text
 
     def test_capability_warning_on_missing(self, caplog: pytest.LogCaptureFixture) -> None:
-        """Plugin without declare_capabilities triggers no_capabilities_declared warning."""
+        """Plugin without declare_capabilities logs no_capabilities_declared at debug level.
+
+        Plugin API v2 treats missing declarations as advisory (debug), not errors.
+        """
         import logging
 
         class _NoCapsPlugin:
@@ -476,7 +479,7 @@ class TestCapabilityDeclarations:
 
         pm = PluginManager()
         pm.register_plugin(_NoCapsPlugin(), name="no-caps")
-        with caplog.at_level(logging.WARNING, logger="ztlctl.plugins.manager"):
+        with caplog.at_level(logging.DEBUG, logger="ztlctl.plugins.manager"):
             pm._validate_capabilities()
 
         assert "plugin.no_capabilities_declared" in caplog.text
