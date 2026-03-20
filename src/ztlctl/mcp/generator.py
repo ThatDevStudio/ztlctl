@@ -89,6 +89,11 @@ _DEFAULT_ACTIVE_CATEGORIES: frozenset[str] = frozenset(
 
 #: Session-scoped active category set (one server process = one MCP session).
 _active_categories: set[str] = set(_DEFAULT_ACTIVE_CATEGORIES)
+# NOTE: Category activation state is advisory metadata for agent tool selection.
+# FastMCP does not support dynamic tool deregistration without a server restart,
+# so generate_tools() registers all ActionDefinitions unconditionally regardless
+# of _active_categories. Agents use discover_categories to understand tool groupings
+# and make informed tool selection decisions -- not to reduce the tool surface.
 
 
 def _get_all_categories() -> set[str]:

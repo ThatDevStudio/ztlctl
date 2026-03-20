@@ -1,30 +1,30 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: unknown
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-03-20T04:52:59.630Z"
+milestone: v2.0
+milestone_name: Platform
+status: shipped
+stopped_at: v2.0 milestone completed
+last_updated: "2026-03-20T07:00:00.000Z"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 19
-  completed_plans: 19
+  total_phases: 7
+  completed_phases: 7
+  total_plans: 22
+  completed_plans: 22
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-19)
+See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 06 — agentic-integration-security
+**Current focus:** v2.0 shipped — planning next milestone
 
 ## Current Position
 
-Phase: 06 (agentic-integration-security) — EXECUTING
-Plan: 1 of 3
+Milestone v2.0 Platform — SHIPPED 2026-03-20
+All 7 phases, 22 plans complete. 27/27 requirements satisfied.
 
 ## Performance Metrics
 
@@ -62,6 +62,8 @@ Plan: 1 of 3
 | Phase 06-agentic-integration-security P01 | 10 | 1 tasks | 4 files |
 | Phase 06-agentic-integration-security P03 | 17 | 2 tasks | 10 files |
 | Phase 06-agentic-integration-security P02 | 12 | 2 tasks | 8 files |
+| Phase 07-plugin-agentic-wiring-fixes P01 | 4 | 2 tasks | 6 files |
+| Phase 07-plugin-agentic-wiring-fixes P02 | 5 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -121,6 +123,14 @@ Recent decisions affecting current work:
 - [Phase 06-agentic-integration-security]: Built-in plugins (git, obsidian, reweave) implement declare_capabilities to document access surface and avoid test noise
 - [Phase 06-agentic-integration-security]: _DEFAULT_ACTIVE_CATEGORIES frozenset guards deactivate_category -- core categories cannot be deactivated by agents
 - [Phase 06-agentic-integration-security]: Category activation state is module-level in generator.py (server-scoped) -- one MCP server process = one session
+- [Phase 07-plugin-agentic-wiring-fixes]: PLUG-03 wired via pm.inject_configs(self._settings) immediately after discover_and_load() in vault.init_event_bus()
+- [Phase 07-plugin-agentic-wiring-fixes]: ACTION_REJECTED inserted alphabetically in COMMON_ERROR_RECOVERY; detail= forwarded from ServiceError to McpError in from_result()
+- [Phase 07-plugin-agentic-wiring-fixes]: AGNT-04 advisory comment placed directly after _active_categories assignment in generator.py; category activation is metadata only (FastMCP does not support dynamic tool deregistration)
+- [Phase 07-plugin-agentic-wiring-fixes]: dispatch_post_create excluded from CreateController kwargs — internal CreateService flag not exposed to plugins
+- [Phase 07-plugin-agentic-wiring-fixes]: export_graph post-processing stays after service call but before post_action dispatch so post_action sees final result
+- [Phase 07-plugin-agentic-wiring-fixes]: Service calls always reference kwargs[key] not original local variables so plugin-modified kwargs take effect
+- [Phase 07-plugin-agentic-wiring-fixes]: VectorController.status() uses action name 'vector_status' (not 'status') to avoid collision with SessionController.status
+- [Phase 07-plugin-agentic-wiring-fixes]: WorkflowController read_answers/profile_choices/default_choices are NOT wired — they return non-ServiceResult types and are helper methods, not actions
 
 ### Pending Todos
 
@@ -132,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T04:47:03.453Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-03-20T05:51:00.000Z
+Stopped at: Completed 07-plugin-agentic-wiring-fixes-03-PLAN.md
 Resume file: None

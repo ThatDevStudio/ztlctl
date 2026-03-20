@@ -1,8 +1,8 @@
-# ztlctl v2 — Hardening, Plugins & Agentic Integration
+# ztlctl — Agentic Zettelkasten Platform
 
 ## What This Is
 
-The next evolution of ztlctl: a systematic hardening pass across the core tool, a formalized plugin architecture that treats CLI and MCP as presentation layers over a unified action/event system, and deep agentic integration where agents orchestrate — never compensate for missing functionality. This milestone takes ztlctl from a working v1 to a production-grade, extensible platform.
+A production-grade CLI and MCP tool for managing a Zettelkasten knowledge system. ztlctl treats CLI and MCP as auto-generated presentation layers over a unified action/event system (ActionRegistry), with a stable plugin API for third-party extensions and deep agentic integration where agents orchestrate — never compensate for missing functionality.
 
 ## Core Value
 
@@ -12,7 +12,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ### Validated
 
-<!-- Shipped and confirmed valuable in v1 (Phases 0-9). -->
+<!-- Shipped and confirmed valuable. -->
 
 - ✓ Content creation pipeline (notes, references, tasks) with 6-stage pipeline — v1
 - ✓ Query engine (search, get, list, work-queue, decision-support) — v1
@@ -29,62 +29,18 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - ✓ Semantic search (sqlite-vec, sentence-transformers, hybrid ranking) — v1
 - ✓ Workflow templates (Copier-based scaffold) — v1
 - ✓ Obsidian integration (vault generation, client config) — v1
+- ✓ Core hardening (tech debt, NoteTypeDefinition, performance, coverage, schema versioning, security) — v2.0
+- ✓ ActionRegistry (59 ActionDefinitions, 13 controllers, define-once architecture) — v2.0
+- ✓ Auto-generated MCP tools from ActionRegistry (59/59 parity, token budgets) — v2.0
+- ✓ Auto-generated CLI commands from ActionRegistry (13 hand-written files replaced) — v2.0
+- ✓ Stable Plugin API (versioning, pre/post hooks, config, custom note types, render contributions) — v2.0
+- ✓ Agentic integration (structured error recovery, orchestration recipes, progressive disclosure, capability security) — v2.0
 
 ### Active
 
-<!-- Current scope. Building toward these. -->
+<!-- Current scope. No active requirements — milestone complete. Next milestone TBD. -->
 
-**Core Hardening:** ✓ Validated in Phase 1
-- [x] Systematic audit and fix of technical debt (dead code, unenforced config, stale indexes)
-- [x] Data model consistency (NoteTypeDefinition formalization, lifecycle transition maps)
-- [x] UX polish (CLI help text, README command reference)
-- [x] Documentation audit (README updated, serve warnings added)
-- [x] Test coverage gaps closed (1553 tests, 87.66% coverage, omit list cleared)
-- [x] Performance bottleneck fixes (parallel rebuild I/O, batch FTS5, betweenness k-approx)
-- [x] Security hardening (git sanitization, MCP HTTP warnings, Copier trust documented)
-
-**Action Registry:** ✓ Validated in Phase 2
-- [x] ActionDefinition/ActionParam frozen dataclasses with typed parameters, CLI/MCP metadata
-- [x] ActionRegistry singleton with register/get/list_actions, name-uniqueness enforcement
-- [x] 13-controller layer (BaseController + domain controllers) wrapping all services
-- [x] 59 ActionDefinitions registered covering all public controller methods
-- [x] custom_presentation=True on complex operations (batch, init, workflow)
-
-**MCP Surface Generation:** ✓ Validated in Phase 3
-- [x] Auto-generated MCP tools from ActionRegistry (generator.py replaces 1499-line tools.py)
-- [x] McpResponse/McpError Pydantic models for typed MCP responses
-- [x] Token-budget-aware truncation on high-volume tools (list_items, search, vault_review, decision_support)
-- [x] Parity test suite: 59/59 ActionDefinitions exposed as MCP tools, 13/13 categories covered
-- [x] 9 previously missing tools now present (archive, supersede, upgrade, check, init, workflow)
-
-**CLI Surface Generation:** ✓ Validated in Phase 4
-- [x] Auto-generated CLI commands from ActionRegistry (generator.py replaces ~2650 lines of hand-written Click commands)
-- [x] cli_name field + cli_group assignments on all 59 ActionDefinitions
-- [x] 6 custom_presentation actions preserved (batch, update, init wizard, serve, workflow, export)
-- [x] CLI parity test suite: every non-custom ActionDefinition has a CLI command
-- [x] 13 hand-written command files deleted, replaced by runtime generation
-
-**Plugin System Formalization:** ✓ Validated in Phase 5
-- [x] Formalize "note" and "note lifecycle" as extensible core primitives
-- [x] Formalize "action" and "event" as the core operational model
-- [x] Define-once interface: CLI and MCP as auto-generated presentation layers over core actions
-- [x] Plugins can register custom note types with custom lifecycles (auto-gain CLI + MCP)
-- [x] Plugins can register CLI commands and MCP tools (via ActionRegistry)
-- [x] Plugins can hook pre/post on every core action (pre_action/post_action hookspecs)
-- [x] Plugin API versioning (PLUGIN_API_VERSION=1) + deprecated hookspec warnings
-- [x] Plugin config from [plugins.<name>] in ztlctl.toml, Pydantic-validated
-- [x] Render contributions for custom note types (Rich + MCP formatters)
-- [x] Marketplace metadata convention ([tool.ztlctl-plugin] in pyproject.toml)
-- [x] GitPlugin + ReweavePlugin ported to post_action + EventBus bridge
-- [x] Plugin access to core actions and events (via pre_action/post_action hookspecs)
-
-**Agentic Integration & Security:** ✓ Validated in Phase 6
-- [x] Complete MCP tool surface (no gaps — agents never need workarounds)
-- [x] Structured error recovery — ServiceError.recovery field + 36 COMMON_ERROR_RECOVERY entries
-- [x] Agent orchestration recipes — 3 MCP resources (research-capture, review-triage, knowledge-synthesis)
-- [x] Progressive tool disclosure — category-based activation (discover/activate/deactivate categories)
-- [x] Copier --trust=false for plugin-contributed templates + --force-trust override
-- [x] Plugin capability declarations (filesystem, network, database, git) with audit logging
+(None — v2.0 milestone complete. Define next scope with `/gsd:new-milestone`.)
 
 ### Out of Scope
 
@@ -97,13 +53,16 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ## Context
 
-**Existing codebase:** 1622 tests, mypy strict, ruff clean across 12 services, 13 controllers, 59 registered actions, 9 command groups, 3 built-in plugins, auto-generated MCP adapter (59 tools from ActionRegistry), and semantic search. The v1 architecture is a clean 6-layer structure (domain → infrastructure → config → services → output → commands) with a Vault repository pattern.
+**Current state (v2.0 shipped):** 110 source files (26,439 LOC Python), 123 test files (24,726 LOC), mypy strict, ruff clean. 12 services, 14 controllers, 59 registered actions, 13 command groups, 3 built-in plugins, auto-generated MCP adapter (59 tools from ActionRegistry), and semantic search. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern and 4-layer action model (Data/Service/Controller/Registry).
 
-**Key architectural insight from user:** CLI and MCP should be "presentation wrappers around a core construct" — this means the current hand-crafted CLI commands and MCP tools need to evolve into auto-generated surfaces over formalized actions. This is the single biggest architectural shift in v2.
+**Key architectural insight (realized):** CLI and MCP are auto-generated presentation layers over a unified ActionRegistry — define once, generate both surfaces. This is the foundation all future work builds on.
 
-**Known technical debt:** Hardcoded embedding dimensions, unenforced config settings (backup_retention_days), graph materialize not auto-triggered, EventBus timeout not configurable, dead-letter event accumulation, MCP server missing graceful shutdown.
-
-**Known test gaps:** Session, reweave, and check services excluded from coverage; all plugin code excluded; MCP layer has zero coverage; _impl pattern investment is wasted without tests.
+**Known technical debt (from v2.0 audit):**
+- Hardcoded embedding dimensions, EventBus timeout not configurable, dead-letter event accumulation, MCP server missing graceful shutdown
+- Phantom `mutation` category in _DEFAULT_ACTIVE_CATEGORIES (self-resolves with plugins)
+- ServiceError.recovery field unused by services (COMMON_ERROR_RECOVERY fallback covers all 37 codes)
+- load_plugin_commands creates separate PluginManager without inject_configs (edge case)
+- bridges() betweenness centrality without k-approximation
 
 **Target audience:** Small group of users, building toward broader adoption. Tool must work fully without agentic systems.
 
@@ -121,7 +80,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| CLI/MCP as auto-generated presentation layers | Define-once, use-everywhere — reduces duplication, ensures parity | — Pending |
+| CLI/MCP as auto-generated presentation layers | Define-once, use-everywhere — reduces duplication, ensures parity | ✓ Good — 59 ActionDefinitions auto-generate both CLI and MCP surfaces |
 | Formalize note lifecycle as extensible primitive | Plugins need to define custom note types with custom lifecycles | ✓ Good — NoteTypeDefinition + NoteTypeRegistry in domain/registry.py |
 | Research Agent SDK/protocol viability | User's instinct is define-once interfaces; SDK adds value only if research proves it | — Pending |
 | Core hardening before plugin formalization | Tool must be standalone-capable before extending; fixes foundation first | ✓ Good — Phase 1 complete |
@@ -129,4 +88,8 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | All operations through registry, no escape hatches | Complex ops get thin definitions with custom_presentation=True | ✓ Good — 59 definitions, 5 custom_presentation |
 
 ---
-*Last updated: 2026-03-20 after Phase 6 completion — ALL PHASES COMPLETE*
+| Pre/post-action hooks wired into all controllers | Plugins can observe/modify/reject any action via hook dispatch | ✓ Good — 63 methods across 14 controllers wired in Phase 7 |
+| Category activation is advisory metadata | FastMCP cannot deregister tools dynamically; agents use categories for tool selection heuristics | ✓ Good — documented in Phase 7, AGNT-04 description updated |
+
+---
+*Last updated: 2026-03-20 after v2.0 milestone*

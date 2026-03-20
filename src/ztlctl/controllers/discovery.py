@@ -23,7 +23,22 @@ class DiscoveryController(BaseController):
             _DEFAULT_ACTIVE_CATEGORIES,
             get_active_categories,
         )
-        from ztlctl.services.result import ServiceResult
+        from ztlctl.services.result import ServiceError, ServiceResult
+
+        kwargs: dict[str, Any] = {}
+
+        kwargs, rejection = self._dispatch_pre_action("discover_categories", kwargs)
+        if rejection is not None:
+            return ServiceResult(
+                ok=False,
+                op="discover_categories",
+                error=ServiceError(
+                    code="ACTION_REJECTED",
+                    message=rejection.reason,
+                    detail=rejection.detail,
+                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                ),
+            )
 
         registry = get_action_registry()
         active = get_active_categories()
@@ -44,11 +59,14 @@ class DiscoveryController(BaseController):
             for cat, tool_names in sorted(tools_by_cat.items())
         ]
 
-        return ServiceResult(
+        result = ServiceResult(
             ok=True,
             op="discover_categories",
             data={"categories": categories, "count": len(categories)},
         )
+
+        self._dispatch_post_action("discover_categories", kwargs, result)
+        return result
 
     def activate_category(self, *, category: str, **_kwargs: Any) -> Any:
         """Activate a tool category; return its tool names on success."""
@@ -56,25 +74,51 @@ class DiscoveryController(BaseController):
         from ztlctl.mcp.generator import activate_category as _activate
         from ztlctl.services.result import ServiceError, ServiceResult
 
-        success = _activate(category)
+        kwargs: dict[str, Any] = {"category": category}
+
+        kwargs, rejection = self._dispatch_pre_action("activate_category", kwargs)
+        if rejection is not None:
+            return ServiceResult(
+                ok=False,
+                op="activate_category",
+                error=ServiceError(
+                    code="ACTION_REJECTED",
+                    message=rejection.reason,
+                    detail=rejection.detail,
+                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                ),
+            )
+
+        success = _activate(kwargs["category"])
         if not success:
             return ServiceResult(
                 ok=False,
                 op="activate_category",
                 error=ServiceError(
                     code="VALIDATION_FAILED",
-                    message=f"Category {category!r} does not exist in the action registry.",
+                    message=(
+                        f"Category {kwargs['category']!r} does not exist in the action registry."
+                    ),
                     recovery="Call discover_categories to see all valid category names.",
                 ),
             )
 
         registry = get_action_registry()
-        tool_names = sorted(a.name for a in registry.list_actions() if a.category == category)
-        return ServiceResult(
+        tool_names = sorted(
+            a.name for a in registry.list_actions() if a.category == kwargs["category"]
+        )
+        result = ServiceResult(
             ok=True,
             op="activate_category",
-            data={"category": category, "tools": tool_names, "tool_count": len(tool_names)},
+            data={
+                "category": kwargs["category"],
+                "tools": tool_names,
+                "tool_count": len(tool_names),
+            },
         )
+
+        self._dispatch_post_action("activate_category", kwargs, result)
+        return result
 
     def deactivate_category(self, *, category: str, **_kwargs: Any) -> Any:
         """Deactivate a non-core category; return confirmation on success."""
@@ -87,15 +131,31 @@ class DiscoveryController(BaseController):
         )
         from ztlctl.services.result import ServiceError, ServiceResult
 
+        kwargs: dict[str, Any] = {"category": category}
+
+        kwargs, rejection = self._dispatch_pre_action("deactivate_category", kwargs)
+        if rejection is not None:
+            return ServiceResult(
+                ok=False,
+                op="deactivate_category",
+                error=ServiceError(
+                    code="ACTION_REJECTED",
+                    message=rejection.reason,
+                    detail=rejection.detail,
+                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                ),
+            )
+
         # Check upfront so we can return a more specific error
-        if category in _DEFAULT_ACTIVE_CATEGORIES:
+        if kwargs["category"] in _DEFAULT_ACTIVE_CATEGORIES:
             return ServiceResult(
                 ok=False,
                 op="deactivate_category",
                 error=ServiceError(
                     code="VALIDATION_FAILED",
                     message=(
-                        f"Category {category!r} is a core category and cannot be deactivated."
+                        f"Category {kwargs['category']!r} is a core category "
+                        "and cannot be deactivated."
                     ),
                     recovery=(
                         "Only non-core categories (export, vector, workflow, etc.) "
@@ -105,18 +165,18 @@ class DiscoveryController(BaseController):
             )
 
         active = get_active_categories()
-        if category not in active:
+        if kwargs["category"] not in active:
             return ServiceResult(
                 ok=False,
                 op="deactivate_category",
                 error=ServiceError(
                     code="NOT_FOUND",
-                    message=f"Category {category!r} is not currently active.",
+                    message=f"Category {kwargs['category']!r} is not currently active.",
                     recovery="Call discover_categories to see currently active categories.",
                 ),
             )
 
-        success = _deactivate(category)
+        success = _deactivate(kwargs["category"])
         if not success:
             # Shouldn't reach here given the guards above, but be defensive
             return ServiceResult(
@@ -124,12 +184,15 @@ class DiscoveryController(BaseController):
                 op="deactivate_category",
                 error=ServiceError(
                     code="VALIDATION_FAILED",
-                    message=f"Failed to deactivate category {category!r}.",
+                    message=f"Failed to deactivate category {kwargs['category']!r}.",
                 ),
             )
 
-        return ServiceResult(
+        result = ServiceResult(
             ok=True,
             op="deactivate_category",
-            data={"category": category, "deactivated": True},
+            data={"category": kwargs["category"], "deactivated": True},
         )
+
+        self._dispatch_post_action("deactivate_category", kwargs, result)
+        return result

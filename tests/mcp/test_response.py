@@ -114,6 +114,40 @@ def test_recovery_included_when_set_in_dump() -> None:
     assert dump["recovery"] == "R"
 
 
+def test_from_result_forwards_error_detail() -> None:
+    """from_result() forwards ServiceError.detail to McpError.detail (AGNT-01)."""
+    result = ServiceResult(
+        ok=False,
+        op="test_op",
+        error=ServiceError(
+            code="NOT_FOUND",
+            message="gone",
+            detail={"id": "ZTL-001", "searched": ["nodes", "fts"]},
+        ),
+    )
+    response = McpResponse.from_result(result)
+    assert response.error is not None
+    assert response.error.detail == {"id": "ZTL-001", "searched": ["nodes", "fts"]}
+
+
+def test_from_result_forwards_empty_detail() -> None:
+    """from_result() forwards empty detail dict when ServiceError has no detail."""
+    result = ServiceResult(
+        ok=False,
+        op="test_op",
+        error=ServiceError(code="NOT_FOUND", message="gone"),
+    )
+    response = McpResponse.from_result(result)
+    assert response.error is not None
+    assert response.error.detail == {}
+
+
+def test_action_rejected_in_common_error_recovery() -> None:
+    """COMMON_ERROR_RECOVERY contains ACTION_REJECTED entry referencing plugin (AGNT-01)."""
+    assert "ACTION_REJECTED" in COMMON_ERROR_RECOVERY
+    assert "plugin" in COMMON_ERROR_RECOVERY["ACTION_REJECTED"].lower()
+
+
 def test_all_codes_have_recovery() -> None:
     """All known ServiceError codes appear as keys in COMMON_ERROR_RECOVERY."""
     all_known_codes = {
@@ -122,6 +156,7 @@ def test_all_codes_have_recovery() -> None:
         "ID_COLLISION",
         "NO_ACTIVE_SESSION",
         "ACTIVE_SESSION_EXISTS",
+        "ACTION_REJECTED",
         "INVALID_TRANSITION",
         "EMPTY_QUERY",
         "UNKNOWN_TYPE",

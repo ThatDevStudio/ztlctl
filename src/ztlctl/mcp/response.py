@@ -30,6 +30,10 @@ COMMON_ERROR_RECOVERY: dict[str, str] = {
     "ACTIVE_SESSION_EXISTS": (
         "Use session_status() to inspect the active session or close it before starting another."
     ),
+    "ACTION_REJECTED": (
+        "A plugin rejected this action. Check the error detail for the rejecting plugin and "
+        "reason. Retry with different parameters or disable the plugin."
+    ),
     "INVALID_TRANSITION": "Inspect the current item with get_document() before changing status.",
     "EMPTY_QUERY": "Provide a non-empty search string or use list_items() for browsing.",
     "UNKNOWN_TYPE": "Use a supported content type/subtype combination or omit subtype if unsure.",
@@ -154,6 +158,7 @@ class McpResponse(BaseModel):
                 code=result.error.code,
                 message=result.error.message,
                 recovery=recovery,
+                detail=result.error.detail,
             )
         return cls(
             ok=result.ok,

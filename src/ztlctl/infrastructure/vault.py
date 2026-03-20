@@ -374,6 +374,8 @@ class Vault:
         pm = PluginManager()
         local_plugins = self.root / ".ztlctl" / "plugins"
         pm.discover_and_load(local_dir=local_plugins)
+        # PLUG-03: validate + pass TOML [plugins.<name>] config to third-party plugins
+        pm.inject_configs(self._settings)
 
         # Register built-in git plugin with vault context
         git_config = self._settings.git
