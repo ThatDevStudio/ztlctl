@@ -107,7 +107,12 @@ Plans:
   1. `ztlctl docs <query>` returns ranked results from the docs corpus with relevant excerpts
   2. An MCP client can query `ztlctl://docs/search` with a query string and receive relevant documentation passages
   3. Both CLI and MCP search use the same underlying `_impl` function following the established pattern
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Pure docs search module (services/docs.py, TDD)
+- [ ] 12-02-PLAN.md — CLI command + ActionDefinition (commands/docs.py, controllers/docs.py)
+- [ ] 12-03-PLAN.md — MCP resources (ztlctl://docs/index, ztlctl://docs/search)
 
 ## Progress
 
