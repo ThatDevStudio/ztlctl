@@ -131,7 +131,12 @@ Plans:
   2. `vault.init_event_bus()` calls `pm.inject_configs(self._settings)` after `pm.discover_and_load()` — plugins receive validated TOML config at startup
   3. `McpResponse.from_result()` forwards `result.error.detail` into `McpError.detail` — agents receive full structured error context
   4. Category activation either gates `generate_tools()` output or is documented as advisory metadata (design decision resolved)
-**Plans**: TBD (created by /gsd:plan-phase 7)
+**Plans**: 3 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Micro-fixes: plugin config injection, MCP error detail forwarding, advisory docs (PLUG-03, AGNT-01, AGNT-04)
+- [ ] 07-02-PLAN.md — Hook wiring batch 1: check, create, discovery, export, graph, ingest, init_ctrl (PLUG-02)
+- [ ] 07-03-PLAN.md — Hook wiring batch 2: query, reweave, session, update, upgrade, vector, workflow (PLUG-02)
 
 ## Progress
 
@@ -146,4 +151,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. CLI Surface Generation | 2/2 | Complete   | 2026-03-20 |
 | 5. Plugin Formalization | 3/3 | Complete   | 2026-03-20 |
 | 6. Agentic Integration & Security | 3/3 | Complete   | 2026-03-20 |
-| 7. Plugin & Agentic Wiring Fixes | 0/? | Not started |  |
+| 7. Plugin & Agentic Wiring Fixes | 0/3 | Not started |  |
