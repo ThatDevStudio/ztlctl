@@ -174,19 +174,25 @@ def _make_tool_fn(
 
     # Build an explicit parameter list so inspect.signature() sees named
     # params (not **kwargs).  FastMCP uses inspect to build Pydantic models.
-    param_names = [p.name for p in action.params]
+    # Required params are positional; optional params are keyword-only
+    # (after ``*``) so __kwdefaults__ provides their defaults correctly.
+    required_params = [p.name for p in action.params if p.required]
+    optional_params = [p.name for p in action.params if not p.required]
     if is_budget_aware:
-        param_names.append("token_budget")
+        optional_params.append("token_budget")
 
-    param_str = ", ".join(param_names) if param_names else ""
-    kw_pass = ", ".join(f"{n}={n}" for n in param_names)
+    if optional_params:
+        param_str = ", ".join([*required_params, "*", *optional_params])
+    else:
+        param_str = ", ".join(required_params)
+
+    handler_params = [p.name for p in action.params]
+    kw_pass = ", ".join(f"{n}={n}" for n in handler_params)
 
     if is_budget_aware:
-        # Remove token_budget from the kwargs passed to handler
-        handler_kw = ", ".join(f"{n}={n}" for n in param_names if n != "token_budget")
         fn_body = (
             f"def _fn({param_str}):\n"
-            f"    result = _handler(_vault, {handler_kw})\n"
+            f"    result = _handler(_vault, {kw_pass})\n"
             f"    response = _McpResponse.from_result(result).model_dump(exclude_none=True)\n"
             f"    response['data'] = _budget_fn(response.get('data', {{}}), token_budget)\n"
             f"    return response\n"
