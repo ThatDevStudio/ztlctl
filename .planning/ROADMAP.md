@@ -131,7 +131,7 @@ Plans:
 
 Plans:
 - [ ] 19-01-PLAN.md — Polaris template, init scaffold, MCP resource, and context assembler integration (POLR-01, POLR-02, POLR-03)
-- [ ] 19-02-PLAN.md — Methodology template prose-as-title section, title quality check, and garden backlog integration (METH-01, METH-02, METH-03)
+- [x] 19-02-PLAN.md — Methodology template prose-as-title section, title quality check, and garden backlog integration (METH-01, METH-02, METH-03)
 - [ ] 19-03-PLAN.md — check_alignment action with structured polaris context for agent evaluation (POLR-04)
 
 ### Phase 20: Session Recall
@@ -207,7 +207,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 �
 | 16. Plugin Bridge and Action Executor | v3.0 | 3/3 | Complete    | 2026-03-21 |
 | 17. Registry Decomposition and Plugin Runtime | v3.0 | 2/2 | Complete    | 2026-03-21 |
 | 18. Architecture Cleanup | v3.0 | 2/2 | Complete    | 2026-03-21 |
-| 19. Methodology Guidance and Polaris | v3.0 | 0/3 | Not started | - |
+| 19. Methodology Guidance and Polaris | v3.0 | 1/3 | In Progress|  |
 | 20. Session Recall | v3.0 | 0/2 | Not started | - |
 | 21. Contradiction Detection | v3.0 | 0/2 | Not started | - |
 | 22. Ingestion Pipeline | v3.0 | 0/2 | Not started | - |

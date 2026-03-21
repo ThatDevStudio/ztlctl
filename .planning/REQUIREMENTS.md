@@ -66,9 +66,9 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 
 ### Methodology Guidance
 
-- [ ] **METH-01**: Prose-as-title convention documented in `methodology.md.j2` template (research-partner tone)
-- [ ] **METH-02**: Title quality check in CheckService under `CAT_STRUCTURAL` flags short/generic titles (info severity)
-- [ ] **METH-03**: Garden backlog resource includes title improvement candidates alongside stale seeds and orphans
+- [x] **METH-01**: Prose-as-title convention documented in `methodology.md.j2` template (research-partner tone)
+- [x] **METH-02**: Title quality check in CheckService under `CAT_STRUCTURAL` flags short/generic titles (info severity)
+- [x] **METH-03**: Garden backlog resource includes title improvement candidates alongside stale seeds and orphans
 
 ## v4.0 Requirements
 
@@ -138,9 +138,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INGP-04 | Phase 22 | Pending |
 | INGP-05 | Phase 22 | Pending |
 | INGP-06 | Phase 22 | Pending |
-| METH-01 | Phase 19 | Pending |
-| METH-02 | Phase 19 | Pending |
-| METH-03 | Phase 19 | Pending |
+| METH-01 | Phase 19 | Complete |
+| METH-02 | Phase 19 | Complete |
+| METH-03 | Phase 19 | Complete |
 
 **Coverage:**
 - v3.0 requirements: 42 total
