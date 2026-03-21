@@ -46,5 +46,8 @@ def serve(app: object, transport: str, host: str, port: int) -> None:
             err=True,
         )
 
-    server = create_server(vault_root=app.settings.vault_root, host=host, port=port)
-    server.run(transport=transport)
+    ctx = create_server(vault_root=app.settings.vault_root, host=host, port=port)
+    try:
+        ctx.server.run(transport=transport)
+    finally:
+        ctx.vault.close(wait_for_events=True)
