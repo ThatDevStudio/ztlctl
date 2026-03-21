@@ -45,7 +45,7 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
 - [x] **Phase 15: Event Model Hardening** - Reliable event delivery, canonical payload shape, service-only post_action emission (gap closure in progress) (completed 2026-03-21)
 - [x] **Phase 16: Plugin Bridge and Action Executor** - Bridge reversal, generic action executor, MCP graceful shutdown (completed 2026-03-21)
 - [x] **Phase 17: Registry Decomposition and Plugin Runtime** - Feature-local action registrations, centralized plugin discovery (completed 2026-03-21)
-- [ ] **Phase 18: Architecture Cleanup** - Residue removal, phantom category fix, embedding config, graph performance
+- [x] **Phase 18: Architecture Cleanup** - Residue removal, phantom category fix, embedding config, graph performance (completed 2026-03-21)
 - [ ] **Phase 19: Methodology Guidance and Polaris** - Title quality checks, prose-as-title template, polaris priorities layer
 - [ ] **Phase 20: Session Recall** - Temporal, topic, and topology querying across session history
 - [ ] **Phase 21: Contradiction Detection** - Semantic integrity analysis, contradiction edges, review dashboard
@@ -114,8 +114,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 18-01-PLAN.md — Residue removal (workspace_modes.py, mutation category), ServiceError.recovery resolution, REQUIREMENTS update
-- [ ] 18-02-PLAN.md — Embedding dimension constant, bridges k-approximation, REQUIREMENTS update
+- [x] 18-01-PLAN.md — Residue removal (workspace_modes.py, mutation category), ServiceError.recovery resolution, REQUIREMENTS update
+- [x] 18-02-PLAN.md — Embedding dimension constant, bridges k-approximation, REQUIREMENTS update
 
 ### Phase 19: Methodology Guidance and Polaris
 **Goal**: Prose-as-title conventions are documented and checked by the integrity scanner, and a persistent polaris priorities layer is accessible to agents and users
@@ -206,7 +206,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 �
 | 15. Event Model Hardening | v3.0 | 4/4 | Complete    | 2026-03-21 |
 | 16. Plugin Bridge and Action Executor | v3.0 | 3/3 | Complete    | 2026-03-21 |
 | 17. Registry Decomposition and Plugin Runtime | v3.0 | 2/2 | Complete    | 2026-03-21 |
-| 18. Architecture Cleanup | v3.0 | 0/2 | Not started | - |
+| 18. Architecture Cleanup | v3.0 | 2/2 | Complete   | 2026-03-21 |
 | 19. Methodology Guidance and Polaris | v3.0 | 0/3 | Not started | - |
 | 20. Session Recall | v3.0 | 0/2 | Not started | - |
 | 21. Contradiction Detection | v3.0 | 0/2 | Not started | - |

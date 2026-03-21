@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-03-21T18:29:04.481Z"
+stopped_at: Completed 18-01-PLAN.md
+last_updated: "2026-03-21T18:41:05.779Z"
 progress:
   total_phases: 8
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  completed_phases: 4
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 17 — registry-decomposition-and-plugin-runtime
+**Current focus:** Phase 18 — architecture-cleanup
 
 ## Current Position
 
-Phase: 18
-Plan: Not started
+Phase: 18 (architecture-cleanup) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -60,6 +60,8 @@ Plan: Not started
 | Phase 16-plugin-bridge-and-action-executor P03 | 45 | 2 tasks | 19 files |
 | Phase 17-registry-decomposition-and-plugin-runtime P02 | 6 | 2 tasks | 7 files |
 | Phase 17-registry-decomposition-and-plugin-runtime P01 | 15 | 2 tasks | 11 files |
+| Phase 18-architecture-cleanup P01 | 12 | 2 tasks | 7 files |
+| Phase 18-architecture-cleanup P02 | 4 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -92,6 +94,8 @@ Recent decisions affecting current work:
 - [Phase 17]: vault.py uses cache=False in get_plugin_manager() because it mutates the PM with instance-specific built-ins (git-builtin, reweave-builtin) — caching would cause re-registration errors on second Vault construction
 - [Phase 17]: load_plugin_commands passes settings=settings to get_plugin_manager() fixing DEBT-07 (inject_configs gap)
 - [Phase 17-registry-decomposition-and-plugin-runtime]: _register_core.py decomposed into 9 feature-local modules; each owns one registration function; __init__.py calls all 9 at module load time (ARCH-07)
+- [Phase 18-architecture-cleanup]: ServiceError.recovery kept with Field description — confirmed active in controllers/base.py (plugin rejection), controllers/discovery.py (category errors), mcp/response.py (MCP error builder)
+- [Phase 18-architecture-cleanup]: Custom note type update/close actions use lifecycle category matching core _lifecycle.py actions
 
 ### Pending Todos
 
@@ -105,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T18:24:48.278Z
-Stopped at: Completed 17-01-PLAN.md
+Last session: 2026-03-21T18:40:57.174Z
+Stopped at: Completed 18-01-PLAN.md
 Resume file: None
