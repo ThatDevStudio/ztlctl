@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-03-21T17:42:57.695Z"
+stopped_at: Completed 16-03-PLAN.md
+last_updated: "2026-03-21T17:54:05Z"
 progress:
   total_phases: 8
   completed_phases: 1
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 16
-Plan: Not started
+Plan: 3 of 5 complete
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Plan: Not started
 | Phase 15 P03 | 20 | 2 tasks | 10 files |
 | Phase 15-event-model-hardening P04 | 371 | 2 tasks | 7 files |
 | Phase 16-plugin-bridge-and-action-executor P01 | 249 | 2 tasks | 4 files |
+| Phase 16-plugin-bridge-and-action-executor P03 | 45 | 2 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 15-event-model-hardening]: graph.py unlink uses unlink_result variable name to avoid CursorResult type collision
 - [Phase 16]: _HOOK_TO_ACTION dict removed — dead code once services own post_action via _dispatch_post_action_event (Phase 15)
 - [Phase 16]: _run_action uses local imports for ServiceError/ServiceResult to match existing controller pattern and avoid circular imports
+- [Phase 16]: All 63 controller methods now delegate to _run_action; _dispatch_pre_action called only in base.py (ARCH-06 complete)
+- [Phase 16]: garden_seed handler uses single-call lambda (vault, **kw) matching all other ActionDefinitions — two-level lambda incompatible with CLI/MCP generator calling convention
+- [Phase 16]: garden_seed registered in creation category; commands/garden.py deleted; generator auto-creates garden CLI group (ARCH-09 complete)
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T17:42:57.693Z
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-03-21T17:54:05Z
+Stopped at: Completed 16-03-PLAN.md
 Resume file: None

@@ -17,7 +17,7 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 - [x] **ARCH-06**: Generic action executor replaces repeated pre/post hook boilerplate in controllers
 - [ ] **ARCH-07**: Action registrations decomposed into feature-local modules (`actions/create.py`, `actions/query.py`, etc.)
 - [ ] **ARCH-08**: Centralized plugin runtime discovery — single coherent owner per scope for plugins, profiles, workflows, init steps
-- [ ] **ARCH-09**: Command surface convergence — `garden seed` is a first-class action; hybrid patching reduced
+- [x] **ARCH-09**: Command surface convergence — `garden seed` is a first-class action; hybrid patching reduced
 - [ ] **ARCH-10**: Compatibility residue removed — dead controller helpers, deprecated `workspace_modes.py`, transitional scaffolding
 
 ### Tech Debt
@@ -107,7 +107,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARCH-06 | Phase 16 | Complete |
 | ARCH-07 | Phase 17 | Pending |
 | ARCH-08 | Phase 17 | Pending |
-| ARCH-09 | Phase 16 | Pending |
+| ARCH-09 | Phase 16 | Complete |
 | ARCH-10 | Phase 18 | Pending |
 | DEBT-01 | Phase 18 | Pending |
 | DEBT-02 | Phase 15 | Complete |

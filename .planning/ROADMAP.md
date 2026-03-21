@@ -43,7 +43,7 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
 **Milestone Goal:** Harden the core architecture (event model, action execution, plugin discovery) and add memory-layer features (session recall, polaris priorities, contradiction detection, ingestion pipeline, methodology guidance) that make ztlctl a persistent memory system for agents and humans.
 
 - [x] **Phase 15: Event Model Hardening** - Reliable event delivery, canonical payload shape, service-only post_action emission (gap closure in progress) (completed 2026-03-21)
-- [ ] **Phase 16: Plugin Bridge and Action Executor** - Bridge reversal, generic action executor, MCP graceful shutdown
+- [x] **Phase 16: Plugin Bridge and Action Executor** - Bridge reversal, generic action executor, MCP graceful shutdown (completed 2026-03-21)
 - [ ] **Phase 17: Registry Decomposition and Plugin Runtime** - Feature-local action registrations, centralized plugin discovery
 - [ ] **Phase 18: Architecture Cleanup** - Residue removal, phantom category fix, embedding config, graph performance
 - [ ] **Phase 19: Methodology Guidance and Polaris** - Title quality checks, prose-as-title template, polaris priorities layer
@@ -85,7 +85,7 @@ Plans:
 Plans:
 - [x] 16-01-PLAN.md — Bridge reversal (ARCH-05) + generic _run_action executor on BaseController (ARCH-06)
 - [x] 16-02-PLAN.md — MCP graceful shutdown with ServerContext and vault cleanup (DEBT-04)
-- [ ] 16-03-PLAN.md — Controller migration to _run_action (ARCH-06) + garden_seed ActionDefinition (ARCH-09)
+- [x] 16-03-PLAN.md — Controller migration to _run_action (ARCH-06) + garden_seed ActionDefinition (ARCH-09)
 
 ### Phase 17: Registry Decomposition and Plugin Runtime
 **Goal**: Action registrations live in feature-local modules, plugin/profile/workflow discovery is handled by a single coherent runtime owner, and load_plugin_commands participates in config injection
@@ -204,7 +204,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 �
 | 13. Actions Artifact Deploy | v2.1 | 1/1 | Complete | 2026-03-20 |
 | 14. Documentation Quality Pass | v2.1 | 5/5 | Complete | 2026-03-20 |
 | 15. Event Model Hardening | v3.0 | 4/4 | Complete    | 2026-03-21 |
-| 16. Plugin Bridge and Action Executor | v3.0 | 2/3 | In Progress|  |
+| 16. Plugin Bridge and Action Executor | v3.0 | 3/3 | Complete   | 2026-03-21 |
 | 17. Registry Decomposition and Plugin Runtime | v3.0 | 0/2 | Not started | - |
 | 18. Architecture Cleanup | v3.0 | 0/2 | Not started | - |
 | 19. Methodology Guidance and Polaris | v3.0 | 0/3 | Not started | - |
