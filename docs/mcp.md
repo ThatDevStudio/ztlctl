@@ -76,6 +76,8 @@ This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting file
 
 ## Available Resources
 
+17 resources are registered by default. All URIs use the `ztlctl://` scheme.
+
 | Resource | Description |
 |----------|-------------|
 | `ztlctl://self/identity` | Agent identity document |
@@ -87,10 +89,18 @@ This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting file
 | `ztlctl://decision-queue` | Recent decisions plus active work queue |
 | `ztlctl://capture/spec` | Source-bundle contract for agent capture and ingest handoff |
 | `ztlctl://topics` | Available topic directories |
-| `ztlctl://context` | Full assembled context |
+| `ztlctl://context` | Full assembled context (identity + methodology + overview) |
 | `ztlctl://agent-reference` | Onboarding payload with tool guidance and workflow examples |
+| `ztlctl://recipes` | Index of available agent orchestration recipes |
+| `ztlctl://recipes/research-capture` | Research-capture workflow: search, create notes, link evidence |
+| `ztlctl://recipes/review-triage` | Review-triage workflow: work queue, inspect, update, archive |
+| `ztlctl://recipes/knowledge-synthesis` | Knowledge-synthesis workflow: search, find gaps, draft, reweave |
+| `ztlctl://docs/index` | Navigation map of all ztlctl documentation pages |
+| `ztlctl://docs/search` | Documentation search guidance — use `docs_search` tool for queries |
 
 ## Available Prompts
+
+9 prompts are registered by default (source: `src/ztlctl/mcp/prompts.py`).
 
 | Prompt | Description |
 |--------|-------------|
@@ -103,3 +113,37 @@ This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting file
 | `topic_decision` | Prepare a decision-ready topic packet and draft |
 | `capture_web_source` | Turn a fetched web page into a source bundle for ingest |
 | `capture_multimodal_source` | Turn extracted multimodal evidence into a source bundle for ingest |
+
+## Example: Creating a Note via MCP
+
+A complete create_note tool call and response:
+
+```json
+// Tool call
+{
+  "tool": "create_note",
+  "arguments": {
+    "title": "Zettelkasten Linking Principles",
+    "body": "Each note should represent a single atomic idea...",
+    "tags": ["zettelkasten", "methodology"],
+    "maturity": "seed"
+  }
+}
+
+// Response
+{
+  "ok": true,
+  "content_id": "ztl_A3F8B2C1",
+  "title": "Zettelkasten Linking Principles",
+  "path": "notes/zettelkasten/ztl_A3F8B2C1.md",
+  "maturity": "seed",
+  "tags": ["zettelkasten", "methodology"],
+  "links_added": 0
+}
+```
+
+After creation, run `reweave` with the returned `content_id` to discover and add connections to related notes automatically.
+
+## Agent Integration
+
+For machine-readable schemas, state machines, and structured interaction flows, see the [Agent System Manual](agents.md). That page is optimized for LLM consumers and covers error recovery patterns, constraint rules, and orchestration contracts.

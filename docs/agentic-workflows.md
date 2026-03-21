@@ -12,25 +12,25 @@ Sessions are operational coordination state, not durable authored knowledge. Use
 
 ```bash
 # Agent starts a focused research session
-ztlctl agent session start "API design patterns" --json
+ztlctl session start "API design patterns" --json
 
 # Agent captures sources and synthesis
-ztlctl ingest text "API source notes" --stdin --as reference --json
+ztlctl ingest text "API source notes" --target-type reference --json
 ztlctl create note "REST vs GraphQL trade-offs" \
-  --tags "architecture/api" --session LOG-0001 --json
+  --tags architecture/api --json
 
 # Agent logs its reasoning and costs
-ztlctl agent session log "Analyzed 5 API frameworks" --cost 1200 --json
-ztlctl agent session log "Key insight: GraphQL better for nested data" --pin --json
+ztlctl session log "Analyzed 5 API frameworks" --cost 1200 --json
+ztlctl session log "Key insight: GraphQL better for nested data" --pin --json
 
 # Agent checks token budget
-ztlctl agent session cost --report 50000 --json
+ztlctl session cost --report 50000 --json
 
 # Agent requests context for continued work
-ztlctl agent context --topic "api" --budget 4000 --json
+ztlctl session context --topic "api" --budget 4000 --json
 
 # Agent closes session, triggering capture/synthesis cleanup
-ztlctl agent session close --summary "Mapped API paradigms" --json
+ztlctl session close --summary "Mapped API paradigms" --json
 ```
 
 ## Ingestion
@@ -42,8 +42,8 @@ Core ingestion is text-first:
 - URLs via `ztlctl ingest url`, but only when a source-provider plugin is installed
 
 ```bash
-ztlctl ingest text "OAuth notes" --stdin --as reference --json
-ztlctl ingest file ./source.md --as note --json
+ztlctl ingest text "OAuth notes" --target-type reference --json
+ztlctl ingest file ./source.md --target-type note --json
 ztlctl ingest providers --json
 ```
 
@@ -60,7 +60,7 @@ Read `ztlctl://capture/spec` for the exact bundle contract. The flat evidence-en
 
 ## Context Assembly (5-Layer System)
 
-The `agent context` command builds a token-budgeted payload with 5 layers:
+The `session context` command builds a token-budgeted payload with 5 layers:
 
 | Layer | Content | Budget |
 |-------|---------|--------|
@@ -74,13 +74,13 @@ The system tracks token usage per layer and reports pressure status (`normal`, `
 
 ```bash
 # Get full context with default 8000-token budget
-ztlctl agent context --json
+ztlctl session context --json
 
 # Focus on a topic with custom budget
-ztlctl agent context --topic "architecture" --budget 4000 --json
+ztlctl session context --topic "architecture" --budget 4000 --json
 
 # Quick orientation (no session required)
-ztlctl agent brief --json
+ztlctl session brief --json
 ```
 
 ## Topic Packets
@@ -88,24 +88,24 @@ ztlctl agent brief --json
 Use topic packets when you want conversational retrieval without depending on an active session:
 
 ```bash
-ztlctl query packet --topic architecture --mode learn --json
-ztlctl query packet --topic architecture --mode review --json
-ztlctl query packet --topic architecture --mode decision --json
+ztlctl query packet architecture --mode learn --json
+ztlctl query packet architecture --mode review --json
+ztlctl query packet architecture --mode decision --json
 ```
 
 Packets combine topic-matched notes, references, decisions, tasks, graph-adjacent material, evidence excerpts, supporting/conflicting links, stale items, bridge candidates, suggested actions, ranking explanations, and provenance maps so an agent can continue reasoning from captured knowledge rather than only from recent session state.
 
-Packets now merge topic-scoped items with search-ranked items, so a reference tagged to a topic is still available for review and learning even when its title/body is a weak lexical match for the topic string itself.
+Packets merge topic-scoped items with search-ranked items, so a reference tagged to a topic is still available for review and learning even when its title/body is a weak lexical match for the topic string itself.
 
 When a packet should become durable work, draft from it directly:
 
 ```bash
-ztlctl query draft --topic architecture --target note --json
-ztlctl query draft --topic architecture --mode review --target task --json
-ztlctl query draft --topic architecture --mode decision --target decision --json
+ztlctl query draft architecture --target note --json
+ztlctl query draft architecture --mode review --target task --json
+ztlctl query draft architecture --mode decision --target decision --json
 ```
 
-For a portable human review surface outside the vault, use `ztlctl export dashboard --viewer ... --output ...`. That export is an external review workbench for machine-layer queues, stale/orphan signals, and topic dossiers; it complements `garden/` but does not write into the vault or mirror `.obsidian/` state.
+For a portable human review surface outside the vault, use `ztlctl export dashboard ./output/ --viewer obsidian`. That export is an external review workbench for machine-layer queues, stale/orphan signals, and topic dossiers; it complements `garden/` but does not write into the vault or mirror `.obsidian/` state.
 
 ## Session Close Enrichment Pipeline
 
@@ -131,7 +131,7 @@ Extract decisions from session logs into permanent decision notes:
 
 ```bash
 # Extracts pinned/decision entries from the session log
-ztlctl extract LOG-0001 --title "Decision: Use GraphQL for nested queries"
+ztlctl session extract LOG-0001 --title "Decision: Use GraphQL for nested queries"
 ```
 
 This creates a decision note (`subtype=decision`, status `proposed`) linked to the session via a `derived_from` edge.
@@ -146,18 +146,18 @@ ztlctl serve --transport stdio
 
 Use the discovery flow in MCP clients:
 
-1. `discover_tools`
-2. `describe_tool`
+1. `discover_categories`
+2. `activate_category` (for non-core categories)
 3. `ztlctl://agent-reference`
 
-For enrichment-focused agents, the most useful read models are:
+For enrichment-focused agents, the most useful read resources are:
 
 - `ztlctl://review/dashboard`
 - `ztlctl://garden/backlog`
 - `ztlctl://decision-queue`
 - `ztlctl://capture/spec`
 
-The MCP prompt layer now also includes `topic_learn`, `topic_review`, `topic_decision`, `capture_web_source`, and `capture_multimodal_source`.
+The MCP prompt layer includes `topic_learn`, `topic_review`, `topic_decision`, `capture_web_source`, and `capture_multimodal_source`.
 
 See the [MCP Server](mcp.md) page for tool categories, resources, prompts, and exported client assets.
 
@@ -202,24 +202,24 @@ ztlctl query search "oauth security" --limit 10
 # No results for "oauth security"
 
 # Step 2: Create a synthesis note
-ztlctl create note "OAuth Security Patterns" --maturity seed --tags "auth/oauth,security"
+ztlctl create note "OAuth Security Patterns" --tags auth/oauth --tags security
 
 # Expected output:
 # Created note ZTL-0042: OAuth Security Patterns [seed]
 # Reweave: 3 links created (auto-triggered by Reweave plugin)
 
 # Step 3: Manual reweave if needed (already ran automatically above)
-# ztlctl reweave --id ZTL-0042
+# ztlctl reweave run --content-id ZTL-0042
 ```
 
 !!! tip
-    The Reweave plugin runs automatically after `create note`, so step 3 is already done for you. Run `ztlctl reweave --id {id}` manually only if you disabled auto-reweave or want to re-run after adding more related content. See [Built-in Plugins](plugins.md) for Reweave configuration.
+    The Reweave plugin runs automatically after `create note`, so step 3 is already done for you. Run `ztlctl reweave run --content-id {id}` manually only if you disabled auto-reweave or want to re-run after adding more related content. See [Built-in Plugins](plugins.md) for Reweave configuration.
 
 **Agent MCP tool sequence:**
 
 ```
 1. search(query="oauth security", limit=10)
-2. create_note(title="OAuth Security Patterns", maturity="seed")
+2. create_note(title="OAuth Security Patterns", tags=["auth/oauth", "security"])
 3. reweave(content_id=<step_2_id>)
 ```
 
@@ -269,7 +269,7 @@ ztlctl archive TASK-0001
 
 ```
 1. work_queue()
-2. get_document(content_id=<each_item_id>)  <- repeat per item
+2. get(content_id=<each_item_id>)  <- repeat per item
 3. update(content_id=<id>, changes={maturity: "budding"})  <- skip if no changes needed
 4. archive(content_id=<id>)  <- only if item is done or stale beyond recovery
 ```
@@ -308,7 +308,7 @@ ztlctl graph gaps --top 10
 # Gap 2: "replication" cluster — isolated from "consistency" cluster
 
 # Step 3: Draft a synthesis note from the topic
-ztlctl query draft --topic "distributed-systems" --target note
+ztlctl query draft "distributed-systems" --target note
 
 # Expected output:
 # Drafted ZTL-0055: "Distributed Systems Synthesis" [seed]
@@ -316,7 +316,7 @@ ztlctl query draft --topic "distributed-systems" --target note
 #   Gaps surfaced: consensus <-> replication bridge missing
 
 # Step 4: Reweave (already ran automatically — manual run if re-running)
-ztlctl reweave --id ZTL-0055
+ztlctl reweave run --content-id ZTL-0055
 ```
 
 **Agent MCP tool sequence:**
@@ -341,25 +341,25 @@ A typical 30-minute research session:
 
 ```bash
 # Start a session with a topic focus
-ztlctl agent session start "oauth security research"
+ztlctl session start "oauth security research"
 
 # Expected output:
 # Session started: LOG-0001 "oauth security research"
 # Session is open. All notes and references created now are linked to LOG-0001.
 
 # Capture sources as you find them
-ztlctl ingest text "RFC 6749 key sections" --stdin --as reference --tags "auth/oauth"
-ztlctl create note "Token exchange threat model" --tags "auth/oauth,security" --topic auth
+ztlctl ingest text "RFC 6749 key sections" --target-type reference --tags auth/oauth
+ztlctl create note "Token exchange threat model" --tags auth/oauth --tags security --topic auth
 
 # Log your reasoning as you go
-ztlctl agent session log "Read RFC 6749 sections 4-6. Key risk: token replay via HTTP."
-ztlctl agent session log "Drafted threat model. Needs peer review." --pin
+ztlctl session log "Read RFC 6749 sections 4-6. Key risk: token replay via HTTP."
+ztlctl session log "Drafted threat model. Needs peer review." --pin
 
 # Check how much context you have accumulated (useful before asking an agent to continue)
-ztlctl agent session cost --report 50000
+ztlctl session cost --report 50000
 
 # Close the session when done
-ztlctl agent session close --summary "Mapped OAuth 2.0 attack surface"
+ztlctl session close --summary "Mapped OAuth 2.0 attack surface"
 
 # Expected output:
 # Session closed: LOG-0001
@@ -370,7 +370,7 @@ ztlctl agent session close --summary "Mapped OAuth 2.0 attack surface"
 ```
 
 !!! note
-    Only one session can be open at a time. If you already have an open session, `ztlctl agent session start` returns an error.
+    Only one session can be open at a time. If you already have an open session, `ztlctl session start` returns an error.
 
 ### Agent-Driven Session
 
@@ -378,23 +378,23 @@ Agents use the same session commands via MCP tools. A literature review agent mi
 
 ```
 # Agent starts session
-agent_session_start(topic="attention mechanisms in transformers")
+start(topic="attention mechanisms in transformers")
 
 # Agent fetches topic context to understand what is already captured
-agent_context(topic="transformers", budget=8000)
+context(topic="transformers", budget=8000)
 
 # Agent ingests retrieved sources
-ingest_source(title="Attention Is All You Need", content=<paper_text>, as_type="reference")
+ingest_source(title="Attention Is All You Need", content=<paper_text>, input_kind="text", target_type="reference")
 
 # Agent creates synthesis notes as it reads
-create_note(title="Multi-head attention intuition", maturity="seed", tags=["ml/transformers"])
-create_note(title="Self-attention vs cross-attention", maturity="seed", tags=["ml/transformers"])
+create_note(title="Multi-head attention intuition", tags=["ml/transformers"])
+create_note(title="Self-attention vs cross-attention", tags=["ml/transformers"])
 
 # Agent logs key decisions
-agent_session_log("Core insight: Q/K/V projection sizes determine capacity vs. compute tradeoff", pin=True)
+log_entry(message="Core insight: Q/K/V projection sizes determine capacity vs. compute tradeoff", pin=True)
 
 # Agent closes session when done
-agent_session_close(summary="Surveyed attention mechanism architecture, 2 synthesis notes created")
+close(summary="Surveyed attention mechanism architecture, 2 synthesis notes created")
 ```
 
 The agent receives structured JSON at each step, including content IDs it can use in subsequent calls. No special agent-mode configuration is required — the same MCP tools work for both supervised and autonomous agents.
@@ -420,7 +420,7 @@ LOG CLOSE -> CROSS-SESSION REWEAVE -> ORPHAN SWEEP -> INTEGRITY CHECK -> GRAPH M
 **Reading the close result with `--json`:**
 
 ```bash
-ztlctl agent session close --summary "Research complete" --json
+ztlctl session close --summary "Research complete" --json
 ```
 
 ```json
@@ -474,12 +474,30 @@ ID=$(ztlctl create note "My Note" --json | jq -r '.data.id')
 ztlctl query search "python" --json | jq '.data.items[].title'
 
 # Check vault health programmatically
-ERRORS=$(ztlctl check --json | jq '.data.issues | map(select(.severity == "error")) | length')
+ERRORS=$(ztlctl check check --json | jq '.data.issues | map(select(.severity == "error")) | length')
 ```
+
+## Anti-Patterns
+
+!!! warning "Anti-Pattern: Agent creating notes without an active session"
+    Notes created outside a session are not linked to a coordination unit, so the session-close enrichment pipeline (cross-session reweave, orphan sweep, integrity check) never runs for them. Individual Reweave plugin auto-reweave still fires, but session-level enrichment does not. For agent-driven workflows, always call `start` before creating notes and `close` when done.
+
+!!! warning "Anti-Pattern: Agent ignoring ServiceResult.success"
+    Every MCP tool returns a `ServiceResult` with an `ok` boolean. Agents that skip this check and proceed on failure will chain bad state — creating notes with IDs that do not exist, updating records that were never written, or extracting decisions from sessions that failed to close. Always gate the next step on `result.ok == true` and surface the `error.message` field when false.
+
+!!! warning "Anti-Pattern: Agent running reweave run after every single create"
+    The Reweave plugin already runs `reweave run` automatically after every `create_note` and `create_reference` call. Calling `reweave` manually after each individual create causes double-reweave on the same item, wasting time and producing duplicate-edge attempts. Use `session close` to trigger a single cross-session reweave on all notes created during a session. Reserve manual `reweave run --content-id {id}` calls for notes with `--no-reweave` or notes created before a new related item was added to the vault.
+
+!!! warning "Anti-Pattern: Agent using raw SQL instead of CLI/MCP tools"
+    The SQLite database at `.ztlctl/ztlctl.db` is managed exclusively by ztlctl. Agents that query or mutate it directly bypass frontmatter sync, tag indexing, graph edge maintenance, FTS5 updates, and the event bus. The result is a database that drifts out of sync with the filesystem. All knowledge-work operations must go through the CLI (`ztlctl query search`, `ztlctl create note`) or MCP tools (`search`, `create_note`). Use `ztlctl check rebuild` to recover if the database has already been corrupted by direct SQL access.
+
+---
 
 ## Next Steps
 
 - See [Built-in Plugins](plugins.md) for Git and Reweave plugin configuration
+- See [Best Practices](best-practices.md) for composing sessions, reweave, and agents safely
+- See [Agents Reference](agents.md) for MCP tool schemas, session state machine, and error recovery
 - See [Knowledge Paradigms](paradigms.md) for second-brain vs knowledge garden approach guidance
 - See [Core Concepts](concepts.md) for the content type and maturity tier reference
 - See [MCP Server](mcp.md) for the full MCP tool and resource reference

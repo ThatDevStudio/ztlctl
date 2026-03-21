@@ -5,7 +5,7 @@ ztlctl's plugin system is built on [pluggy](https://pluggy.readthedocs.io/). Plu
 This guide covers:
 
 1. [Tutorial: Build Your First Plugin](#tutorial-build-your-first-plugin) — step-by-step walkthrough
-2. [Hookspec Reference](#hookspec-reference) — all 16 hookspecs with exact signatures and behavior
+2. [Hookspec Reference](#hookspec-reference) — all 16 active hookspecs with exact signatures and behavior
 3. [Plugin Metadata](#plugin-metadata-pluginmetadata) — marketplace and discoverability metadata
 4. [Compatibility and Versioning](#compatibility-and-versioning) — API version contract
 
@@ -383,7 +383,7 @@ capabilities = ["network"]
 
 ## Hookspec Reference
 
-All hooks are defined in `src/ztlctl/plugins/hookspecs.py`. Implement only the hooks your plugin needs — unimplemented hooks are no-ops.
+All 16 active hookspecs are defined in the `ZtlctlHookSpec` class in `src/ztlctl/plugins/hookspecs.py`. Implement only the hooks your plugin needs — unimplemented hooks are no-ops. See also the [API Reference](api-reference.md) for auto-generated signatures and docstrings.
 
 Every implementation must be decorated with:
 
@@ -627,6 +627,15 @@ Return `None` or do not implement to indicate no declaration. Missing declaratio
 ---
 
 ### Deprecated Per-Event Hooks
+
+!!! warning "Deprecated Hookspecs"
+    The following hookspecs still work but are deprecated since plugin API v2. Use `pre_action` / `post_action` instead:
+
+    - `post_create`, `post_update`, `post_close`, `post_reweave`
+    - `post_session_start`, `post_session_close`
+    - `post_check`, `post_init`, `post_init_profile`
+
+    These emit `DeprecationWarning` when implemented and will be removed in a future API version.
 
 The following hooks are deprecated since plugin API v2. They emit `DeprecationWarning` when implemented. Use `post_action` with `action_name` filtering instead.
 

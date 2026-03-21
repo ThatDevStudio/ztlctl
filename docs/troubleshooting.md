@@ -101,6 +101,32 @@ ztlctl check --rollback
 
 Backups are retained for 30 days (configurable via `[check] backup_retention_days`).
 
+### ztlctl docs search returns "docs path not found"
+
+**Cause**: `ztlctl docs search` needs access to the `docs/` directory. In a pip-installed (non-editable) environment, the package-relative path discovery fails.
+
+**Fix**:
+
+```bash
+# Point ztlctl to your local docs checkout
+export ZTLCTL_DOCS_PATH=/path/to/ztlctl/docs
+ztlctl docs search "your query"
+```
+
+This is the designed behavior — `ZTLCTL_DOCS_PATH` is the user-facing override for non-editable installs. See [Configuration > Environment Variables](configuration.md#ztlctl_docs_path) for details.
+
+### GitHub Pages not updating after deploy
+
+**Cause**: The GitHub Pages source must be set to "GitHub Actions" in repository settings. The default "Deploy from a branch" setting will not pick up artifact-based deployments.
+
+**Fix**:
+
+1. Go to your repository Settings > Pages
+2. Under "Build and deployment" > Source > select **GitHub Actions**
+3. Trigger a new deploy by pushing any change or re-running the docs workflow
+
+This is a one-time setup step. Once configured, all subsequent pushes to `develop` will auto-deploy.
+
 ## Getting Help
 
 - [GitHub Issues](https://github.com/ThatDevStudio/ztlctl/issues) — Bug reports and feature requests

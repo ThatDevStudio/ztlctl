@@ -22,10 +22,13 @@ It does **not**:
 
 ## Setup Walkthrough
 
-Initialize your vault with the Obsidian profile:
+### Scenario 1: Research Vault
+
+Initialize a research vault with the Obsidian profile — the most common setup for academics and knowledge workers tracking literature and concepts:
 
 ```bash
-ztlctl init research-vault --profile obsidian --name "Research Vault" --topics "ml,systems"
+ztlctl init --path research-vault --profile obsidian --name "Research Vault" --topics "ml,systems"
+cd research-vault
 ```
 
 Expected output:
@@ -45,6 +48,26 @@ Next steps for Obsidian:
 
 !!! note
     ztlctl writes the .obsidian/ starter files during init, then leaves them for you to customize. After the first open, .obsidian/ is yours — ztlctl won't overwrite your changes.
+
+### Scenario 2: Team Wiki Vault
+
+A team wiki benefits from the same profile, with topics aligned to project areas and the git plugin enabled so edits are tracked automatically:
+
+```bash
+ztlctl init --path team-wiki --profile obsidian --name "Team Wiki" --topics "architecture,ops,decisions"
+cd team-wiki
+```
+
+Configure the git plugin for team use in `ztlctl.toml`:
+
+```toml
+[plugins.git]
+enabled = true
+batch_commits = false    # commit immediately so teammates see changes faster
+auto_push = true         # push to shared remote on every operation
+```
+
+Each teammate's Obsidian instance opens the same vault directory. ztlctl's database (`/.ztlctl/`) is not shared via git — only the markdown files and `.obsidian/` config are committed. Run `ztlctl check rebuild` to re-derive the local database from the shared files when conflicts arise.
 
 ## What Gets Scaffolded
 
@@ -100,7 +123,7 @@ research-vault/
 ├── .obsidian/           # Obsidian workspace config — scaffolded by ztlctl, then yours
 └── garden/              # Human-managed knowledge garden — never touched by ztlctl
     ├── README.md
-    ├── notes/           # Garden notes (seed → budding → evergreen)
+    ├── notes/           # Garden notes (seed → sprout → evergreen)
     ├── groves/          # Topic clusters
     ├── library/         # Books and long-form sources
     ├── canvases/        # Visual mind maps
@@ -136,7 +159,7 @@ After a ztlctl session, export a review dashboard and open it in Obsidian to gui
 
 ```bash
 # After closing a session, generate a review workbench
-ztlctl export dashboard --viewer obsidian --output ./dashboard
+ztlctl export dashboard ./dashboard/ --viewer obsidian
 
 # Then open dashboard/ in Obsidian alongside your vault
 # The dashboard shows: stale notes, orphan candidates, topic dossiers
@@ -146,10 +169,24 @@ The exported dashboard is a machine-layer review workbench — not a mirror of g
 
 ## Relationship to Export
 
-`ztlctl export dashboard --viewer obsidian` is an external review workbench, not part of the starter kit itself. It gives you portable markdown and JSON review artifacts for triage and topic review, but it does not export the literal `garden/` directory and it does not mirror `.obsidian/` workspace state.
+`ztlctl export dashboard ./output/ --viewer obsidian` is an external review workbench, not part of the starter kit itself. It gives you portable markdown and JSON review artifacts for triage and topic review, but it does not export the literal `garden/` directory and it does not mirror `.obsidian/` workspace state.
+
+## Common Pitfalls
+
+**Sync conflicts from `.ztlctl/` in git:**
+The `.ztlctl/` directory contains the SQLite database and binary backup files. Never commit it — it is written to `.gitignore` automatically during `ztlctl init`. If it ends up in git, binary merge conflicts will corrupt the database. Remove it from git tracking with `git rm -r --cached .ztlctl/`.
+
+**Manually editing the SQLite database:**
+The `.ztlctl/ztlctl.db` file is managed exclusively by ztlctl. Editing it directly with a SQLite browser bypasses frontmatter sync and breaks the filesystem-as-source-of-truth contract. If you need to correct a record, update the corresponding `.md` file and run `ztlctl check rebuild` to re-derive the database.
+
+**Ignoring the `.ztlctl/` directory in Obsidian:**
+Obsidian's file indexer will try to open `.ztlctl/` contents if not excluded. Add `.ztlctl` to Obsidian's excluded file paths in Settings → Files & Links → Excluded files to keep binary files out of Obsidian search and graph.
+
+**Modifying `.obsidian/` config and expecting ztlctl to re-read it:**
+ztlctl reads vault config from `ztlctl.toml` only. Changes to `.obsidian/app.json` or similar files are not read by ztlctl. The relationship is one-directional: ztlctl writes `.obsidian/` once at init, then Obsidian and you own it.
 
 ## Next Steps
 
-- See [Built-in Plugins](plugins.md) for Git and Reweave plugin configuration
+- See [Built-in Plugins](plugins.md) for Git and Reweave plugin configuration, including git plugin setup for team vaults
 - See [Agentic Workflows](agentic-workflows.md) for session lifecycle and recipe walkthroughs
 - See [Configuration](configuration.md) for the full ztlctl.toml reference

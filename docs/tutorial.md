@@ -4,23 +4,27 @@ title: Tutorial
 
 # Tutorial: Building Your Knowledge Vault
 
-This tutorial walks through creating and managing a knowledge vault from capture through enrichment.
+This tutorial walks through creating and managing a knowledge vault from capture through enrichment. Every command example is verified against the Click command source.
 
 ## Step 1: Initialize Your Vault
 
 ```bash
-ztlctl init research-vault --name "Research Notes" --profile obsidian --topics "ml,systems,papers"
+ztlctl init --path research-vault --name "Research Notes" --profile obsidian --topics "ml,systems,papers"
 cd research-vault
 ```
 
 This creates the directory structure, config file, SQLite database, generated identity files, and the selected workspace scaffold. With `--profile obsidian`, init also writes the first-party Obsidian starter kit, creates the human-owned `garden/` layer, and prints a checklist for installing the curated Obsidian community plugins. After that scaffold, `.obsidian/` is yours to customize in Obsidian.
 
 **Options:**
+- `--path TEXT` — Vault directory (default: current directory)
 - `--name TEXT` — Vault display name
 - `--profile TEXT` — Workspace profile used by initialization and self/workflow generation; `core` is always available and installed profile ids are discovered dynamically
 - `--tone [research-partner|assistant|minimal]` — Agent personality for self/ files
 - `--topics TEXT` — Comma-separated topic directories
 - `--no-workflow` — Skip workflow template setup
+
+!!! warning "Anti-Pattern: Interactive init without --no-interact"
+    Running `ztlctl init` in a scripted or CI environment will block on interactive prompts unless you pass `--no-interact`. Always use `--no-interact` in automation and provide all required flags explicitly.
 
 ## Step 2: Capture Knowledge
 
@@ -28,7 +32,7 @@ This creates the directory structure, config file, SQLite database, generated id
 
 ```bash
 ztlctl create note "Transformer Architecture" \
-  --tags "ml/transformers,concept/architecture" \
+  --tags ml/transformers --tags concept/architecture \
   --topic ml
 ```
 
@@ -38,13 +42,13 @@ ztlctl create note "Transformer Architecture" \
 ztlctl create reference "Attention Is All You Need" \
   --url "https://arxiv.org/abs/1706.03762" \
   --subtype article \
-  --tags "ml/transformers,papers/seminal"
+  --tags ml/transformers --tags papers/seminal
 ```
 
 **Ingest text directly** — useful when an agent or another tool already has the source text:
 
 ```bash
-ztlctl ingest text "Transformer reading notes" --stdin --as reference
+ztlctl ingest text "Transformer reading notes" --target-type reference
 ```
 
 **Quick capture with garden seed** — when you want minimal friction:
@@ -54,7 +58,10 @@ ztlctl garden seed "Idea: attention mechanisms for code review" \
   --tags "ml/attention" --topic ml
 ```
 
-Seeds start at `seed` maturity and can grow to `budding` then `evergreen` as you develop them.
+Seeds start at `seed` maturity and can grow to `sprout` then `evergreen` as you develop them.
+
+!!! warning "Anti-Pattern: Creating notes without tags"
+    Notes without tags are harder to find, harder to reweave, and harder to group into topic packets. Tags drive both the tag-Jaccard reweave signal and the `query list --tag` filter. Always add at least one domain-scoped tag when creating a note or reference.
 
 ## Step 3: Work with Tasks
 
@@ -73,22 +80,22 @@ Tasks are scored by priority x impact / effort and presented in actionable order
 
 ## Step 4: Connect Knowledge
 
-**Automatic link discovery** — reweave analyzes all content and suggests connections:
+**Discover and apply connections** — reweave analyzes all content and creates links above the score threshold:
 
 ```bash
-ztlctl reweave --auto-link-related
+ztlctl reweave run
 ```
 
 **Dry run** to preview what would change:
 
 ```bash
-ztlctl reweave --dry-run
+ztlctl reweave run --dry-run
 ```
 
 **Target a specific note:**
 
 ```bash
-ztlctl reweave --id ztl_a1b2c3d4
+ztlctl reweave run --content-id ztl_a1b2c3d4
 ```
 
 Reweave uses a 4-signal scoring algorithm:
@@ -96,6 +103,9 @@ Reweave uses a 4-signal scoring algorithm:
 2. **Tag Jaccard** (25%) — tag overlap between items
 3. **Graph Proximity** (25%) — existing network distance
 4. **Topic Match** (15%) — shared topic directory
+
+!!! tip
+    The Reweave plugin runs automatically after every `create note` and `create reference` operation, so you rarely need to run `ztlctl reweave run` manually. See [Built-in Plugins](plugins.md) for Reweave plugin configuration.
 
 ## Step 5: Query and Explore
 
@@ -128,8 +138,8 @@ ztlctl query get ztl_a1b2c3d4
 
 ```bash
 ztlctl query decision-support --topic architecture
-ztlctl query packet --topic architecture --mode learn
-ztlctl query draft --topic architecture --target note
+ztlctl query packet architecture --mode learn
+ztlctl query draft architecture --target note
 ```
 
 ## Step 6: Analyze the Graph
@@ -175,9 +185,9 @@ ztlctl graph bridges --top 10
 **Update metadata:**
 
 ```bash
-ztlctl update ztl_a1b2c3d4 --title "New Title" --tags "new/tag"
+ztlctl update ztl_a1b2c3d4 --title "New Title" --tags new/tag
 ztlctl update ztl_a1b2c3d4 --status linked
-ztlctl update ztl_a1b2c3d4 --maturity budding  # Grow a garden note
+ztlctl update ztl_a1b2c3d4 --maturity sprout  # Grow a garden note
 ```
 
 **Archive** — soft-delete that preserves graph edges:
@@ -192,18 +202,21 @@ ztlctl archive ztl_a1b2c3d4
 ztlctl supersede ztl_old_decision ztl_new_decision
 ```
 
+!!! warning "Anti-Pattern: Updating status directly without valid transitions"
+    ztlctl enforces lifecycle rules: a note in `draft` status cannot jump to `connected` in a single update. Attempting invalid transitions fails with `INVALID_TRANSITION`. Use the work queue (`ztlctl query work-queue`) to understand the right next action for each item.
+
 ## Step 8: Export and Share
 
 **Export markdown** — portable copy of all content:
 
 ```bash
-ztlctl export markdown --output ./export/
+ztlctl export markdown ./export/
 ```
 
 **Generate indexes** — type and topic groupings:
 
 ```bash
-ztlctl export indexes --output ./indexes/
+ztlctl export indexes ./indexes/
 ```
 
 **Export the knowledge graph:**
@@ -216,12 +229,12 @@ ztlctl export graph --format json --output graph.json # For D3.js / vis.js
 **Export a dashboard** for enrichment work:
 
 ```bash
-ztlctl export dashboard --viewer obsidian --output ./dashboard/
+ztlctl export dashboard ./dashboard/ --viewer obsidian
 ```
 
 This dashboard is an external review workbench. It helps you review machine-layer work queues, stale/orphan signals, and topic dossiers before doing human-led garden work in Obsidian.
 
-This export now includes:
+This export includes:
 
 - `dashboard.md`
 - `review-queue.json`
@@ -235,30 +248,34 @@ This export now includes:
 **Check vault health:**
 
 ```bash
-ztlctl check
+ztlctl check check
 ```
 
 **Auto-fix detected issues:**
 
 ```bash
-ztlctl check --fix
-ztlctl check --fix --level aggressive  # More thorough repairs
+ztlctl check fix
+ztlctl check fix --level aggressive  # More thorough repairs
 ```
 
 **Full rebuild** — re-derive the entire database from files:
 
 ```bash
-ztlctl check --rebuild
+ztlctl check rebuild
 ```
 
 **Rollback** to the last backup:
 
 ```bash
-ztlctl check --rollback
+ztlctl check rollback
 ```
+
+!!! warning "Anti-Pattern: Skipping regular integrity checks"
+    Running `ztlctl check check` before large operations (bulk import, manual file edits) prevents silent corruption. Regular checks are especially important after manually editing `.md` files outside ztlctl, as frontmatter changes can desync the database.
 
 ## Next Steps
 
 - [Core Concepts](concepts.md) — Deeper understanding of content types and lifecycle
+- [Command Reference](commands.md) — Full flag reference for every command
 - [Agentic Workflows](agentic-workflows.md) — Using ztlctl with AI agents
 - [Knowledge Paradigms](paradigms.md) — Capture/synthesis and enrichment across those paradigms
