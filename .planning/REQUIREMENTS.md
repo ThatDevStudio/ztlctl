@@ -18,7 +18,7 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 - [x] **ARCH-07**: Action registrations decomposed into feature-local modules (`actions/create.py`, `actions/query.py`, etc.)
 - [x] **ARCH-08**: Centralized plugin runtime discovery — single coherent owner per scope for plugins, profiles, workflows, init steps
 - [x] **ARCH-09**: Command surface convergence — `garden seed` is a first-class action; hybrid patching reduced
-- [ ] **ARCH-10**: Compatibility residue removed — dead controller helpers, deprecated `workspace_modes.py`, transitional scaffolding
+- [x] **ARCH-10**: Compatibility residue removed — dead controller helpers, deprecated `workspace_modes.py`, transitional scaffolding
 
 ### Tech Debt
 
@@ -26,8 +26,8 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 - [x] **DEBT-02**: EventBus timeout configurable via settings
 - [x] **DEBT-03**: Dead-letter event accumulation resolved (cleanup or retry strategy)
 - [x] **DEBT-04**: MCP server graceful shutdown implemented
-- [ ] **DEBT-05**: Phantom `mutation` category in `_DEFAULT_ACTIVE_CATEGORIES` cleaned up
-- [ ] **DEBT-06**: `ServiceError.recovery` field either used by services or removed
+- [x] **DEBT-05**: Phantom `mutation` category in `_DEFAULT_ACTIVE_CATEGORIES` cleaned up
+- [x] **DEBT-06**: `ServiceError.recovery` field either used by services or removed
 - [x] **DEBT-07**: `load_plugin_commands` creates PluginManager with `inject_configs` support
 - [ ] **DEBT-08**: `bridges()` betweenness centrality uses k-approximation for large graphs
 
@@ -108,13 +108,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARCH-07 | Phase 17 | Complete |
 | ARCH-08 | Phase 17 | Complete |
 | ARCH-09 | Phase 16 | Complete |
-| ARCH-10 | Phase 18 | Pending |
+| ARCH-10 | Phase 18 | Complete |
 | DEBT-01 | Phase 18 | Pending |
 | DEBT-02 | Phase 15 | Complete |
 | DEBT-03 | Phase 15 | Complete |
 | DEBT-04 | Phase 16 | Complete |
-| DEBT-05 | Phase 18 | Pending |
-| DEBT-06 | Phase 18 | Pending |
+| DEBT-05 | Phase 18 | Complete |
+| DEBT-06 | Phase 18 | Complete |
 | DEBT-07 | Phase 17 | Complete |
 | DEBT-08 | Phase 18 | Pending |
 | RECL-01 | Phase 20 | Pending |
