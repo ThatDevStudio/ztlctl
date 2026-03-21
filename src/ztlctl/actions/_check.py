@@ -91,6 +91,33 @@ def _register_check_actions() -> None:
         )
     )
 
+    registry.register(
+        ActionDefinition(
+            name="check_alignment",
+            description="Check a decision against polaris priorities for alignment.",
+            category="check",
+            params=(
+                ActionParam(
+                    "decision",
+                    str,
+                    required=True,
+                    description=(
+                        "Description of the decision to evaluate against polaris priorities."
+                    ),
+                ),
+            ),
+            handler=lambda vault, **kw: CheckController(vault).check_alignment(**kw),
+            side_effect="read",
+            mcp_when_to_use=(
+                "Before making a significant decision, to check alignment "
+                "with the vault's polaris priorities."
+            ),
+            mcp_avoid_when="No polaris file exists yet, or the decision is trivial.",
+            cli_group="check",
+            cli_name="alignment",
+        )
+    )
+
     # -----------------------------------------------------------------------
     # maintenance category
     # -----------------------------------------------------------------------

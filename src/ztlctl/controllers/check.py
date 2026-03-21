@@ -57,6 +57,17 @@ class CheckController(BaseController):
 
         return self._run_action("rollback", kwargs, _invoke)
 
+    def check_alignment(self, *, decision: str) -> ServiceResult:
+        """Check decision alignment against polaris priorities."""
+        from ztlctl.services.check import CheckService
+
+        kwargs: dict[str, Any] = {"decision": decision}
+
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CheckService(self._vault).check_alignment(**kw)
+
+        return self._run_action("check_alignment", kwargs, _invoke)
+
     def event_purge(self, *, older_than_days: int | None = None) -> ServiceResult:
         """Purge dead-letter events from the WAL.
 

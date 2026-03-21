@@ -344,6 +344,96 @@ class CheckService(BaseService):
             },
         )
 
+    @traced
+    def check_alignment(self, *, decision: str) -> ServiceResult:
+        """Check a decision description against polaris priorities.
+
+        Returns structured data: {aligned, relevant_priorities, reasoning}.
+        Alignment is heuristic — keyword overlap between decision and priorities.
+        aligned is always True (advisory, never blocking).
+        """
+        polaris_path = self._vault.root / "garden" / "groves" / "polaris.md"
+        if not polaris_path.exists():
+            return ServiceResult(
+                ok=True,
+                op="check_alignment",
+                data={
+                    "aligned": True,
+                    "relevant_priorities": [],
+                    "reasoning": (
+                        "No polaris file configured. "
+                        "Create garden/groves/polaris.md or run ztlctl init."
+                    ),
+                    "polaris_exists": False,
+                },
+            )
+
+        polaris_raw = polaris_path.read_text(encoding="utf-8")
+        _fm, body = parse_frontmatter(polaris_raw)
+
+        # Extract priority lines (numbered items under "Current Priorities")
+        priorities: list[str] = []
+        in_priorities = False
+        for line in body.splitlines():
+            stripped = line.strip()
+            if stripped.lower().startswith("## current priorities"):
+                in_priorities = True
+                continue
+            if in_priorities and stripped.startswith("##"):
+                break
+            if in_priorities and stripped and (stripped[0].isdigit() or stripped.startswith("-")):
+                text = stripped.lstrip("0123456789.-) ").strip()
+                if text:
+                    priorities.append(text)
+
+        # Extract decision principles
+        principles: list[str] = []
+        in_principles = False
+        for line in body.splitlines():
+            stripped = line.strip()
+            if stripped.lower().startswith("## decision principles"):
+                in_principles = True
+                continue
+            if in_principles and stripped.startswith("##"):
+                break
+            if in_principles and stripped and stripped.startswith("-"):
+                text = stripped.lstrip("- ").strip()
+                if text:
+                    principles.append(text)
+
+        # Heuristic relevance: keyword overlap between decision and each priority/principle
+        _stopwords = frozenset(
+            {"the", "a", "an", "is", "to", "and", "or", "of", "in", "for", "with", "on", "at", "by"}
+        )
+        decision_words = set(decision.lower().split()) - _stopwords
+        relevant: list[str] = []
+        for p in priorities + principles:
+            p_words = set(p.lower().split()) - _stopwords
+            if decision_words & p_words:
+                relevant.append(p)
+
+        if relevant:
+            reasoning = f"Decision relates to {len(relevant)} polaris priorities/principles."
+        else:
+            reasoning = (
+                "No direct keyword overlap found between the decision "
+                "and current polaris priorities."
+            )
+
+        return ServiceResult(
+            ok=True,
+            op="check_alignment",
+            data={
+                "aligned": True,  # Advisory — never blocks
+                "relevant_priorities": relevant,
+                "reasoning": reasoning,
+                "polaris_exists": True,
+                "decision": decision,
+                "all_priorities": priorities,
+                "all_principles": principles,
+            },
+        )
+
     # ------------------------------------------------------------------
     # Backup helpers
     # ------------------------------------------------------------------
