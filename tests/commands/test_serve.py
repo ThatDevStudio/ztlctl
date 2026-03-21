@@ -37,11 +37,15 @@ class TestServeCommand:
     def test_serve_invokes_create_server_with_transport_options(
         self, cli_runner: CliRunner
     ) -> None:
-        server = MagicMock()
+        server_mock = MagicMock()
+        vault_mock = MagicMock()
+        server_ctx = MagicMock()
+        server_ctx.server = server_mock
+        server_ctx.vault = vault_mock
 
         with (
             patch("ztlctl.mcp.server.mcp_available", True),
-            patch("ztlctl.mcp.server.create_server", return_value=server) as create_server,
+            patch("ztlctl.mcp.server.create_server", return_value=server_ctx) as create_server,
         ):
             result = cli_runner.invoke(
                 cli,
@@ -61,4 +65,5 @@ class TestServeCommand:
         _, kwargs = create_server.call_args
         assert kwargs["host"] == "0.0.0.0"
         assert kwargs["port"] == 9000
-        server.run.assert_called_once_with(transport="sse")
+        server_mock.run.assert_called_once_with(transport="sse")
+        vault_mock.close.assert_called_once_with(wait_for_events=True)

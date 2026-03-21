@@ -39,5 +39,8 @@ class TestGitMissingRuntime:
         data = json.loads(result.stdout)
         assert data["ok"] is True
         assert (tmp_path / data["data"]["path"]).exists()
-        assert "git add failed" in result.stderr.lower()
+        # After Phase 15 (service-side post_action emission), git plugin errors
+        # are dispatched asynchronously via EventBus WAL. The error may or may not
+        # appear in stderr depending on drain timing. The key invariant is:
+        # (1) the note creation succeeds, and (2) no traceback crashes the CLI.
         assert "traceback" not in result.stderr.lower()

@@ -97,9 +97,12 @@ class GitPlugin:
         if not self._enabled:
             return
 
-        # Guard: skip if result indicates failure. None = pass-through (bridge path).
-        if result is not None and (not hasattr(result, "ok") or not result.ok):
-            return
+        # Guard: skip if result indicates failure. None = pass-through.
+        # Result may be a ServiceResult object or a dict (from ActionEvent serialization).
+        if result is not None:
+            ok = result.get("ok") if isinstance(result, dict) else getattr(result, "ok", True)
+            if not ok:
+                return
 
         if action_name in {"create_note", "create_reference", "create_task"}:
             self._handle_create(action_name, kwargs)
@@ -125,7 +128,7 @@ class GitPlugin:
         self._git_add(path)
         if not self._config.batch_commits:
             content_type = kwargs.get("content_type", "note")
-            content_id = kwargs.get("content_id", "")
+            content_id = kwargs.get("content_id", "") or kwargs.get("id", "")
             title = kwargs.get("title", "")
             self._git_commit(
                 f"feat: create {content_type} {_sanitize_for_commit(content_id)}"
@@ -137,7 +140,7 @@ class GitPlugin:
         path = kwargs.get("path", ".")
         self._git_add(path)
         if not self._config.batch_commits:
-            content_id = kwargs.get("content_id", "")
+            content_id = kwargs.get("content_id", "") or kwargs.get("id", "")
             fields_changed = kwargs.get("fields_changed", [])
             fields = ", ".join(fields_changed)
             self._git_commit(f"docs: update {_sanitize_for_commit(content_id)} ({fields})")
@@ -147,7 +150,7 @@ class GitPlugin:
         path = kwargs.get("path", ".")
         self._git_add(path)
         if not self._config.batch_commits:
-            content_id = kwargs.get("content_id", "")
+            content_id = kwargs.get("content_id", "") or kwargs.get("id", "")
             summary = kwargs.get("summary", "")
             self._git_commit(
                 f"docs: close {_sanitize_for_commit(content_id)} — {_sanitize_for_commit(summary)}"
