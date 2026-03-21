@@ -167,6 +167,72 @@ def _register_ingest_actions() -> None:
 
     registry.register(
         ActionDefinition(
+            name="ingest_media",
+            description="Ingest a media file or transcript into a captured reference.",
+            category="ingest",
+            params=(
+                ActionParam(
+                    "path",
+                    str,
+                    required=True,
+                    description="Filesystem path to the media or transcript file.",
+                    cli_is_argument=True,
+                ),
+                ActionParam(
+                    "title",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Optional title override for the captured reference.",
+                ),
+                ActionParam(
+                    "topic",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Optional topic directory under notes/.",
+                ),
+                ActionParam(
+                    "tags",
+                    list,
+                    required=False,
+                    default=None,
+                    description="Optional tags applied to the captured reference.",
+                    cli_multiple=True,
+                ),
+                ActionParam(
+                    "summary",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Optional capture summary hint.",
+                ),
+                ActionParam(
+                    "dry_run",
+                    bool,
+                    required=False,
+                    default=False,
+                    description="Preview ingestion without creating files.",
+                    cli_flag=True,
+                ),
+            ),
+            handler=lambda vault, **kw: IngestController(vault).ingest_media(**kw),
+            side_effect="write",
+            mcp_when_to_use=(
+                "Ingesting audio, video, or transcript files into the vault"
+                " as captured references for later annotation."
+            ),
+            mcp_avoid_when=(
+                "You are ingesting text or URLs — use ingest_text or ingest_url instead."
+            ),
+            mcp_common_errors=("NOT_FOUND", "UNSUPPORTED_INPUT", "DEPENDENCY_MISSING"),
+            cli_group="ingest",
+            cli_name="media",
+        )
+    )
+
+    registry.register(
+        ActionDefinition(
             name="ingest_url",
             description="Ingest a URL through a registered source provider.",
             category="ingest",
