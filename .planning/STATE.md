@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-03-21T18:41:05.779Z"
+stopped_at: Completed 18-02-PLAN.md
+last_updated: "2026-03-21T18:41:13.368Z"
 progress:
   total_phases: 8
   completed_phases: 4
@@ -96,6 +96,8 @@ Recent decisions affecting current work:
 - [Phase 17-registry-decomposition-and-plugin-runtime]: _register_core.py decomposed into 9 feature-local modules; each owns one registration function; __init__.py calls all 9 at module load time (ARCH-07)
 - [Phase 18-architecture-cleanup]: ServiceError.recovery kept with Field description — confirmed active in controllers/base.py (plugin rejection), controllers/discovery.py (category errors), mcp/response.py (MCP error builder)
 - [Phase 18-architecture-cleanup]: Custom note type update/close actions use lifecycle category matching core _lifecycle.py actions
+- [Phase 18-architecture-cleanup]: DEFAULT_EMBEDDING_DIM defined in embeddings.py; config/models.py uses literal 384 with comment pointing to canonical source (avoids circular import)
+- [Phase 18-architecture-cleanup]: bridges() k-approximation: identical pattern to _node_features() — exact for <=500 nodes, min(500, n) for larger graphs, seed=42 for reproducibility
 
 ### Pending Todos
 
@@ -109,6 +111,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T18:40:57.174Z
-Stopped at: Completed 18-01-PLAN.md
+Last session: 2026-03-21T18:41:13.366Z
+Stopped at: Completed 18-02-PLAN.md
 Resume file: None
