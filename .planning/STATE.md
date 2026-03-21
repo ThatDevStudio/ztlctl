@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Documentation & Hardening
 status: unknown
-stopped_at: Completed 25-02-PLAN.md
-last_updated: "2026-03-21T23:07:44.067Z"
+stopped_at: Completed 25-03-PLAN.md
+last_updated: "2026-03-21T23:13:56.558Z"
 progress:
   total_phases: 10
   completed_phases: 2
@@ -58,6 +58,7 @@ Plan: 3 of 3
 | Phase 24 P01 | 2 | 2 tasks | 3 files |
 | Phase 25 P01 | 2 | 2 tasks | 2 files |
 | Phase 25 P02 | 117 | 2 tasks | 2 files |
+| Phase 25-new-v3-0-feature-pages P03 | 6 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,7 @@ Recent decisions affecting v3.1:
 - [Phase 25]: Polaris check_alignment documented as advisory-only (aligned is always true) reflecting source behavior in check.py
 - [Phase 25]: Contradiction CLI routes through check group (check contradictions, check confirm-contradiction), not standalone subcommand
 - [Phase 25]: Media ingestion supports 11 formats: ogg/flac/mkv/webm included alongside mp3/m4a/wav/mp4 from TranscriptionService.SUPPORTED_EXTENSIONS
+- [Phase 25-new-v3-0-feature-pages]: llms-full.txt section headers include URL blockquote lines so agent grep patterns resolve correctly
 
 ### Pending Todos
 
@@ -102,7 +104,7 @@ Recent decisions affecting v3.1:
 
 ## Session Continuity
 
-Last session: 2026-03-21T23:07:44.064Z
-Stopped at: Completed 25-02-PLAN.md
+Last session: 2026-03-21T23:13:56.555Z
+Stopped at: Completed 25-03-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 23`
