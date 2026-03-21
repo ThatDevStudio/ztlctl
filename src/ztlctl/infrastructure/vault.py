@@ -395,6 +395,14 @@ class Vault:
         self._plugin_manager = pm
         self._event_bus = EventBus(self._engine, pm, sync=sync, config=self._settings.eventbus)
 
+        # Auto-purge old dead-letter events (D-20)
+        try:
+            purged = self._event_bus.purge_dead_letters()
+            if purged > 0:
+                logger.info("Purged %d old dead-letter event(s) from WAL", purged)
+        except Exception:
+            logger.warning("Dead-letter purge failed; continuing", exc_info=True)
+
         # Startup recovery: drain pending/failed events from prior runs (D-05)
         try:
             self._event_bus.drain()

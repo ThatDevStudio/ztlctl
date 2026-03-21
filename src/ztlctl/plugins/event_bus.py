@@ -14,7 +14,7 @@ import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 
 from ztlctl.infrastructure.database.schema import event_wal
 from ztlctl.services._helpers import now_iso
@@ -150,6 +150,34 @@ class EventBus:
             results.append({"id": event_id, "hook_name": hook_name, "status": status})
 
         return results
+
+    def purge_dead_letters(self, *, older_than_days: int | None = None) -> int:
+        """Delete dead-letter WAL rows older than N days. Returns count deleted.
+
+        If older_than_days is None, uses self._dead_letter_retention_days from config.
+        """
+        from datetime import datetime, timedelta, timezone
+
+        retention = older_than_days if older_than_days is not None else self._dead_letter_retention_days
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=retention)).isoformat()
+
+        with self._engine.begin() as conn:
+            count = conn.execute(
+                select(func.count()).select_from(event_wal).where(
+                    event_wal.c.status == "dead_letter",
+                    event_wal.c.created < cutoff,
+                )
+            ).scalar_one()
+
+            if count > 0:
+                conn.execute(
+                    delete(event_wal).where(
+                        event_wal.c.status == "dead_letter",
+                        event_wal.c.created < cutoff,
+                    )
+                )
+
+        return count
 
     def shutdown(
         self,

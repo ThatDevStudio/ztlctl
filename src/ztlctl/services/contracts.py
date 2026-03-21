@@ -76,7 +76,7 @@ class CheckIssue(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     category: str
-    severity: Literal["warning", "error"]
+    severity: Literal["info", "warning", "error"]
     node_id: str | None = None
     message: str
     fix_action: str | None = None

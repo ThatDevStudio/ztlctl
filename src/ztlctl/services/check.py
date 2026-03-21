@@ -14,11 +14,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import delete, insert, select, text
+from sqlalchemy import delete, func, insert, select, text
 
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.domain.ids import ID_PATTERNS
-from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
+from ztlctl.infrastructure.database.schema import edges, event_wal, node_tags, nodes
 from ztlctl.services._helpers import now_compact, now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.contracts import CheckResultData, dump_validated
@@ -35,9 +35,11 @@ if TYPE_CHECKING:
 # Issue severity and category constants
 # ---------------------------------------------------------------------------
 
+SEVERITY_INFO = "info"
 SEVERITY_ERROR = "error"
 SEVERITY_WARNING = "warning"
 _SEVERITY_RANK = {
+    SEVERITY_INFO: 0,
     SEVERITY_WARNING: 1,
     SEVERITY_ERROR: 2,
 }
@@ -692,6 +694,25 @@ class CheckService(BaseService):
                         "fix_action": None,
                     }
                 )
+
+        # Dead-letter event count (D-19)
+        dead_letter_count = conn.execute(
+            select(func.count()).select_from(event_wal).where(
+                event_wal.c.status == "dead_letter"
+            )
+        ).scalar_one()
+
+        if dead_letter_count > 0:
+            issues.append(
+                {
+                    "category": CAT_STRUCTURAL,
+                    "severity": SEVERITY_INFO,
+                    "message": (
+                        f"{dead_letter_count} dead-letter event(s) in WAL. "
+                        "Run 'ztlctl event purge' to clear."
+                    ),
+                }
+            )
 
         return issues
 
