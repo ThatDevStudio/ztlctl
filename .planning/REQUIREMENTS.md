@@ -10,8 +10,8 @@ Requirements for v3.1 release. Each maps to roadmap phases.
 ### Documentation Infrastructure
 
 - [ ] **DINF-01**: Doc lint CI gate in pr-ci.yml: `mkdocs build --strict` + Vale prose lint + pymarkdownlnt structure lint — broken docs cannot merge
-- [ ] **DINF-02**: CLAUDE.md contains enforceable rule: when adding/modifying actions or features, update relevant docs pages and llms.txt in the same PR
-- [ ] **DINF-03**: GSD workflow templates include documentation tasks in every feature phase plan — structural enforcement, not optional
+- [x] **DINF-02**: CLAUDE.md contains enforceable rule: when adding/modifying actions or features, update relevant docs pages and llms.txt in the same PR
+- [x] **DINF-03**: GSD workflow templates include documentation tasks in every feature phase plan — structural enforcement, not optional
 - [ ] **DINF-04**: mkdocs-git-revision-date-localized shows "last updated" dates from git history on every docs page
 
 ### New Feature Documentation
@@ -37,8 +37,8 @@ Requirements for v3.1 release. Each maps to roadmap phases.
 
 ### Tech Debt
 
-- [ ] **DEBT-09**: IngestService._ingest_normalized calls `_dispatch_post_action_event` — post_action plugin hooks fire for ingest_* actions; `test_post_action_dispatch.py` includes `ingest.py`
-- [ ] **DEBT-10**: Stale docstrings/comments fixed: ContradictionController.confirm_contradiction stub docstring, commands/generator.py stale `_register_core_actions` comment
+- [x] **DEBT-09**: IngestService._ingest_normalized calls `_dispatch_post_action_event` — post_action plugin hooks fire for ingest_* actions; `test_post_action_dispatch.py` includes `ingest.py`
+- [x] **DEBT-10**: Stale docstrings/comments fixed: ContradictionController.confirm_contradiction stub docstring, commands/generator.py stale `_register_core_actions` comment
 
 ## v4.0 Requirements
 
@@ -69,11 +69,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DINF-01 | Phase 23 | Pending |
-| DINF-02 | Phase 23 | Pending |
-| DINF-03 | Phase 23 | Pending |
+| DINF-02 | Phase 23 | Complete |
+| DINF-03 | Phase 23 | Complete |
 | DINF-04 | Phase 23 | Pending |
-| DEBT-09 | Phase 23 | Pending |
-| DEBT-10 | Phase 23 | Pending |
+| DEBT-09 | Phase 23 | Complete |
+| DEBT-10 | Phase 23 | Complete |
 | QUAL-01 | Phase 24 | Pending |
 | QUAL-04 | Phase 24 | Pending |
 | NDOC-01 | Phase 25 | Pending |

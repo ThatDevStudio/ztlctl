@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Documentation & Hardening
-status: roadmap_ready
-stopped_at: null
-last_updated: "2026-03-21T21:45:00.000Z"
+status: planning
+stopped_at: Completed 23-02-PLAN.md
+last_updated: "2026-03-21T22:34:53.424Z"
 progress:
-  total_phases: 5
+  total_phases: 10
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -58,6 +58,7 @@ Progress: [----------] 0/5 phases complete
 - Expected: docs phases lighter than architecture phases (v3.0 avg); infrastructure phase (23) heavier than content phases
 
 *Updated after each plan completion*
+| Phase 23 P02 | 8 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,7 @@ Recent decisions affecting v3.1:
 - Phase 23 bundles DEBT-09 (IngestService post_action dispatch) and DEBT-10 (stale docstrings) with infra work — both are small code changes that unblock clean CI
 - Phase 24 (nav/IA audit) must precede Phase 25 (new pages) — placement in nav must be confirmed before writing begins
 - Phases 25, 26, 27 ordered: new pages first (25), then cross-reference updates and index refresh (26), then internal docs (27)
+- [Phase 23]: IngestService dispatch fires in _ingest_normalized (note path) and _create_reference_with_bundle (reference path), matching where writes occur
 
 ### Pending Todos
 
@@ -92,7 +94,7 @@ Recent decisions affecting v3.1:
 
 ## Session Continuity
 
-Last session: 2026-03-21 — v3.1 roadmap created
-Stopped at: Roadmap written, STATE.md initialized
+Last session: 2026-03-21T22:34:53.421Z
+Stopped at: Completed 23-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 23`
