@@ -73,6 +73,9 @@ markdown_extensions:
   - toc:
       permalink: true
 
+extra_css:
+  - stylesheets/overrides.css
+
 copyright: >-
   MIT License. Distributed under the
   <a href="https://github.com/ThatDevStudio/ztlctl/blob/develop/LICENSE">MIT License</a>.

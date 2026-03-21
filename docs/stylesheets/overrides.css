@@ -1,0 +1,13 @@
+/* Fix 1: Sidebar gradient overlapping the first menu link.
+   The theme adds an absolute gradient div (top-8, z-10, blur) that fades
+   into the scroll area but sits directly on top of the "Home" link. */
+div.absolute.z-10[class*="bg-gradient-to-b"][class*="from-background"] {
+  display: none;
+}
+
+/* Fix 2 & 3: Code blocks overflow into adjacent text and the right sidebar.
+   The theme sets overflow-x: visible on <pre>, so long lines spill out.
+   Switch to auto for horizontal scrolling within the content column. */
+article pre {
+  overflow-x: auto;
+}
