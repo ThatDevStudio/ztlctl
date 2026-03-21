@@ -36,7 +36,7 @@ class ContradictionController(BaseController):
         return self._run_action("check_contradictions", kwargs, _invoke)
 
     def confirm_contradiction(self, *, note_a: str, note_b: str) -> ServiceResult:
-        """Confirm a contradiction between two notes (stub — wired in Plan 02)."""
+        """Record a confirmed contradiction edge between two notes in the graph."""
         from ztlctl.services.contradiction import ContradictionService
 
         kwargs: dict[str, Any] = {"note_a": note_a, "note_b": note_b}

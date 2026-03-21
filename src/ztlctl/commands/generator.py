@@ -193,7 +193,7 @@ def generate_commands(cli: click.Group) -> None:
 
     Groups are created lazily and stored in a local dict to avoid duplicates.
     """
-    import ztlctl.actions  # noqa: F401 — triggers _register_core_actions()
+    import ztlctl.actions  # noqa: F401 — triggers feature-local action registration via submodule imports
     from ztlctl.actions.registry import get_action_registry
 
     registry = get_action_registry()

@@ -502,12 +502,19 @@ class IngestService(BaseService):
                     "source_bundle_path": None,
                 },
             )
-            return ServiceResult(
+            final_result = ServiceResult(
                 ok=True,
                 op=f"ingest_{input_kind}",
                 data=payload,
                 warnings=[*result.warnings, *note_warnings],
             )
+            self._dispatch_post_action_event(
+                action_name=f"ingest_{input_kind}",
+                payload=payload,
+                warnings=[*result.warnings, *note_warnings],
+                result=final_result,
+            )
+            return final_result
         return self._create_reference_with_bundle(
             title=title,
             normalized_body=normalized_body,
@@ -733,9 +740,16 @@ class IngestService(BaseService):
                 "source_bundle_path": bundle_path_value,
             },
         )
-        return ServiceResult(
+        final_result = ServiceResult(
             ok=True,
             op=f"ingest_{input_kind}",
             data=payload,
             warnings=[*warnings, *provider_warnings],
         )
+        self._dispatch_post_action_event(
+            action_name=f"ingest_{input_kind}",
+            payload=payload,
+            warnings=[*warnings, *provider_warnings],
+            result=final_result,
+        )
+        return final_result
