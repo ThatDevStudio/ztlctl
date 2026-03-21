@@ -22,14 +22,14 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 
 ### Tech Debt
 
-- [ ] **DEBT-01**: Embedding dimensions configurable (remove hardcoded values)
+- [x] **DEBT-01**: Embedding dimensions configurable (remove hardcoded values)
 - [x] **DEBT-02**: EventBus timeout configurable via settings
 - [x] **DEBT-03**: Dead-letter event accumulation resolved (cleanup or retry strategy)
 - [x] **DEBT-04**: MCP server graceful shutdown implemented
 - [x] **DEBT-05**: Phantom `mutation` category in `_DEFAULT_ACTIVE_CATEGORIES` cleaned up
 - [x] **DEBT-06**: `ServiceError.recovery` field either used by services or removed
 - [x] **DEBT-07**: `load_plugin_commands` creates PluginManager with `inject_configs` support
-- [ ] **DEBT-08**: `bridges()` betweenness centrality uses k-approximation for large graphs
+- [x] **DEBT-08**: `bridges()` betweenness centrality uses k-approximation for large graphs
 
 ### Session Recall
 
@@ -109,14 +109,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARCH-08 | Phase 17 | Complete |
 | ARCH-09 | Phase 16 | Complete |
 | ARCH-10 | Phase 18 | Complete |
-| DEBT-01 | Phase 18 | Pending |
+| DEBT-01 | Phase 18 | Complete |
 | DEBT-02 | Phase 15 | Complete |
 | DEBT-03 | Phase 15 | Complete |
 | DEBT-04 | Phase 16 | Complete |
 | DEBT-05 | Phase 18 | Complete |
 | DEBT-06 | Phase 18 | Complete |
 | DEBT-07 | Phase 17 | Complete |
-| DEBT-08 | Phase 18 | Pending |
+| DEBT-08 | Phase 18 | Complete |
 | RECL-01 | Phase 20 | Pending |
 | RECL-02 | Phase 20 | Pending |
 | RECL-03 | Phase 20 | Pending |
