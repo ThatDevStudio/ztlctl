@@ -175,6 +175,7 @@ _GROUP_HELP: dict[str, str] = {
     "upgrade": "Run pending database migrations.",
     "reweave": "Densify the knowledge graph with links.",
     "init": "Initialize and manage vault configuration.",
+    "garden": "Cultivate knowledge with the garden persona.",
 }
 
 

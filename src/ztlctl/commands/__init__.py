@@ -70,11 +70,6 @@ def register_commands(cli: click.Group) -> None:
 
     cli.add_command(update)
 
-    # garden: not in ActionRegistry (calls CreateService with maturity=seed directly)
-    from ztlctl.commands.garden import garden
-
-    cli.add_command(garden)
-
     # init: The generator creates an 'init' group with regenerate/staleness subcommands.
     # We harvest those subcommands, then replace the generated group with the hand-written
     # wizard group (which supports invoke_without_command for `ztlctl init [--name ...]`),

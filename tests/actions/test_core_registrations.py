@@ -349,7 +349,10 @@ class TestCategoryIntegrity:
     @pytest.mark.parametrize(
         "category,expected_names",
         [
-            ("creation", {"create_note", "create_reference", "create_task", "create_batch"}),
+            (
+                "creation",
+                {"create_note", "create_reference", "create_task", "create_batch", "garden_seed"},
+            ),
             ("check", {"check", "fix", "rebuild", "rollback"}),
             ("upgrade", {"check_pending", "apply", "stamp_current"}),
             ("reweave", {"reweave", "prune", "undo"}),

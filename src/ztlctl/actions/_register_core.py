@@ -270,6 +270,53 @@ def _register_core_actions() -> None:
         )
     )
 
+    registry.register(
+        ActionDefinition(
+            name="garden_seed",
+            description="Plant a seed note -- quick capture with minimal metadata.",
+            category="creation",
+            params=(
+                ActionParam(
+                    "title",
+                    str,
+                    required=True,
+                    description="Seed note title -- quick thought or half-formed idea.",
+                    cli_is_argument=True,
+                    mcp_example="Half-formed idea about caching",
+                ),
+                ActionParam(
+                    "tags",
+                    list,
+                    required=False,
+                    default=None,
+                    description="Optional tags. Comma-separated in CLI.",
+                    cli_multiple=True,
+                ),
+                ActionParam(
+                    "topic",
+                    str,
+                    required=False,
+                    default=None,
+                    description="Optional topic scope.",
+                ),
+            ),
+            handler=lambda vault, **kw: CreateController(vault).create_note(
+                kw["title"],
+                tags=kw.get("tags"),
+                topic=kw.get("topic"),
+                maturity="seed",
+            ),
+            side_effect="write",
+            cli_group="garden",
+            cli_name="seed",
+            cli_examples=(
+                "  ztlctl garden seed \"Half-formed idea\"\n"
+                "  ztlctl garden seed \"Quick thought\" --tags domain/topic\n"
+                "  ztlctl --json garden seed \"API design hunch\" --topic architecture"
+            ),
+        )
+    )
+
     # -----------------------------------------------------------------------
     # query category
     # -----------------------------------------------------------------------
