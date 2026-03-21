@@ -1,5 +1,15 @@
 # Milestones
 
+## v2.1 Documentation (Shipped: 2026-03-21)
+
+**Phases completed:** 7 phases, 21 plans, 11 tasks
+
+**Key accomplishments:**
+
+- (none recorded)
+
+---
+
 ## v2.0 Platform (Shipped: 2026-03-20)
 
 **Phases completed:** 7 phases, 22 plans, 10 tasks

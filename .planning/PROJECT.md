@@ -35,33 +35,18 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - ✓ Auto-generated CLI commands from ActionRegistry (13 hand-written files replaced) — v2.0
 - ✓ Stable Plugin API (versioning, pre/post hooks, config, custom note types, render contributions) — v2.0
 - ✓ Agentic integration (structured error recovery, orchestration recipes, progressive disclosure, capability security) — v2.0
+- ✓ MkDocs + mkdocs-shadcn docs site with two-track navigation (User Guide + Developer Guide) — v2.1
+- ✓ User Guide content: paradigm guides, plugin guides, agentic workflow recipes, session lifecycle — v2.1
+- ✓ Developer Guide: plugin authoring (719 lines), auto-generated API reference, architecture docs — v2.1
+- ✓ Agent accessibility: llms.txt, llms-full.txt, `ztlctl docs` CLI, MCP doc search — v2.1
+- ✓ Documentation quality pass: source-verified CLI examples, anti-patterns, best-practices.md, agents.md — v2.1
+- ✓ Actions artifact deploy (gh-pages branch eliminated, trunk-based) — v2.1
 
 ### Active
 
-<!-- Current scope: v2.1 Documentation -->
+<!-- Next milestone scope: TBD -->
 
-**User Guide Track:**
-- [x] Audience-segmented docs site with clear user vs developer navigation — Phase 9
-- [x] Paradigm comparison guide (second-brain vs knowledge garden, 192 lines, scenarios) — Phase 10
-- [x] Built-in plugin guides (Obsidian 155 lines, Git + Reweave 244 lines) — Phase 10
-- [x] Agentic workflow recipe walkthroughs (research-capture, review-triage, knowledge-synthesis) — Phase 10
-- [x] Session lifecycle guides for human and agent-driven usage (485 lines total) — Phase 10
-
-**Developer Guide Track:**
-- [x] Plugin authoring guide (719 lines, 8-step tutorial, 16 hookspecs, complete example) — Phase 11
-- [x] Auto-generated API reference via mkdocstrings (5 public modules) — Phase 11
-- [x] Architecture docs (4-layer action model) + CONTRIBUTING.md cross-links — Phase 11
-
-**Agent Accessibility:**
-- [x] `llms.txt` + `llms-full.txt` at docs root for MCP client/agent discovery — Phase 9
-- [x] `ztlctl docs <query>` CLI command with ranked results, `--json`, `--limit` — Phase 12
-- [x] MCP resources (`ztlctl://docs/index`, `ztlctl://docs/search`) + `docs_search` MCP tool — Phase 12
-
-**Infrastructure:**
-- [x] MkDocs + mkdocs-shadcn migration with dark mode, GitHub Actions deploy — Phase 8
-- [x] Internal planning artifacts removed from public docs — Phase 8
-- [x] Reorganize docs/ with audience-based navigation sections — Phase 9
-- [x] Switch GitHub Pages deploy to Actions artifact (eliminate gh-pages branch) — Phase 13
+(No active requirements — run `/gsd:new-milestone` to define next scope)
 
 ### Out of Scope
 
@@ -74,7 +59,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ## Context
 
-**Current state (v2.0 shipped):** 110 source files (26,439 LOC Python), 123 test files (24,726 LOC), mypy strict, ruff clean. 12 services, 14 controllers, 59 registered actions, 13 command groups, 3 built-in plugins, auto-generated MCP adapter (59 tools from ActionRegistry), and semantic search. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern and 4-layer action model (Data/Service/Controller/Registry).
+**Current state (v2.1 shipped):** 110 source files (26,439 LOC Python), 123 test files (24,726 LOC), 20 documentation pages (4,889 lines), mypy strict, ruff clean. 12 services, 14 controllers, 59 registered actions, 13 command groups, 3 built-in plugins, auto-generated MCP adapter (59 tools from ActionRegistry), and semantic search. Documentation: MkDocs + mkdocs-shadcn site with two-track navigation, llms.txt agent discovery, `ztlctl docs` CLI/MCP search, best-practices.md, and agents.md system manual. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern and 4-layer action model (Data/Service/Controller/Registry).
 
 **Key architectural insight (realized):** CLI and MCP are auto-generated presentation layers over a unified ActionRegistry — define once, generate both surfaces. This is the foundation all future work builds on.
 
@@ -112,10 +97,11 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | Pre/post-action hooks wired into all controllers | Plugins can observe/modify/reject any action via hook dispatch | ✓ Good — 63 methods across 14 controllers wired in Phase 7 |
 | Category activation is advisory metadata | FastMCP cannot deregister tools dynamically; agents use categories for tool selection heuristics | ✓ Good — documented in Phase 7, AGNT-04 description updated |
 
-| Two-track documentation (user guide + developer guide) | Knowledge workers and plugin authors have fundamentally different needs; flat docs serve neither well | — Pending |
-| llms.txt + MCP doc search for agent accessibility | Agents are a primary audience; standard machine-readable discovery + in-tool search | — Pending |
-
-| MkDocs + mkdocs-shadcn for docs site | Modern shadcn/ui aesthetic, MkDocs ecosystem for Python tools, GitHub Pages deploy | ✓ Good — `mkdocs build --strict` passes, deploy workflow ready |
+| Two-track documentation (user guide + developer guide) | Knowledge workers and plugin authors have fundamentally different needs; flat docs serve neither well | ✓ Good — 10 User Guide pages, 5 Developer Guide pages, distinct tone per track |
+| llms.txt + MCP doc search for agent accessibility | Agents are a primary audience; standard machine-readable discovery + in-tool search | ✓ Good — llms.txt (20 pages), docs search CLI + MCP, agents.md system manual |
+| MkDocs + mkdocs-shadcn for docs site | Modern shadcn/ui aesthetic, MkDocs ecosystem for Python tools, GitHub Pages deploy | ✓ Good — `mkdocs build --strict` passes, artifact-based deploy |
+| Source-verified documentation | Every CLI example, hookspec, and config option must be verified against source code | ✓ Good — 15+ inaccurate commands fixed, configuration.md fully rewritten from models.py |
+| Three-audience documentation model | End users (mentor tone), developers (peer tone), agents (structured schemas) | ✓ Good — best-practices.md + agents.md serve distinct reading patterns |
 
 ---
-*Last updated: 2026-03-20 after Phase 13 completion — ALL PHASES COMPLETE*
+*Last updated: 2026-03-21 after v2.1 milestone completion*
