@@ -99,54 +99,54 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | — | Pending |
-| ARCH-02 | — | Pending |
-| ARCH-03 | — | Pending |
-| ARCH-04 | — | Pending |
-| ARCH-05 | — | Pending |
-| ARCH-06 | — | Pending |
-| ARCH-07 | — | Pending |
-| ARCH-08 | — | Pending |
-| ARCH-09 | — | Pending |
-| ARCH-10 | — | Pending |
-| DEBT-01 | — | Pending |
-| DEBT-02 | — | Pending |
-| DEBT-03 | — | Pending |
-| DEBT-04 | — | Pending |
-| DEBT-05 | — | Pending |
-| DEBT-06 | — | Pending |
-| DEBT-07 | — | Pending |
-| DEBT-08 | — | Pending |
-| RECL-01 | — | Pending |
-| RECL-02 | — | Pending |
-| RECL-03 | — | Pending |
-| RECL-04 | — | Pending |
-| RECL-05 | — | Pending |
-| POLR-01 | — | Pending |
-| POLR-02 | — | Pending |
-| POLR-03 | — | Pending |
-| POLR-04 | — | Pending |
-| CNTR-01 | — | Pending |
-| CNTR-02 | — | Pending |
-| CNTR-03 | — | Pending |
-| CNTR-04 | — | Pending |
-| CNTR-05 | — | Pending |
-| CNTR-06 | — | Pending |
-| INGP-01 | — | Pending |
-| INGP-02 | — | Pending |
-| INGP-03 | — | Pending |
-| INGP-04 | — | Pending |
-| INGP-05 | — | Pending |
-| INGP-06 | — | Pending |
-| METH-01 | — | Pending |
-| METH-02 | — | Pending |
-| METH-03 | — | Pending |
+| ARCH-01 | Phase 15 | Pending |
+| ARCH-02 | Phase 15 | Pending |
+| ARCH-03 | Phase 15 | Pending |
+| ARCH-04 | Phase 15 | Pending |
+| ARCH-05 | Phase 16 | Pending |
+| ARCH-06 | Phase 16 | Pending |
+| ARCH-07 | Phase 17 | Pending |
+| ARCH-08 | Phase 17 | Pending |
+| ARCH-09 | Phase 16 | Pending |
+| ARCH-10 | Phase 18 | Pending |
+| DEBT-01 | Phase 18 | Pending |
+| DEBT-02 | Phase 15 | Pending |
+| DEBT-03 | Phase 15 | Pending |
+| DEBT-04 | Phase 16 | Pending |
+| DEBT-05 | Phase 18 | Pending |
+| DEBT-06 | Phase 18 | Pending |
+| DEBT-07 | Phase 17 | Pending |
+| DEBT-08 | Phase 18 | Pending |
+| RECL-01 | Phase 20 | Pending |
+| RECL-02 | Phase 20 | Pending |
+| RECL-03 | Phase 20 | Pending |
+| RECL-04 | Phase 20 | Pending |
+| RECL-05 | Phase 20 | Pending |
+| POLR-01 | Phase 19 | Pending |
+| POLR-02 | Phase 19 | Pending |
+| POLR-03 | Phase 19 | Pending |
+| POLR-04 | Phase 19 | Pending |
+| CNTR-01 | Phase 21 | Pending |
+| CNTR-02 | Phase 21 | Pending |
+| CNTR-03 | Phase 21 | Pending |
+| CNTR-04 | Phase 21 | Pending |
+| CNTR-05 | Phase 21 | Pending |
+| CNTR-06 | Phase 21 | Pending |
+| INGP-01 | Phase 22 | Pending |
+| INGP-02 | Phase 22 | Pending |
+| INGP-03 | Phase 22 | Pending |
+| INGP-04 | Phase 22 | Pending |
+| INGP-05 | Phase 22 | Pending |
+| INGP-06 | Phase 22 | Pending |
+| METH-01 | Phase 19 | Pending |
+| METH-02 | Phase 19 | Pending |
+| METH-03 | Phase 19 | Pending |
 
 **Coverage:**
 - v3.0 requirements: 42 total
-- Mapped to phases: 0
-- Unmapped: 42 ⚠️
+- Mapped to phases: 42
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 after roadmap creation*
