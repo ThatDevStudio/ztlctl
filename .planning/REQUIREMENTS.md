@@ -25,7 +25,7 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 - [ ] **DEBT-01**: Embedding dimensions configurable (remove hardcoded values)
 - [x] **DEBT-02**: EventBus timeout configurable via settings
 - [x] **DEBT-03**: Dead-letter event accumulation resolved (cleanup or retry strategy)
-- [ ] **DEBT-04**: MCP server graceful shutdown implemented
+- [x] **DEBT-04**: MCP server graceful shutdown implemented
 - [ ] **DEBT-05**: Phantom `mutation` category in `_DEFAULT_ACTIVE_CATEGORIES` cleaned up
 - [ ] **DEBT-06**: `ServiceError.recovery` field either used by services or removed
 - [ ] **DEBT-07**: `load_plugin_commands` creates PluginManager with `inject_configs` support
@@ -112,7 +112,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEBT-01 | Phase 18 | Pending |
 | DEBT-02 | Phase 15 | Complete |
 | DEBT-03 | Phase 15 | Complete |
-| DEBT-04 | Phase 16 | Pending |
+| DEBT-04 | Phase 16 | Complete |
 | DEBT-05 | Phase 18 | Pending |
 | DEBT-06 | Phase 18 | Pending |
 | DEBT-07 | Phase 17 | Pending |
