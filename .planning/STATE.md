@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 21-01-PLAN.md
-last_updated: "2026-03-21T19:57:39.466Z"
+stopped_at: Completed 21-02-PLAN.md
+last_updated: "2026-03-21T20:06:36.991Z"
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -68,6 +68,7 @@ Plan: 2 of 2
 | Phase 20-session-recall P01 | 2 | 2 tasks | 4 files |
 | Phase 20 P02 | 5 | 2 tasks | 6 files |
 | Phase 21-contradiction-detection P01 | 5 | 2 tasks | 4 files |
+| Phase 21-contradiction-detection P02 | 8 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,9 @@ Recent decisions affecting current work:
 - [Phase 20]: sessions_recent_impl delegates to recall_temporal() and slices [:5] — already ordered by created_at desc
 - [Phase 21-01]: Patch target for VectorService mocks is ztlctl.services.vector.VectorService (lazy import — patch where class is defined)
 - [Phase 21-01]: confirm_contradiction stubbed with NOT_IMPLEMENTED — Plan 02 adds graph edge recording and ActionRegistry wiring
+- [Phase 21-contradiction-detection]: CAT_SEMANTIC wired outside vault.engine.connect() block — _check_semantic() opens its own connection internally via ContradictionService
+- [Phase 21-contradiction-detection]: confirm_contradiction validates both notes exist before opening transaction (fail-fast before mutation)
+- [Phase 21-contradiction-detection]: analysis category now active — check_contradictions and confirm_contradiction bring category count to 17
 
 ### Pending Todos
 
@@ -129,6 +133,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T19:57:39.463Z
-Stopped at: Completed 21-01-PLAN.md
+Last session: 2026-03-21T20:06:36.989Z
+Stopped at: Completed 21-02-PLAN.md
 Resume file: None

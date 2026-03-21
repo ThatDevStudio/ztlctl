@@ -50,10 +50,10 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 
 - [x] **CNTR-01**: Candidate pair discovery identifies notes that may contradict (topic-scoped, high-similarity, decision conflicts)
 - [x] **CNTR-02**: Heuristic evaluation scores candidate pairs using negation patterns and key_points comparison
-- [ ] **CNTR-03**: `CAT_SEMANTIC` check category in CheckService reports contradiction candidates
-- [ ] **CNTR-04**: Confirmed contradictions recorded as `contradicts` edges in the graph
-- [ ] **CNTR-05**: MCP resource `ztlctl://review/contradictions` surfaces contradiction pairs in review dashboard
-- [ ] **CNTR-06**: `check_contradictions` action registered in ActionRegistry (category: analysis)
+- [x] **CNTR-03**: `CAT_SEMANTIC` check category in CheckService reports contradiction candidates
+- [x] **CNTR-04**: Confirmed contradictions recorded as `contradicts` edges in the graph
+- [x] **CNTR-05**: MCP resource `ztlctl://review/contradictions` surfaces contradiction pairs in review dashboard
+- [x] **CNTR-06**: `check_contradictions` action registered in ActionRegistry (category: analysis)
 
 ### Ingestion Pipeline
 
@@ -128,10 +128,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POLR-04 | Phase 19 | Complete |
 | CNTR-01 | Phase 21 | Complete |
 | CNTR-02 | Phase 21 | Complete |
-| CNTR-03 | Phase 21 | Pending |
-| CNTR-04 | Phase 21 | Pending |
-| CNTR-05 | Phase 21 | Pending |
-| CNTR-06 | Phase 21 | Pending |
+| CNTR-03 | Phase 21 | Complete |
+| CNTR-04 | Phase 21 | Complete |
+| CNTR-05 | Phase 21 | Complete |
+| CNTR-06 | Phase 21 | Complete |
 | INGP-01 | Phase 22 | Pending |
 | INGP-02 | Phase 22 | Pending |
 | INGP-03 | Phase 22 | Pending |
