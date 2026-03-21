@@ -50,6 +50,7 @@ CAT_GRAPH = "graph_health"
 CAT_STRUCTURAL = "structural_validation"
 CAT_GARDEN = "garden_health"
 CAT_SCHEMA_VERSION = "schema_version"
+CAT_SEMANTIC = "semantic_analysis"
 
 # Title quality advisory — patterns considered too short or generic
 _GENERIC_TITLE_PATTERNS: frozenset[str] = frozenset(
@@ -108,6 +109,8 @@ class CheckService(BaseService):
                 issues.extend(self._check_structural_validation(conn))
             with trace_span("garden_health"):
                 issues.extend(self._check_garden_health(conn))
+        with trace_span("semantic_analysis"):
+            issues.extend(self._check_semantic())
 
         issues = [
             issue
@@ -946,6 +949,42 @@ class CheckService(BaseService):
                 }
             )
 
+        return issues
+
+    def _check_semantic(self) -> list[dict[str, Any]]:
+        """Category 6: semantic analysis — contradiction candidates via vector similarity.
+
+        Gracefully skips if VectorService is unavailable (no vector index).
+        Returns CheckIssue dicts with severity=SEVERITY_INFO.
+        """
+        from ztlctl.services.contradiction import ContradictionService
+
+        svc = ContradictionService(self._vault)
+        result = svc.find_candidates()
+
+        if not result.ok:
+            return []
+
+        candidates = result.data.get("candidates", [])
+        issues: list[dict[str, Any]] = []
+        for cand in candidates:
+            title_a = cand.get("title_a", cand.get("note_a", ""))
+            title_b = cand.get("title_b", cand.get("note_b", ""))
+            score = cand.get("score", 0.0)
+            signals = cand.get("signals", [])
+            issues.append(
+                {
+                    "severity": SEVERITY_INFO,
+                    "category": CAT_SEMANTIC,
+                    "message": (
+                        f"Possible contradiction: '{title_a}' vs '{title_b}' (score: {score:.2f})"
+                    ),
+                    "note_a": cand.get("note_a"),
+                    "note_b": cand.get("note_b"),
+                    "score": score,
+                    "signals": signals,
+                }
+            )
         return issues
 
     # ------------------------------------------------------------------

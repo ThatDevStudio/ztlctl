@@ -74,6 +74,10 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
         "uri": "ztlctl://sessions/recent",
         "description": "Last 5 sessions with summaries, timestamps, and note counts.",
     },
+    {
+        "uri": "ztlctl://review/contradictions",
+        "description": "Contradiction candidate pairs scored by heuristic analysis.",
+    },
 )
 
 
@@ -695,6 +699,19 @@ def sessions_recent_impl(vault: Any) -> dict[str, Any]:
     return {"sessions": recent, "count": len(recent)}
 
 
+def contradictions_review_impl(vault: Any) -> dict[str, Any]:
+    """Return contradiction candidate pairs scored by heuristic analysis."""
+    from ztlctl.services.contradiction import ContradictionService
+
+    result = ContradictionService(vault).find_candidates()
+    if not result.ok:
+        return {"candidates": [], "count": 0}
+    return {
+        "candidates": result.data.get("candidates", []),
+        "count": result.data.get("count", 0),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
@@ -827,6 +844,13 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(sessions_recent_impl(vault), indent=2)
+
+    @server.resource("ztlctl://review/contradictions")  # type: ignore[untyped-decorator]
+    def contradictions_review_resource() -> str:
+        """Contradiction candidate pairs scored by heuristic analysis."""
+        import json
+
+        return json.dumps(contradictions_review_impl(vault), indent=2)
 
     plugin_manager = getattr(vault, "plugin_manager", None)
     if plugin_manager is None:

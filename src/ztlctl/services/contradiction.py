@@ -268,26 +268,95 @@ class ContradictionService(BaseService):
             warnings=warnings,
         )
 
+    @traced
     def confirm_contradiction(
         self,
         *,
         note_a: str,
         note_b: str,
     ) -> ServiceResult:
-        """Confirm a contradiction between two notes (stub — wired in Plan 02).
+        """Confirm a contradiction between two notes by recording bidirectional graph edges.
 
-        Plan 02 will add graph edge recording and registry integration.
+        Inserts two edges (A->B and B->A) with edge_type='contradicts' and
+        source_layer='user'. Duplicate edges are silently skipped.
+
+        Args:
+            note_a: ID of the first note in the contradiction pair.
+            note_b: ID of the second note in the contradiction pair.
+
+        Returns:
+            ServiceResult with data={"note_a": str, "note_b": str, "edges_created": int}.
         """
+        from ztlctl.services._helpers import today_iso
         from ztlctl.services.result import ServiceError
 
-        return ServiceResult(
-            ok=False,
-            op="confirm_contradiction",
-            error=ServiceError(
-                code="NOT_IMPLEMENTED",
-                message="Confirm contradiction not yet wired — coming in Plan 02",
-            ),
+        op = "confirm_contradiction"
+
+        # Validate both notes exist
+        with self._vault.engine.connect() as conn:
+            row_a = conn.execute(select(nodes.c.id).where(nodes.c.id == note_a)).first()
+            row_b = conn.execute(select(nodes.c.id).where(nodes.c.id == note_b)).first()
+
+        if row_a is None:
+            return ServiceResult(
+                ok=False,
+                op=op,
+                error=ServiceError(
+                    code="NOT_FOUND",
+                    message=f"Note not found: {note_a}",
+                ),
+            )
+        if row_b is None:
+            return ServiceResult(
+                ok=False,
+                op=op,
+                error=ServiceError(
+                    code="NOT_FOUND",
+                    message=f"Note not found: {note_b}",
+                ),
+            )
+
+        today = today_iso()
+        edges_created = 0
+
+        with self._vault.transaction() as txn:
+            inserted_ab = txn.insert_edge(
+                note_a,
+                note_b,
+                "contradicts",
+                "user",
+                today,
+                check_duplicate=True,
+                check_target_exists=True,
+            )
+            if inserted_ab:
+                edges_created += 1
+
+            inserted_ba = txn.insert_edge(
+                note_b,
+                note_a,
+                "contradicts",
+                "user",
+                today,
+                check_duplicate=True,
+                check_target_exists=True,
+            )
+            if inserted_ba:
+                edges_created += 1
+
+        result = ServiceResult(
+            ok=True,
+            op=op,
+            data={"note_a": note_a, "note_b": note_b, "edges_created": edges_created},
         )
+        warnings: list[str] = []
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=result.data,
+            warnings=warnings,
+            result=result,
+        )
+        return result
 
     # ---------------------------------------------------------------------------
     # Scoring helpers
