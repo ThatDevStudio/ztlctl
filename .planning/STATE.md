@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Documentation & Hardening
 status: unknown
-stopped_at: Completed 26-02-PLAN.md
-last_updated: "2026-03-21T23:32:42.118Z"
+stopped_at: Completed 26-01-PLAN.md
+last_updated: "2026-03-21T23:33:25.082Z"
 progress:
   total_phases: 10
   completed_phases: 2
@@ -60,6 +60,7 @@ Plan: 2 of 2
 | Phase 25 P02 | 117 | 2 tasks | 2 files |
 | Phase 25-new-v3-0-feature-pages P03 | 6 | 2 tasks | 4 files |
 | Phase 26-existing-pages-and-quality-pass P02 | 5 | 2 tasks | 2 files |
+| Phase 26 P01 | 211 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting v3.1:
 - [Phase 25]: Media ingestion supports 11 formats: ogg/flac/mkv/webm included alongside mp3/m4a/wav/mp4 from TranscriptionService.SUPPORTED_EXTENSIONS
 - [Phase 25-new-v3-0-feature-pages]: llms-full.txt section headers include URL blockquote lines so agent grep patterns resolve correctly
 - [Phase 26-existing-pages-and-quality-pass]: llms.txt MCP Server entry now uses specific counts (73+ tools, 20 resources, 9 prompts) rather than generic description
+- [Phase 26]: Session recall CLI uses recall-temporal/recall-topic/recall-topology subcommand names (verified against _session.py cli_name fields)
+- [Phase 26]: check_contradictions and confirm_contradiction are in analysis category in ActionRegistry (not check category)
 
 ### Pending Todos
 
@@ -106,7 +109,7 @@ Recent decisions affecting v3.1:
 
 ## Session Continuity
 
-Last session: 2026-03-21T23:32:42.114Z
-Stopped at: Completed 26-02-PLAN.md
+Last session: 2026-03-21T23:33:25.079Z
+Stopped at: Completed 26-01-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 23`

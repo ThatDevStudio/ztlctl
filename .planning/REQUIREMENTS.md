@@ -25,7 +25,7 @@ Requirements for v3.1 release. Each maps to roadmap phases.
 ### Documentation Quality
 
 - [x] **QUAL-01**: Diataxis audit of all existing docs pages — classify each by content type (tutorial/how-to/reference/explanation), identify and fix mixed-purpose pages
-- [ ] **QUAL-02**: Existing pages updated with v3.0 feature coverage: concepts.md, agentic-workflows.md, agents.md, mcp.md reflect all new services, actions, and MCP resources
+- [x] **QUAL-02**: Existing pages updated with v3.0 feature coverage: concepts.md, agentic-workflows.md, agents.md, mcp.md reflect all new services, actions, and MCP resources
 - [x] **QUAL-03**: llms.txt and llms-full.txt refreshed with all new pages and v3.0 feature descriptions — agent discovery indexes are current
 - [x] **QUAL-04**: Consistent CLI syntax conventions, admonition taxonomy, and cross-referencing across all docs pages — Stripe/Docker-quality presentation
 
@@ -81,7 +81,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NDOC-03 | Phase 25 | Complete |
 | NDOC-04 | Phase 25 | Complete |
 | NDOC-05 | Phase 25 | Complete |
-| QUAL-02 | Phase 26 | Pending |
+| QUAL-02 | Phase 26 | Complete |
 | QUAL-03 | Phase 26 | Complete |
 | IDOC-01 | Phase 27 | Pending |
 | IDOC-02 | Phase 27 | Pending |
