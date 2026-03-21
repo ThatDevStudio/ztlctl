@@ -4908,3 +4908,206 @@ See [MCP Server](mcp.md) for the complete tool catalog, resource list, and promp
 
 
 ---
+
+# Session recall
+
+> URL: https://thatdevstudio.github.io/ztlctl/session-recall/
+
+Session recall lets you query your session history by time window, topic keyword, or structural overlap between sessions. Use it to reload context from past work, find when you last explored a topic, or discover which sessions share a knowledge thread.
+
+All three recall modes are available as CLI commands (`ztlctl session recall-*`) and as MCP tools for agent workflows.
+
+## Temporal recall
+
+Temporal recall returns sessions filtered by a date range. Each session in the result includes its ID, topic, status, start and end timestamps, log entry count, and the IDs of notes created during the session.
+
+```bash
+$ ztlctl session recall-temporal --from-date 2026-01-01 --to-date 2026-03-31
+
+# All sessions from the past week
+$ ztlctl session recall-temporal --from-date 2026-03-14
+
+# All sessions ever (no date filter)
+$ ztlctl session recall-temporal
+```
+
+Both flags (`--from-date`, `--to-date`) are optional ISO date strings (YYYY-MM-DD). Omit both to return all sessions ordered most-recent-first.
+
+## Topic recall
+
+Topic recall searches session log entries by text and returns all sessions that contain matching entries. The search is case-insensitive substring matching against the `summary` field of each log entry.
+
+```bash
+$ ztlctl session recall-topic "authentication"
+$ ztlctl session recall-topic "graph refactor"
+```
+
+The `QUERY` argument is required and must be non-empty.
+
+## Topology recall
+
+Topology recall finds pairs of sessions that share referenced notes or shared tags. It measures structural overlap between sessions, making it useful for discovering related work streams across different time periods.
+
+```bash
+$ ztlctl session recall-topology
+$ ztlctl session recall-topology --limit 20
+```
+
+Default limit is 10. Pairs are ranked by total shared items descending. Pairs with no shared content are excluded.
+
+## MCP tools and resource
+
+| Tool | When to use |
+|------|------------|
+| `recall_temporal` | Query session history by date range |
+| `recall_topic` | Find past sessions by searching log content |
+| `recall_topology` | Discover connections between sessions by shared content |
+
+The `ztlctl://sessions/recent` resource returns the last 5 sessions in a single read — use this at the start of agent workflows for fast session context.
+
+---
+
+# Polaris priorities
+
+> URL: https://thatdevstudio.github.io/ztlctl/polaris/
+
+Polaris is the strategic layer of your vault — a persistent document at `garden/groves/polaris.md` that captures your mission, current priorities, and decision principles. Agents consult polaris at every session context assembly and whenever checking alignment before significant decisions.
+
+The polaris document has three sections: **Mission** (1–3 sentences), **Current Priorities** (numbered list of active focus areas), and **Decision Principles** (bullet-point decision criteria). Keep it short — the context assembler caps polaris at 500 tokens.
+
+Running `ztlctl init` creates `garden/groves/polaris.md` from the `polaris.md.j2` template with placeholder comments to fill in. Replace the placeholders immediately after init.
+
+## MCP resource
+
+The `ztlctl://polaris` resource returns the full polaris file content. Agents read this resource to orient themselves before planning any significant action.
+
+## Context assembly
+
+Polaris is included in Layer 1 of the context assembler — the operational state layer that is always present regardless of token budget. It is never dropped from context. Access via `ztlctl session context` or the `context` MCP tool.
+
+## Alignment checking
+
+```bash
+$ ztlctl check alignment --decision "Migrate the graph engine to use NetworkX 3.4"
+```
+
+Or via MCP: `tool: check_alignment`. The `aligned` field is always `true` — the check is advisory. It surfaces which polaris priorities and principles are relevant to the proposed decision using keyword overlap heuristics.
+
+---
+
+# Contradiction detection
+
+> URL: https://thatdevstudio.github.io/ztlctl/contradiction-detection/
+
+Contradiction detection surfaces pairs of notes that may contain opposing or incompatible claims. It uses a three-signal heuristic — vector similarity, negation density, and key-points divergence — to rank candidate pairs without requiring a language model.
+
+## How it works
+
+1. Candidate pairs are ranked by a composite score: cosine similarity of note embeddings (notes must be meaningfully similar to contradict), negation density (count of negation words in each note), and key-points divergence (structural divergence between key_points lists).
+2. High-scoring pairs are surfaced as candidates — not confirmed contradictions.
+3. You or an agent reviews each pair and confirms or dismisses it.
+4. Confirmed pairs create a `contradicts` graph edge between the two note IDs.
+
+The check is in the `semantic_analysis` category at `warning` severity.
+
+## CLI usage
+
+```bash
+# Find candidate contradiction pairs
+$ ztlctl check contradictions
+
+# Confirm a contradiction after review
+$ ztlctl check confirm-contradiction ZTL_AAAAAAAA ZTL_BBBBBBBB
+
+# Dismiss a false positive
+$ ztlctl check confirm-contradiction ZTL_AAAAAAAA ZTL_BBBBBBBB --dismiss
+```
+
+## MCP tools and resource
+
+| Tool | Description |
+|------|-------------|
+| `check_contradictions` | Return ranked candidate contradiction pairs |
+| `confirm_contradiction` | Confirm or dismiss a candidate pair |
+
+The `ztlctl://contradictions/review` resource returns the current review queue of unresolved candidate pairs. Read it at the start of vault maintenance sessions.
+
+---
+
+# Media ingestion
+
+> URL: https://thatdevstudio.github.io/ztlctl/media-ingestion/
+
+Media ingestion turns audio, video, and transcript files into structured vault references. ztlctl transcribes audio and video locally using faster-whisper (no data leaves your machine), and parses pre-existing VTT/SRT transcript files without any external dependency.
+
+## Supported formats
+
+| Category | Extensions |
+|----------|-----------|
+| Audio | `.mp3`, `.m4a`, `.wav`, `.ogg`, `.flac` |
+| Video | `.mp4`, `.mkv`, `.webm` |
+| Transcript | `.vtt`, `.srt`, `.txt` |
+
+`faster-whisper` is an optional dependency. Install with: `pip install ztlctl[faster-whisper]`
+
+## Two-phase workflow
+
+Every ingest creates a `captured` reference — the first phase. The second phase is annotation: an agent or user reviews the transcript, adds key points and tags, and promotes to `annotated` status.
+
+```bash
+# Ingest a file
+$ ztlctl ingest file path/to/recording.mp4 --tags "meeting/engineering"
+
+# Ingest a transcript directly
+$ ztlctl ingest transcript path/to/meeting.vtt --title "Q1 planning meeting transcript"
+
+# Batch ingest a directory
+$ ztlctl ingest batch /path/to/recordings/ --tags "media/podcast"
+```
+
+## MCP tool
+
+| Tool | Description |
+|------|-------------|
+| `ingest_file` | Transcribe and ingest an audio or video file |
+| `ingest_transcript` | Parse and ingest a VTT/SRT/TXT transcript file |
+| `ingest_batch` | Ingest all supported files in a directory |
+
+The `ztlctl://capture/spec` MCP resource returns the source bundle contract for structured ingest handoff — the canonical format for agent-to-agent ingest workflows.
+
+---
+
+# Methodology guidance
+
+> URL: https://thatdevstudio.github.io/ztlctl/methodology/
+
+ztlctl encodes Zettelkasten methodology conventions that the integrity scanner enforces and the init templates teach. The prose-as-title convention is the single highest-leverage habit in a knowledge graph.
+
+## Prose-as-title convention
+
+Write titles as complete thoughts, not labels. A good title lets you find the note without opening it.
+
+| Instead of | Write |
+|---|---|
+| `Authentication` | `JWT authentication with refresh token rotation` |
+| `Meeting Notes` | `Q1 planning alignment on data pipeline priorities` |
+| `Bug Fix` | `Fix race condition in session close during concurrent reweave` |
+
+Aim for four or more words that capture the specific insight, decision, or topic.
+
+## Title quality checks
+
+`ztlctl check` flags short or generic titles under `structural_validation` at `info` severity. A title is flagged when it has three words or fewer, or exactly matches a generic pattern (`untitled`, `new note`, `note`, `notes`, `draft`, `temp`, `test`, or starts with `notes on `).
+
+```bash
+# See title quality advisories (default min-severity is warning, use info to see all)
+$ ztlctl check check --min-severity info
+```
+
+## Garden backlog candidates
+
+The `ztlctl://garden/backlog` MCP resource includes `title_improvement_candidates` — notes flagged by the title quality check. Agents can use this as a systematic improvement queue alongside stale seeds and orphan notes.
+
+## Init template
+
+`ztlctl init` scaffolds `self/methodology.md` from a Jinja2 template customized to your vault's tone and profile. Regenerate after changing vault settings with `ztlctl agent regenerate`.

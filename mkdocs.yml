@@ -29,11 +29,11 @@ nav:
     - Knowledge Paradigms: paradigms.md
     - Command Reference: commands.md
     - Configuration: configuration.md
-    # session-recall.md — Phase 25
-    # polaris.md — Phase 25
-    # contradiction-detection.md — Phase 25
-    # media-ingestion.md — Phase 25
-    # methodology.md — Phase 25
+    - Session Recall: session-recall.md
+    - Polaris Priorities: polaris.md
+    - Contradiction Detection: contradiction-detection.md
+    - Media Ingestion: media-ingestion.md
+    - Methodology Guidance: methodology.md
     - Built-in Plugins: plugins.md
     - Obsidian Starter Kit: obsidian.md
     - Agentic Workflows: agentic-workflows.md
