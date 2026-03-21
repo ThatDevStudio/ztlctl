@@ -277,7 +277,7 @@ def test_default_active_categories() -> None:
     from ztlctl.mcp.generator import _DEFAULT_ACTIVE_CATEGORIES
 
     assert isinstance(_DEFAULT_ACTIVE_CATEGORIES, frozenset)
-    for cat in ("creation", "mutation", "query", "graph", "lifecycle", "session"):
+    for cat in ("creation", "query", "graph", "lifecycle", "session"):
         assert cat in _DEFAULT_ACTIVE_CATEGORIES, f"missing default category: {cat!r}"
 
 

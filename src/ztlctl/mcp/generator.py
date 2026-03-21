@@ -84,7 +84,7 @@ def set_vault(vault: Any) -> None:
 
 #: Default categories active at session start (core CRUD operations).
 _DEFAULT_ACTIVE_CATEGORIES: frozenset[str] = frozenset(
-    {"creation", "mutation", "query", "graph", "lifecycle", "session"}
+    {"creation", "query", "graph", "lifecycle", "session"}
 )
 
 #: Session-scoped active category set (one server process = one MCP session).

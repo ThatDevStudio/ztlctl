@@ -19,7 +19,7 @@ from ztlctl.infrastructure.database.schema import node_tags, nodes
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceResult
 from ztlctl.services.telemetry import traced
-from ztlctl.workspace_modes import normalize_viewer
+from ztlctl.workspace_profiles import normalize_dashboard_viewer as normalize_viewer
 
 if TYPE_CHECKING:
     from sqlalchemy import Row

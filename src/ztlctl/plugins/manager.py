@@ -687,7 +687,7 @@ class PluginManager:
             ActionDefinition(
                 name=f"update_{ntd_name}",
                 description=f"Update an existing {ntd_name}",
-                category="mutation",
+                category="lifecycle",
                 params=update_params,
                 handler=_make_update_handler(ntd_name),
                 side_effect="write",
@@ -698,7 +698,7 @@ class PluginManager:
             ActionDefinition(
                 name=f"close_{ntd_name}",
                 description=f"Close a {ntd_name}",
-                category="mutation",
+                category="lifecycle",
                 params=close_params,
                 handler=_make_close_handler(ntd_name),
                 side_effect="write",
