@@ -220,3 +220,14 @@ class ExportsConfig(BaseModel):
     model_config = {"frozen": True}
 
     dashboard: DashboardExportConfig = Field(default_factory=DashboardExportConfig)
+
+
+class EventBusConfig(BaseModel):
+    """[eventbus] section."""
+
+    model_config = {"frozen": True}
+
+    shutdown_timeout_seconds: float = 5.0
+    max_retries: int = 3
+    dead_letter_retention_days: int = 30
+    per_future_timeout_seconds: float = 30.0
