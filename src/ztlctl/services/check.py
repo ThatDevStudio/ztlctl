@@ -147,11 +147,18 @@ class CheckService(BaseService):
                 fixes.extend(self._fix_reindex_edges(txn, today))
                 fixes.extend(self._fix_reorder_frontmatter(txn))
 
-        return ServiceResult(
+        fix_result = ServiceResult(
             ok=True,
             op="fix",
             data={"fixes": fixes, "count": len(fixes)},
         )
+        self._dispatch_post_action_event(
+            action_name="fix",
+            payload=fix_result.data,
+            warnings=[],
+            result=fix_result,
+        )
+        return fix_result
 
     @traced
     def rebuild(self) -> ServiceResult:
@@ -263,7 +270,7 @@ class CheckService(BaseService):
             nodes_materialized = 0
             warnings.append("Graph metric materialization failed after rebuild")
 
-        return ServiceResult(
+        rebuild_result = ServiceResult(
             ok=True,
             op="rebuild",
             data={
@@ -274,6 +281,13 @@ class CheckService(BaseService):
             },
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name="rebuild",
+            payload=rebuild_result.data,
+            warnings=warnings,
+            result=rebuild_result,
+        )
+        return rebuild_result
 
     @traced
     def rollback(self) -> ServiceResult:

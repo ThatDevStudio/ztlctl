@@ -494,7 +494,7 @@ class GraphService(BaseService):
                 with trace_span("update_target_file"):
                     self._remove_link_from_file(txn, target, source_id, str(source.title), warnings)
 
-        return ServiceResult(
+        unlink_result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -505,6 +505,13 @@ class GraphService(BaseService):
             },
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=unlink_result.data,
+            warnings=warnings,
+            result=unlink_result,
+        )
+        return unlink_result
 
     def _remove_link_from_file(
         self,
