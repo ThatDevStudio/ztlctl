@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v1.17.1 (2026-03-21)
+
+### Fix
+
+- **docs**: resolve rendering issues in mkdocs-shadcn theme (#117)
+
+## v1.17.0 (2026-03-21)
+
 ## v2.1 (2026-03-20)
 
 ### Feat
