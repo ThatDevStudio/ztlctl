@@ -5019,8 +5019,6 @@ $ ztlctl check contradictions
 # Confirm a contradiction after review
 $ ztlctl check confirm-contradiction ZTL_AAAAAAAA ZTL_BBBBBBBB
 
-# Dismiss a false positive
-$ ztlctl check confirm-contradiction ZTL_AAAAAAAA ZTL_BBBBBBBB --dismiss
 ```
 
 ## MCP tools and resource
@@ -5030,7 +5028,7 @@ $ ztlctl check confirm-contradiction ZTL_AAAAAAAA ZTL_BBBBBBBB --dismiss
 | `check_contradictions` | Return ranked candidate contradiction pairs |
 | `confirm_contradiction` | Confirm or dismiss a candidate pair |
 
-The `ztlctl://contradictions/review` resource returns the current review queue of unresolved candidate pairs. Read it at the start of vault maintenance sessions.
+The `ztlctl://review/contradictions` resource returns the current review queue of unresolved candidate pairs. Read it at the start of vault maintenance sessions.
 
 ---
 
@@ -5055,23 +5053,18 @@ Media ingestion turns audio, video, and transcript files into structured vault r
 Every ingest creates a `captured` reference — the first phase. The second phase is annotation: an agent or user reviews the transcript, adds key points and tags, and promotes to `annotated` status.
 
 ```bash
-# Ingest a file
-$ ztlctl ingest file path/to/recording.mp4 --tags "meeting/engineering"
+# Ingest a media file (audio or video — requires faster-whisper)
+$ ztlctl ingest media path/to/recording.mp4 --tags "meeting/engineering"
 
-# Ingest a transcript directly
-$ ztlctl ingest transcript path/to/meeting.vtt --title "Q1 planning meeting transcript"
-
-# Batch ingest a directory
-$ ztlctl ingest batch /path/to/recordings/ --tags "media/podcast"
+# Ingest a transcript directly (VTT, SRT, or TXT — no whisper needed)
+$ ztlctl ingest media path/to/meeting.vtt --title "Q1 planning meeting transcript"
 ```
 
 ## MCP tool
 
 | Tool | Description |
 |------|-------------|
-| `ingest_file` | Transcribe and ingest an audio or video file |
-| `ingest_transcript` | Parse and ingest a VTT/SRT/TXT transcript file |
-| `ingest_batch` | Ingest all supported files in a directory |
+| `ingest_media` | Transcribe and ingest an audio, video, or transcript file |
 
 The `ztlctl://capture/spec` MCP resource returns the source bundle contract for structured ingest handoff — the canonical format for agent-to-agent ingest workflows.
 
