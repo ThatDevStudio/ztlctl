@@ -1,6 +1,6 @@
 # ztlctl — Complete Design Specification v1
 
-> **For Claude:** This document is the authoritative design reference for ztlctl. When implementing any feature, read the relevant section here first. Sections are numbered by feature and cross-referenced — follow `→ Section N` markers to find related constraints. Key invariants are marked with `INVARIANT:` and must never be violated. Implementation order is in Section 20.
+> **For Claude:** This document is the authoritative design reference for ztlctl. When implementing any feature, read the relevant section here first. Sections are numbered by feature and cross-referenced — follow `→ Section N` markers to find related constraints. Key invariants are marked with `INVARIANT:` and must never be violated. Implementation order is in Section 24.
 
 ## Quick Reference — Invariants
 
@@ -1429,7 +1429,173 @@ semantic = ["sqlite-vec>=0.1", "sentence-transformers>=2.2"]
 
 ---
 
-## 19. Decision Log
+## 19. Session Recall
+
+### Overview
+
+`RecallService` provides three query modes for retrieving session history. Recall queries **session metadata and log entries** — not note content directly. This preserves the invariant that session coordination state and knowledge artifacts are separate concerns.
+
+```python
+class RecallService(BaseService):
+    def recall_temporal(self, *, from_date, to_date) -> ServiceResult: ...
+    def recall_topic(self, query: str) -> ServiceResult: ...
+    def recall_topology(self, *, limit: int = 10) -> ServiceResult: ...
+```
+
+### Query Modes
+
+| Mode | Method | How |
+|------|--------|-----|
+| Temporal | `recall_temporal(from_date, to_date)` | Returns sessions filtered by creation date range, with per-session topic, status, entry count, and note IDs created in each session |
+| Topic | `recall_topic(query)` | Full-text LIKE search across `session_logs.summary`; returns sessions grouped with their matching log entries |
+| Topology | `recall_topology(limit)` | Pairs sessions that share note references or tags in their log entries; sorted by total shared items (shared_notes + shared_tags) descending |
+
+### MCP Surface
+
+MCP resource `ztlctl://sessions/recent` provides a pre-formatted recent session payload for agents loading context at the start of a new window. Agents read this resource to understand what was worked on in recent sessions before deciding what to continue.
+
+### Design Choice
+
+Recall queries session logs and metadata — not live note content. Notes are queried through QueryService (search, get) which provides fresher, indexed content. Separation keeps the data access paths clean: session history is temporal, note content is semantic.
+
+Cross-references: → Section 2 (Sessions), → Section 7 (Query Surface), → Section 16 (MCP resources)
+
+---
+
+## 20. Contradiction Detection
+
+### Overview
+
+`ContradictionService` surfaces note pairs that may contain contradictory claims using a three-signal heuristic score. The system is **advisory** — it never auto-resolves contradictions. Candidates are presented for human confirmation; the `contradicts` graph edge is recorded only after explicit confirmation.
+
+```python
+class ContradictionService(BaseService):
+    def find_candidates(self, *, similarity_threshold=0.85, max_pairs=20) -> ServiceResult: ...
+    def confirm_contradiction(self, note_a_id: str, note_b_id: str) -> ServiceResult: ...
+```
+
+### Candidate Discovery
+
+Candidate pair discovery applies three filters in sequence:
+
+1. Only non-archived notes are considered.
+2. Cosine similarity must meet `similarity_threshold` (default 0.85) — requires semantic search to be enabled.
+3. The pair must share at least one tag (topic overlap signal).
+
+Each qualifying pair is scored by a three-component heuristic:
+
+| Signal | Weight | Measure |
+|--------|--------|---------|
+| Cosine similarity | 40% | Vector distance from VectorService |
+| Negation density | 30% | Count of negation patterns (not, however, instead, disagree, etc.) in combined body text, capped at 5 hits |
+| Key points divergence | 30% | Jaccard distance between `key_points` frontmatter lists (stop-word filtered) |
+
+### Confirmation Flow
+
+When a user or agent confirms a contradiction pair:
+
+1. `confirm_contradiction(note_a_id, note_b_id)` is called.
+2. A bidirectional `contradicts` graph edge is written to the `edges` table.
+3. The pair is removed from candidate reporting.
+
+The `contradicts` edge type is queryable via `graph related` and visible in `export graph`.
+
+### MCP Surface
+
+MCP resource `ztlctl://review/contradictions` provides the current candidate list for agent review workflows. Agents use this resource to surface contradiction candidates during vault maintenance sessions.
+
+### Design Choice
+
+Contradiction detection is LLM-free: cosine similarity + negation patterns + key_points divergence provides a fast, local heuristic that works without an API call. False positives are expected — the advisory flow means false positives cost only a dismiss action, not a data corruption.
+
+Cross-references: → Section 3 (Graph Architecture — edge types), → Section 7 (Query Surface — `CAT_SEMANTIC` check category), → Section 16 (MCP resources)
+
+---
+
+## 21. Ingestion Pipeline
+
+### Overview
+
+`IngestService` normalizes external text, URL, and media input into vault artifacts via the single durable write path (→ Section 1 INVARIANT). All ingestion paths ultimately call `CreateService`, ensuring consistent ID generation, indexing, frontmatter validation, and event dispatch.
+
+```python
+class IngestService(BaseService):
+    def ingest_text(self, title, body_text, *, target_type, ...) -> ServiceResult: ...
+    def ingest_source(self, url, *, title, ...) -> ServiceResult: ...
+    def ingest_media(self, file_path, *, title, ...) -> ServiceResult: ...
+    def list_providers(self) -> ServiceResult: ...
+```
+
+### Two-Phase Media Workflow
+
+Media files (audio, video) follow a two-phase workflow:
+
+1. **Capture phase:** `ingest_media` transcribes the file via `TranscriptionService` and creates a `reference` node with `status=captured`. The transcription text becomes the note body.
+2. **Annotation phase:** An agent or user reviews and annotates the captured reference, transitioning it to `status=annotated` via `update_content`.
+
+This mirrors the existing reference lifecycle (`captured → annotated`) without introducing new status values.
+
+### TranscriptionService
+
+```python
+class TranscriptionService:
+    """Stateless utility — does NOT extend BaseService (no Vault access needed)."""
+
+    SUPPORTED_EXTENSIONS = {".mp3", ".m4a", ".wav", ".mp4", ".ogg", ".flac",
+                             ".mkv", ".webm", ".txt", ".vtt", ".srt"}
+
+    def transcribe_file(self, path: Path) -> TranscriptionResult | ServiceError: ...
+```
+
+`TranscriptionService` uses `faster-whisper` as an optional dependency (guarded import). Plain transcript formats (`.vtt`, `.srt`, `.txt`) are parsed via regex without requiring `faster-whisper`. When `faster-whisper` is not installed, audio/video transcription returns `ServiceError(code="DEPENDENCY_MISSING")` with installation instructions.
+
+### Configuration
+
+```toml
+[ingest.media]
+whisper_model = "base"       # faster-whisper model size
+language = "en"              # ISO 639-1 language code (null = auto-detect)
+compute_type = "int8"        # quantization for CPU inference
+```
+
+### Design Choice
+
+Transcription is local-only: no audio or video data is sent to external services. The `faster-whisper` optional dependency enables fast CPU inference; the `int8` compute type minimizes RAM requirements for typical hardware.
+
+Cross-references: → Section 2 (Content Model — reference lifecycle), → Section 4 (Create Pipeline), → Section 16 (MCP tools — `ingest_media`)
+
+---
+
+## 22. Polaris and Methodology
+
+### Polaris Priorities Layer
+
+Polaris is a persistent priorities document at `garden/groves/polaris.md`. It is the stable reference for agent decision alignment — both agents and users read it to orient long-running work.
+
+**Integration points:**
+
+1. **`ztlctl init`:** Polaris scaffold is written to `garden/groves/polaris.md` during vault initialization.
+2. **Context assembly Layer 1:** `ContextAssembler` injects polaris content into Layer 1 (operational state) at up to 500 tokens. Content is truncated at the token boundary with a `[... polaris truncated]` marker.
+3. **MCP resource `ztlctl://polaris`:** Direct resource access for agents that need the full document.
+4. **`check_alignment` action:** Always returns `aligned=true` — this is intentional. The action is advisory: it surfaces the polaris content for agent reasoning. The agent decides whether its current plan is aligned; the tool does not.
+
+### Methodology Guidance
+
+Methodology guidance documents opinionated conventions for the vault:
+
+- **Prose-as-title convention:** Note titles are full sentences or phrases expressing a claim (e.g., "Spaced repetition outperforms passive re-reading for retention"). Templates enforce this pattern.
+- **Title quality check:** A `CAT_STRUCTURAL` check at `info` severity flags notes whose titles match short stop-phrase patterns. The check is non-blocking — it is an advisory signal, not an error.
+- **Garden backlog candidates:** Notes flagged in the title quality check are surfaced in the garden backlog resource as candidates for human review and improvement.
+
+### Design Choice
+
+`check_alignment` is advisory and `aligned` is always true. Allowing the check to fail would imply the tool can determine whether a plan is aligned — that judgment belongs to the agent or user reading the polaris document. The action's value is surfacing the polaris content in the agent's context at decision time.
+
+Cross-references: → Section 11 (Init and Self-Generation), → Section 10 (CLI — context assembly), → Section 16 (MCP resources — `ztlctl://polaris`)
+
+---
+
+## 23. Decision Log
 
 Decisions made during the design process (CONV-0017):
 
@@ -1520,7 +1686,7 @@ Decisions made during the design process (CONV-0017):
 
 ---
 
-## 20. Implementation Backlog
+## 24. Implementation Backlog
 
 | BL | Feature | Priority | Status | Scope |
 |----|---------|----------|--------|-------|
