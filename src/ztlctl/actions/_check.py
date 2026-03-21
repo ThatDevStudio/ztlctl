@@ -122,6 +122,85 @@ def _register_check_actions() -> None:
     # maintenance category
     # -----------------------------------------------------------------------
 
+    # -----------------------------------------------------------------------
+    # analysis category — contradiction detection
+    # -----------------------------------------------------------------------
+
+    from ztlctl.controllers.contradiction import ContradictionController
+
+    registry.register(
+        ActionDefinition(
+            name="check_contradictions",
+            description="Find candidate note pairs that may contradict each other.",
+            category="analysis",
+            params=(
+                ActionParam(
+                    "similarity_threshold",
+                    float,
+                    required=False,
+                    default=0.85,
+                    description="Minimum cosine similarity to consider a pair (0.0-1.0).",
+                ),
+                ActionParam(
+                    "max_pairs",
+                    int,
+                    required=False,
+                    default=20,
+                    description="Maximum number of candidate pairs to return.",
+                ),
+            ),
+            handler=lambda vault, **kw: ContradictionController(vault).check_contradictions(**kw),
+            side_effect="read",
+            mcp_when_to_use=(
+                "Scanning the vault for notes that may contradict each other "
+                "based on semantic similarity and heuristic signals."
+            ),
+            mcp_avoid_when="The vault has no decision notes or no vector index.",
+            cli_group="check",
+            cli_name="contradictions",
+        )
+    )
+
+    registry.register(
+        ActionDefinition(
+            name="confirm_contradiction",
+            description="Record a confirmed contradiction between two notes as graph edges.",
+            category="analysis",
+            params=(
+                ActionParam(
+                    "note_a",
+                    str,
+                    required=True,
+                    description="ID of the first note in the contradiction pair.",
+                    cli_is_argument=True,
+                    mcp_example="ZTL-0042",
+                ),
+                ActionParam(
+                    "note_b",
+                    str,
+                    required=True,
+                    description="ID of the second note in the contradiction pair.",
+                    cli_is_argument=True,
+                    mcp_example="ZTL-0099",
+                ),
+            ),
+            handler=lambda vault, **kw: ContradictionController(vault).confirm_contradiction(**kw),
+            side_effect="write",
+            mcp_when_to_use=(
+                "Confirming a contradiction surfaced by check_contradictions "
+                "after human or agent review."
+            ),
+            mcp_avoid_when="The contradiction has not been reviewed yet.",
+            mcp_common_errors=("NOT_FOUND",),
+            cli_group="check",
+            cli_name="confirm-contradiction",
+        )
+    )
+
+    # -----------------------------------------------------------------------
+    # maintenance category
+    # -----------------------------------------------------------------------
+
     registry.register(
         ActionDefinition(
             name="event_purge",

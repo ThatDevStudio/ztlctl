@@ -53,14 +53,14 @@ class TestContradictionController:
             note_b="NOTE-0002",
         )
 
-        # Stub returns NOT_IMPLEMENTED error
+        # NOTE-0001 and NOTE-0002 don't exist in vault — returns NOT_FOUND
         assert not result.ok
         assert result.error is not None
-        assert result.error.code == "NOT_IMPLEMENTED"
+        assert result.error.code == "NOT_FOUND"
         assert result.op == "confirm_contradiction"
 
-    def test_confirm_contradiction_returns_not_implemented(self, vault: Vault) -> None:
-        """confirm_contradiction stub always returns NOT_IMPLEMENTED."""
+    def test_confirm_contradiction_returns_not_found_for_unknown_notes(self, vault: Vault) -> None:
+        """confirm_contradiction returns NOT_FOUND when notes don't exist in vault."""
         result = ContradictionController(vault).confirm_contradiction(
             note_a="any-id",
             note_b="other-id",
@@ -68,8 +68,7 @@ class TestContradictionController:
 
         assert not result.ok
         assert result.error is not None
-        assert result.error.code == "NOT_IMPLEMENTED"
-        assert "Plan 02" in result.error.message
+        assert result.error.code == "NOT_FOUND"
 
     def test_check_contradictions_respects_plugin_rejection(self, vault: Vault) -> None:
         """check_contradictions action can be rejected by plugins via _run_action."""

@@ -160,8 +160,8 @@ class TestResources:
 class TestResourceCatalog:
     """Tests for resource catalog completeness."""
 
-    def test_catalog_has_19_resources(self):
-        assert len(resource_catalog()) == 19
+    def test_catalog_has_20_resources(self):
+        assert len(resource_catalog()) == 20
 
     def test_agent_reference_in_catalog(self):
         uris = {r["uri"] for r in resource_catalog()}
