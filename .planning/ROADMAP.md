@@ -58,7 +58,7 @@ Full details: `.planning/milestones/v3.0-ROADMAP.md`
 ### v3.1 Documentation & Hardening (Phases 23-27)
 
 - [x] **Phase 23: Docs-as-Code Infrastructure** — CI gate, prose linting, CLAUDE.md enforcement rule, git-sourced dates, and IngestService/docstring debt (completed 2026-03-21)
-- [ ] **Phase 24: Navigation and Information Architecture** — Diataxis audit, nav reordering for beginner-to-advanced progression, consistent quality conventions
+- [x] **Phase 24: Navigation and Information Architecture** — Diataxis audit, nav reordering for beginner-to-advanced progression, consistent quality conventions (completed 2026-03-21)
 - [ ] **Phase 25: New v3.0 Feature Pages** — Five standalone pages for session recall, polaris, contradiction detection, media ingestion, and methodology guidance
 - [ ] **Phase 26: Existing Pages and Quality Pass** — Update concepts, commands, agentic-workflows, agents, mcp with v3.0 content; refresh llms.txt and llms-full.txt
 - [ ] **Phase 27: Internal Documentation Refresh** — CLAUDE.md architecture section, DESIGN.md, README.md updated for v3.0 reality
@@ -223,7 +223,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 24-01-PLAN.md — Diataxis audit, mkdocs.yml nav reorder with v3.0 placeholder slots, CLAUDE.md quality conventions
+- [x] 24-01-PLAN.md — Diataxis audit, mkdocs.yml nav reorder with v3.0 placeholder slots, CLAUDE.md quality conventions
 
 ### Phase 25: New v3.0 Feature Pages
 **Goal**: All five v3.0 features shipped without documentation now have standalone pages that are navigable, agent-discoverable, and cross-referenced from existing pages
@@ -290,7 +290,7 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 | 21. Contradiction Detection | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 22. Ingestion Pipeline | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 23. Docs-as-Code Infrastructure | v3.1 | 2/2 | Complete    | 2026-03-21 |
-| 24. Navigation and Information Architecture | v3.1 | 0/1 | Not started | - |
+| 24. Navigation and Information Architecture | v3.1 | 1/1 | Complete   | 2026-03-21 |
 | 25. New v3.0 Feature Pages | v3.1 | 0/? | Not started | - |
 | 26. Existing Pages and Quality Pass | v3.1 | 0/? | Not started | - |
 | 27. Internal Documentation Refresh | v3.1 | 0/? | Not started | - |

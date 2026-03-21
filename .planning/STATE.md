@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Documentation & Hardening
-status: planning
-stopped_at: Completed 23-01-PLAN.md
-last_updated: "2026-03-21T22:36:36.691Z"
+status: unknown
+stopped_at: Completed 24-01-PLAN.md
+last_updated: "2026-03-21T22:52:04.782Z"
 progress:
   total_phases: 10
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -19,17 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 23 — Docs-as-Code Infrastructure (first phase of v3.1)
+**Current focus:** Phase 24 — navigation-and-information-architecture
 
 ## Current Position
 
-Phase: 23 — Docs-as-Code Infrastructure
-Plan: Not started
-Status: Roadmap approved, ready for planning
-
-```
-Progress: [----------] 0/5 phases complete
-```
+Phase: 24 (navigation-and-information-architecture) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -60,6 +55,7 @@ Progress: [----------] 0/5 phases complete
 *Updated after each plan completion*
 | Phase 23 P02 | 8 | 2 tasks | 5 files |
 | Phase 23 P01 | 284 | 2 tasks | 8 files |
+| Phase 24 P01 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -81,6 +77,9 @@ Recent decisions affecting v3.1:
 - [Phase 23]: IngestService dispatch fires in _ingest_normalized (note path) and _create_reference_with_bundle (reference path), matching where writes occur
 - [Phase 23]: pymarkdown excludes docs/plans/ directory (excluded from MkDocs build); avoids false positives on archived plan files
 - [Phase 23]: MD003/MD013/MD022/MD024/MD031/MD032/MD033/MD036/MD040/MD041/MD046 disabled in pymarkdown to match existing docs patterns; gate starts clean and rules tightened as docs are rewritten
+- [Phase 24]: Nav order follows Diataxis progression: Tutorial → Explanation → Reference → How-to
+- [Phase 24]: 5 placeholder comment slots inserted in mkdocs.yml nav between Configuration and Built-in Plugins for Phase 25 v3.0 feature pages
+- [Phase 24]: Documentation Conventions documented in CLAUDE.md: CLI syntax, admonitions (3 types only), cross-referencing, headings (sentence case), Diataxis type definitions
 
 ### Pending Todos
 
@@ -97,7 +96,7 @@ Recent decisions affecting v3.1:
 
 ## Session Continuity
 
-Last session: 2026-03-21T22:36:32.278Z
-Stopped at: Completed 23-01-PLAN.md
+Last session: 2026-03-21T22:52:04.778Z
+Stopped at: Completed 24-01-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 23`
