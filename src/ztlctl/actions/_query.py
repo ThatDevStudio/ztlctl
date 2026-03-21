@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def _register_query_actions() -> None:
     """Register query ActionDefinitions."""

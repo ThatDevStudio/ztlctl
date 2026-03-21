@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def _register_admin_actions() -> None:
     """Register admin ActionDefinitions (vector, upgrade, workflow, init, discovery, docs)."""

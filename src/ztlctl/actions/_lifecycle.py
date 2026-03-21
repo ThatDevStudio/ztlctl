@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def _register_lifecycle_actions() -> None:
     """Register lifecycle and reweave ActionDefinitions."""

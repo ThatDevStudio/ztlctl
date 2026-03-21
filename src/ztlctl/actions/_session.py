@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def _register_session_actions() -> None:
     """Register session ActionDefinitions."""

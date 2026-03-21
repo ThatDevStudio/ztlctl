@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 
 def _register_check_actions() -> None:
     """Register check and maintenance ActionDefinitions."""

@@ -1,14 +1,15 @@
 """Integration tests for core ActionDefinition registrations.
 
-Verifies that _register_core_actions() populates the singleton registry with
-all expected actions — correct counts, categories, side_effects, params, and
-custom_presentation flags.  Also spot-checks handler callability (parity
-verification via callable + inspect).
+Verifies that the feature-local registration modules populate the singleton
+registry with all expected actions — correct counts, categories, side_effects,
+params, and custom_presentation flags.  Also spot-checks handler callability
+(parity verification via callable + inspect).
 """
 
 from __future__ import annotations
 
 import inspect
+from pathlib import Path
 
 import pytest
 
@@ -22,10 +23,10 @@ from ztlctl.actions.definitions import ActionDefinition
 
 class TestCoreRegistrationCount:
     def test_minimum_action_count(self) -> None:
-        """Registry must contain at least 45 registered ActionDefinitions."""
+        """Registry must contain at least 60 registered ActionDefinitions."""
         registry = get_action_registry()
         actions = registry.list_actions()
-        assert len(actions) >= 45, f"Expected >= 45 registered actions, got {len(actions)}"
+        assert len(actions) >= 60, f"Expected >= 60 registered actions, got {len(actions)}"
 
     def test_all_names_unique(self) -> None:
         """Every registered action name must be unique (no duplicates)."""
@@ -444,4 +445,41 @@ class TestCategoryIntegrity:
         }
         assert required.issubset(export_names), (
             f"export category missing: {required - export_names}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestDecomposedModules
+# ---------------------------------------------------------------------------
+
+
+class TestDecomposedModules:
+    def test_register_core_deleted(self) -> None:
+        """_register_core.py must NOT exist — it has been decomposed."""
+        assert not Path("src/ztlctl/actions/_register_core.py").exists(), (
+            "_register_core.py still exists; it should have been deleted after decomposition"
+        )
+
+    def test_all_feature_modules_exist(self) -> None:
+        """All 9 feature-local registration modules must exist."""
+        expected_modules = [
+            "src/ztlctl/actions/_creation.py",
+            "src/ztlctl/actions/_query.py",
+            "src/ztlctl/actions/_graph.py",
+            "src/ztlctl/actions/_lifecycle.py",
+            "src/ztlctl/actions/_session.py",
+            "src/ztlctl/actions/_check.py",
+            "src/ztlctl/actions/_ingest.py",
+            "src/ztlctl/actions/_export.py",
+            "src/ztlctl/actions/_admin.py",
+        ]
+        missing = [m for m in expected_modules if not Path(m).exists()]
+        assert not missing, f"Missing feature-local modules: {missing}"
+
+    def test_total_registration_count_at_least_66(self) -> None:
+        """Total registration count must be >= 66 (no regressions from decomposition)."""
+        registry = get_action_registry()
+        actions = registry.list_actions()
+        assert len(actions) >= 66, (
+            f"Expected >= 66 registered actions after decomposition, got {len(actions)}"
         )
