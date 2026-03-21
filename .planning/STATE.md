@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 20-02-PLAN.md
-last_updated: "2026-03-21T19:37:12.012Z"
+stopped_at: Completed 21-01-PLAN.md
+last_updated: "2026-03-21T19:57:39.466Z"
 progress:
   total_phases: 8
   completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 18
+  completed_plans: 17
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 20 — session-recall
+**Current focus:** Phase 21 — contradiction-detection
 
 ## Current Position
 
-Phase: 21
-Plan: Not started
+Phase: 21 (contradiction-detection) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Plan: Not started
 | Phase 19-methodology-guidance-and-polaris P03 | 8 | 1 tasks | 5 files |
 | Phase 20-session-recall P01 | 2 | 2 tasks | 4 files |
 | Phase 20 P02 | 5 | 2 tasks | 6 files |
+| Phase 21-contradiction-detection P01 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,8 @@ Recent decisions affecting current work:
 - [Phase 20-01]: recall_topic uses func.lower() LIKE on session_logs.summary — session_logs not in nodes_fts, LIKE sufficient for use case
 - [Phase 20]: recall_topology uses session_logs.references JSON array for shared note detection — nodes.session tracks creation session, references captures cross-session note mentions
 - [Phase 20]: sessions_recent_impl delegates to recall_temporal() and slices [:5] — already ordered by created_at desc
+- [Phase 21-01]: Patch target for VectorService mocks is ztlctl.services.vector.VectorService (lazy import — patch where class is defined)
+- [Phase 21-01]: confirm_contradiction stubbed with NOT_IMPLEMENTED — Plan 02 adds graph edge recording and ActionRegistry wiring
 
 ### Pending Todos
 
@@ -126,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T19:33:49.136Z
-Stopped at: Completed 20-02-PLAN.md
+Last session: 2026-03-21T19:57:39.463Z
+Stopped at: Completed 21-01-PLAN.md
 Resume file: None
