@@ -209,9 +209,32 @@ class EventBus:
     ) -> None:
         """Attempt to dispatch a hook. Update WAL status on success/failure.
 
-        After dispatching the per-event hook, also fires post_action for any
-        migrated plugins that implement the stable post_action hookspec.
+        Handles two dispatch paths:
+        - ``post_action``: payload is an ActionEvent dict; calls post_action
+          with action_name/kwargs/result extracted from the ActionEvent.
+        - All other hooks: dispatches the per-event hook directly, then fires
+          the post_action bridge for backward compatibility with legacy plugins.
         """
+        if hook_name == "post_action":
+            # Canonical post_action: payload is ActionEvent dict (D-15)
+            post_action_fn = getattr(self._pm.hook, "post_action", None)
+            if post_action_fn is None:
+                self._mark_completed(event_id)
+                return
+            try:
+                post_action_fn(
+                    action_name=payload["action_name"],
+                    kwargs=payload["payload"],
+                    result=payload.get("result"),
+                )
+            except Exception as exc:
+                logger.debug("post_action hook failed: %s", exc)
+                self._mark_failed(event_id, str(exc))
+            else:
+                self._mark_completed(event_id)
+            return
+
+        # Per-event hook dispatch (deprecated hooks)
         hook_fn = getattr(self._pm.hook, hook_name, None)
         if hook_fn is None:
             self._mark_completed(event_id)
@@ -226,6 +249,7 @@ class EventBus:
 
         # Bridge: also fire post_action so migrated plugins receive lifecycle events.
         # This runs regardless of whether the per-event hook had subscribers or failed.
+        # Kept for backward compatibility until Phase 16 removes deprecated per-event hooks.
         action_name = _HOOK_TO_ACTION.get(hook_name)
         if action_name is not None:
             # Refine create action name using content_type from payload

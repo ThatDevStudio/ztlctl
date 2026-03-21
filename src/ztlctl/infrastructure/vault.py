@@ -395,6 +395,12 @@ class Vault:
         self._plugin_manager = pm
         self._event_bus = EventBus(self._engine, pm, sync=sync, config=self._settings.eventbus)
 
+        # Startup recovery: drain pending/failed events from prior runs (D-05)
+        try:
+            self._event_bus.drain()
+        except Exception:
+            logger.warning("Startup event drain failed; continuing", exc_info=True)
+
     def _check_schema_current(self) -> bool:
         """Return True if database schema is at the latest Alembic revision.
 
