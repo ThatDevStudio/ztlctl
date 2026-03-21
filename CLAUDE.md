@@ -167,6 +167,39 @@ Before marking a PR ready for review, verify all that apply:
 
 Every GSD feature phase plan MUST include a Documentation Tasks block. When planning a phase that adds or changes user-facing behavior, include at least one task that updates the relevant docs page, llms.txt entry, and command examples. This is structural — not optional.
 
+### Documentation Conventions
+
+Quality standards for all docs pages. Enforced by review — Vale and pymarkdownlnt catch structural violations.
+
+**CLI syntax (Google developer style):**
+- Optional arguments: `[--flag VALUE]`
+- Required arguments: `REQUIRED`
+- Shell prompts: use bare `ztlctl` in inline references, `$ ztlctl` only in standalone code blocks
+- Flag names must match `uv run ztlctl <command> --help` output exactly — never from memory
+
+**Admonition taxonomy (3 types only):**
+- `!!! warning` — danger, breaking changes, data loss risks
+- `!!! note` — context, background information, important caveats
+- `!!! tip` — recommendations, best practices, efficiency suggestions
+
+Do not use `info`, `danger`, `example`, `abstract`, or other admonition types. Three types keep the signal clear.
+
+**Cross-referencing:**
+- Every page ends with a "What's next" section containing 2-3 links to related pages
+- Use relative Markdown links: `[Page title](page.md)` (not absolute URLs)
+- Link text should be the target page's title, not "click here" or "see this"
+
+**Headings:**
+- Sentence case (e.g., "Getting started" not "Getting Started") — consistent with Vale Google style
+- H1 is the page title (one per page), H2 for major sections, H3 for subsections
+
+**Diataxis content types:**
+- Tutorial: learning-oriented, guided experience ("Follow along to...")
+- How-to: task-oriented, goal-driven ("How to configure...")
+- Reference: information-oriented, complete catalog ("All available commands...")
+- Explanation: understanding-oriented, conceptual ("Why ztlctl uses...")
+- Do not mix types in a single page — if a page serves two purposes, split or pick the primary purpose
+
 ## Architecture
 
 - **Entry point**: `ztlctl` (Click CLI)
