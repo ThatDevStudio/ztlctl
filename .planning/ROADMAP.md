@@ -205,7 +205,11 @@ Plans:
   4. Every docs page shows a "last updated" date sourced from git history — currency is visible without author discipline
   5. IngestService post_action events fire for all `ingest_*` actions — the missing dispatch call is present and covered by `test_post_action_dispatch.py`
   6. Stale docstrings in ContradictionController and stale comments in `commands/generator.py` are replaced with accurate descriptions
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 23-01-PLAN.md — CI doc_lint job (MkDocs strict, Vale, pymarkdownlnt), git-revision-date-localized plugin, config files
+- [ ] 23-02-PLAN.md — CLAUDE.md Documentation Rules section, IngestService post_action dispatch fix, stale docstrings
 
 ### Phase 24: Navigation and Information Architecture
 **Goal**: The docs site navigation reflects a beginner-to-advanced learning path, every page is classified by Diataxis content type, and quality conventions are consistently applied across all pages
@@ -282,7 +286,7 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 | 20. Session Recall | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 21. Contradiction Detection | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 22. Ingestion Pipeline | v3.0 | 2/2 | Complete | 2026-03-21 |
-| 23. Docs-as-Code Infrastructure | v3.1 | 0/? | Not started | - |
+| 23. Docs-as-Code Infrastructure | v3.1 | 0/2 | Planned | - |
 | 24. Navigation and Information Architecture | v3.1 | 0/? | Not started | - |
 | 25. New v3.0 Feature Pages | v3.1 | 0/? | Not started | - |
 | 26. Existing Pages and Quality Pass | v3.1 | 0/? | Not started | - |
