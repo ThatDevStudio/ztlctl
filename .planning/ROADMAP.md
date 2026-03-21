@@ -239,8 +239,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 25-01-PLAN.md — Session recall and polaris priorities pages (NDOC-01, NDOC-02)
-- [ ] 25-02-PLAN.md — Contradiction detection and media ingestion pages (NDOC-03, NDOC-04)
+- [x] 25-01-PLAN.md — Session recall and polaris priorities pages (NDOC-01, NDOC-02)
+- [x] 25-02-PLAN.md — Contradiction detection and media ingestion pages (NDOC-03, NDOC-04)
 - [ ] 25-03-PLAN.md — Methodology page, mkdocs.yml nav wiring, llms.txt and llms-full.txt updates (NDOC-05)
 
 ### Phase 26: Existing Pages and Quality Pass
@@ -296,6 +296,6 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 | 22. Ingestion Pipeline | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 23. Docs-as-Code Infrastructure | v3.1 | 2/2 | Complete    | 2026-03-21 |
 | 24. Navigation and Information Architecture | v3.1 | 1/1 | Complete    | 2026-03-21 |
-| 25. New v3.0 Feature Pages | v3.1 | 0/3 | Not started | - |
+| 25. New v3.0 Feature Pages | v3.1 | 2/3 | In Progress|  |
 | 26. Existing Pages and Quality Pass | v3.1 | 0/? | Not started | - |
 | 27. Internal Documentation Refresh | v3.1 | 0/? | Not started | - |

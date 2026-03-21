@@ -16,8 +16,8 @@ Requirements for v3.1 release. Each maps to roadmap phases.
 
 ### New Feature Documentation
 
-- [ ] **NDOC-01**: Standalone `session-recall.md` page covering temporal/topic/topology recall: CLI usage, MCP tools, agent workflow examples, configuration
-- [ ] **NDOC-02**: Standalone `polaris.md` page covering priorities layer: init scaffold, MCP resource `ztlctl://polaris`, context assembly, `check_alignment` action, agent decision workflows
+- [x] **NDOC-01**: Standalone `session-recall.md` page covering temporal/topic/topology recall: CLI usage, MCP tools, agent workflow examples, configuration
+- [x] **NDOC-02**: Standalone `polaris.md` page covering priorities layer: init scaffold, MCP resource `ztlctl://polaris`, context assembly, `check_alignment` action, agent decision workflows
 - [ ] **NDOC-03**: Standalone `contradiction-detection.md` page covering semantic integrity: `check_contradictions`, heuristic scoring, `confirm_contradiction`, graph edges, MCP review resource
 - [ ] **NDOC-04**: Standalone `media-ingestion.md` page covering ingestion pipeline: supported formats, faster-whisper transcription, `ingest_media` CLI/MCP, two-phase captured→annotated workflow, `[ingest.media]` config
 - [ ] **NDOC-05**: Standalone `methodology.md` page covering prose-as-title convention, title quality checks, garden backlog title candidates
@@ -76,8 +76,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEBT-10 | Phase 23 | Complete |
 | QUAL-01 | Phase 24 | Complete |
 | QUAL-04 | Phase 24 | Complete |
-| NDOC-01 | Phase 25 | Pending |
-| NDOC-02 | Phase 25 | Pending |
+| NDOC-01 | Phase 25 | Complete |
+| NDOC-02 | Phase 25 | Complete |
 | NDOC-03 | Phase 25 | Pending |
 | NDOC-04 | Phase 25 | Pending |
 | NDOC-05 | Phase 25 | Pending |

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Documentation & Hardening
 status: unknown
-stopped_at: Completed 24-01-PLAN.md
-last_updated: "2026-03-21T22:52:04.782Z"
+stopped_at: Completed 25-02-PLAN.md
+last_updated: "2026-03-21T23:07:44.067Z"
 progress:
   total_phases: 10
   completed_phases: 2
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 24 — navigation-and-information-architecture
+**Current focus:** Phase 25 — new-v3-0-feature-pages
 
 ## Current Position
 
-Phase: 24 (navigation-and-information-architecture) — EXECUTING
-Plan: 1 of 1
+Phase: 25 (new-v3-0-feature-pages) — EXECUTING
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -56,6 +56,8 @@ Plan: 1 of 1
 | Phase 23 P02 | 8 | 2 tasks | 5 files |
 | Phase 23 P01 | 284 | 2 tasks | 8 files |
 | Phase 24 P01 | 2 | 2 tasks | 3 files |
+| Phase 25 P01 | 2 | 2 tasks | 2 files |
+| Phase 25 P02 | 117 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -80,6 +82,10 @@ Recent decisions affecting v3.1:
 - [Phase 24]: Nav order follows Diataxis progression: Tutorial → Explanation → Reference → How-to
 - [Phase 24]: 5 placeholder comment slots inserted in mkdocs.yml nav between Configuration and Built-in Plugins for Phase 25 v3.0 feature pages
 - [Phase 24]: Documentation Conventions documented in CLAUDE.md: CLI syntax, admonitions (3 types only), cross-referencing, headings (sentence case), Diataxis type definitions
+- [Phase 25]: All CLI flags verified against uv run ztlctl --help before writing — never from memory (per STATE.md blocker note)
+- [Phase 25]: Polaris check_alignment documented as advisory-only (aligned is always true) reflecting source behavior in check.py
+- [Phase 25]: Contradiction CLI routes through check group (check contradictions, check confirm-contradiction), not standalone subcommand
+- [Phase 25]: Media ingestion supports 11 formats: ogg/flac/mkv/webm included alongside mp3/m4a/wav/mp4 from TranscriptionService.SUPPORTED_EXTENSIONS
 
 ### Pending Todos
 
@@ -96,7 +102,7 @@ Recent decisions affecting v3.1:
 
 ## Session Continuity
 
-Last session: 2026-03-21T22:52:04.778Z
-Stopped at: Completed 24-01-PLAN.md
+Last session: 2026-03-21T23:07:44.064Z
+Stopped at: Completed 25-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 23`
