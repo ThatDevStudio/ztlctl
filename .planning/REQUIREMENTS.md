@@ -44,7 +44,7 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 - [x] **POLR-01**: Well-known path `garden/groves/polaris.md` scaffolded during `ztlctl init` with starter template
 - [x] **POLR-02**: MCP resource `ztlctl://polaris` exposes polaris document content to agents
 - [x] **POLR-03**: ContextAssembler integrates polaris content into Layer 1 (operational state) with token budgeting
-- [ ] **POLR-04**: `check_alignment` action accepts a decision description and returns structured polaris context for agent evaluation
+- [x] **POLR-04**: `check_alignment` action accepts a decision description and returns structured polaris context for agent evaluation
 
 ### Contradiction Detection
 
@@ -125,7 +125,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POLR-01 | Phase 19 | Complete |
 | POLR-02 | Phase 19 | Complete |
 | POLR-03 | Phase 19 | Complete |
-| POLR-04 | Phase 19 | Pending |
+| POLR-04 | Phase 19 | Complete |
 | CNTR-01 | Phase 21 | Pending |
 | CNTR-02 | Phase 21 | Pending |
 | CNTR-03 | Phase 21 | Pending |

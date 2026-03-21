@@ -46,7 +46,7 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
 - [x] **Phase 16: Plugin Bridge and Action Executor** - Bridge reversal, generic action executor, MCP graceful shutdown (completed 2026-03-21)
 - [x] **Phase 17: Registry Decomposition and Plugin Runtime** - Feature-local action registrations, centralized plugin discovery (completed 2026-03-21)
 - [x] **Phase 18: Architecture Cleanup** - Residue removal, phantom category fix, embedding config, graph performance (completed 2026-03-21)
-- [ ] **Phase 19: Methodology Guidance and Polaris** - Title quality checks, prose-as-title template, polaris priorities layer
+- [x] **Phase 19: Methodology Guidance and Polaris** - Title quality checks, prose-as-title template, polaris priorities layer (completed 2026-03-21)
 - [ ] **Phase 20: Session Recall** - Temporal, topic, and topology querying across session history
 - [ ] **Phase 21: Contradiction Detection** - Semantic integrity analysis, contradiction edges, review dashboard
 - [ ] **Phase 22: Ingestion Pipeline** - Media and transcript ingestion via source provider plugin
@@ -132,7 +132,7 @@ Plans:
 Plans:
 - [x] 19-01-PLAN.md — Polaris template, init scaffold, MCP resource, and context assembler integration (POLR-01, POLR-02, POLR-03)
 - [x] 19-02-PLAN.md — Methodology template prose-as-title section, title quality check, and garden backlog integration (METH-01, METH-02, METH-03)
-- [ ] 19-03-PLAN.md — check_alignment action with structured polaris context for agent evaluation (POLR-04)
+- [x] 19-03-PLAN.md — check_alignment action with structured polaris context for agent evaluation (POLR-04)
 
 ### Phase 20: Session Recall
 **Goal**: Users and agents can query session history temporally, by topic, and through session-to-session connectivity
@@ -207,7 +207,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 �
 | 16. Plugin Bridge and Action Executor | v3.0 | 3/3 | Complete    | 2026-03-21 |
 | 17. Registry Decomposition and Plugin Runtime | v3.0 | 2/2 | Complete    | 2026-03-21 |
 | 18. Architecture Cleanup | v3.0 | 2/2 | Complete    | 2026-03-21 |
-| 19. Methodology Guidance and Polaris | v3.0 | 2/3 | In Progress|  |
+| 19. Methodology Guidance and Polaris | v3.0 | 3/3 | Complete   | 2026-03-21 |
 | 20. Session Recall | v3.0 | 0/2 | Not started | - |
 | 21. Contradiction Detection | v3.0 | 0/2 | Not started | - |
 | 22. Ingestion Pipeline | v3.0 | 0/2 | Not started | - |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-03-21T19:02:54.931Z"
+stopped_at: Completed 19-03-PLAN.md
+last_updated: "2026-03-21T19:09:14.260Z"
 progress:
   total_phases: 8
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 14
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -64,6 +64,7 @@ Plan: 3 of 3
 | Phase 18-architecture-cleanup P02 | 4 | 2 tasks | 4 files |
 | Phase 19-methodology-guidance-and-polaris P02 | 3 | 2 tasks | 5 files |
 | Phase 19-methodology-guidance-and-polaris P01 | 268 | 2 tasks | 8 files |
+| Phase 19-methodology-guidance-and-polaris P03 | 8 | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,8 @@ Recent decisions affecting current work:
 - [Phase 19]: _GENERIC_TITLE_PATTERNS as module-level frozenset for reuse; title quality at SEVERITY_INFO only (advisory, never blocking); garden_backlog_impl uses lazy CheckService import matching existing pattern
 - [Phase 19-methodology-guidance-and-polaris]: polaris scaffolded for all profiles (core + obsidian) — vault-level, not profile-specific
 - [Phase 19-methodology-guidance-and-polaris]: AgentContextLayers.polaris field added to Pydantic contract between log_entries and topic_content
+- [Phase 19-methodology-guidance-and-polaris]: aligned is always True — check_alignment is purely advisory, never blocks action execution
+- [Phase 19-methodology-guidance-and-polaris]: check_alignment uses stopword-filtered keyword-overlap heuristic — no NLP dependency, deterministic
 
 ### Pending Todos
 
@@ -116,6 +119,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T19:02:54.928Z
-Stopped at: Completed 19-01-PLAN.md
+Last session: 2026-03-21T19:09:14.257Z
+Stopped at: Completed 19-03-PLAN.md
 Resume file: None
