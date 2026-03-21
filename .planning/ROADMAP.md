@@ -80,7 +80,7 @@ Plans:
   2. Controllers no longer contain repeated pre/post hook dispatch boilerplate — a shared action executor handles that path once
   3. `garden seed` exercises the same pre-action and post-commit machinery as all other create flows
   4. `ztlctl serve` exits cleanly without dangling asyncio tasks or open file handles when the MCP client disconnects
-**Plans**: 3 plans
+**Plans**: 2 plans
 
 Plans:
 - [x] 16-01-PLAN.md — Bridge reversal (ARCH-05) + generic _run_action executor on BaseController (ARCH-06)
@@ -95,11 +95,11 @@ Plans:
   1. `_register_core.py` is decomposed — each feature area owns its ActionDefinitions in a local `actions/` module colocated with the relevant service/controller code
   2. Plugin runtime discovery happens once per process scope — `PluginManager` is not reconstructed independently for init steps, workspace profiles, workflow export, and live vault runtime
   3. `load_plugin_commands` uses the same discovery path and config injection as the vault runtime plugin manager
-**Plans**: 3 plans
+**Plans**: 2 plans
 
 Plans:
-- [ ] 17-01: Feature-local action registration modules
-- [ ] 17-02: Centralized plugin runtime and load_plugin_commands fix
+- [ ] 17-01-PLAN.md — Feature-local action registration modules (ARCH-07)
+- [ ] 17-02-PLAN.md — Centralized plugin runtime and load_plugin_commands fix (ARCH-08, DEBT-07)
 
 ### Phase 18: Architecture Cleanup
 **Goal**: Compatibility residue is removed, phantom categories corrected, unused fields resolved, embedding dimensions made configurable, and graph commands performant on large vaults
@@ -111,7 +111,7 @@ Plans:
   3. `ServiceError.recovery` field is either populated by services or removed — no unused structural debt in the error model
   4. Embedding dimensions are configurable in settings — no hardcoded vector dimension values remain in source
   5. `bridges()` uses k-approximation for betweenness centrality above a vault size threshold — the command stays responsive for vaults up to 5,000 notes
-**Plans**: 3 plans
+**Plans**: 2 plans
 
 Plans:
 - [ ] 18-01: Residue removal (workspace_modes, dead helpers, transitional scaffolding)
@@ -127,7 +127,7 @@ Plans:
   3. The `check_alignment` action accepts a decision description and returns structured polaris context the agent can reason against
   4. `ztlctl check` under `CAT_STRUCTURAL` flags notes with short or generic titles at info severity — the garden backlog resource includes title improvement candidates alongside stale seeds and orphans
   5. The prose-as-title convention and concrete examples are present in the `methodology.md.j2` init template
-**Plans**: 3 plans
+**Plans**: 2 plans
 
 Plans:
 - [ ] 19-01: Polaris init scaffold, MCP resource, and context assembler integration
@@ -144,7 +144,7 @@ Plans:
   3. User can discover which sessions share content or recurring topics — the topology view shows session connectivity
   4. An MCP agent reading `ztlctl://sessions/recent` receives the last N sessions with summaries without invoking a command
   5. `recall_temporal`, `recall_topic`, and `recall_topology` are registered actions in ActionRegistry with RecallService backing them
-**Plans**: 3 plans
+**Plans**: 2 plans
 
 Plans:
 - [ ] 20-01: RecallService with temporal and topic recall
@@ -160,7 +160,7 @@ Plans:
   3. User can confirm a contradiction and a `contradicts` edge is recorded in the graph between the two notes
   4. An MCP agent reading `ztlctl://review/contradictions` receives current contradiction candidate pairs without invoking a command
   5. `check_contradictions` is a registered action in ActionRegistry under the analysis category
-**Plans**: 3 plans
+**Plans**: 2 plans
 
 Plans:
 - [ ] 21-01: Candidate pair discovery and heuristic scoring
@@ -176,7 +176,7 @@ Plans:
   3. The `ingest_media` MCP tool is auto-generated from ActionRegistry and accepts the same parameters as the CLI command
   4. Whisper model selection, language hints, and output preferences are configurable in a `[ingest.media]` config section
   5. The captured reference source bundle contains `normalized_text`, `capture_agent`, and `modalities` from the transcription output — ready for an agent to annotate to `annotated` status
-**Plans**: 3 plans
+**Plans**: 2 plans
 
 Plans:
 - [ ] 22-01: Source provider plugin scaffolding and whisper transcription integration
