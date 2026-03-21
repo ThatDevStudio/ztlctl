@@ -104,3 +104,35 @@ class CheckController(BaseController):
 
         result = CheckService(self._vault).rollback()
         return result
+
+    def event_purge(self, *, older_than_days: int | None = None) -> ServiceResult:
+        """Purge dead-letter events from the WAL.
+
+        Deletes dead-letter rows older than older_than_days (defaults to
+        config dead_letter_retention_days). Returns count purged.
+        """
+        from ztlctl.services.result import ServiceError, ServiceResult
+
+        bus = self._vault.event_bus
+        if bus is None:
+            return ServiceResult(
+                ok=False,
+                op="event_purge",
+                error=ServiceError(
+                    code="EVENT_BUS_NOT_INITIALIZED",
+                    message="Event bus not initialized",
+                ),
+            )
+
+        days = (
+            older_than_days
+            if older_than_days is not None
+            else self._vault.settings.eventbus.dead_letter_retention_days
+        )
+        count = bus.purge_dead_letters(older_than_days=days)
+
+        return ServiceResult(
+            ok=True,
+            op="event_purge",
+            data={"purged_count": count, "older_than_days": days},
+        )

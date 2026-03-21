@@ -1433,6 +1433,35 @@ def _register_core_actions() -> None:
         )
     )
 
+    registry.register(
+        ActionDefinition(
+            name="event_purge",
+            description="Purge dead-letter events from the event WAL.",
+            category="maintenance",
+            params=(
+                ActionParam(
+                    "older_than_days",
+                    int,
+                    required=False,
+                    default=None,
+                    description=(
+                        "Delete dead-letter events older than N days "
+                        "(default: config dead_letter_retention_days)."
+                    ),
+                ),
+            ),
+            handler=lambda vault, **kw: CheckController(vault).event_purge(**kw),
+            side_effect="write",
+            mcp_when_to_use=(
+                "Clearing accumulated dead-letter events from the event WAL "
+                "after resolving plugin failures."
+            ),
+            mcp_avoid_when="Dead-letter events are still being investigated.",
+            cli_group="event",
+            cli_name="purge",
+        )
+    )
+
     # -----------------------------------------------------------------------
     # ingest category
     # -----------------------------------------------------------------------

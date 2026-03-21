@@ -156,10 +156,12 @@ class EventBus:
 
         If older_than_days is None, uses self._dead_letter_retention_days from config.
         """
-        from datetime import datetime, timedelta, timezone
+        from datetime import UTC, datetime, timedelta
 
-        retention = older_than_days if older_than_days is not None else self._dead_letter_retention_days
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=retention)).isoformat()
+        retention = (
+            older_than_days if older_than_days is not None else self._dead_letter_retention_days
+        )
+        cutoff = (datetime.now(UTC) - timedelta(days=retention)).isoformat()
 
         with self._engine.begin() as conn:
             count = conn.execute(
