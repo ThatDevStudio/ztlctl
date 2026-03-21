@@ -354,7 +354,7 @@ class TestCategoryIntegrity:
                 "creation",
                 {"create_note", "create_reference", "create_task", "create_batch", "garden_seed"},
             ),
-            ("check", {"check", "fix", "rebuild", "rollback"}),
+            ("check", {"check", "fix", "rebuild", "rollback", "check_alignment"}),
             ("upgrade", {"check_pending", "apply", "stamp_current"}),
             ("reweave", {"reweave", "prune", "undo"}),
             ("vector", {"vector_status", "reindex_all"}),

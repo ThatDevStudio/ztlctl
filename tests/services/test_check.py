@@ -1147,3 +1147,111 @@ class TestTitleQualityCheck:
         assert len(title_issues) == 1
         assert title_issues[0]["category"] == CAT_STRUCTURAL
         assert title_issues[0]["severity"] == SEVERITY_INFO
+
+
+# ---------------------------------------------------------------------------
+# check_alignment() — polaris alignment heuristic
+# ---------------------------------------------------------------------------
+
+
+class TestCheckAlignment:
+    def test_no_polaris_returns_ok(self, vault: Vault) -> None:
+        """When polaris file does not exist, check_alignment returns ok=True."""
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Should I add a new feature to the CLI?")
+        assert result.ok
+        assert result.op == "check_alignment"
+
+    def test_no_polaris_aligned_true(self, vault: Vault) -> None:
+        """Without polaris file, aligned is True and relevant_priorities is empty."""
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Should I refactor the query service?")
+        assert result.data["aligned"] is True
+        assert result.data["relevant_priorities"] == []
+        assert isinstance(result.data["reasoning"], str)
+        assert len(result.data["reasoning"]) > 0
+
+    def test_no_polaris_polaris_exists_false(self, vault: Vault) -> None:
+        """Without polaris file, polaris_exists is False."""
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Add a search feature")
+        assert result.data["polaris_exists"] is False
+
+    def test_result_data_structure(self, vault: Vault) -> None:
+        """Result data contains aligned (bool), relevant_priorities (list), reasoning (str)."""
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Some decision")
+        assert isinstance(result.data["aligned"], bool)
+        assert isinstance(result.data["relevant_priorities"], list)
+        assert isinstance(result.data["reasoning"], str)
+
+    def test_with_polaris_file_returns_ok(self, vault: Vault) -> None:
+        """When polaris file exists, check_alignment returns ok=True."""
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        polaris_path = polaris_dir / "polaris.md"
+        polaris_path.write_text(
+            "---\ntitle: Polaris\n---\n\n"
+            "## Current Priorities\n\n"
+            "1. Build a fast search feature\n"
+            "2. Improve documentation quality\n"
+            "3. Reduce technical debt\n\n"
+            "## Decision Principles\n\n"
+            "- Prefer simplicity over complexity\n"
+            "- Optimize for agent-friendliness\n",
+            encoding="utf-8",
+        )
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="We should build search")
+        assert result.ok
+        assert result.data["polaris_exists"] is True
+
+    def test_with_polaris_relevant_priorities_populated(self, vault: Vault) -> None:
+        """Decision with keyword overlap surfaces matching priorities."""
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        polaris_path = polaris_dir / "polaris.md"
+        polaris_path.write_text(
+            "---\ntitle: Polaris\n---\n\n"
+            "## Current Priorities\n\n"
+            "1. Build a fast search feature\n"
+            "2. Improve documentation quality\n"
+            "3. Reduce technical debt\n\n",
+            encoding="utf-8",
+        )
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="We should build search improvements")
+        assert result.ok
+        # "search" and "build" appear in priority 1 — should be in relevant_priorities
+        assert len(result.data["relevant_priorities"]) >= 1
+
+    def test_with_polaris_no_overlap_empty_relevant(self, vault: Vault) -> None:
+        """Decision with no keyword overlap produces empty relevant_priorities."""
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        polaris_path = polaris_dir / "polaris.md"
+        polaris_path.write_text(
+            "---\ntitle: Polaris\n---\n\n"
+            "## Current Priorities\n\n"
+            "1. Migrate database schemas\n"
+            "2. Optimize indexing performance\n\n",
+            encoding="utf-8",
+        )
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Paint the office walls")
+        assert result.ok
+        assert result.data["relevant_priorities"] == []
+
+    def test_aligned_always_true(self, vault: Vault) -> None:
+        """aligned is always True — advisory, never blocking."""
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        polaris_path = polaris_dir / "polaris.md"
+        polaris_path.write_text(
+            "---\ntitle: Polaris\n---\n\n## Current Priorities\n\n1. Build search\n\n",
+            encoding="utf-8",
+        )
+        svc = CheckService(vault)
+        # Even with no overlap, aligned should be True
+        result = svc.check_alignment(decision="Paint the office walls")
+        assert result.data["aligned"] is True
