@@ -108,6 +108,16 @@ class SearchConfig(BaseModel):
     semantic_weight: float = 0.5
 
 
+class MediaIngestConfig(BaseModel):
+    """[ingest.media] section."""
+
+    model_config = {"frozen": True}
+
+    whisper_model: str = "base"
+    language: str | None = None
+    compute_type: str = "int8"
+
+
 class IngestConfig(BaseModel):
     """[ingest] section."""
 
@@ -117,6 +127,7 @@ class IngestConfig(BaseModel):
     auto_reweave: bool = True
     default_target_type: str = "reference"
     providers: dict[str, Any] = Field(default_factory=dict)
+    media: MediaIngestConfig = Field(default_factory=MediaIngestConfig)
 
 
 class SessionConfig(BaseModel):
