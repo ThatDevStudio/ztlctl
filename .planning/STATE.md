@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 15-04-PLAN.md
-last_updated: "2026-03-21T17:21:35.236Z"
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-03-21T17:42:57.695Z"
 progress:
   total_phases: 8
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 7
+  completed_plans: 6
 ---
 
 # Project State
@@ -56,6 +56,7 @@ Plan: Not started
 | Phase 15-event-model-hardening P02 | 60 | 2 tasks | 22 files |
 | Phase 15 P03 | 20 | 2 tasks | 10 files |
 | Phase 15-event-model-hardening P04 | 371 | 2 tasks | 7 files |
+| Phase 16-plugin-bridge-and-action-executor P01 | 249 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,8 @@ Recent decisions affecting current work:
 - [Phase 15]: event_purge placed in 'maintenance' category (not 'check') — operational housekeeping vs. integrity scanning
 - [Phase 15-event-model-hardening]: _dispatch_post_action_event placed after _dispatch_event and before return in all write methods
 - [Phase 15-event-model-hardening]: graph.py unlink uses unlink_result variable name to avoid CursorResult type collision
+- [Phase 16]: _HOOK_TO_ACTION dict removed — dead code once services own post_action via _dispatch_post_action_event (Phase 15)
+- [Phase 16]: _run_action uses local imports for ServiceError/ServiceResult to match existing controller pattern and avoid circular imports
 
 ### Pending Todos
 
@@ -93,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T17:18:41.431Z
-Stopped at: Completed 15-04-PLAN.md
+Last session: 2026-03-21T17:42:57.693Z
+Stopped at: Completed 16-01-PLAN.md
 Resume file: None
