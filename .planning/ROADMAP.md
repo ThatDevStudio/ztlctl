@@ -267,7 +267,11 @@ Plans:
   1. CLAUDE.md architecture section lists all 15 services, 17 controllers, and 73+ actions; describes feature-local action registration and the centralized PluginManager factory
   2. DESIGN.md captures the v3.0 architectural decisions: reliable event model (WAL drain, service-only post_action), generic action executor, feature-local registration, recall/contradiction/ingestion design choices
   3. README.md feature list and command examples include session recall, polaris priorities, contradiction detection, and media ingestion — a new contributor reading README.md gets an accurate picture of the current tool
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 27-01-PLAN.md — Update CLAUDE.md architecture section and README.md features/commands for v3.0 (IDOC-01, IDOC-03)
+- [ ] 27-02-PLAN.md — Refresh DESIGN.md with v3.0 architectural decisions and new service design sections (IDOC-02)
 
 ## Progress
 
@@ -301,5 +305,5 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 | 23. Docs-as-Code Infrastructure | v3.1 | 2/2 | Complete    | 2026-03-21 |
 | 24. Navigation and Information Architecture | v3.1 | 1/1 | Complete    | 2026-03-21 |
 | 25. New v3.0 Feature Pages | v3.1 | 3/3 | Complete    | 2026-03-21 |
-| 26. Existing Pages and Quality Pass | v3.1 | 2/2 | Complete   | 2026-03-21 |
-| 27. Internal Documentation Refresh | v3.1 | 0/? | Not started | - |
+| 26. Existing Pages and Quality Pass | v3.1 | 2/2 | Complete    | 2026-03-21 |
+| 27. Internal Documentation Refresh | v3.1 | 0/2 | Not started | - |
