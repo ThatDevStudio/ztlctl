@@ -1,0 +1,152 @@
+# Requirements: ztlctl v3.0 Memory and Hardening
+
+**Defined:** 2026-03-21
+**Core Value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
+
+## v3.0 Requirements
+
+Requirements for v3.0 release. Each maps to roadmap phases.
+
+### Architecture Remediation
+
+- [ ] **ARCH-01**: Event delivery is reliable — WAL rows drain on CLI shutdown with bounded timeout
+- [ ] **ARCH-02**: Pending/failed WAL events from prior runs drain on startup before new work begins
+- [ ] **ARCH-03**: Write-side `post_action` is emitted by services only — controller-side dispatch removed
+- [ ] **ARCH-04**: Canonical action-event payload model with stable shape (`action_name`, `side_effect`, `payload`, `warnings`)
+- [ ] **ARCH-05**: Compatibility bridge reversed — stable action events adapt into legacy hook calls (not legacy → stable)
+- [ ] **ARCH-06**: Generic action executor replaces repeated pre/post hook boilerplate in controllers
+- [ ] **ARCH-07**: Action registrations decomposed into feature-local modules (`actions/create.py`, `actions/query.py`, etc.)
+- [ ] **ARCH-08**: Centralized plugin runtime discovery — single coherent owner per scope for plugins, profiles, workflows, init steps
+- [ ] **ARCH-09**: Command surface convergence — `garden seed` is a first-class action; hybrid patching reduced
+- [ ] **ARCH-10**: Compatibility residue removed — dead controller helpers, deprecated `workspace_modes.py`, transitional scaffolding
+
+### Tech Debt
+
+- [ ] **DEBT-01**: Embedding dimensions configurable (remove hardcoded values)
+- [ ] **DEBT-02**: EventBus timeout configurable via settings
+- [ ] **DEBT-03**: Dead-letter event accumulation resolved (cleanup or retry strategy)
+- [ ] **DEBT-04**: MCP server graceful shutdown implemented
+- [ ] **DEBT-05**: Phantom `mutation` category in `_DEFAULT_ACTIVE_CATEGORIES` cleaned up
+- [ ] **DEBT-06**: `ServiceError.recovery` field either used by services or removed
+- [ ] **DEBT-07**: `load_plugin_commands` creates PluginManager with `inject_configs` support
+- [ ] **DEBT-08**: `bridges()` betweenness centrality uses k-approximation for large graphs
+
+### Session Recall
+
+- [ ] **RECL-01**: User can retrieve sessions by date range with per-session summaries (temporal recall)
+- [ ] **RECL-02**: User can search session history by topic using BM25 or semantic search (topic recall)
+- [ ] **RECL-03**: User can discover session connectivity through shared content and recurring topics (topology recall)
+- [ ] **RECL-04**: MCP resource `ztlctl://sessions/recent` exposes last N sessions with summaries
+- [ ] **RECL-05**: RecallService with `recall_temporal`, `recall_topic`, `recall_topology` actions registered in ActionRegistry
+
+### Polaris Layer
+
+- [ ] **POLR-01**: Well-known path `garden/groves/polaris.md` scaffolded during `ztlctl init` with starter template
+- [ ] **POLR-02**: MCP resource `ztlctl://polaris` exposes polaris document content to agents
+- [ ] **POLR-03**: ContextAssembler integrates polaris content into Layer 1 (operational state) with token budgeting
+- [ ] **POLR-04**: `check_alignment` action accepts a decision description and returns structured polaris context for agent evaluation
+
+### Contradiction Detection
+
+- [ ] **CNTR-01**: Candidate pair discovery identifies notes that may contradict (topic-scoped, high-similarity, decision conflicts)
+- [ ] **CNTR-02**: Heuristic evaluation scores candidate pairs using negation patterns and key_points comparison
+- [ ] **CNTR-03**: `CAT_SEMANTIC` check category in CheckService reports contradiction candidates
+- [ ] **CNTR-04**: Confirmed contradictions recorded as `contradicts` edges in the graph
+- [ ] **CNTR-05**: MCP resource `ztlctl://review/contradictions` surfaces contradiction pairs in review dashboard
+- [ ] **CNTR-06**: `check_contradictions` action registered in ActionRegistry (category: analysis)
+
+### Ingestion Pipeline
+
+- [ ] **INGP-01**: Source provider plugin accepts media files (mp4, mp3, m4a, wav) and transcript files (txt, vtt, srt)
+- [ ] **INGP-02**: Local transcription via whisper/faster-whisper (no data leaves the machine)
+- [ ] **INGP-03**: Two-phase workflow: plugin produces `captured` reference, agent annotates to `annotated` with structured key_points
+- [ ] **INGP-04**: `ingest_media` action registered in ActionRegistry with MCP tool auto-generated
+- [ ] **INGP-05**: Config section `[ingest.media]` for whisper model selection, language hints, output preferences
+- [ ] **INGP-06**: Source bundle populated with transcription output (normalized_text, capture_agent, modalities)
+
+### Methodology Guidance
+
+- [ ] **METH-01**: Prose-as-title convention documented in `methodology.md.j2` template (research-partner tone)
+- [ ] **METH-02**: Title quality check in CheckService under `CAT_STRUCTURAL` flags short/generic titles (info severity)
+- [ ] **METH-03**: Garden backlog resource includes title improvement candidates alongside stale seeds and orphans
+
+## v4.0 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Advanced Memory
+
+- **AMEM-01**: Session graph visualization (interactive session-to-file topology browser)
+- **AMEM-02**: Claude Code JSONL conversation parsing into indexed markdown
+- **AMEM-03**: Kanban board generation from unstructured task text
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| GUI/web interface | ztlctl is CLI/MCP-first; Obsidian serves as the visual layer |
+| Multi-user/collaboration | Local single-user tool; collaboration through shared repos |
+| Cloud sync | Filesystem is the storage layer; sync is the user's responsibility |
+| Mobile app | CLI tool; mobile access through Obsidian mobile or MCP clients |
+| LLM provider coupling in core | Ingestion plugin uses whisper for transcription; LLM extraction is agent-side, not tool-side |
+| Enforced title conventions | Title quality is advisory (info severity), not validation-blocking |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| ARCH-01 | — | Pending |
+| ARCH-02 | — | Pending |
+| ARCH-03 | — | Pending |
+| ARCH-04 | — | Pending |
+| ARCH-05 | — | Pending |
+| ARCH-06 | — | Pending |
+| ARCH-07 | — | Pending |
+| ARCH-08 | — | Pending |
+| ARCH-09 | — | Pending |
+| ARCH-10 | — | Pending |
+| DEBT-01 | — | Pending |
+| DEBT-02 | — | Pending |
+| DEBT-03 | — | Pending |
+| DEBT-04 | — | Pending |
+| DEBT-05 | — | Pending |
+| DEBT-06 | — | Pending |
+| DEBT-07 | — | Pending |
+| DEBT-08 | — | Pending |
+| RECL-01 | — | Pending |
+| RECL-02 | — | Pending |
+| RECL-03 | — | Pending |
+| RECL-04 | — | Pending |
+| RECL-05 | — | Pending |
+| POLR-01 | — | Pending |
+| POLR-02 | — | Pending |
+| POLR-03 | — | Pending |
+| POLR-04 | — | Pending |
+| CNTR-01 | — | Pending |
+| CNTR-02 | — | Pending |
+| CNTR-03 | — | Pending |
+| CNTR-04 | — | Pending |
+| CNTR-05 | — | Pending |
+| CNTR-06 | — | Pending |
+| INGP-01 | — | Pending |
+| INGP-02 | — | Pending |
+| INGP-03 | — | Pending |
+| INGP-04 | — | Pending |
+| INGP-05 | — | Pending |
+| INGP-06 | — | Pending |
+| METH-01 | — | Pending |
+| METH-02 | — | Pending |
+| METH-03 | — | Pending |
+
+**Coverage:**
+- v3.0 requirements: 42 total
+- Mapped to phases: 0
+- Unmapped: 42 ⚠️
+
+---
+*Requirements defined: 2026-03-21*
+*Last updated: 2026-03-21 after initial definition*
