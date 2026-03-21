@@ -414,6 +414,63 @@ class TestRegisterResources:
                     pass
 
 
+class TestGardenBacklogTitleCandidates:
+    """Tests for title_improvement_candidates in garden_backlog_impl (METH-03)."""
+
+    def test_garden_backlog_has_title_improvement_candidates_key(self, vault: Vault):
+        """garden_backlog_impl returns dict with 'title_improvement_candidates' key."""
+        result = garden_backlog_impl(vault)
+        assert "title_improvement_candidates" in result
+
+    def test_title_improvement_candidates_is_list(self, vault: Vault):
+        """title_improvement_candidates is always a list."""
+        result = garden_backlog_impl(vault)
+        assert isinstance(result["title_improvement_candidates"], list)
+
+    def test_empty_vault_returns_empty_candidates(self, vault: Vault):
+        """Empty vault produces no title improvement candidates."""
+        result = garden_backlog_impl(vault)
+        assert result["title_improvement_candidates"] == []
+
+    def test_short_title_note_appears_in_candidates(self, vault: Vault):
+        """Note with a short title appears in title_improvement_candidates."""
+        from ztlctl.services.create import CreateService
+
+        CreateService(vault).create_note("Notes")
+        result = garden_backlog_impl(vault)
+        candidates = result["title_improvement_candidates"]
+        assert len(candidates) >= 1
+        # Each candidate has id and message
+        for cand in candidates:
+            assert "id" in cand
+            assert "message" in cand
+
+    def test_generic_title_note_appears_in_candidates(self, vault: Vault):
+        """Note with a generic title like 'Draft' appears in candidates."""
+        from ztlctl.services.create import CreateService
+
+        CreateService(vault).create_note("Draft")
+        result = garden_backlog_impl(vault)
+        candidates = result["title_improvement_candidates"]
+        assert len(candidates) >= 1
+
+    def test_descriptive_title_not_in_candidates(self, vault: Vault):
+        """Note with a descriptive title does NOT appear in candidates."""
+        from ztlctl.services.create import CreateService
+
+        CreateService(vault).create_note("JWT authentication with refresh token rotation")
+        result = garden_backlog_impl(vault)
+        candidates = result["title_improvement_candidates"]
+        assert len(candidates) == 0
+
+    def test_stale_seeds_and_orphans_still_present(self, vault: Vault):
+        """Existing backlog items (stale_seeds, orphans) still present alongside candidates."""
+        result = garden_backlog_impl(vault)
+        assert "items" in result
+        assert "count" in result
+        assert "title_improvement_candidates" in result
+
+
 class TestDocsResources:
     """Tests for docs_index_impl and docs_search_resource_impl."""
 

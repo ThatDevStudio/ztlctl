@@ -167,7 +167,7 @@ def garden_backlog_impl(vault: Any) -> dict[str, Any]:
 
     review = QueryService(vault).vault_review(top=10)
     if not review.ok:
-        return {"items": [], "count": 0}
+        return {"items": [], "count": 0, "title_improvement_candidates": []}
 
     backlog = [
         *review.data.get("stale_seeds", []),
@@ -181,7 +181,31 @@ def garden_backlog_impl(vault: Any) -> dict[str, Any]:
             continue
         seen.add(item_id)
         items.append(item)
-    return {"items": items, "count": len(items)}
+
+    # Title improvement candidates (from check at info severity)
+    from ztlctl.services.check import CAT_STRUCTURAL, SEVERITY_INFO, CheckService
+
+    check_result = CheckService(vault).check(min_severity="info")
+    title_candidates: list[dict[str, Any]] = []
+    if check_result.ok:
+        for issue in check_result.data.get("issues", []):
+            if (
+                issue.get("category") == CAT_STRUCTURAL
+                and issue.get("severity") == SEVERITY_INFO
+                and "Title quality" in str(issue.get("message", ""))
+            ):
+                title_candidates.append(
+                    {
+                        "id": issue.get("node_id"),
+                        "message": issue.get("message"),
+                    }
+                )
+
+    return {
+        "items": items,
+        "count": len(items),
+        "title_improvement_candidates": title_candidates,
+    }
 
 
 def decision_queue_impl(vault: Any) -> dict[str, Any]:
