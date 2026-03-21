@@ -34,5 +34,5 @@
 - [Contributing](https://thatdevstudio.github.io/ztlctl/development/): Architecture overview, branch workflow, and contribution process
 - [Plugin Authoring](https://thatdevstudio.github.io/ztlctl/plugin-guide/): Tutorial and hookspec reference for building ztlctl plugins
 - [API Reference](https://thatdevstudio.github.io/ztlctl/api-reference/): Auto-generated API reference for plugin contracts, hookspecs, and the ActionRegistry
-- [MCP Server](https://thatdevstudio.github.io/ztlctl/mcp/): MCP tools, resources, prompts, and agent integration patterns
-- [Agent System Manual](https://thatdevstudio.github.io/ztlctl/agents/): Machine-readable schemas, state machines, constraint rules, and interaction flows for LLM systems
+- [MCP Server](https://thatdevstudio.github.io/ztlctl/mcp/): 73+ MCP tools, 20 resources, 9 prompts, and agent integration patterns
+- [Agent System Manual](https://thatdevstudio.github.io/ztlctl/agents/): Machine-readable schemas, state machines, constraint rules, and interaction flows for LLM systems — covers all 73+ actions
