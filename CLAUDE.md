@@ -144,6 +144,29 @@ All commit messages AND PR titles MUST follow the conventional commits format:
 | `pr-ci.yml` | PR to `develop` | Lint, test, typecheck, security audit, commit lint |
 | `release-pipeline.yml` | Push to `develop` | Validate → version bump → changelog → tag → GitHub Release → PyPI publish (manual approval) → Homebrew tap sync |
 
+## Documentation Rules
+
+**Rule:** If a PR adds or modifies actions, commands, config options, or MCP resources, the same PR MUST update the relevant docs.
+
+### Docs Update Checklist
+
+Before marking a PR ready for review, verify all that apply:
+
+- [ ] Relevant docs page updated (new feature, changed behavior, new config option)
+- [ ] `docs/llms.txt` entry current (new page added, stale description corrected)
+- [ ] CLI examples verified against `uv run ztlctl <command> --help` (flag names from source)
+- [ ] MCP tool count accurate in `docs/mcp.md` if tools were added or removed
+
+**Where to find things:**
+- User-facing docs: `docs/` directory, registered in `mkdocs.yml` nav
+- LLM index: `docs/llms.txt` and `docs/llms-full.txt` (hand-maintained)
+- Command reference: `docs/commands.md`
+- MCP reference: `docs/mcp.md`
+
+### GSD Phase Documentation Convention (DINF-03)
+
+Every GSD feature phase plan MUST include a Documentation Tasks block. When planning a phase that adds or changes user-facing behavior, include at least one task that updates the relevant docs page, llms.txt entry, and command examples. This is structural — not optional.
+
 ## Architecture
 
 - **Entry point**: `ztlctl` (Click CLI)
