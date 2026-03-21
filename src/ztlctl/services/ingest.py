@@ -27,6 +27,8 @@ from ztlctl.services.source_bundles import (
     normalize_source_bundle,
     persist_source_bundle,
 )
+from ztlctl.services.telemetry import traced
+from ztlctl.services.transcription import TranscriptionService
 
 
 class IngestService(BaseService):
@@ -173,6 +175,88 @@ class IngestService(BaseService):
                 "Input Kind: file",
                 f"Source File: {source_path}",
             ],
+        )
+
+    @traced
+    def ingest_media(
+        self,
+        path: Path,
+        *,
+        title: str | None = None,
+        topic: str | None = None,
+        tags: list[str] | None = None,
+        session: str | None = None,
+        subtype: str | None = None,
+        summary: str | None = None,
+        dry_run: bool = False,
+        no_reweave: bool = False,
+    ) -> ServiceResult:
+        """Ingest a media file or transcript into a captured reference.
+
+        Accepts audio/video files (transcribed via faster-whisper) and transcript
+        files (.vtt, .srt, .txt parsed locally). Always produces a captured reference
+        in the two-phase workflow: captured → annotated (by an agent in a follow-up).
+        """
+        source_path = path.resolve()
+        if not source_path.is_file():
+            return ServiceResult(
+                ok=False,
+                op="ingest_media",
+                error=ServiceError(
+                    code="NOT_FOUND",
+                    message=f"Media file not found: {source_path}",
+                ),
+            )
+
+        suffix = source_path.suffix.lower()
+        if suffix not in TranscriptionService.SUPPORTED_EXTENSIONS:
+            return ServiceResult(
+                ok=False,
+                op="ingest_media",
+                error=ServiceError(
+                    code="UNSUPPORTED_INPUT",
+                    message=f"Unsupported media file type: {suffix or '<none>'}",
+                    detail={"supported": sorted(TranscriptionService.SUPPORTED_EXTENSIONS)},
+                ),
+            )
+
+        cfg = self._vault.settings.ingest.media
+        transcription_svc = TranscriptionService(
+            whisper_model=cfg.whisper_model,
+            language=cfg.language,
+            compute_type=cfg.compute_type,
+        )
+        transcription = transcription_svc.transcribe_file(source_path)
+        if isinstance(transcription, ServiceError):
+            return ServiceResult(
+                ok=False,
+                op="ingest_media",
+                error=transcription,
+            )
+
+        resolved_title = (title or source_path.stem).strip()
+
+        return self._ingest_normalized(
+            input_kind="media",
+            title=resolved_title,
+            body_text=transcription.text,
+            target_type="reference",
+            topic=topic,
+            tags=tags,
+            session=session,
+            subtype=subtype,
+            summary=summary,
+            source_kind="media",
+            modalities=list(transcription.modalities),
+            capture_agent=transcription.capture_agent,
+            capture_method=None,
+            dry_run=dry_run,
+            no_reweave=no_reweave,
+            provenance=[
+                "Input Kind: media",
+                f"Source File: {source_path}",
+            ],
+            source_bundle={"source_path": str(source_path)},
         )
 
     def ingest_url(
@@ -536,6 +620,32 @@ class IngestService(BaseService):
                 capture_method=capture_method,
                 source_bundle=source_bundle,
             )
+            # Inject extra top-level fields from source_bundle (e.g. source_path for media)
+            if source_bundle:
+                _known_bundle_keys = {
+                    "title",
+                    "source_kind",
+                    "modalities",
+                    "capture_agent",
+                    "capture_method",
+                    "captured_at",
+                    "summary_hint",
+                    "key_points",
+                    "provenance",
+                    "source_title",
+                    "url",
+                    "canonical_url",
+                    "provider",
+                    "source_type",
+                    "language",
+                    "citations",
+                    "excerpts",
+                    "artifacts",
+                    "metadata",
+                }
+                for _k, _v in source_bundle.items():
+                    if _k not in _known_bundle_keys:
+                        normalized_bundle[_k] = _v
 
             result, created = create._create_content_in_txn(
                 txn,

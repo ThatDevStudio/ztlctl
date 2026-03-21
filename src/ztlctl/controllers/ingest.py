@@ -165,6 +165,49 @@ class IngestController(BaseController):
 
         return self._run_action("ingest_file", kwargs, _invoke)
 
+    def ingest_media(
+        self,
+        path: Path | str,
+        *,
+        title: str | None = None,
+        topic: str | None = None,
+        tags: list[str] | None = None,
+        session: str | None = None,
+        subtype: str | None = None,
+        summary: str | None = None,
+        dry_run: bool = False,
+        no_reweave: bool = False,
+    ) -> ServiceResult:
+        """Ingest a media file or transcript into a captured reference."""
+        from ztlctl.services.ingest import IngestService
+
+        kwargs: dict[str, Any] = {
+            "path": path,
+            "title": title,
+            "topic": topic,
+            "tags": tags,
+            "session": session,
+            "subtype": subtype,
+            "summary": summary,
+            "dry_run": dry_run,
+            "no_reweave": no_reweave,
+        }
+
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return IngestService(self._vault).ingest_media(
+                Path(kw["path"]),
+                title=kw["title"],
+                topic=kw["topic"],
+                tags=kw["tags"],
+                session=kw["session"],
+                subtype=kw["subtype"],
+                summary=kw["summary"],
+                dry_run=kw["dry_run"],
+                no_reweave=kw["no_reweave"],
+            )
+
+        return self._run_action("ingest_media", kwargs, _invoke)
+
     def ingest_url(
         self,
         url: str,

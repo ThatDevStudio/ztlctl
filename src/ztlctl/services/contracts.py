@@ -440,7 +440,7 @@ class SourceBundleData(BaseModel):
     """Durable source bundle persisted beside a captured reference."""
 
     version: Literal[1] = 1
-    input_kind: Literal["text", "file", "url"]
+    input_kind: Literal["text", "file", "url", "media"]
     title: str
     source_kind: str | None = None
     modalities: list[str] = Field(default_factory=list)
