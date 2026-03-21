@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-03-21T19:26:34.676Z"
+stopped_at: Completed 20-02-PLAN.md
+last_updated: "2026-03-21T19:33:49.139Z"
 progress:
   total_phases: 8
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -66,6 +66,7 @@ Plan: 2 of 2
 | Phase 19-methodology-guidance-and-polaris P01 | 268 | 2 tasks | 8 files |
 | Phase 19-methodology-guidance-and-polaris P03 | 8 | 1 tasks | 5 files |
 | Phase 20-session-recall P01 | 2 | 2 tasks | 4 files |
+| Phase 20 P02 | 5 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,8 @@ Recent decisions affecting current work:
 - [Phase 20-01]: recall_temporal uses nodes.created ISO date strings for filtering (SQLite lexicographic comparison is correct for YYYY-MM-DD)
 - [Phase 20-01]: recall_topology stubbed on RecallService with empty nodes list — full graph-topology implementation deferred to Plan 02
 - [Phase 20-01]: recall_topic uses func.lower() LIKE on session_logs.summary — session_logs not in nodes_fts, LIKE sufficient for use case
+- [Phase 20]: recall_topology uses session_logs.references JSON array for shared note detection — nodes.session tracks creation session, references captures cross-session note mentions
+- [Phase 20]: sessions_recent_impl delegates to recall_temporal() and slices [:5] — already ordered by created_at desc
 
 ### Pending Todos
 
@@ -123,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T19:26:34.673Z
-Stopped at: Completed 20-01-PLAN.md
+Last session: 2026-03-21T19:33:49.136Z
+Stopped at: Completed 20-02-PLAN.md
 Resume file: None

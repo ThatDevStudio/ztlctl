@@ -47,7 +47,7 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
 - [x] **Phase 17: Registry Decomposition and Plugin Runtime** - Feature-local action registrations, centralized plugin discovery (completed 2026-03-21)
 - [x] **Phase 18: Architecture Cleanup** - Residue removal, phantom category fix, embedding config, graph performance (completed 2026-03-21)
 - [x] **Phase 19: Methodology Guidance and Polaris** - Title quality checks, prose-as-title template, polaris priorities layer (completed 2026-03-21)
-- [ ] **Phase 20: Session Recall** - Temporal, topic, and topology querying across session history
+- [x] **Phase 20: Session Recall** - Temporal, topic, and topology querying across session history (completed 2026-03-21)
 - [ ] **Phase 21: Contradiction Detection** - Semantic integrity analysis, contradiction edges, review dashboard
 - [ ] **Phase 22: Ingestion Pipeline** - Media and transcript ingestion via source provider plugin
 
@@ -148,7 +148,7 @@ Plans:
 
 Plans:
 - [x] 20-01: RecallService with temporal and topic recall
-- [ ] 20-02: Topology recall, MCP resource, and ActionRegistry registration
+- [x] 20-02: Topology recall, MCP resource, and ActionRegistry registration
 
 ### Phase 21: Contradiction Detection
 **Goal**: The vault can surface notes that likely contradict each other, record confirmed contradictions as graph edges, and expose them in an agent review resource
@@ -208,6 +208,6 @@ Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 �
 | 17. Registry Decomposition and Plugin Runtime | v3.0 | 2/2 | Complete    | 2026-03-21 |
 | 18. Architecture Cleanup | v3.0 | 2/2 | Complete    | 2026-03-21 |
 | 19. Methodology Guidance and Polaris | v3.0 | 3/3 | Complete    | 2026-03-21 |
-| 20. Session Recall | v3.0 | 1/2 | In Progress|  |
+| 20. Session Recall | v3.0 | 2/2 | Complete   | 2026-03-21 |
 | 21. Contradiction Detection | v3.0 | 0/2 | Not started | - |
 | 22. Ingestion Pipeline | v3.0 | 0/2 | Not started | - |
