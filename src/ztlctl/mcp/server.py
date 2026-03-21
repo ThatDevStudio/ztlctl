@@ -23,7 +23,7 @@ try:
 except ImportError:
     pass
 
-__all__ = ["create_server", "mcp_available", "ServerContext"]
+__all__ = ["ServerContext", "create_server", "mcp_available"]
 
 
 @dataclass
