@@ -209,7 +209,48 @@ Do not use `info`, `danger`, `example`, `abstract`, or other admonition types. T
   - `config/` — Pydantic config models, TOML discovery/loading
   - `services/` — business logic (imports domain, infrastructure, config)
   - `output/` — Rich/JSON formatters (imports services)
-  - `commands/` — Click command groups/commands (imports services, output, config)
-  - `plugins/` — pluggy hook specs and built-in plugins
-  - `mcp/` — optional MCP adapter (guarded imports)
+  - `commands/` — Click CLI commands (auto-generated from ActionRegistry via `commands/generator.py`)
+  - `controllers/` — thin delegation layer between ActionRegistry and services (v3.0)
+  - `actions/` — feature-local ActionDefinition modules; registry aggregates them (v3.0)
+  - `plugins/` — pluggy hook specs, built-in plugins, centralized PluginManager factory
+  - `mcp/` — optional MCP adapter (guarded imports, auto-generated from ActionRegistry)
   - `templates/` — Jinja2 templates for content creation
+
+### v3.0 service inventory (16 services, excluding BaseService)
+
+CreateService, QueryService, GraphService, SessionService, ReweaveService, CheckService,
+UpdateService, ExportService, InitService, VectorService, WorkflowService,
+ContradictionService, RecallService, IngestService, TranscriptionService, UpgradeService
+
+### v3.0 controller inventory (17 controllers, excluding BaseController)
+
+CreateController, QueryController, GraphController, SessionController, ReweaveController,
+CheckController, UpdateController, ExportController, InitController, VectorController,
+WorkflowController, ContradictionController, RecallController, IngestController,
+DiscoveryController, DocsController, UpgradeController
+
+### v3.0 action inventory (73 registered ActionDefinitions)
+
+ActionDefinitions live in 9 feature-local modules under `src/ztlctl/actions/`:
+
+| Module | Count | Feature area |
+|---|---|---|
+| `_admin.py` | 15 | Admin, upgrade, docs, discovery |
+| `_session.py` | 12 | Session lifecycle and recall |
+| `_query.py` | 10 | Search, list, packets, drafts |
+| `_check.py` | 8 | Integrity, contradictions, polaris |
+| `_graph.py` | 8 | Graph traversal and analysis |
+| `_lifecycle.py` | 6 | Note status transitions |
+| `_ingest.py` | 5 | Text and media ingestion |
+| `_creation.py` | 5 | Note, reference, task creation |
+| `_export.py` | 4 | Export formats |
+
+`actions/registry.py` imports from all 9 modules and builds the unified `ActionRegistry`. This is the single source of truth — CLI and MCP surfaces are auto-generated from it.
+
+### Feature-local action registration
+
+ActionDefinitions are colocated by feature area rather than declared in a single monolithic file. Each `_<feature>.py` module exports a list of `ActionDefinition` instances; `registry.py` imports and aggregates them all. Adding a new action requires only: (1) add an `ActionDefinition` to the appropriate feature module, (2) wire a handler in the corresponding controller. The generator and MCP adapter pick it up automatically.
+
+### Centralized PluginManager factory
+
+`src/ztlctl/plugins/runtime.py` exports `get_plugin_manager()` — the single construction point for all `PluginManager` instances. It provides scope-aware caching (keyed on `local_dir` + `include_entrypoints`), optional config injection via `inject_configs(settings)`, and a `cache=False` escape hatch for callers that register vault-specific built-in plugins. All code that needs a `PluginManager` calls `get_plugin_manager()` — there are no independent `PluginManager()` instantiations outside this factory.
