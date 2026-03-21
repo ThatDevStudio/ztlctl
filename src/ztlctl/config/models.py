@@ -102,6 +102,7 @@ class SearchConfig(BaseModel):
 
     semantic_enabled: bool = False
     embedding_model: str = "local"
+    # Must match DEFAULT_EMBEDDING_DIM in ztlctl.infrastructure.embeddings
     embedding_dim: int = 384
     half_life_days: float = 30.0
     semantic_weight: float = 0.5

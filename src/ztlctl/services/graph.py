@@ -382,7 +382,9 @@ class GraphService(BaseService):
         if g.number_of_nodes() == 0:
             return self._empty_graph_result("bridges")
 
-        bc = nx.betweenness_centrality(g)
+        node_count = g.number_of_nodes()
+        k_param = None if node_count <= 500 else min(500, node_count)
+        bc = nx.betweenness_centrality(g, k=k_param, seed=42)
 
         # Filter to non-zero centrality and sort descending
         nonzero = [(n, c) for n, c in bc.items() if c > 0]

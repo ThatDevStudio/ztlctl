@@ -11,6 +11,10 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+#: Default embedding vector dimension for the bundled all-MiniLM-L6-v2 model.
+#: Used as the constructor default and referenced by SearchConfig.embedding_dim.
+DEFAULT_EMBEDDING_DIM: int = 384
+
 _st_available = False
 try:
     import sentence_transformers  # type: ignore[import-not-found]  # noqa: F401
@@ -34,7 +38,9 @@ class EmbeddingProvider:
     call to avoid startup cost when semantic search is disabled.
     """
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2", dim: int = 384) -> None:
+    def __init__(
+        self, model_name: str = "all-MiniLM-L6-v2", dim: int = DEFAULT_EMBEDDING_DIM
+    ) -> None:
         self._model_name = model_name
         self._dim = dim
         self._model: Any = None
