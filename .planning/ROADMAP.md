@@ -127,12 +127,12 @@ Plans:
   3. The `check_alignment` action accepts a decision description and returns structured polaris context the agent can reason against
   4. `ztlctl check` under `CAT_STRUCTURAL` flags notes with short or generic titles at info severity — the garden backlog resource includes title improvement candidates alongside stale seeds and orphans
   5. The prose-as-title convention and concrete examples are present in the `methodology.md.j2` init template
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] 19-01: Polaris init scaffold, MCP resource, and context assembler integration
-- [ ] 19-02: `check_alignment` action and polaris-aware decision support
-- [ ] 19-03: Methodology template and title quality check in CheckService
+- [ ] 19-01-PLAN.md — Polaris template, init scaffold, MCP resource, and context assembler integration (POLR-01, POLR-02, POLR-03)
+- [ ] 19-02-PLAN.md — Methodology template prose-as-title section, title quality check, and garden backlog integration (METH-01, METH-02, METH-03)
+- [ ] 19-03-PLAN.md — check_alignment action with structured polaris context for agent evaluation (POLR-04)
 
 ### Phase 20: Session Recall
 **Goal**: Users and agents can query session history temporally, by topic, and through session-to-session connectivity
