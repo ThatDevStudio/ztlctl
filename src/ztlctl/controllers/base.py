@@ -8,11 +8,13 @@ the single interface for the registry layer.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from ztlctl.infrastructure.vault import Vault
     from ztlctl.plugins.contracts import ActionRejection
+    from ztlctl.services.result import ServiceResult
 
 logger = logging.getLogger(__name__)
 
@@ -81,4 +83,34 @@ class BaseController:
             return result, None
         return kwargs, None
 
+    def _run_action(
+        self,
+        action_name: str,
+        kwargs: dict[str, Any],
+        invoke: Callable[[dict[str, Any]], ServiceResult],
+    ) -> ServiceResult:
+        """Execute an action through the pre-action hook pipeline.
 
+        1. Dispatches pre_action hook (plugins may modify kwargs or reject).
+        2. If rejected, returns a ServiceResult with ACTION_REJECTED error.
+        3. Otherwise, calls *invoke* with the (possibly modified) kwargs.
+
+        All controller methods should delegate to this instead of calling
+        _dispatch_pre_action directly.
+        """
+        from ztlctl.services.result import ServiceError
+        from ztlctl.services.result import ServiceResult as SR
+
+        kwargs, rejection = self._dispatch_pre_action(action_name, kwargs)
+        if rejection is not None:
+            return SR(
+                ok=False,
+                op=action_name,
+                error=ServiceError(
+                    code="ACTION_REJECTED",
+                    message=rejection.reason,
+                    detail=rejection.detail if isinstance(rejection.detail, dict) else {},
+                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                ),
+            )
+        return invoke(kwargs)
