@@ -57,3 +57,6 @@ ops/
 
 # MkDocs build output
 site/
+
+# Vale style packages (downloaded by vale sync)
+.vale/styles/

@@ -32,7 +32,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install MkDocs dependencies
-        run: pip install mkdocs==1.6.1 mkdocs-shadcn==0.10.2 mkdocs-redirects==1.2.2 "mkdocstrings[python]>=1.0.3"
+        run: pip install mkdocs==1.6.1 mkdocs-shadcn==0.10.2 mkdocs-redirects==1.2.2 "mkdocstrings[python]>=1.0.3" mkdocs-git-revision-date-localized-plugin
 
       - name: Build docs
         run: mkdocs build
