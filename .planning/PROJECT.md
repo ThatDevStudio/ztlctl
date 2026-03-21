@@ -44,9 +44,20 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ### Active
 
-<!-- Next milestone scope: TBD -->
+<!-- Current milestone: v3.0 Memory and Hardening -->
 
-(No active requirements — run `/gsd:new-milestone` to define next scope)
+## Current Milestone: v3.0 Memory and Hardening
+
+**Goal:** Harden the core architecture (event model, action execution, plugin discovery) and add memory-layer features (session recall, polaris priorities, contradiction detection, ingestion pipeline, methodology guidance) that make ztlctl a persistent memory system for agents and humans.
+
+**Target features:**
+- Architecture remediation: reliable event delivery, single post_action producer, canonical payload, generic action executor, feature-local registration, centralized plugin runtime, compatibility cleanup
+- Session Recall: temporal/topic/topology querying across session history
+- Polaris Layer: persistent goals/priorities with MCP resource and context assembly integration
+- Contradiction Detection: semantic integrity analysis using vector similarity
+- Ingestion Pipeline: media/transcript → structured notes via source provider plugins
+- Methodology Guidance: prose-as-title convention and title quality checks
+- Tech debt: hardcoded embedding dims, EventBus timeout, dead-letter accumulation, MCP graceful shutdown, phantom mutation category, unused ServiceError.recovery, load_plugin_commands gap, bridges() k-approximation
 
 ### Out of Scope
 
@@ -104,4 +115,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | Three-audience documentation model | End users (mentor tone), developers (peer tone), agents (structured schemas) | ✓ Good — best-practices.md + agents.md serve distinct reading patterns |
 
 ---
-*Last updated: 2026-03-21 after v2.1 milestone completion*
+*Last updated: 2026-03-21 after v3.0 milestone started*
