@@ -711,9 +711,7 @@ class CheckService(BaseService):
 
         # Dead-letter event count (D-19)
         dead_letter_count = conn.execute(
-            select(func.count()).select_from(event_wal).where(
-                event_wal.c.status == "dead_letter"
-            )
+            select(func.count()).select_from(event_wal).where(event_wal.c.status == "dead_letter")
         ).scalar_one()
 
         if dead_letter_count > 0:

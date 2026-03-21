@@ -90,10 +90,8 @@ class TestZtlSettingsEventbus:
         assert settings.eventbus.max_retries == 3
 
     def test_eventbus_populated_from_toml(self, tmp_path) -> None:
-        import threading
-        import tomllib
 
-        from ztlctl.config.settings import TomlSettingsSource, ZtlSettings, _tls
+        from ztlctl.config.settings import ZtlSettings, _tls
 
         toml_content = "[eventbus]\nshutdown_timeout_seconds = 15.0\nmax_retries = 5\n"
         toml_file = tmp_path / "ztlctl.toml"

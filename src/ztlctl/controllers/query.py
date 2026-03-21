@@ -152,9 +152,7 @@ class QueryController(BaseController):
         kwargs: dict[str, Any] = {"topic": topic, "space": space}
 
         def _invoke(kw: dict[str, Any]) -> ServiceResult:
-            return QueryService(self._vault).decision_support(
-                topic=kw["topic"], space=kw["space"]
-            )
+            return QueryService(self._vault).decision_support(topic=kw["topic"], space=kw["space"])
 
         return self._run_action("decision_support", kwargs, _invoke)
 

@@ -68,11 +68,7 @@ class TestPostActionRemoval:
     def test_base_controller_does_not_define_dispatch_post_action(self) -> None:
         """BaseController must not define _dispatch_post_action as a method."""
         base_path = (
-            Path(__file__).parent.parent.parent
-            / "src"
-            / "ztlctl"
-            / "controllers"
-            / "base.py"
+            Path(__file__).parent.parent.parent / "src" / "ztlctl" / "controllers" / "base.py"
         )
         source = base_path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(base_path))
@@ -85,11 +81,7 @@ class TestPostActionRemoval:
     def test_base_controller_still_has_dispatch_pre_action(self) -> None:
         """BaseController must still define _dispatch_pre_action (not accidentally removed)."""
         base_path = (
-            Path(__file__).parent.parent.parent
-            / "src"
-            / "ztlctl"
-            / "controllers"
-            / "base.py"
+            Path(__file__).parent.parent.parent / "src" / "ztlctl" / "controllers" / "base.py"
         )
         source = base_path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(base_path))
@@ -102,11 +94,7 @@ class TestPostActionRemoval:
     def test_base_controller_still_has_dispatch_event(self) -> None:
         """BaseController must still define _dispatch_event (not accidentally removed)."""
         base_path = (
-            Path(__file__).parent.parent.parent
-            / "src"
-            / "ztlctl"
-            / "controllers"
-            / "base.py"
+            Path(__file__).parent.parent.parent / "src" / "ztlctl" / "controllers" / "base.py"
         )
         source = base_path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(base_path))

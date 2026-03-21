@@ -6,7 +6,6 @@ from __future__ import annotations
 def test_garden_seed_registered() -> None:
     """garden_seed ActionDefinition exists in the registry."""
     import ztlctl.actions  # noqa: F401 — triggers registration
-
     from ztlctl.actions.registry import get_action_registry
 
     registry = get_action_registry()
@@ -24,7 +23,6 @@ def test_garden_seed_handler_routes_through_controller() -> None:
     from unittest.mock import MagicMock, patch
 
     import ztlctl.actions  # noqa: F401 — triggers registration
-
     from ztlctl.actions.registry import get_action_registry
 
     registry = get_action_registry()

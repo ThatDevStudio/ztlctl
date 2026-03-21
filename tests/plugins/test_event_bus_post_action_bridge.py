@@ -12,7 +12,6 @@ plugins that implement them directly.
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock
 
 import pluggy
 import pytest

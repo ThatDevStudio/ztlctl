@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import threading
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -471,9 +472,9 @@ class TestDeadLetterPurge:
 
     def test_purge_dead_letters_removes_old_entries(self, engine) -> None:
         """purge_dead_letters deletes dead_letter rows with created date older than N days."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
-        old_date = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+        old_date = (datetime.now(UTC) - timedelta(days=60)).isoformat()
 
         with engine.begin() as conn:
             conn.execute(
@@ -511,9 +512,9 @@ class TestDeadLetterPurge:
 
     def test_purge_dead_letters_keeps_recent_entries(self, engine) -> None:
         """purge_dead_letters does NOT delete dead_letter rows from today."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        today_date = datetime.now(timezone.utc).isoformat()
+        today_date = datetime.now(UTC).isoformat()
 
         with engine.begin() as conn:
             conn.execute(
@@ -541,12 +542,12 @@ class TestDeadLetterPurge:
 
     def test_purge_dead_letters_uses_config_retention_by_default(self, engine) -> None:
         """purge_dead_letters uses _dead_letter_retention_days when older_than_days is None."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         from ztlctl.config.models import EventBusConfig
 
         # Config says 7-day retention; insert a row 10 days old
-        old_date = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+        old_date = (datetime.now(UTC) - timedelta(days=10)).isoformat()
 
         with engine.begin() as conn:
             conn.execute(
@@ -569,9 +570,9 @@ class TestDeadLetterPurge:
 
     def test_purge_dead_letters_does_not_remove_non_dead_letter_rows(self, engine) -> None:
         """purge_dead_letters only removes dead_letter status rows, not failed/pending."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
-        old_date = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+        old_date = (datetime.now(UTC) - timedelta(days=60)).isoformat()
 
         with engine.begin() as conn:
             conn.execute(

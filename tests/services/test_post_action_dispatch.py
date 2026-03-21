@@ -90,14 +90,11 @@ def test_write_services_dispatch_post_action() -> None:
                     continue
                 # Check if method calls _dispatch_post_action_event
                 has_dispatch = any(
-                    isinstance(call, ast.Attribute)
-                    and call.attr == "_dispatch_post_action_event"
+                    isinstance(call, ast.Attribute) and call.attr == "_dispatch_post_action_event"
                     for call in ast.walk(item)
                     if isinstance(call, ast.Attribute)
                 )
                 if not has_dispatch:
                     missing.append(f"{filename}::{node.name}.{item.name}")
 
-    assert not missing, (
-        f"Write methods missing _dispatch_post_action_event: {missing}"
-    )
+    assert not missing, f"Write methods missing _dispatch_post_action_event: {missing}"

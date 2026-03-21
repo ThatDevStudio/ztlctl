@@ -895,7 +895,9 @@ class TestDeadLetterCheckReporting:
         # Insert dead_letter WAL rows
         with vault.engine.begin() as conn:
             conn.execute(
-                __import__("sqlalchemy", fromlist=["insert"]).insert(event_wal).values(
+                __import__("sqlalchemy", fromlist=["insert"])
+                .insert(event_wal)
+                .values(
                     hook_name="post_create",
                     payload="{}",
                     status="dead_letter",
@@ -905,7 +907,9 @@ class TestDeadLetterCheckReporting:
                 )
             )
             conn.execute(
-                __import__("sqlalchemy", fromlist=["insert"]).insert(event_wal).values(
+                __import__("sqlalchemy", fromlist=["insert"])
+                .insert(event_wal)
+                .values(
                     hook_name="post_update",
                     payload="{}",
                     status="dead_letter",
@@ -915,7 +919,9 @@ class TestDeadLetterCheckReporting:
                 )
             )
             conn.execute(
-                __import__("sqlalchemy", fromlist=["insert"]).insert(event_wal).values(
+                __import__("sqlalchemy", fromlist=["insert"])
+                .insert(event_wal)
+                .values(
                     hook_name="post_check",
                     payload="{}",
                     status="dead_letter",
@@ -931,16 +937,18 @@ class TestDeadLetterCheckReporting:
 
         assert result.ok
         dead_letter_issues = [
-            i
-            for i in result.data["issues"]
-            if "dead-letter" in i.get("message", "")
+            i for i in result.data["issues"] if "dead-letter" in i.get("message", "")
         ]
         assert len(dead_letter_issues) == 1
         issue = dead_letter_issues[0]
         assert issue["category"] == "structural_validation"
         assert issue["severity"] == "info"
         assert "3 dead-letter" in issue["message"]
-        assert "event purge" in issue["message"].lower() or "event_purge" in issue["message"] or "ztlctl event purge" in issue["message"].lower()
+        assert (
+            "event purge" in issue["message"].lower()
+            or "event_purge" in issue["message"]
+            or "ztlctl event purge" in issue["message"].lower()
+        )
 
     def test_check_no_dead_letter_issue_when_none_exist(self, vault: Vault) -> None:
         """CheckService does not report dead-letter issue when WAL has no dead_letter rows."""
@@ -949,9 +957,7 @@ class TestDeadLetterCheckReporting:
 
         assert result.ok
         dead_letter_issues = [
-            i
-            for i in result.data["issues"]
-            if "dead-letter" in i.get("message", "")
+            i for i in result.data["issues"] if "dead-letter" in i.get("message", "")
         ]
         assert len(dead_letter_issues) == 0
 
@@ -961,7 +967,9 @@ class TestDeadLetterCheckReporting:
 
         with vault.engine.begin() as conn:
             conn.execute(
-                __import__("sqlalchemy", fromlist=["insert"]).insert(event_wal).values(
+                __import__("sqlalchemy", fromlist=["insert"])
+                .insert(event_wal)
+                .values(
                     hook_name="post_create",
                     payload="{}",
                     status="dead_letter",
@@ -975,9 +983,7 @@ class TestDeadLetterCheckReporting:
         result = svc.check(min_severity="warning")
 
         dead_letter_issues = [
-            i
-            for i in result.data["issues"]
-            if "dead-letter" in i.get("message", "")
+            i for i in result.data["issues"] if "dead-letter" in i.get("message", "")
         ]
         assert len(dead_letter_issues) == 0
 

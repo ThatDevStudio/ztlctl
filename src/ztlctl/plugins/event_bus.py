@@ -151,7 +151,9 @@ class EventBus:
 
         with self._engine.begin() as conn:
             count = conn.execute(
-                select(func.count()).select_from(event_wal).where(
+                select(func.count())
+                .select_from(event_wal)
+                .where(
                     event_wal.c.status == "dead_letter",
                     event_wal.c.created < cutoff,
                 )

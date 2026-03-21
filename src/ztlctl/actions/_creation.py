@@ -283,9 +283,9 @@ def _register_creation_actions() -> None:
             cli_group="garden",
             cli_name="seed",
             cli_examples=(
-                "  ztlctl garden seed \"Half-formed idea\"\n"
-                "  ztlctl garden seed \"Quick thought\" --tags domain/topic\n"
-                "  ztlctl --json garden seed \"API design hunch\" --topic architecture"
+                '  ztlctl garden seed "Half-formed idea"\n'
+                '  ztlctl garden seed "Quick thought" --tags domain/topic\n'
+                '  ztlctl --json garden seed "API design hunch" --topic architecture'
             ),
         )
     )

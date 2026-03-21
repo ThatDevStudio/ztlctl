@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC
+
 from ztlctl.controllers.check import CheckController
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.result import ServiceResult
@@ -75,7 +77,7 @@ class TestEventPurgeController:
 
     def test_event_purge_returns_count_of_purged_rows(self, vault: Vault) -> None:
         """event_purge deletes dead-letter rows and returns correct count."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         from sqlalchemy import insert
 
@@ -83,7 +85,7 @@ class TestEventPurgeController:
 
         vault.init_event_bus(sync=True)
 
-        old_date = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+        old_date = (datetime.now(UTC) - timedelta(days=60)).isoformat()
 
         with vault.engine.begin() as conn:
             conn.execute(

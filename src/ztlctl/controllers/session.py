@@ -151,8 +151,6 @@ class SessionController(BaseController):
         kwargs: dict[str, Any] = {"session_id": session_id, "title": title}
 
         def _invoke(kw: dict[str, Any]) -> ServiceResult:
-            return SessionService(self._vault).extract_decision(
-                kw["session_id"], title=kw["title"]
-            )
+            return SessionService(self._vault).extract_decision(kw["session_id"], title=kw["title"])
 
         return self._run_action("extract_decision", kwargs, _invoke)
