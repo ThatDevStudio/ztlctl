@@ -22,7 +22,10 @@ class ServiceError(BaseModel):
     detail: dict[str, Any] = Field(default_factory=dict)
     recovery: str | None = Field(
         default=None,
-        description="Recovery hint for agents/MCP consumers. Populated by controllers on validation or plugin-rejection errors.",
+        description=(
+            "Recovery hint for agents/MCP consumers."
+            " Populated by controllers on validation or plugin-rejection errors."
+        ),
     )
 
 
