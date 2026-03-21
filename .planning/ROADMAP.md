@@ -42,7 +42,7 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
 
 **Milestone Goal:** Harden the core architecture (event model, action execution, plugin discovery) and add memory-layer features (session recall, polaris priorities, contradiction detection, ingestion pipeline, methodology guidance) that make ztlctl a persistent memory system for agents and humans.
 
-- [x] **Phase 15: Event Model Hardening** - Reliable event delivery, canonical payload shape, service-only post_action emission (completed 2026-03-21)
+- [ ] **Phase 15: Event Model Hardening** - Reliable event delivery, canonical payload shape, service-only post_action emission (gap closure in progress)
 - [ ] **Phase 16: Plugin Bridge and Action Executor** - Bridge reversal, generic action executor, MCP graceful shutdown
 - [ ] **Phase 17: Registry Decomposition and Plugin Runtime** - Feature-local action registrations, centralized plugin discovery
 - [ ] **Phase 18: Architecture Cleanup** - Residue removal, phantom category fix, embedding config, graph performance
@@ -63,12 +63,13 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
   3. Every mutating action has exactly one `post_action` producer — the service layer — with no controller-side write dispatch
   4. All `post_action` events carry a stable `action_name / side_effect / payload / warnings` shape that plugins can depend on
   5. EventBus drain timeout and dead-letter handling strategy are configurable in settings rather than hardcoded or silently accumulating
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
 - [x] 15-01-PLAN.md — EventBusConfig + ActionEvent models + EventBus constructor refactor
 - [x] 15-02-PLAN.md — Service-only post_action emission, shutdown/startup drain, controller cleanup
 - [x] 15-03-PLAN.md — Dead-letter reporting, auto-purge, event_purge action
+- [ ] 15-04-PLAN.md — Gap closure: wire _dispatch_post_action_event into service write methods + REQUIREMENTS.md update
 
 ### Phase 16: Plugin Bridge and Action Executor
 **Goal**: The compatibility bridge is reversed so stable events drive legacy hooks, a generic action executor eliminates controller boilerplate, and MCP server shuts down cleanly
@@ -202,7 +203,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 �
 | 12. Doc Search Integration | v2.1 | 3/3 | Complete | 2026-03-20 |
 | 13. Actions Artifact Deploy | v2.1 | 1/1 | Complete | 2026-03-20 |
 | 14. Documentation Quality Pass | v2.1 | 5/5 | Complete | 2026-03-20 |
-| 15. Event Model Hardening | v3.0 | 3/3 | Complete   | 2026-03-21 |
+| 15. Event Model Hardening | v3.0 | 3/4 | Gap closure | 2026-03-21 |
 | 16. Plugin Bridge and Action Executor | v3.0 | 0/3 | Not started | - |
 | 17. Registry Decomposition and Plugin Runtime | v3.0 | 0/2 | Not started | - |
 | 18. Architecture Cleanup | v3.0 | 0/2 | Not started | - |
