@@ -4,7 +4,7 @@ title: MCP Server
 
 # MCP Server
 
-The MCP (Model Context Protocol) server exposes ztlctl's discovery-first tool surface to AI clients.
+The MCP (Model Context Protocol) server exposes ztlctl's discovery-first tool surface to AI clients. The server registers 73 tools auto-generated from the ActionRegistry — every CLI command has a corresponding MCP tool with the same parameters and return schema.
 
 ## Setup
 
@@ -47,9 +47,11 @@ The intended call sequence is:
 | Creation | `create_note`, `create_reference`, `create_task`, `create_log`, `garden_seed`, `ingest_source` |
 | Lifecycle | `update_content`, `close_content`, `reweave` |
 | Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue`, `topic_packet`, `draft_from_topic` |
-| Analysis | `decision_support`, `vault_review` |
+| Analysis | `decision_support`, `vault_review`, `check_contradictions`, `confirm_contradiction` |
 | Graph | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
-| Session | `session_close`, `session_status` |
+| Session | `session_close`, `session_status`, `recall_temporal`, `recall_topic`, `recall_topology` |
+| Check | `check_alignment` |
+| Ingest | `ingest_media` |
 
 Notable additions for agent workflows:
 
@@ -76,7 +78,7 @@ This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting file
 
 ## Available Resources
 
-17 resources are registered by default. All URIs use the `ztlctl://` scheme.
+20 resources are registered by default. All URIs use the `ztlctl://` scheme.
 
 | Resource | Description |
 |----------|-------------|
@@ -97,6 +99,9 @@ This writes a `.claude/` project bundle, a root `AGENTS.md`, and supporting file
 | `ztlctl://recipes/knowledge-synthesis` | Knowledge-synthesis workflow: search, find gaps, draft, reweave |
 | `ztlctl://docs/index` | Navigation map of all ztlctl documentation pages |
 | `ztlctl://docs/search` | Documentation search guidance — use `docs_search` tool for queries |
+| `ztlctl://polaris` | The vault's polaris priorities document — see [Polaris priorities](polaris.md) |
+| `ztlctl://sessions/recent` | Recent session summaries for temporal recall — see [Session recall](session-recall.md) |
+| `ztlctl://review/contradictions` | Contradiction candidate pairs for agent review — see [Contradiction detection](contradiction-detection.md) |
 
 ## Available Prompts
 
