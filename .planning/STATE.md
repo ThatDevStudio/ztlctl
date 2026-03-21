@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Documentation & Hardening
 status: unknown
-stopped_at: Completed 26-01-PLAN.md
-last_updated: "2026-03-21T23:33:25.082Z"
+stopped_at: Completed 27-01-PLAN.md
+last_updated: "2026-03-21T23:49:24.460Z"
 progress:
   total_phases: 10
   completed_phases: 2
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 26 — existing-pages-and-quality-pass
+**Current focus:** Phase 27 — internal-documentation-refresh
 
 ## Current Position
 
-Phase: 26 (existing-pages-and-quality-pass) — EXECUTING
+Phase: 27 (internal-documentation-refresh) — EXECUTING
 Plan: 2 of 2
 
 ## Performance Metrics
@@ -61,6 +61,7 @@ Plan: 2 of 2
 | Phase 25-new-v3-0-feature-pages P03 | 6 | 2 tasks | 4 files |
 | Phase 26-existing-pages-and-quality-pass P02 | 5 | 2 tasks | 2 files |
 | Phase 26 P01 | 211 | 2 tasks | 4 files |
+| Phase 27 P01 | 15 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Recent decisions affecting v3.1:
 - [Phase 26-existing-pages-and-quality-pass]: llms.txt MCP Server entry now uses specific counts (73+ tools, 20 resources, 9 prompts) rather than generic description
 - [Phase 26]: Session recall CLI uses recall-temporal/recall-topic/recall-topology subcommand names (verified against _session.py cli_name fields)
 - [Phase 26]: check_contradictions and confirm_contradiction are in analysis category in ActionRegistry (not check category)
+- [Phase 27]: Service count is 16 (not 15): verified by counting class *Service excluding BaseService across all services/*.py files
+- [Phase 27]: Action count is 73: verified by direct grep of ActionDefinition() occurrences across 9 feature-local _*.py modules
+- [Phase 27]: PluginManager factory lives in plugins/runtime.py (get_plugin_manager()) not plugins/manager.py
 
 ### Pending Todos
 
@@ -109,7 +113,7 @@ Recent decisions affecting v3.1:
 
 ## Session Continuity
 
-Last session: 2026-03-21T23:33:25.079Z
-Stopped at: Completed 26-01-PLAN.md
+Last session: 2026-03-21T23:49:24.457Z
+Stopped at: Completed 27-01-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 23`

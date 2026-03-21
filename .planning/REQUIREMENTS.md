@@ -31,9 +31,9 @@ Requirements for v3.1 release. Each maps to roadmap phases.
 
 ### Internal Documentation
 
-- [ ] **IDOC-01**: CLAUDE.md architecture section updated with v3.0 services (15 services, 17 controllers, 73+ actions, feature-local registration, centralized PM)
+- [x] **IDOC-01**: CLAUDE.md architecture section updated with v3.0 services (15 services, 17 controllers, 73+ actions, feature-local registration, centralized PM)
 - [ ] **IDOC-02**: DESIGN.md refreshed with v3.0 architectural decisions (event model, action executor, plugin runtime, recall, contradiction, ingestion)
-- [ ] **IDOC-03**: README.md feature list and command examples updated for v3.0 (session recall, polaris, contradiction, ingestion commands)
+- [x] **IDOC-03**: README.md feature list and command examples updated for v3.0 (session recall, polaris, contradiction, ingestion commands)
 
 ### Tech Debt
 
@@ -83,9 +83,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NDOC-05 | Phase 25 | Complete |
 | QUAL-02 | Phase 26 | Complete |
 | QUAL-03 | Phase 26 | Complete |
-| IDOC-01 | Phase 27 | Pending |
+| IDOC-01 | Phase 27 | Complete |
 | IDOC-02 | Phase 27 | Pending |
-| IDOC-03 | Phase 27 | Pending |
+| IDOC-03 | Phase 27 | Complete |
 
 **Coverage:**
 - v3.1 requirements: 18 total
