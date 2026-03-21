@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
-status: active
-stopped_at: null
-last_updated: "2026-03-21T12:00:00.000Z"
+status: unknown
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-03-21T16:39:10.013Z"
 progress:
   total_phases: 8
   completed_phases: 0
-  total_plans: 19
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
 ---
 
 # Project State
@@ -19,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 15 — Event Model Hardening
+**Current focus:** Phase 15 — event-model-hardening
 
 ## Current Position
 
-Phase: 15 of 22 (Event Model Hardening)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-21 — v3.0 roadmap created
-
-Progress: [░░░░░░░░░░] 0% (v3.0 phases)
+Phase: 15 (event-model-hardening) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -56,6 +52,7 @@ Progress: [░░░░░░░░░░] 0% (v3.0 phases)
 - Trend: Stable (architecture phases expected to be heavier than docs)
 
 *Updated after each plan completion*
+| Phase 15-event-model-hardening P01 | 18 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -71,6 +68,8 @@ Recent decisions affecting current work:
 - METH-* co-phased with POLR-* in Phase 19 (both zero-code, high value, no blocking arch dependency beyond Phase 15)
 - Phase 20 (Recall) placed before Phase 21 (Contradiction) because recall infrastructure populates vector index needed by CNTR-01
 - Phase 22 (Ingestion) placed last — largest scope, external dependency (whisper), no other features depend on it
+- [Phase 15-event-model-hardening]: EventBus config parameter is optional (config: EventBusConfig | None = None) to preserve backward compat with tests using max_retries kwarg
+- [Phase 15-event-model-hardening]: ActionEvent.result: Any = None carries full ServiceResult without coupling domain to services layer
 
 ### Pending Todos
 
@@ -84,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21
-Stopped at: Roadmap created for v3.0, ready to plan Phase 15
+Last session: 2026-03-21T16:39:10.010Z
+Stopped at: Completed 15-01-PLAN.md
 Resume file: None
