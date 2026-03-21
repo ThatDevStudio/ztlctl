@@ -6,11 +6,13 @@ and users to query what was worked on, when, and in what context.
 
 from __future__ import annotations
 
+import json
+from itertools import combinations
 from typing import Any
 
 from sqlalchemy import func, select
 
-from ztlctl.infrastructure.database.schema import nodes, session_logs
+from ztlctl.infrastructure.database.schema import node_tags, nodes, session_logs
 from ztlctl.services.base import BaseService
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
@@ -194,17 +196,101 @@ class RecallService(BaseService):
 
     @traced
     def recall_topology(self, *, limit: int = 10) -> ServiceResult:
-        """Return most-connected notes across sessions (stub — implemented in Plan 02).
+        """Return pairs of sessions that share note references or tags.
+
+        For each pair of sessions, computes:
+          - shared_notes: note IDs referenced in log entries of both sessions
+          - shared_tags: tags used by notes created in both sessions
+
+        Pairs with no shared content are excluded. Results are sorted by
+        total shared items (shared_notes + shared_tags) descending, then
+        capped to ``limit``.
 
         Args:
-            limit: Maximum number of top nodes to return.
+            limit: Maximum number of pairs to return.
 
         Returns:
-            ServiceResult with data={"nodes": [], "count": 0} (stub).
+            ServiceResult with data={"pairs": [...], "count": N}.
+            Each pair: {session_a, session_b, shared_notes: [...], shared_tags: [...]}
         """
-        # Stub: full implementation in Phase 20 Plan 02
+        op = "recall_topology"
+
+        with self._vault.engine.connect() as conn:
+            # Step 1: Collect all session IDs (nodes of type='log')
+            session_rows = conn.execute(select(nodes.c.id).where(nodes.c.type == "log")).fetchall()
+            session_ids = [str(r.id) for r in session_rows]
+
+            if len(session_ids) < 2:
+                return ServiceResult(
+                    ok=True,
+                    op=op,
+                    data={"pairs": [], "count": 0, "limit": limit},
+                )
+
+            # Step 2: For each session, collect referenced note IDs from log entries
+            session_refs: dict[str, set[str]] = {}
+            for sid in session_ids:
+                log_rows = conn.execute(
+                    select(session_logs.c.references).where(
+                        session_logs.c.session_id == sid,
+                        session_logs.c.references.isnot(None),
+                    )
+                ).fetchall()
+                refs: set[str] = set()
+                for row in log_rows:
+                    raw = row.references
+                    if raw:
+                        try:
+                            parsed = json.loads(raw)
+                            if isinstance(parsed, list):
+                                refs.update(str(r) for r in parsed)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                session_refs[sid] = refs
+
+            # Step 3: For each session, collect tags via notes created in that session
+            session_tags: dict[str, set[str]] = {}
+            for sid in session_ids:
+                note_rows = conn.execute(
+                    select(nodes.c.id).where(
+                        nodes.c.session == sid,
+                        nodes.c.type.in_(["note", "reference", "task"]),
+                    )
+                ).fetchall()
+                note_ids = [str(r.id) for r in note_rows]
+
+                tags: set[str] = set()
+                if note_ids:
+                    tag_rows = conn.execute(
+                        select(node_tags.c.tag).where(node_tags.c.node_id.in_(note_ids))
+                    ).fetchall()
+                    tags = {str(r.tag) for r in tag_rows}
+                session_tags[sid] = tags
+
+        # Step 4: Build pairs with shared notes and tags
+        pairs: list[dict[str, Any]] = []
+        for sid_a, sid_b in combinations(session_ids, 2):
+            shared_notes = sorted(session_refs[sid_a] & session_refs[sid_b])
+            shared_tags = sorted(session_tags[sid_a] & session_tags[sid_b])
+
+            if not shared_notes and not shared_tags:
+                continue
+
+            pairs.append(
+                {
+                    "session_a": sid_a,
+                    "session_b": sid_b,
+                    "shared_notes": shared_notes,
+                    "shared_tags": shared_tags,
+                }
+            )
+
+        # Step 5: Sort by total shared items descending, then cap to limit
+        pairs.sort(key=lambda p: len(p["shared_notes"]) + len(p["shared_tags"]), reverse=True)
+        pairs = pairs[:limit]
+
         return ServiceResult(
             ok=True,
-            op="recall_topology",
-            data={"nodes": [], "count": 0, "limit": limit},
+            op=op,
+            data={"pairs": pairs, "count": len(pairs), "limit": limit},
         )

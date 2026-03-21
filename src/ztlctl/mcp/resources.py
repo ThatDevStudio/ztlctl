@@ -70,6 +70,10 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
             "Use the docs_search tool to search the corpus by query string."
         ),
     },
+    {
+        "uri": "ztlctl://sessions/recent",
+        "description": "Last 5 sessions with summaries, timestamps, and note counts.",
+    },
 )
 
 
@@ -677,6 +681,20 @@ def docs_search_resource_impl(_vault: Any = None) -> dict[str, Any]:
     }
 
 
+def sessions_recent_impl(vault: Any) -> dict[str, Any]:
+    """Return the last 5 sessions with per-session summaries."""
+    from ztlctl.services.recall import RecallService
+
+    result = RecallService(vault).recall_temporal()
+    if not result.ok:
+        return {"sessions": [], "count": 0}
+
+    all_sessions: list[dict[str, Any]] = result.data.get("sessions", [])
+    # Sessions already ordered by created_at desc; take first 5
+    recent = all_sessions[:5]
+    return {"sessions": recent, "count": len(recent)}
+
+
 # ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
@@ -802,6 +820,13 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(docs_search_resource_impl(vault), indent=2)
+
+    @server.resource("ztlctl://sessions/recent")  # type: ignore[untyped-decorator]
+    def sessions_recent_resource() -> str:
+        """Last 5 sessions with summaries, timestamps, and note counts."""
+        import json
+
+        return json.dumps(sessions_recent_impl(vault), indent=2)
 
     plugin_manager = getattr(vault, "plugin_manager", None)
     if plugin_manager is None:

@@ -329,3 +329,148 @@ class TestRecallTopic:
         result = RecallService(vault).recall_topic("redis")
         assert result.ok
         assert result.data["count"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# recall_topology()
+# ---------------------------------------------------------------------------
+
+
+def _add_log_with_refs(vault: Vault, message: str, refs: list[str]) -> None:
+    """Add a log entry with references to the active session."""
+    result = SessionService(vault).log_entry(message, references=refs)
+    assert result.ok, result.error
+
+
+class TestRecallTopology:
+    def test_empty_vault_returns_empty_pairs(self, vault: Vault) -> None:
+        from ztlctl.services.recall import RecallService
+
+        result = RecallService(vault).recall_topology()
+        assert result.ok
+        assert result.op == "recall_topology"
+        assert result.data["pairs"] == []
+        assert result.data["count"] == 0
+
+    def test_single_session_returns_empty_pairs(self, vault: Vault) -> None:
+        from ztlctl.services.recall import RecallService
+
+        start_session(vault, "Solo Session")
+        _add_log(vault, "Just one session")
+        _close_session(vault)
+
+        result = RecallService(vault).recall_topology()
+        assert result.ok
+        assert result.data["pairs"] == []
+        assert result.data["count"] == 0
+
+    def test_two_sessions_with_shared_reference_returns_pair(self, vault: Vault) -> None:
+        from ztlctl.services.create import CreateService
+        from ztlctl.services.recall import RecallService
+
+        # Create a shared note
+        shared_note = CreateService(vault).create_note("Shared Knowledge")
+        assert shared_note.ok
+        shared_id = shared_note.data["id"]
+
+        # Session A references the shared note
+        start_session(vault, "Session A")
+        _add_log_with_refs(vault, "Used shared note", [shared_id])
+        session_a_id = _close_session(vault)
+
+        # Session B references the same shared note
+        start_session(vault, "Session B")
+        _add_log_with_refs(vault, "Also referenced it", [shared_id])
+        session_b_id = _close_session(vault)
+
+        result = RecallService(vault).recall_topology()
+        assert result.ok
+        assert result.data["count"] == 1
+        pairs = result.data["pairs"]
+        assert len(pairs) == 1
+        pair = pairs[0]
+        assert set([pair["session_a"], pair["session_b"]]) == {session_a_id, session_b_id}
+        assert shared_id in pair["shared_notes"]
+
+    def test_two_sessions_with_shared_tag_returns_pair(self, vault: Vault) -> None:
+        from ztlctl.services.create import CreateService
+        from ztlctl.services.recall import RecallService
+
+        # Create notes with a shared tag in different sessions
+        session_a = start_session(vault, "Session A")
+        session_a_id = session_a["id"]
+        CreateService(vault).create_note("Note in A", tags=["python", "ml"], session=session_a_id)
+        _close_session(vault)
+
+        session_b = start_session(vault, "Session B")
+        session_b_id = session_b["id"]
+        CreateService(vault).create_note("Note in B", tags=["python", "web"], session=session_b_id)
+        _close_session(vault)
+
+        result = RecallService(vault).recall_topology()
+        assert result.ok
+        # Sessions share the "python" tag
+        pairs = result.data["pairs"]
+        assert len(pairs) == 1
+        assert "python" in pairs[0]["shared_tags"]
+
+    def test_no_shared_content_returns_empty_pairs(self, vault: Vault) -> None:
+        from ztlctl.services.create import CreateService
+        from ztlctl.services.recall import RecallService
+
+        # Two sessions with no shared notes or tags
+        session_a = start_session(vault, "Session A")
+        session_a_id = session_a["id"]
+        CreateService(vault).create_note("Note in A", tags=["alpha"], session=session_a_id)
+        _close_session(vault)
+
+        session_b = start_session(vault, "Session B")
+        session_b_id = session_b["id"]
+        CreateService(vault).create_note("Note in B", tags=["beta"], session=session_b_id)
+        _close_session(vault)
+
+        result = RecallService(vault).recall_topology()
+        assert result.ok
+        assert result.data["pairs"] == []
+        assert result.data["count"] == 0
+
+    def test_limit_caps_returned_pairs(self, vault: Vault) -> None:
+        from ztlctl.services.create import CreateService
+        from ztlctl.services.recall import RecallService
+
+        # Create 4 sessions all referencing the same shared note → 6 pairs
+        shared_note = CreateService(vault).create_note("Universal Note")
+        assert shared_note.ok
+        shared_id = shared_note.data["id"]
+
+        for i in range(4):
+            start_session(vault, f"Session {i}")
+            _add_log_with_refs(vault, "refers to shared", [shared_id])
+            _close_session(vault)
+
+        result = RecallService(vault).recall_topology(limit=2)
+        assert result.ok
+        assert len(result.data["pairs"]) <= 2
+
+    def test_pair_has_required_fields(self, vault: Vault) -> None:
+        from ztlctl.services.create import CreateService
+        from ztlctl.services.recall import RecallService
+
+        shared_note = CreateService(vault).create_note("Shared Note")
+        shared_id = shared_note.data["id"]
+
+        start_session(vault, "Session A")
+        _add_log_with_refs(vault, "ref", [shared_id])
+        _close_session(vault)
+
+        start_session(vault, "Session B")
+        _add_log_with_refs(vault, "ref", [shared_id])
+        _close_session(vault)
+
+        result = RecallService(vault).recall_topology()
+        assert result.ok
+        pair = result.data["pairs"][0]
+        assert "session_a" in pair
+        assert "session_b" in pair
+        assert "shared_notes" in pair
+        assert "shared_tags" in pair

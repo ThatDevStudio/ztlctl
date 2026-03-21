@@ -271,3 +271,86 @@ def _register_session_actions() -> None:
             cli_name="extract",
         )
     )
+
+    # Recall actions — lazy import RecallController
+    from ztlctl.controllers.recall import RecallController
+
+    registry.register(
+        ActionDefinition(
+            name="recall_temporal",
+            description="Return sessions filtered by date range with per-session summaries.",
+            category="session",
+            params=(
+                ActionParam(
+                    "from_date",
+                    str,
+                    required=False,
+                    default=None,
+                    description="ISO date (YYYY-MM-DD). Include sessions on or after this date.",
+                    mcp_example="2026-01-01",
+                ),
+                ActionParam(
+                    "to_date",
+                    str,
+                    required=False,
+                    default=None,
+                    description="ISO date (YYYY-MM-DD). Include sessions on or before this date.",
+                    mcp_example="2026-12-31",
+                ),
+            ),
+            handler=lambda vault, **kw: RecallController(vault).recall_temporal(**kw),
+            side_effect="read",
+            mcp_when_to_use="Querying session history by date range to see what was worked on.",
+            mcp_avoid_when="You only need the most recent session status.",
+            cli_group="session",
+            cli_name="recall-temporal",
+        )
+    )
+
+    registry.register(
+        ActionDefinition(
+            name="recall_topic",
+            description="Return sessions whose log entries match a text query.",
+            category="session",
+            params=(
+                ActionParam(
+                    "query",
+                    str,
+                    required=True,
+                    description="Text to search for in session log entries.",
+                    cli_is_argument=True,
+                    mcp_example="authentication",
+                ),
+            ),
+            handler=lambda vault, **kw: RecallController(vault).recall_topic(**kw),
+            side_effect="read",
+            mcp_when_to_use="Finding past sessions related to a topic by searching log content.",
+            mcp_avoid_when="You know the exact date range and want temporal filtering instead.",
+            mcp_common_errors=("EMPTY_QUERY",),
+            cli_group="session",
+            cli_name="recall-topic",
+        )
+    )
+
+    registry.register(
+        ActionDefinition(
+            name="recall_topology",
+            description="Return session pairs that share referenced notes or tags.",
+            category="session",
+            params=(
+                ActionParam(
+                    "limit",
+                    int,
+                    required=False,
+                    default=10,
+                    description="Maximum number of session pairs to return.",
+                ),
+            ),
+            handler=lambda vault, **kw: RecallController(vault).recall_topology(**kw),
+            side_effect="read",
+            mcp_when_to_use="Discovering thematic or structural connections between past sessions.",
+            mcp_avoid_when="You need a specific session or date-filtered recall.",
+            cli_group="session",
+            cli_name="recall-topology",
+        )
+    )

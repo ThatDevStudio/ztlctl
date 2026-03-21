@@ -160,8 +160,8 @@ class TestResources:
 class TestResourceCatalog:
     """Tests for resource catalog completeness."""
 
-    def test_catalog_has_18_resources(self):
-        assert len(resource_catalog()) == 18
+    def test_catalog_has_19_resources(self):
+        assert len(resource_catalog()) == 19
 
     def test_agent_reference_in_catalog(self):
         uris = {r["uri"] for r in resource_catalog()}
@@ -518,6 +518,66 @@ class TestDocsResources:
         registered = set(server.registered_uris)
         assert "ztlctl://docs/index" in registered
         assert "ztlctl://docs/search" in registered
+
+
+class TestSessionsRecentResource:
+    """Tests for sessions_recent_impl and ztlctl://sessions/recent resource."""
+
+    def test_sessions_recent_returns_empty_when_no_sessions(self, vault: Vault):
+        from ztlctl.mcp.resources import sessions_recent_impl
+
+        result = sessions_recent_impl(vault)
+        assert "sessions" in result
+        assert "count" in result
+        assert result["sessions"] == []
+        assert result["count"] == 0
+
+    def test_sessions_recent_returns_last_5(self, vault: Vault):
+        from ztlctl.mcp.resources import sessions_recent_impl
+        from ztlctl.services.session import SessionService
+
+        # Create 6 sessions
+        for i in range(6):
+            SessionService(vault).start(topic=f"Session {i}")
+            SessionService(vault).close()
+
+        result = sessions_recent_impl(vault)
+        assert result["count"] <= 5
+        assert len(result["sessions"]) <= 5
+
+    def test_sessions_recent_has_required_fields(self, vault: Vault):
+        from ztlctl.mcp.resources import sessions_recent_impl
+        from ztlctl.services.session import SessionService
+
+        SessionService(vault).start(topic="My Topic Session")
+        SessionService(vault).close()
+
+        result = sessions_recent_impl(vault)
+        assert result["count"] >= 1
+        session = result["sessions"][0]
+        assert "session_id" in session
+        assert "topic" in session
+        assert "started" in session
+
+    def test_sessions_recent_in_resource_catalog(self):
+        uris = {r["uri"] for r in resource_catalog()}
+        assert "ztlctl://sessions/recent" in uris
+
+    def test_sessions_recent_resource_registered(self, vault: Vault):
+        class _DummyServer:
+            def __init__(self) -> None:
+                self.registered_uris: list[str] = []
+
+            def resource(self, uri: str):
+                def decorator(fn):
+                    self.registered_uris.append(uri)
+                    return fn
+
+                return decorator
+
+        server = _DummyServer()
+        register_resources(server, vault)
+        assert "ztlctl://sessions/recent" in set(server.registered_uris)
 
 
 class TestPolarisResource:
