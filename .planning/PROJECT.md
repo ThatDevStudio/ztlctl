@@ -41,23 +41,19 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - ✓ Agent accessibility: llms.txt, llms-full.txt, `ztlctl docs` CLI, MCP doc search — v2.1
 - ✓ Documentation quality pass: source-verified CLI examples, anti-patterns, best-practices.md, agents.md — v2.1
 - ✓ Actions artifact deploy (gh-pages branch eliminated, trunk-based) — v2.1
+- ✓ Reliable event delivery (WAL drain, startup recovery, service-only post_action, configurable timeouts) — v3.0
+- ✓ Generic action executor (_run_action in all 17 controllers), compatibility bridge reversed — v3.0
+- ✓ Feature-local action registration (9 modules), centralized PluginManager factory — v3.0
+- ✓ Architecture cleanup (workspace_modes removed, phantom mutation fixed, embedding dims configurable, bridges k-approx) — v3.0
+- ✓ Polaris priorities layer (init scaffold, MCP resource, context assembly Layer 1, check_alignment action) — v3.0
+- ✓ Methodology guidance (prose-as-title template, title quality check at info severity, garden backlog candidates) — v3.0
+- ✓ Session recall (temporal, topic, topology querying + ztlctl://sessions/recent MCP resource) — v3.0
+- ✓ Contradiction detection (heuristic scoring, CAT_SEMANTIC check, contradicts graph edges, MCP review resource) — v3.0
+- ✓ Media ingestion pipeline (faster-whisper transcription, VTT/SRT parsing, two-phase captured→annotated workflow) — v3.0
 
 ### Active
 
-<!-- Current milestone: v3.0 Memory and Hardening -->
-
-## Current Milestone: v3.0 Memory and Hardening
-
-**Goal:** Harden the core architecture (event model, action execution, plugin discovery) and add memory-layer features (session recall, polaris priorities, contradiction detection, ingestion pipeline, methodology guidance) that make ztlctl a persistent memory system for agents and humans.
-
-**Target features:**
-- Architecture remediation: reliable event delivery, single post_action producer, canonical payload, generic action executor, feature-local registration, centralized plugin runtime, compatibility cleanup
-- Session Recall: temporal/topic/topology querying across session history
-- Polaris Layer: persistent goals/priorities with MCP resource and context assembly integration
-- Contradiction Detection: semantic integrity analysis using vector similarity
-- Ingestion Pipeline: media/transcript → structured notes via source provider plugins
-- Methodology Guidance: prose-as-title convention and title quality checks
-- Tech debt: hardcoded embedding dims, EventBus timeout, dead-letter accumulation, MCP graceful shutdown, phantom mutation category, unused ServiceError.recovery, load_plugin_commands gap, bridges() k-approximation
+<!-- No active milestone — next milestone TBD -->
 
 ### Out of Scope
 
@@ -70,16 +66,14 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ## Context
 
-**Current state (v2.1 shipped):** 110 source files (26,439 LOC Python), 123 test files (24,726 LOC), 20 documentation pages (4,889 lines), mypy strict, ruff clean. 12 services, 14 controllers, 59 registered actions, 13 command groups, 3 built-in plugins, auto-generated MCP adapter (59 tools from ActionRegistry), and semantic search. Documentation: MkDocs + mkdocs-shadcn site with two-track navigation, llms.txt agent discovery, `ztlctl docs` CLI/MCP search, best-practices.md, and agents.md system manual. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern and 4-layer action model (Data/Service/Controller/Registry).
+**Current state (v3.0 shipped):** 126 source files (28,261 LOC Python), 141 test files (29,323 LOC), 2054 tests passing, mypy strict, ruff clean. 15 services, 17 controllers, 73+ registered actions, auto-generated MCP adapter (73+ tools from ActionRegistry), semantic search, session recall, contradiction detection, media ingestion. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern, 4-layer action model (Data/Service/Controller/Registry), feature-local action registration (9 modules), centralized PluginManager factory, reliable event delivery with WAL drain.
 
 **Key architectural insight (realized):** CLI and MCP are auto-generated presentation layers over a unified ActionRegistry — define once, generate both surfaces. This is the foundation all future work builds on.
 
-**Known technical debt (from v2.0 audit):**
-- Hardcoded embedding dimensions, EventBus timeout not configurable, dead-letter event accumulation, MCP server missing graceful shutdown
-- Phantom `mutation` category in _DEFAULT_ACTIVE_CATEGORIES (self-resolves with plugins)
-- ServiceError.recovery field unused by services (COMMON_ERROR_RECOVERY fallback covers all 37 codes)
-- load_plugin_commands creates separate PluginManager without inject_configs (edge case)
-- bridges() betweenness centrality without k-approximation
+**Known technical debt (from v3.0 audit):**
+- IngestService._ingest_normalized missing _dispatch_post_action_event (post_action plugin hooks for ingest_* actions don't fire)
+- Pre-existing verbose telemetry test failure (git subprocess error in temp vault)
+- Cosmetic: stale docstrings/comments in ContradictionController, commands/generator.py
 
 **Target audience:** Small group of users, building toward broader adoption. Tool must work fully without agentic systems.
 
@@ -114,5 +108,12 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | Source-verified documentation | Every CLI example, hookspec, and config option must be verified against source code | ✓ Good — 15+ inaccurate commands fixed, configuration.md fully rewritten from models.py |
 | Three-audience documentation model | End users (mentor tone), developers (peer tone), agents (structured schemas) | ✓ Good — best-practices.md + agents.md serve distinct reading patterns |
 
+| Reliable event delivery (WAL drain, service-only post_action) | Services own all event emission; controllers are pure delegation | ✓ Good — 64 controller post_action call sites removed, bounded shutdown drain |
+| Feature-local action registration | 2300-line monolith → 9 feature-local modules | ✓ Good — zero regressions, 66 actions distributed across 9 files |
+| Centralized PluginManager factory | 5 independent constructions → single `get_plugin_manager()` with scope-aware caching | ✓ Good — DEBT-07 fixed (load_plugin_commands config injection) |
+| Polaris as persistent priorities layer | Agents and users need a stable reference for decision alignment | ✓ Good — init scaffold, MCP resource, context assembly, check_alignment |
+| Contradiction detection via heuristic scoring | LLM-free approach using cosine similarity + negation patterns + key_points divergence | ✓ Good — CAT_SEMANTIC check, bidirectional graph edges, MCP review resource |
+| faster-whisper as optional dependency | Local transcription, no data leaves machine, guarded import | ✓ Good — graceful DEPENDENCY_MISSING error with install hint |
+
 ---
-*Last updated: 2026-03-21 after v3.0 milestone started*
+*Last updated: 2026-03-21 after v3.0 milestone completion*
