@@ -220,7 +220,10 @@ Plans:
   2. The User Guide `nav:` order in `mkdocs.yml` reflects install → daily capture → search/graph → sessions → strategic alignment → ingestion → extensibility — not feature ship order
   3. Confirmed placement slots exist for all five v3.0 feature pages in the navigation order before those pages are written
   4. CLI syntax conventions (Google style: `[optional]`, `{required}`, `$` prompts), admonition taxonomy (Warning/Note/Tip), and "What's next" links are documented as standards in CLAUDE.md or a contributing guide
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 24-01-PLAN.md — Diataxis audit, mkdocs.yml nav reorder with v3.0 placeholder slots, CLAUDE.md quality conventions
 
 ### Phase 25: New v3.0 Feature Pages
 **Goal**: All five v3.0 features shipped without documentation now have standalone pages that are navigable, agent-discoverable, and cross-referenced from existing pages
@@ -286,8 +289,8 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 | 20. Session Recall | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 21. Contradiction Detection | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 22. Ingestion Pipeline | v3.0 | 2/2 | Complete | 2026-03-21 |
-| 23. Docs-as-Code Infrastructure | v3.1 | 2/2 | Complete   | 2026-03-21 |
-| 24. Navigation and Information Architecture | v3.1 | 0/? | Not started | - |
+| 23. Docs-as-Code Infrastructure | v3.1 | 2/2 | Complete    | 2026-03-21 |
+| 24. Navigation and Information Architecture | v3.1 | 0/1 | Not started | - |
 | 25. New v3.0 Feature Pages | v3.1 | 0/? | Not started | - |
 | 26. Existing Pages and Quality Pass | v3.1 | 0/? | Not started | - |
 | 27. Internal Documentation Refresh | v3.1 | 0/? | Not started | - |
