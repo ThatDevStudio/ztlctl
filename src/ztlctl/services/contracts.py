@@ -240,6 +240,7 @@ class AgentContextLayers(BaseModel):
     recent_decisions: list[DecisionContextItem] = Field(default_factory=list)
     work_queue: list[WorkQueueItem] = Field(default_factory=list)
     log_entries: list[LogEntryContextItem] = Field(default_factory=list)
+    polaris: str | None = None
     topic_content: list[ContextContentItem] = Field(default_factory=list)
     graph_adjacent: list[ContextContentItem] = Field(default_factory=list)
     background: list[ContextContentItem] = Field(default_factory=list)
