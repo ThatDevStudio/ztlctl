@@ -35,8 +35,8 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 
 - [x] **RECL-01**: User can retrieve sessions by date range with per-session summaries (temporal recall)
 - [x] **RECL-02**: User can search session history by topic using BM25 or semantic search (topic recall)
-- [ ] **RECL-03**: User can discover session connectivity through shared content and recurring topics (topology recall)
-- [ ] **RECL-04**: MCP resource `ztlctl://sessions/recent` exposes last N sessions with summaries
+- [x] **RECL-03**: User can discover session connectivity through shared content and recurring topics (topology recall)
+- [x] **RECL-04**: MCP resource `ztlctl://sessions/recent` exposes last N sessions with summaries
 - [x] **RECL-05**: RecallService with `recall_temporal`, `recall_topic`, `recall_topology` actions registered in ActionRegistry
 
 ### Polaris Layer
@@ -119,8 +119,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEBT-08 | Phase 18 | Complete |
 | RECL-01 | Phase 20 | Complete |
 | RECL-02 | Phase 20 | Complete |
-| RECL-03 | Phase 20 | Pending |
-| RECL-04 | Phase 20 | Pending |
+| RECL-03 | Phase 20 | Complete |
+| RECL-04 | Phase 20 | Complete |
 | RECL-05 | Phase 20 | Complete |
 | POLR-01 | Phase 19 | Complete |
 | POLR-02 | Phase 19 | Complete |

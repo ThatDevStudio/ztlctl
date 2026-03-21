@@ -87,10 +87,10 @@ class TestRecallController:
         assert result.error is not None
         assert result.error.code == "EMPTY_QUERY"
 
-    def test_recall_topology_stub_returns_ok(self, vault: Vault) -> None:
+    def test_recall_topology_returns_ok(self, vault: Vault) -> None:
         result = RecallController(vault).recall_topology()
         assert result.ok
-        assert "nodes" in result.data
+        assert "pairs" in result.data
 
     def test_recall_topology_respects_limit_param(self, vault: Vault) -> None:
         result = RecallController(vault).recall_topology(limit=5)
