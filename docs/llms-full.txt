@@ -4269,7 +4269,7 @@ Plugin authors use these when implementing `register_note_types()` — PluginMan
 
 # MCP Server
 
-The MCP (Model Context Protocol) server exposes ztlctl's discovery-first tool surface to AI clients.
+The MCP (Model Context Protocol) server exposes ztlctl's discovery-first tool surface to AI clients. It provides 73+ tools, 20 resources, and 9 prompts.
 
 ## Setup
 
@@ -4312,9 +4312,11 @@ The intended call sequence is:
 | Creation | `create_note`, `create_reference`, `create_task`, `create_log`, `garden_seed`, `ingest_source` |
 | Lifecycle | `update_content`, `close_content`, `reweave` |
 | Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue`, `topic_packet`, `draft_from_topic` |
-| Analysis | `decision_support`, `vault_review` |
+| Analysis | `decision_support`, `vault_review`, `check_contradictions`, `confirm_contradiction`, `check_alignment` |
 | Graph | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
-| Session | `session_close`, `session_status` |
+| Session | `session_close`, `session_status`, `recall_temporal`, `recall_topic`, `recall_topology` |
+| Check | `check_integrity`, `check_contradictions`, `confirm_contradiction`, `check_alignment` |
+| Ingest | `ingest_source`, `ingest_media` |
 
 Notable additions for agent workflows:
 
