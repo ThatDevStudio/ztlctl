@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## v2.1 (2026-03-20)
+
+### Feat
+
+- **docs**: doc search CLI/MCP + Actions artifact deploy (Phases 12-13) (#114)
+- **docs**: developer guide, API reference, plugin authoring + user guide content (Phases 10-11) (#113)
+- **docs**: two-track navigation + llms.txt agent accessibility (Phase 9) (#111)
+
 ## v1.16.0 (2026-03-20)
 
 ### Feat
