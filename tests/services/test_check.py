@@ -1124,9 +1124,7 @@ class TestTitleQualityCheck:
         assert result_info.ok
 
         warning_title_issues = [
-            i
-            for i in result_warning.data["issues"]
-            if "Title quality" in str(i.get("message", ""))
+            i for i in result_warning.data["issues"] if "Title quality" in str(i.get("message", ""))
         ]
         info_title_issues = [
             i for i in result_info.data["issues"] if "Title quality" in str(i.get("message", ""))
@@ -1144,8 +1142,7 @@ class TestTitleQualityCheck:
         title_issues = [
             i
             for i in result.data["issues"]
-            if "Title quality" in str(i.get("message", ""))
-            and "Draft" in str(i.get("message", ""))
+            if "Title quality" in str(i.get("message", "")) and "Draft" in str(i.get("message", ""))
         ]
         assert len(title_issues) == 1
         assert title_issues[0]["category"] == CAT_STRUCTURAL

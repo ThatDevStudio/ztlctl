@@ -31,13 +31,12 @@ def session_row(vault: Vault) -> Any:
     assert result.ok
     session_id = result.data["id"]
 
-    from ztlctl.infrastructure.database.schema import nodes
     from sqlalchemy import select
 
+    from ztlctl.infrastructure.database.schema import nodes
+
     with vault.engine.connect() as conn:
-        row = conn.execute(
-            select(nodes).where(nodes.c.id == session_id)
-        ).fetchone()
+        row = conn.execute(select(nodes).where(nodes.c.id == session_id)).fetchone()
     return row
 
 
@@ -64,9 +63,7 @@ class TestContextAssemblerPolaris:
         assert layers["polaris"] is not None
         assert "Mission" in layers["polaris"]
 
-    def test_assemble_polaris_none_when_file_missing(
-        self, vault: Vault, session_row: Any
-    ) -> None:
+    def test_assemble_polaris_none_when_file_missing(self, vault: Vault, session_row: Any) -> None:
         """assemble() sets polaris to None when garden/groves/polaris.md does not exist."""
         # Ensure the polaris file does not exist
         polaris_path = vault.root / "garden" / "groves" / "polaris.md"
