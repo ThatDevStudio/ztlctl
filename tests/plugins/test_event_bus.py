@@ -466,6 +466,142 @@ class TestEventBusConfig:
         mock_future.result.assert_called_once_with(timeout=99.0)
 
 
+class TestDeadLetterPurge:
+    """Tests for EventBus.purge_dead_letters."""
+
+    def test_purge_dead_letters_removes_old_entries(self, engine) -> None:
+        """purge_dead_letters deletes dead_letter rows with created date older than N days."""
+        from datetime import datetime, timedelta, timezone
+
+        old_date = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+
+        with engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_check",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True)
+        count = bus.purge_dead_letters(older_than_days=30)
+
+        assert count == 2
+
+        with engine.connect() as conn:
+            remaining = conn.execute(
+                select(event_wal).where(event_wal.c.status == "dead_letter")
+            ).fetchall()
+        assert len(remaining) == 0
+
+    def test_purge_dead_letters_keeps_recent_entries(self, engine) -> None:
+        """purge_dead_letters does NOT delete dead_letter rows from today."""
+        from datetime import datetime, timezone
+
+        today_date = datetime.now(timezone.utc).isoformat()
+
+        with engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=today_date,
+                )
+            )
+
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True)
+        count = bus.purge_dead_letters(older_than_days=30)
+
+        assert count == 0
+
+        with engine.connect() as conn:
+            remaining = conn.execute(
+                select(event_wal).where(event_wal.c.status == "dead_letter")
+            ).fetchall()
+        assert len(remaining) == 1
+
+    def test_purge_dead_letters_uses_config_retention_by_default(self, engine) -> None:
+        """purge_dead_letters uses _dead_letter_retention_days when older_than_days is None."""
+        from datetime import datetime, timedelta, timezone
+
+        from ztlctl.config.models import EventBusConfig
+
+        # Config says 7-day retention; insert a row 10 days old
+        old_date = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+
+        with engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+
+        config = EventBusConfig(dead_letter_retention_days=7)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        count = bus.purge_dead_letters()
+
+        assert count == 1
+
+    def test_purge_dead_letters_does_not_remove_non_dead_letter_rows(self, engine) -> None:
+        """purge_dead_letters only removes dead_letter status rows, not failed/pending."""
+        from datetime import datetime, timedelta, timezone
+
+        old_date = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+
+        with engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="failed",
+                    retries=2,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="pending",
+                    retries=0,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True)
+        count = bus.purge_dead_letters(older_than_days=30)
+
+        assert count == 0
+
+
 class TestEventBusNoPlugins:
     """Tests for dispatch when no plugins are registered."""
 

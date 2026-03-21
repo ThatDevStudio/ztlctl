@@ -885,6 +885,103 @@ class TestBackupPruning:
         assert "ztlctl-20260101T000000.db" in remaining_names
 
 
+class TestDeadLetterCheckReporting:
+    """Tests for dead-letter event reporting in CheckService."""
+
+    def test_check_reports_dead_letter_events(self, vault: Vault) -> None:
+        """CheckService reports dead-letter WAL rows as info-severity structural issue."""
+        from ztlctl.infrastructure.database.schema import event_wal
+
+        # Insert dead_letter WAL rows
+        with vault.engine.begin() as conn:
+            conn.execute(
+                __import__("sqlalchemy", fromlist=["insert"]).insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created="2026-01-01T00:00:00+00:00",
+                )
+            )
+            conn.execute(
+                __import__("sqlalchemy", fromlist=["insert"]).insert(event_wal).values(
+                    hook_name="post_update",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created="2026-01-01T00:00:00+00:00",
+                )
+            )
+            conn.execute(
+                __import__("sqlalchemy", fromlist=["insert"]).insert(event_wal).values(
+                    hook_name="post_check",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created="2026-01-01T00:00:00+00:00",
+                )
+            )
+
+        svc = CheckService(vault)
+        # Use min_severity="info" so info issues are included
+        result = svc.check(min_severity="info")
+
+        assert result.ok
+        dead_letter_issues = [
+            i
+            for i in result.data["issues"]
+            if "dead-letter" in i.get("message", "")
+        ]
+        assert len(dead_letter_issues) == 1
+        issue = dead_letter_issues[0]
+        assert issue["category"] == "structural_validation"
+        assert issue["severity"] == "info"
+        assert "3 dead-letter" in issue["message"]
+        assert "event purge" in issue["message"].lower() or "event_purge" in issue["message"] or "ztlctl event purge" in issue["message"].lower()
+
+    def test_check_no_dead_letter_issue_when_none_exist(self, vault: Vault) -> None:
+        """CheckService does not report dead-letter issue when WAL has no dead_letter rows."""
+        svc = CheckService(vault)
+        result = svc.check(min_severity="info")
+
+        assert result.ok
+        dead_letter_issues = [
+            i
+            for i in result.data["issues"]
+            if "dead-letter" in i.get("message", "")
+        ]
+        assert len(dead_letter_issues) == 0
+
+    def test_check_dead_letter_filtered_out_at_warning_severity(self, vault: Vault) -> None:
+        """Dead-letter info issue is hidden when min_severity='warning'."""
+        from ztlctl.infrastructure.database.schema import event_wal
+
+        with vault.engine.begin() as conn:
+            conn.execute(
+                __import__("sqlalchemy", fromlist=["insert"]).insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created="2026-01-01T00:00:00+00:00",
+                )
+            )
+
+        svc = CheckService(vault)
+        result = svc.check(min_severity="warning")
+
+        dead_letter_issues = [
+            i
+            for i in result.data["issues"]
+            if "dead-letter" in i.get("message", "")
+        ]
+        assert len(dead_letter_issues) == 0
+
+
 class TestRebuildCompleteness:
     """Additional named rebuild tests for plan acceptance criteria."""
 
