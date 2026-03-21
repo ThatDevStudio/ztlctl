@@ -392,6 +392,66 @@ class TestEventBusStateMachineTransitions:
         bus.shutdown()
 
 
+class TestEventBusConfig:
+    """Tests for EventBusConfig-wired constructor."""
+
+    def test_config_sets_per_future_timeout(self, engine) -> None:
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(per_future_timeout_seconds=15.0)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        assert bus._per_future_timeout == 15.0
+
+    def test_config_sets_shutdown_timeout(self, engine) -> None:
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(shutdown_timeout_seconds=2.0)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        assert bus._shutdown_timeout == 2.0
+
+    def test_config_sets_max_retries(self, engine) -> None:
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(max_retries=7)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        assert bus._max_retries == 7
+
+    def test_config_sets_dead_letter_retention(self, engine) -> None:
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(dead_letter_retention_days=14)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        assert bus._dead_letter_retention_days == 14
+
+    def test_no_config_uses_defaults(self, engine) -> None:
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True)
+        assert bus._per_future_timeout == 30.0
+        assert bus._shutdown_timeout == 5.0
+        assert bus._max_retries == 3
+        assert bus._dead_letter_retention_days == 30
+
+    def test_wait_futures_uses_configurable_timeout(self, engine, pm_with_recorder) -> None:
+        """Verify _wait_futures passes per_future_timeout to future.result()."""
+        from unittest.mock import MagicMock, patch
+
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(per_future_timeout_seconds=99.0)
+        pm, _ = pm_with_recorder
+        bus = EventBus(engine, pm, sync=False, config=config)
+
+        # Manually insert a mock future
+        mock_future: MagicMock = MagicMock()
+        bus._futures = [(1, mock_future)]
+        bus._wait_futures()
+        mock_future.result.assert_called_once_with(timeout=99.0)
+
+
 class TestEventBusNoPlugins:
     """Tests for dispatch when no plugins are registered."""
 

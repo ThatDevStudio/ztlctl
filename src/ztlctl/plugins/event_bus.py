@@ -22,6 +22,7 @@ from ztlctl.services._helpers import now_iso
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
+    from ztlctl.config.models import EventBusConfig
     from ztlctl.plugins.manager import PluginManager
 
 logger = logging.getLogger(__name__)
@@ -58,13 +59,23 @@ class EventBus:
         plugin_manager: PluginManager,
         *,
         sync: bool = False,
+        config: EventBusConfig | None = None,
         max_retries: int = 3,
         max_workers: int = 2,
     ) -> None:
         self._engine = engine
         self._pm = plugin_manager
         self._sync = sync
-        self._max_retries = max_retries
+        if config is not None:
+            self._max_retries = config.max_retries
+            self._per_future_timeout = config.per_future_timeout_seconds
+            self._shutdown_timeout = config.shutdown_timeout_seconds
+            self._dead_letter_retention_days = config.dead_letter_retention_days
+        else:
+            self._max_retries = max_retries
+            self._per_future_timeout = 30.0
+            self._shutdown_timeout = 5.0
+            self._dead_letter_retention_days = 30
         self._executor: ThreadPoolExecutor | None = (
             None if sync else ThreadPoolExecutor(max_workers=max_workers)
         )
@@ -140,15 +151,23 @@ class EventBus:
 
         return results
 
-    def shutdown(self, *, wait: bool = True, cancel_futures: bool = False) -> None:
+    def shutdown(
+        self,
+        *,
+        wait: bool = True,
+        cancel_futures: bool = False,
+        timeout: float | None = None,
+    ) -> None:
         """Shutdown ThreadPoolExecutor.
 
         Args:
             wait: Whether to wait for in-flight tasks to finish.
             cancel_futures: Whether pending (not yet running) futures should be cancelled.
+            timeout: Per-future timeout override. When None, uses the configured
+                ``per_future_timeout_seconds``.
         """
         if wait:
-            self._wait_futures()
+            self._wait_futures(timeout=timeout)
         else:
             self._futures.clear()
 
@@ -250,15 +269,27 @@ class EventBus:
                 )
             )
 
-    def _wait_futures(self, *, event_ids: set[int] | None = None) -> None:
-        """Wait for all in-flight async futures to complete."""
+    def _wait_futures(
+        self,
+        *,
+        event_ids: set[int] | None = None,
+        timeout: float | None = None,
+    ) -> None:
+        """Wait for all in-flight async futures to complete.
+
+        Args:
+            event_ids: When set, only wait for futures with these event IDs.
+            timeout: Per-future timeout override. When None, uses the configured
+                ``per_future_timeout_seconds``.
+        """
+        per_future_timeout = timeout if timeout is not None else self._per_future_timeout
         remaining: list[tuple[int, Future[None]]] = []
         for event_id, future in self._futures:
             if event_ids is not None and event_id not in event_ids:
                 remaining.append((event_id, future))
                 continue
             try:
-                future.result(timeout=30)
+                future.result(timeout=per_future_timeout)
             except Exception:
                 pass  # Errors already handled in _execute_hook
         self._futures = remaining
