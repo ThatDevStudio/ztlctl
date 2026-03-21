@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Documentation & Hardening
 status: unknown
-stopped_at: Completed 27-01-PLAN.md
-last_updated: "2026-03-21T23:49:24.460Z"
+stopped_at: Completed 27-02-PLAN.md
+last_updated: "2026-03-21T23:52:17.317Z"
 progress:
   total_phases: 10
   completed_phases: 2
@@ -62,6 +62,7 @@ Plan: 2 of 2
 | Phase 26-existing-pages-and-quality-pass P02 | 5 | 2 tasks | 2 files |
 | Phase 26 P01 | 211 | 2 tasks | 4 files |
 | Phase 27 P01 | 15 | 2 tasks | 2 files |
+| Phase 27 P02 | 20 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Recent decisions affecting v3.1:
 - [Phase 27]: Service count is 16 (not 15): verified by counting class *Service excluding BaseService across all services/*.py files
 - [Phase 27]: Action count is 73: verified by direct grep of ActionDefinition() occurrences across 9 feature-local _*.py modules
 - [Phase 27]: PluginManager factory lives in plugins/runtime.py (get_plugin_manager()) not plugins/manager.py
+- [Phase 27]: New v3.0 service sections in DESIGN.md inserted before Decision Log (renumbered 19->23, 20->24) so features appear before the decision rationale
+- [Phase 27]: DESIGN.md Section 22 Polaris documents check_alignment as advisory-only (aligned always true) — consistent with source behavior in check.py
 
 ### Pending Todos
 
@@ -113,7 +116,7 @@ Recent decisions affecting v3.1:
 
 ## Session Continuity
 
-Last session: 2026-03-21T23:49:24.457Z
-Stopped at: Completed 27-01-PLAN.md
+Last session: 2026-03-21T23:52:17.314Z
+Stopped at: Completed 27-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 23`

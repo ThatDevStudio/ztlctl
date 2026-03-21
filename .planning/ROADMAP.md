@@ -61,7 +61,7 @@ Full details: `.planning/milestones/v3.0-ROADMAP.md`
 - [x] **Phase 24: Navigation and Information Architecture** — Diataxis audit, nav reordering for beginner-to-advanced progression, consistent quality conventions (completed 2026-03-21)
 - [x] **Phase 25: New v3.0 Feature Pages** — Five standalone pages for session recall, polaris, contradiction detection, media ingestion, and methodology guidance (completed 2026-03-21)
 - [x] **Phase 26: Existing Pages and Quality Pass** — Update concepts, commands, agentic-workflows, agents, mcp with v3.0 content; refresh llms.txt and llms-full.txt (completed 2026-03-21)
-- [ ] **Phase 27: Internal Documentation Refresh** — CLAUDE.md architecture section, DESIGN.md, README.md updated for v3.0 reality
+- [x] **Phase 27: Internal Documentation Refresh** — CLAUDE.md architecture section, DESIGN.md, README.md updated for v3.0 reality (completed 2026-03-21)
 
 ## Phase Details
 
@@ -271,7 +271,7 @@ Plans:
 
 Plans:
 - [x] 27-01-PLAN.md — Update CLAUDE.md architecture section and README.md features/commands for v3.0 (IDOC-01, IDOC-03)
-- [ ] 27-02-PLAN.md — Refresh DESIGN.md with v3.0 architectural decisions and new service design sections (IDOC-02)
+- [x] 27-02-PLAN.md — Refresh DESIGN.md with v3.0 architectural decisions and new service design sections (IDOC-02)
 
 ## Progress
 
@@ -306,4 +306,4 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 | 24. Navigation and Information Architecture | v3.1 | 1/1 | Complete    | 2026-03-21 |
 | 25. New v3.0 Feature Pages | v3.1 | 3/3 | Complete    | 2026-03-21 |
 | 26. Existing Pages and Quality Pass | v3.1 | 2/2 | Complete    | 2026-03-21 |
-| 27. Internal Documentation Refresh | v3.1 | 1/2 | In Progress|  |
+| 27. Internal Documentation Refresh | v3.1 | 2/2 | Complete   | 2026-03-21 |
