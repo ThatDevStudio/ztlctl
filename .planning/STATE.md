@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-03-21T16:39:10.013Z"
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-03-21T16:50:44.226Z"
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 15 (event-model-hardening) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Plan: 2 of 3
 
 *Updated after each plan completion*
 | Phase 15-event-model-hardening P01 | 18 | 2 tasks | 8 files |
+| Phase 15-event-model-hardening P02 | 60 | 2 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - Phase 22 (Ingestion) placed last — largest scope, external dependency (whisper), no other features depend on it
 - [Phase 15-event-model-hardening]: EventBus config parameter is optional (config: EventBusConfig | None = None) to preserve backward compat with tests using max_retries kwarg
 - [Phase 15-event-model-hardening]: ActionEvent.result: Any = None carries full ServiceResult without coupling domain to services layer
+- [Phase 15-event-model-hardening]: Single-step cutover: all 64 controller _dispatch_post_action calls removed atomically
+- [Phase 15-event-model-hardening]: Bounded shutdown drain uses EventBusConfig.shutdown_timeout_seconds with pending rows preserved on timeout
+- [Phase 15-event-model-hardening]: Startup drain is best-effort: failure logs warning and continues
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T16:39:10.010Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-03-21T16:50:44.224Z
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None

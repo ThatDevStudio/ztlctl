@@ -9,9 +9,9 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 
 ### Architecture Remediation
 
-- [ ] **ARCH-01**: Event delivery is reliable — WAL rows drain on CLI shutdown with bounded timeout
-- [ ] **ARCH-02**: Pending/failed WAL events from prior runs drain on startup before new work begins
-- [ ] **ARCH-03**: Write-side `post_action` is emitted by services only — controller-side dispatch removed
+- [x] **ARCH-01**: Event delivery is reliable — WAL rows drain on CLI shutdown with bounded timeout
+- [x] **ARCH-02**: Pending/failed WAL events from prior runs drain on startup before new work begins
+- [x] **ARCH-03**: Write-side `post_action` is emitted by services only — controller-side dispatch removed
 - [ ] **ARCH-04**: Canonical action-event payload model with stable shape (`action_name`, `side_effect`, `payload`, `warnings`)
 - [ ] **ARCH-05**: Compatibility bridge reversed — stable action events adapt into legacy hook calls (not legacy → stable)
 - [ ] **ARCH-06**: Generic action executor replaces repeated pre/post hook boilerplate in controllers
@@ -99,9 +99,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | Phase 15 | Pending |
-| ARCH-02 | Phase 15 | Pending |
-| ARCH-03 | Phase 15 | Pending |
+| ARCH-01 | Phase 15 | Complete |
+| ARCH-02 | Phase 15 | Complete |
+| ARCH-03 | Phase 15 | Complete |
 | ARCH-04 | Phase 15 | Pending |
 | ARCH-05 | Phase 16 | Pending |
 | ARCH-06 | Phase 16 | Pending |
