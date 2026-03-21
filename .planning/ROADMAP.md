@@ -5,6 +5,7 @@
 - ✅ **v2.0 Platform** — Phases 1-7 (shipped 2026-03-20)
 - ✅ **v2.1 Documentation** — Phases 8-14 (shipped 2026-03-21)
 - ✅ **v3.0 Memory and Hardening** — Phases 15-22 (shipped 2026-03-21)
+- **v3.1 Documentation & Hardening** — Phases 23-27 (active)
 
 ## Phases
 
@@ -53,6 +54,14 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
 Full details: `.planning/milestones/v3.0-ROADMAP.md`
 
 </details>
+
+### v3.1 Documentation & Hardening (Phases 23-27)
+
+- [ ] **Phase 23: Docs-as-Code Infrastructure** — CI gate, prose linting, CLAUDE.md enforcement rule, git-sourced dates, and IngestService/docstring debt
+- [ ] **Phase 24: Navigation and Information Architecture** — Diataxis audit, nav reordering for beginner-to-advanced progression, consistent quality conventions
+- [ ] **Phase 25: New v3.0 Feature Pages** — Five standalone pages for session recall, polaris, contradiction detection, media ingestion, and methodology guidance
+- [ ] **Phase 26: Existing Pages and Quality Pass** — Update concepts, commands, agentic-workflows, agents, mcp with v3.0 content; refresh llms.txt and llms-full.txt
+- [ ] **Phase 27: Internal Documentation Refresh** — CLAUDE.md architecture section, DESIGN.md, README.md updated for v3.0 reality
 
 ## Phase Details
 
@@ -185,10 +194,69 @@ Plans:
 - [x] 22-01-PLAN.md — TranscriptionService with whisper integration, transcript parsing, and MediaIngestConfig
 - [x] 22-02-PLAN.md — IngestService.ingest_media method, controller wiring, ActionRegistry registration
 
+### Phase 23: Docs-as-Code Infrastructure
+**Goal**: Broken or incomplete documentation cannot merge — CI gates enforce docs quality, CLAUDE.md mandates docs updates with every feature change, and known code-level debt is cleared
+**Depends on**: Phase 22 (v3.0 complete)
+**Requirements**: DINF-01, DINF-02, DINF-03, DINF-04, DEBT-09, DEBT-10
+**Success Criteria** (what must be TRUE):
+  1. A PR with a broken MkDocs build or prose lint failures is blocked from merging — `doc_lint` job runs in parallel with `validate_pr` in `pr-ci.yml`
+  2. CLAUDE.md contains a Documentation Rule section with a per-change checklist — every developer (and Claude) knows the docs update obligation before touching a feature
+  3. Every GSD feature phase plan template includes a mandatory Documentation Tasks block — docs updates are structural, not optional
+  4. Every docs page shows a "last updated" date sourced from git history — currency is visible without author discipline
+  5. IngestService post_action events fire for all `ingest_*` actions — the missing dispatch call is present and covered by `test_post_action_dispatch.py`
+  6. Stale docstrings in ContradictionController and stale comments in `commands/generator.py` are replaced with accurate descriptions
+**Plans**: TBD
+
+### Phase 24: Navigation and Information Architecture
+**Goal**: The docs site navigation reflects a beginner-to-advanced learning path, every page is classified by Diataxis content type, and quality conventions are consistently applied across all pages
+**Depends on**: Phase 23 (doc lint CI gate is live before structural audit begins)
+**Requirements**: QUAL-01, QUAL-04
+**Success Criteria** (what must be TRUE):
+  1. Every existing docs page has a recorded Diataxis classification (tutorial / how-to / reference / explanation) — mixed-purpose pages are identified and flagged for remediation
+  2. The User Guide `nav:` order in `mkdocs.yml` reflects install → daily capture → search/graph → sessions → strategic alignment → ingestion → extensibility — not feature ship order
+  3. Confirmed placement slots exist for all five v3.0 feature pages in the navigation order before those pages are written
+  4. CLI syntax conventions (Google style: `[optional]`, `{required}`, `$` prompts), admonition taxonomy (Warning/Note/Tip), and "What's next" links are documented as standards in CLAUDE.md or a contributing guide
+**Plans**: TBD
+
+### Phase 25: New v3.0 Feature Pages
+**Goal**: All five v3.0 features shipped without documentation now have standalone pages that are navigable, agent-discoverable, and cross-referenced from existing pages
+**Depends on**: Phase 24 (navigation placement confirmed before pages are written)
+**Requirements**: NDOC-01, NDOC-02, NDOC-03, NDOC-04, NDOC-05
+**Success Criteria** (what must be TRUE):
+  1. User can find and read a `session-recall.md` page that covers temporal, topic, and topology recall with CLI usage, MCP tool reference, and an agent workflow example
+  2. User can find and read a `polaris.md` page that covers the init scaffold, `ztlctl://polaris` MCP resource, `check_alignment` action, and an agent alignment workflow — framed as the strategic layer of the vault
+  3. User can find and read a `contradiction-detection.md` page that covers heuristic scoring, the `CAT_SEMANTIC` check, `confirm_contradiction`, graph edges, and the MCP review resource
+  4. User can find and read a `media-ingestion.md` page with a prominent optional-dependency callout for faster-whisper, format coverage, `ingest_media` CLI/MCP usage, and the two-phase captured-to-annotated workflow
+  5. User can find and read a `methodology.md` page that covers the prose-as-title convention, title quality check severity, and garden backlog candidates
+  6. Each new page has a `mkdocs.yml nav:` entry, an `llms.txt` entry, and an `llms-full.txt` append — agent discovery indexes are current after every page addition
+**Plans**: TBD
+
+### Phase 26: Existing Pages and Quality Pass
+**Goal**: Existing docs pages reflect v3.0 reality and agent discovery indexes are fully current
+**Depends on**: Phase 25 (new pages must exist before cross-references and index updates are complete)
+**Requirements**: QUAL-02, QUAL-03
+**Success Criteria** (what must be TRUE):
+  1. `concepts.md` covers v3.0 content types — sessions, contradictions, media — and links to the new feature pages
+  2. `agentic-workflows.md` includes v3.0 recipes: polaris-aligned session startup, recall-driven context loading, and contradiction review workflow
+  3. `agents.md` tool inventory includes all 73+ registered actions and documents v3.0 failure modes for agent error recovery
+  4. `mcp.md` reflects the current tool count (73+) and documents all new MCP resources (`ztlctl://polaris`, `ztlctl://sessions/recent`, `ztlctl://review/contradictions`)
+  5. `llms.txt` and `llms-full.txt` contain entries for all new pages and accurate v3.0 feature descriptions — an agent using llms.txt discovers session recall, polaris, contradiction detection, and media ingestion
+**Plans**: TBD
+
+### Phase 27: Internal Documentation Refresh
+**Goal**: CLAUDE.md, DESIGN.md, and README.md accurately describe the v3.0 system — developers and contributors work from current information
+**Depends on**: Phase 26 (external docs complete — internal docs can reference final external doc structure)
+**Requirements**: IDOC-01, IDOC-02, IDOC-03
+**Success Criteria** (what must be TRUE):
+  1. CLAUDE.md architecture section lists all 15 services, 17 controllers, and 73+ actions; describes feature-local action registration and the centralized PluginManager factory
+  2. DESIGN.md captures the v3.0 architectural decisions: reliable event model (WAL drain, service-only post_action), generic action executor, feature-local registration, recall/contradiction/ingestion design choices
+  3. README.md feature list and command examples include session recall, polaris priorities, contradiction detection, and media ingestion — a new contributor reading README.md gets an accurate picture of the current tool
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22
+Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -206,11 +274,16 @@ Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 �
 | 12. Doc Search Integration | v2.1 | 3/3 | Complete | 2026-03-20 |
 | 13. Actions Artifact Deploy | v2.1 | 1/1 | Complete | 2026-03-20 |
 | 14. Documentation Quality Pass | v2.1 | 5/5 | Complete | 2026-03-20 |
-| 15. Event Model Hardening | v3.0 | 4/4 | Complete    | 2026-03-21 |
-| 16. Plugin Bridge and Action Executor | v3.0 | 3/3 | Complete    | 2026-03-21 |
-| 17. Registry Decomposition and Plugin Runtime | v3.0 | 2/2 | Complete    | 2026-03-21 |
-| 18. Architecture Cleanup | v3.0 | 2/2 | Complete    | 2026-03-21 |
-| 19. Methodology Guidance and Polaris | v3.0 | 3/3 | Complete    | 2026-03-21 |
-| 20. Session Recall | v3.0 | 2/2 | Complete    | 2026-03-21 |
-| 21. Contradiction Detection | v3.0 | 2/2 | Complete    | 2026-03-21 |
-| 22. Ingestion Pipeline | v3.0 | 2/2 | Complete    | 2026-03-21 |
+| 15. Event Model Hardening | v3.0 | 4/4 | Complete | 2026-03-21 |
+| 16. Plugin Bridge and Action Executor | v3.0 | 3/3 | Complete | 2026-03-21 |
+| 17. Registry Decomposition and Plugin Runtime | v3.0 | 2/2 | Complete | 2026-03-21 |
+| 18. Architecture Cleanup | v3.0 | 2/2 | Complete | 2026-03-21 |
+| 19. Methodology Guidance and Polaris | v3.0 | 3/3 | Complete | 2026-03-21 |
+| 20. Session Recall | v3.0 | 2/2 | Complete | 2026-03-21 |
+| 21. Contradiction Detection | v3.0 | 2/2 | Complete | 2026-03-21 |
+| 22. Ingestion Pipeline | v3.0 | 2/2 | Complete | 2026-03-21 |
+| 23. Docs-as-Code Infrastructure | v3.1 | 0/? | Not started | - |
+| 24. Navigation and Information Architecture | v3.1 | 0/? | Not started | - |
+| 25. New v3.0 Feature Pages | v3.1 | 0/? | Not started | - |
+| 26. Existing Pages and Quality Pass | v3.1 | 0/? | Not started | - |
+| 27. Internal Documentation Refresh | v3.1 | 0/? | Not started | - |

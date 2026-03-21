@@ -68,30 +68,30 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DINF-01 | TBD | Pending |
-| DINF-02 | TBD | Pending |
-| DINF-03 | TBD | Pending |
-| DINF-04 | TBD | Pending |
-| NDOC-01 | TBD | Pending |
-| NDOC-02 | TBD | Pending |
-| NDOC-03 | TBD | Pending |
-| NDOC-04 | TBD | Pending |
-| NDOC-05 | TBD | Pending |
-| QUAL-01 | TBD | Pending |
-| QUAL-02 | TBD | Pending |
-| QUAL-03 | TBD | Pending |
-| QUAL-04 | TBD | Pending |
-| IDOC-01 | TBD | Pending |
-| IDOC-02 | TBD | Pending |
-| IDOC-03 | TBD | Pending |
-| DEBT-09 | TBD | Pending |
-| DEBT-10 | TBD | Pending |
+| DINF-01 | Phase 23 | Pending |
+| DINF-02 | Phase 23 | Pending |
+| DINF-03 | Phase 23 | Pending |
+| DINF-04 | Phase 23 | Pending |
+| DEBT-09 | Phase 23 | Pending |
+| DEBT-10 | Phase 23 | Pending |
+| QUAL-01 | Phase 24 | Pending |
+| QUAL-04 | Phase 24 | Pending |
+| NDOC-01 | Phase 25 | Pending |
+| NDOC-02 | Phase 25 | Pending |
+| NDOC-03 | Phase 25 | Pending |
+| NDOC-04 | Phase 25 | Pending |
+| NDOC-05 | Phase 25 | Pending |
+| QUAL-02 | Phase 26 | Pending |
+| QUAL-03 | Phase 26 | Pending |
+| IDOC-01 | Phase 27 | Pending |
+| IDOC-02 | Phase 27 | Pending |
+| IDOC-03 | Phase 27 | Pending |
 
 **Coverage:**
 - v3.1 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 after roadmap creation (traceability complete)*
