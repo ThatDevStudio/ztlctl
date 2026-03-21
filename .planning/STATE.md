@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 21-02-PLAN.md
-last_updated: "2026-03-21T20:10:06.693Z"
+stopped_at: Completed 22-01-PLAN.md
+last_updated: "2026-03-21T20:24:04.832Z"
 progress:
   total_phases: 8
   completed_phases: 7
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 20
+  completed_plans: 19
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 21 — contradiction-detection
+**Current focus:** Phase 22 — ingestion-pipeline
 
 ## Current Position
 
-Phase: 22
-Plan: Not started
+Phase: 22 (ingestion-pipeline) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Plan: Not started
 | Phase 20 P02 | 5 | 2 tasks | 6 files |
 | Phase 21-contradiction-detection P01 | 5 | 2 tasks | 4 files |
 | Phase 21-contradiction-detection P02 | 8 | 2 tasks | 8 files |
+| Phase 22-ingestion-pipeline P01 | 3 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -120,6 +121,9 @@ Recent decisions affecting current work:
 - [Phase 21-contradiction-detection]: CAT_SEMANTIC wired outside vault.engine.connect() block — _check_semantic() opens its own connection internally via ContradictionService
 - [Phase 21-contradiction-detection]: confirm_contradiction validates both notes exist before opening transaction (fail-fast before mutation)
 - [Phase 21-contradiction-detection]: analysis category now active — check_contradictions and confirm_contradiction bring category count to 17
+- [Phase 22-01]: TranscriptionService is stateless utility (not BaseService subclass) — no Vault access needed for file transcription
+- [Phase 22-01]: faster-whisper import guarded inside _transcribe_media() — module-level guard would prevent instantiation on import
+- [Phase 22-01]: MediaIngestConfig composes into IngestConfig.media — settings.ingest.media.whisper_model/language/compute_type pattern
 
 ### Pending Todos
 
@@ -133,6 +137,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T20:06:36.989Z
-Stopped at: Completed 21-02-PLAN.md
+Last session: 2026-03-21T20:24:04.829Z
+Stopped at: Completed 22-01-PLAN.md
 Resume file: None

@@ -57,11 +57,11 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 
 ### Ingestion Pipeline
 
-- [ ] **INGP-01**: Source provider plugin accepts media files (mp4, mp3, m4a, wav) and transcript files (txt, vtt, srt)
-- [ ] **INGP-02**: Local transcription via whisper/faster-whisper (no data leaves the machine)
+- [x] **INGP-01**: Source provider plugin accepts media files (mp4, mp3, m4a, wav) and transcript files (txt, vtt, srt)
+- [x] **INGP-02**: Local transcription via whisper/faster-whisper (no data leaves the machine)
 - [ ] **INGP-03**: Two-phase workflow: plugin produces `captured` reference, agent annotates to `annotated` with structured key_points
 - [ ] **INGP-04**: `ingest_media` action registered in ActionRegistry with MCP tool auto-generated
-- [ ] **INGP-05**: Config section `[ingest.media]` for whisper model selection, language hints, output preferences
+- [x] **INGP-05**: Config section `[ingest.media]` for whisper model selection, language hints, output preferences
 - [ ] **INGP-06**: Source bundle populated with transcription output (normalized_text, capture_agent, modalities)
 
 ### Methodology Guidance
@@ -132,11 +132,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CNTR-04 | Phase 21 | Complete |
 | CNTR-05 | Phase 21 | Complete |
 | CNTR-06 | Phase 21 | Complete |
-| INGP-01 | Phase 22 | Pending |
-| INGP-02 | Phase 22 | Pending |
+| INGP-01 | Phase 22 | Complete |
+| INGP-02 | Phase 22 | Complete |
 | INGP-03 | Phase 22 | Pending |
 | INGP-04 | Phase 22 | Pending |
-| INGP-05 | Phase 22 | Pending |
+| INGP-05 | Phase 22 | Complete |
 | INGP-06 | Phase 22 | Pending |
 | METH-01 | Phase 19 | Complete |
 | METH-02 | Phase 19 | Complete |
