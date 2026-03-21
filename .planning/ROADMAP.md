@@ -257,7 +257,7 @@ Plans:
 
 Plans:
 - [ ] 26-01-PLAN.md — Update concepts.md, agentic-workflows.md, agents.md, mcp.md with v3.0 content (QUAL-02)
-- [ ] 26-02-PLAN.md — Refresh llms.txt and llms-full.txt with v3.0 entries and accurate descriptions (QUAL-03)
+- [x] 26-02-PLAN.md — Refresh llms.txt and llms-full.txt with v3.0 entries and accurate descriptions (QUAL-03)
 
 ### Phase 27: Internal Documentation Refresh
 **Goal**: CLAUDE.md, DESIGN.md, and README.md accurately describe the v3.0 system — developers and contributors work from current information
@@ -301,5 +301,5 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 | 23. Docs-as-Code Infrastructure | v3.1 | 2/2 | Complete    | 2026-03-21 |
 | 24. Navigation and Information Architecture | v3.1 | 1/1 | Complete    | 2026-03-21 |
 | 25. New v3.0 Feature Pages | v3.1 | 3/3 | Complete    | 2026-03-21 |
-| 26. Existing Pages and Quality Pass | v3.1 | 0/2 | Not started | - |
+| 26. Existing Pages and Quality Pass | v3.1 | 1/2 | In Progress|  |
 | 27. Internal Documentation Refresh | v3.1 | 0/? | Not started | - |

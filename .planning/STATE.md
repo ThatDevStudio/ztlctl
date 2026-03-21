@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Documentation & Hardening
 status: unknown
-stopped_at: Completed 25-03-PLAN.md
-last_updated: "2026-03-21T23:13:56.558Z"
+stopped_at: Completed 26-02-PLAN.md
+last_updated: "2026-03-21T23:32:42.118Z"
 progress:
   total_phases: 10
   completed_phases: 2
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 25 — new-v3-0-feature-pages
+**Current focus:** Phase 26 — existing-pages-and-quality-pass
 
 ## Current Position
 
-Phase: 25 (new-v3-0-feature-pages) — EXECUTING
-Plan: 3 of 3
+Phase: 26 (existing-pages-and-quality-pass) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Plan: 3 of 3
 | Phase 25 P01 | 2 | 2 tasks | 2 files |
 | Phase 25 P02 | 117 | 2 tasks | 2 files |
 | Phase 25-new-v3-0-feature-pages P03 | 6 | 2 tasks | 4 files |
+| Phase 26-existing-pages-and-quality-pass P02 | 5 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,7 @@ Recent decisions affecting v3.1:
 - [Phase 25]: Contradiction CLI routes through check group (check contradictions, check confirm-contradiction), not standalone subcommand
 - [Phase 25]: Media ingestion supports 11 formats: ogg/flac/mkv/webm included alongside mp3/m4a/wav/mp4 from TranscriptionService.SUPPORTED_EXTENSIONS
 - [Phase 25-new-v3-0-feature-pages]: llms-full.txt section headers include URL blockquote lines so agent grep patterns resolve correctly
+- [Phase 26-existing-pages-and-quality-pass]: llms.txt MCP Server entry now uses specific counts (73+ tools, 20 resources, 9 prompts) rather than generic description
 
 ### Pending Todos
 
@@ -104,7 +106,7 @@ Recent decisions affecting v3.1:
 
 ## Session Continuity
 
-Last session: 2026-03-21T23:13:56.555Z
-Stopped at: Completed 25-03-PLAN.md
+Last session: 2026-03-21T23:32:42.114Z
+Stopped at: Completed 26-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 23`
