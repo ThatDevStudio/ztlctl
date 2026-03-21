@@ -253,7 +253,11 @@ Plans:
   3. `agents.md` tool inventory includes all 73+ registered actions and documents v3.0 failure modes for agent error recovery
   4. `mcp.md` reflects the current tool count (73+) and documents all new MCP resources (`ztlctl://polaris`, `ztlctl://sessions/recent`, `ztlctl://review/contradictions`)
   5. `llms.txt` and `llms-full.txt` contain entries for all new pages and accurate v3.0 feature descriptions — an agent using llms.txt discovers session recall, polaris, contradiction detection, and media ingestion
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 26-01-PLAN.md — Update concepts.md, agentic-workflows.md, agents.md, mcp.md with v3.0 content (QUAL-02)
+- [ ] 26-02-PLAN.md — Refresh llms.txt and llms-full.txt with v3.0 entries and accurate descriptions (QUAL-03)
 
 ### Phase 27: Internal Documentation Refresh
 **Goal**: CLAUDE.md, DESIGN.md, and README.md accurately describe the v3.0 system — developers and contributors work from current information
@@ -296,6 +300,6 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 | 22. Ingestion Pipeline | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 23. Docs-as-Code Infrastructure | v3.1 | 2/2 | Complete    | 2026-03-21 |
 | 24. Navigation and Information Architecture | v3.1 | 1/1 | Complete    | 2026-03-21 |
-| 25. New v3.0 Feature Pages | v3.1 | 3/3 | Complete   | 2026-03-21 |
-| 26. Existing Pages and Quality Pass | v3.1 | 0/? | Not started | - |
+| 25. New v3.0 Feature Pages | v3.1 | 3/3 | Complete    | 2026-03-21 |
+| 26. Existing Pages and Quality Pass | v3.1 | 0/2 | Not started | - |
 | 27. Internal Documentation Refresh | v3.1 | 0/? | Not started | - |
