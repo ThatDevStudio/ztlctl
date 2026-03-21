@@ -12,7 +12,7 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 - [x] **ARCH-01**: Event delivery is reliable — WAL rows drain on CLI shutdown with bounded timeout
 - [x] **ARCH-02**: Pending/failed WAL events from prior runs drain on startup before new work begins
 - [x] **ARCH-03**: Write-side `post_action` is emitted by services only — controller-side dispatch removed
-- [ ] **ARCH-04**: Canonical action-event payload model with stable shape (`action_name`, `side_effect`, `payload`, `warnings`)
+- [x] **ARCH-04**: Canonical action-event payload model with stable shape (`action_name`, `side_effect`, `payload`, `warnings`)
 - [ ] **ARCH-05**: Compatibility bridge reversed — stable action events adapt into legacy hook calls (not legacy → stable)
 - [ ] **ARCH-06**: Generic action executor replaces repeated pre/post hook boilerplate in controllers
 - [ ] **ARCH-07**: Action registrations decomposed into feature-local modules (`actions/create.py`, `actions/query.py`, etc.)
@@ -23,7 +23,7 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 ### Tech Debt
 
 - [ ] **DEBT-01**: Embedding dimensions configurable (remove hardcoded values)
-- [ ] **DEBT-02**: EventBus timeout configurable via settings
+- [x] **DEBT-02**: EventBus timeout configurable via settings
 - [x] **DEBT-03**: Dead-letter event accumulation resolved (cleanup or retry strategy)
 - [ ] **DEBT-04**: MCP server graceful shutdown implemented
 - [ ] **DEBT-05**: Phantom `mutation` category in `_DEFAULT_ACTIVE_CATEGORIES` cleaned up
@@ -102,7 +102,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARCH-01 | Phase 15 | Complete |
 | ARCH-02 | Phase 15 | Complete |
 | ARCH-03 | Phase 15 | Complete |
-| ARCH-04 | Phase 15 | Pending |
+| ARCH-04 | Phase 15 | Complete |
 | ARCH-05 | Phase 16 | Pending |
 | ARCH-06 | Phase 16 | Pending |
 | ARCH-07 | Phase 17 | Pending |
@@ -110,7 +110,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARCH-09 | Phase 16 | Pending |
 | ARCH-10 | Phase 18 | Pending |
 | DEBT-01 | Phase 18 | Pending |
-| DEBT-02 | Phase 15 | Pending |
+| DEBT-02 | Phase 15 | Complete |
 | DEBT-03 | Phase 15 | Complete |
 | DEBT-04 | Phase 16 | Pending |
 | DEBT-05 | Phase 18 | Pending |
