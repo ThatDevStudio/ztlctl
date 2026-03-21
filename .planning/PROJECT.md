@@ -53,7 +53,19 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ### Active
 
-<!-- No active milestone — next milestone TBD -->
+<!-- Current milestone: v3.1 Documentation & Hardening -->
+
+## Current Milestone: v3.1 Documentation & Hardening
+
+**Goal:** Raise documentation to professional-grade quality (Stripe/Docker/Obsidian-caliber), comprehensively document all v3.0 features, close remaining tech debt, and establish structural enforcement so docs always stay current with code changes.
+
+**Target features:**
+- Documentation quality overhaul: research best-in-class technical writing (Stripe, Docker, Obsidian) and apply tone/organization/depth standards across all docs
+- New standalone doc pages: session recall, polaris priorities, contradiction detection, media ingestion, methodology guidance — with CLI usage, MCP tool reference, agent workflows, examples
+- Update existing docs: concepts.md, agentic-workflows.md, agents.md, mcp.md, llms.txt, llms-full.txt with v3.0 feature coverage
+- Internal doc refresh: CLAUDE.md architecture section, DESIGN.md, README.md feature list — all reflect v3.0 state
+- Documentation-as-code enforcement: CLAUDE.md rule for ad-hoc changes + GSD workflow enforcement so every feature phase includes docs tasks
+- Tech debt: IngestService post_action dispatch gap, stale docstrings/comments
 
 ### Out of Scope
 
@@ -72,8 +84,8 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 **Known technical debt (from v3.0 audit):**
 - IngestService._ingest_normalized missing _dispatch_post_action_event (post_action plugin hooks for ingest_* actions don't fire)
-- Pre-existing verbose telemetry test failure (git subprocess error in temp vault)
 - Cosmetic: stale docstrings/comments in ContradictionController, commands/generator.py
+- Documentation: v3.0 features (recall, polaris, contradiction, ingestion, methodology) not yet documented in docs site
 
 **Target audience:** Small group of users, building toward broader adoption. Tool must work fully without agentic systems.
 
@@ -116,4 +128,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | faster-whisper as optional dependency | Local transcription, no data leaves machine, guarded import | ✓ Good — graceful DEPENDENCY_MISSING error with install hint |
 
 ---
-*Last updated: 2026-03-21 after v3.0 milestone completion*
+*Last updated: 2026-03-21 after v3.1 milestone started*

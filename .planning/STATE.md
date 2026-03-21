@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Memory and Hardening
-status: unknown
-stopped_at: Completed 22-02-PLAN.md
-last_updated: "2026-03-21T20:50:13.010Z"
+milestone: v3.1
+milestone_name: Documentation & Hardening
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-03-21T21:30:00.000Z"
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 20
-  completed_plans: 20
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 22 — ingestion-pipeline
+**Current focus:** Defining requirements for v3.1 Documentation & Hardening
 
 ## Current Position
 
-Phase: 22
-Plan: Not started
+Phase: Not started (defining requirements)
+Plan: —
 
 ## Performance Metrics
 
