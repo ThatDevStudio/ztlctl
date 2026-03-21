@@ -179,8 +179,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 22-01: Source provider plugin scaffolding and whisper transcription integration
-- [ ] 22-02: Two-phase workflow, `ingest_media` action registration, config section
+- [ ] 22-01-PLAN.md — TranscriptionService with whisper integration, transcript parsing, and MediaIngestConfig
+- [ ] 22-02-PLAN.md — IngestService.ingest_media method, controller wiring, ActionRegistry registration
 
 ## Progress
 
