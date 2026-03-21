@@ -57,7 +57,7 @@ Full details: `.planning/milestones/v3.0-ROADMAP.md`
 
 ### v3.1 Documentation & Hardening (Phases 23-27)
 
-- [ ] **Phase 23: Docs-as-Code Infrastructure** — CI gate, prose linting, CLAUDE.md enforcement rule, git-sourced dates, and IngestService/docstring debt
+- [x] **Phase 23: Docs-as-Code Infrastructure** — CI gate, prose linting, CLAUDE.md enforcement rule, git-sourced dates, and IngestService/docstring debt (completed 2026-03-21)
 - [ ] **Phase 24: Navigation and Information Architecture** — Diataxis audit, nav reordering for beginner-to-advanced progression, consistent quality conventions
 - [ ] **Phase 25: New v3.0 Feature Pages** — Five standalone pages for session recall, polaris, contradiction detection, media ingestion, and methodology guidance
 - [ ] **Phase 26: Existing Pages and Quality Pass** — Update concepts, commands, agentic-workflows, agents, mcp with v3.0 content; refresh llms.txt and llms-full.txt
@@ -208,7 +208,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 23-01-PLAN.md — CI doc_lint job (MkDocs strict, Vale, pymarkdownlnt), git-revision-date-localized plugin, config files
+- [x] 23-01-PLAN.md — CI doc_lint job (MkDocs strict, Vale, pymarkdownlnt), git-revision-date-localized plugin, config files
 - [x] 23-02-PLAN.md — CLAUDE.md Documentation Rules section, IngestService post_action dispatch fix, stale docstrings
 
 ### Phase 24: Navigation and Information Architecture
@@ -286,7 +286,7 @@ Phases execute in numeric order: 23 → 24 → 25 → 26 → 27
 | 20. Session Recall | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 21. Contradiction Detection | v3.0 | 2/2 | Complete | 2026-03-21 |
 | 22. Ingestion Pipeline | v3.0 | 2/2 | Complete | 2026-03-21 |
-| 23. Docs-as-Code Infrastructure | v3.1 | 1/2 | In Progress|  |
+| 23. Docs-as-Code Infrastructure | v3.1 | 2/2 | Complete   | 2026-03-21 |
 | 24. Navigation and Information Architecture | v3.1 | 0/? | Not started | - |
 | 25. New v3.0 Feature Pages | v3.1 | 0/? | Not started | - |
 | 26. Existing Pages and Quality Pass | v3.1 | 0/? | Not started | - |

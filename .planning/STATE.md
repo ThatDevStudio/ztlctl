@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Documentation & Hardening
 status: planning
-stopped_at: Completed 23-02-PLAN.md
-last_updated: "2026-03-21T22:34:53.424Z"
+stopped_at: Completed 23-01-PLAN.md
+last_updated: "2026-03-21T22:36:36.691Z"
 progress:
   total_phases: 10
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -59,6 +59,7 @@ Progress: [----------] 0/5 phases complete
 
 *Updated after each plan completion*
 | Phase 23 P02 | 8 | 2 tasks | 5 files |
+| Phase 23 P01 | 284 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,8 @@ Recent decisions affecting v3.1:
 - Phase 24 (nav/IA audit) must precede Phase 25 (new pages) — placement in nav must be confirmed before writing begins
 - Phases 25, 26, 27 ordered: new pages first (25), then cross-reference updates and index refresh (26), then internal docs (27)
 - [Phase 23]: IngestService dispatch fires in _ingest_normalized (note path) and _create_reference_with_bundle (reference path), matching where writes occur
+- [Phase 23]: pymarkdown excludes docs/plans/ directory (excluded from MkDocs build); avoids false positives on archived plan files
+- [Phase 23]: MD003/MD013/MD022/MD024/MD031/MD032/MD033/MD036/MD040/MD041/MD046 disabled in pymarkdown to match existing docs patterns; gate starts clean and rules tightened as docs are rewritten
 
 ### Pending Todos
 
@@ -94,7 +97,7 @@ Recent decisions affecting v3.1:
 
 ## Session Continuity
 
-Last session: 2026-03-21T22:34:53.421Z
-Stopped at: Completed 23-02-PLAN.md
+Last session: 2026-03-21T22:36:32.278Z
+Stopped at: Completed 23-01-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 23`

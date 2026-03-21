@@ -9,10 +9,10 @@ Requirements for v3.1 release. Each maps to roadmap phases.
 
 ### Documentation Infrastructure
 
-- [ ] **DINF-01**: Doc lint CI gate in pr-ci.yml: `mkdocs build --strict` + Vale prose lint + pymarkdownlnt structure lint — broken docs cannot merge
+- [x] **DINF-01**: Doc lint CI gate in pr-ci.yml: `mkdocs build --strict` + Vale prose lint + pymarkdownlnt structure lint — broken docs cannot merge
 - [x] **DINF-02**: CLAUDE.md contains enforceable rule: when adding/modifying actions or features, update relevant docs pages and llms.txt in the same PR
 - [x] **DINF-03**: GSD workflow templates include documentation tasks in every feature phase plan — structural enforcement, not optional
-- [ ] **DINF-04**: mkdocs-git-revision-date-localized shows "last updated" dates from git history on every docs page
+- [x] **DINF-04**: mkdocs-git-revision-date-localized shows "last updated" dates from git history on every docs page
 
 ### New Feature Documentation
 
@@ -68,10 +68,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DINF-01 | Phase 23 | Pending |
+| DINF-01 | Phase 23 | Complete |
 | DINF-02 | Phase 23 | Complete |
 | DINF-03 | Phase 23 | Complete |
-| DINF-04 | Phase 23 | Pending |
+| DINF-04 | Phase 23 | Complete |
 | DEBT-09 | Phase 23 | Complete |
 | DEBT-10 | Phase 23 | Complete |
 | QUAL-01 | Phase 24 | Pending |
