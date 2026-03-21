@@ -51,6 +51,19 @@ CAT_STRUCTURAL = "structural_validation"
 CAT_GARDEN = "garden_health"
 CAT_SCHEMA_VERSION = "schema_version"
 
+# Title quality advisory — patterns considered too short or generic
+_GENERIC_TITLE_PATTERNS: frozenset[str] = frozenset(
+    {
+        "untitled",
+        "new note",
+        "note",
+        "notes",
+        "draft",
+        "temp",
+        "test",
+    }
+)
+
 
 class _ConsistencyReadError(ValueError):
     """Raised when a content file cannot be normalized for consistency checks."""
@@ -638,10 +651,12 @@ class CheckService(BaseService):
         return issues
 
     def _check_structural_validation(self, conn: Connection) -> list[dict[str, Any]]:
-        """Category 4: ID format, status validity, tag format."""
+        """Category 4: ID format, status validity, tag format, title quality."""
         issues: list[dict[str, Any]] = []
 
-        all_nodes = conn.execute(select(nodes.c.id, nodes.c.type, nodes.c.status)).fetchall()
+        all_nodes = conn.execute(
+            select(nodes.c.id, nodes.c.type, nodes.c.status, nodes.c.title)
+        ).fetchall()
 
         # Collect valid statuses per type from lifecycle
         from ztlctl.domain.lifecycle import (
@@ -704,6 +719,29 @@ class CheckService(BaseService):
                         "node_id": nt.node_id,
                         "message": (
                             f"Tag '{nt.tag}' missing domain/scope format (e.g. 'domain/scope')"
+                        ),
+                        "fix_action": None,
+                    }
+                )
+
+        # Title quality advisory (info severity)
+        for row in all_nodes:
+            title = str(row.title or "").strip()
+            title_lower = title.lower()
+            word_count = len(title.split())
+            is_generic = title_lower in _GENERIC_TITLE_PATTERNS or title_lower.startswith(
+                "notes on "
+            )
+            if word_count <= 3 or is_generic:
+                issues.append(
+                    {
+                        "category": CAT_STRUCTURAL,
+                        "severity": SEVERITY_INFO,
+                        "node_id": row.id,
+                        "message": (
+                            f"Title quality: '{title}' is short or generic — "
+                            "consider a prose title that captures the specific insight "
+                            "(see methodology.md for examples)"
                         ),
                         "fix_action": None,
                     }

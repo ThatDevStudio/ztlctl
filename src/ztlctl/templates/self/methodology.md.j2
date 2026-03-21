@@ -56,6 +56,20 @@ Focus areas: {{ topics | join(", ") }}.
 - Close sessions to trigger enrichment: reweave, orphan sweep, integrity check
 - Session logs capture what was accomplished for future reference
 
+### Prose-as-Title Convention
+
+Your titles ARE your search index. Write them as complete thoughts, not labels.
+
+| Instead of | Write |
+|-----------|-------|
+| "Authentication" | "JWT authentication with refresh token rotation" |
+| "Meeting Notes" | "Q1 planning alignment on data pipeline priorities" |
+| "Bug Fix" | "Fix race condition in session close during concurrent reweave" |
+| "Ideas" | "Potential approaches to cross-vault knowledge federation" |
+
+A good title lets you find the note without opening it. Aim for 4+ words
+that capture the specific insight, decision, or topic.
+
 ### Graph Maintenance
 
 - Run `check` periodically to detect structural issues

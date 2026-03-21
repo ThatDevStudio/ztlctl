@@ -1016,3 +1016,137 @@ class TestRebuildCompleteness:
             recovered_b = conn.execute(select(nodes.c.id).where(nodes.c.id == data_b["id"])).first()
         assert recovered_a is not None
         assert recovered_b is not None
+
+
+# ---------------------------------------------------------------------------
+# Title quality checks (METH-01)
+# ---------------------------------------------------------------------------
+
+
+class TestTitleQualityCheck:
+    """Title quality advisory (info severity) under CAT_STRUCTURAL."""
+
+    def test_single_word_title_flagged_at_info(self, vault: Vault) -> None:
+        """A 1-word title like 'Notes' is flagged at info severity."""
+        create_note(vault, "Notes")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) >= 1
+
+    def test_two_word_title_flagged_at_info(self, vault: Vault) -> None:
+        """A 2-word title like 'My Notes' is flagged at info severity."""
+        create_note(vault, "My Notes")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "My Notes" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+
+    def test_three_word_title_flagged_at_info(self, vault: Vault) -> None:
+        """A 3-word title like 'Notes on X' is flagged at info severity."""
+        create_note(vault, "Notes on X")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "Notes on X" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+
+    def test_generic_title_untitled_flagged(self, vault: Vault) -> None:
+        """Generic title 'Untitled' is flagged at info severity."""
+        create_note(vault, "Untitled")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "Untitled" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+
+    def test_generic_title_new_note_flagged(self, vault: Vault) -> None:
+        """Generic title 'New Note' is flagged at info severity."""
+        create_note(vault, "New Note")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "New Note" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+
+    def test_descriptive_title_not_flagged(self, vault: Vault) -> None:
+        """A descriptive 4+ word title is NOT flagged."""
+        create_note(vault, "JWT authentication with refresh token rotation")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "JWT authentication with refresh token rotation" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 0
+
+    def test_title_issues_hidden_at_warning_severity(self, vault: Vault) -> None:
+        """Title quality issues (info) are NOT visible at default min_severity='warning'."""
+        create_note(vault, "Notes")
+        result_warning = CheckService(vault).check(min_severity="warning")
+        result_info = CheckService(vault).check(min_severity="info")
+        assert result_warning.ok
+        assert result_info.ok
+
+        warning_title_issues = [
+            i
+            for i in result_warning.data["issues"]
+            if "Title quality" in str(i.get("message", ""))
+        ]
+        info_title_issues = [
+            i for i in result_info.data["issues"] if "Title quality" in str(i.get("message", ""))
+        ]
+        assert len(warning_title_issues) == 0
+        assert len(info_title_issues) >= 1
+
+    def test_title_issue_category_and_severity(self, vault: Vault) -> None:
+        """Title quality issues have correct category and severity."""
+        from ztlctl.services.check import CAT_STRUCTURAL, SEVERITY_INFO
+
+        create_note(vault, "Draft")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if "Title quality" in str(i.get("message", ""))
+            and "Draft" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+        assert title_issues[0]["category"] == CAT_STRUCTURAL
+        assert title_issues[0]["severity"] == SEVERITY_INFO
