@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 16-03-PLAN.md
-last_updated: "2026-03-21T18:05:00.130Z"
+stopped_at: Completed 17-02-PLAN.md
+last_updated: "2026-03-21T18:21:48.086Z"
 progress:
   total_phases: 8
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 15 — event-model-hardening
+**Current focus:** Phase 17 — registry-decomposition-and-plugin-runtime
 
 ## Current Position
 
-Phase: 17
-Plan: Not started
+Phase: 17 (registry-decomposition-and-plugin-runtime) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Plan: Not started
 | Phase 15-event-model-hardening P04 | 371 | 2 tasks | 7 files |
 | Phase 16-plugin-bridge-and-action-executor P01 | 249 | 2 tasks | 4 files |
 | Phase 16-plugin-bridge-and-action-executor P03 | 45 | 2 tasks | 19 files |
+| Phase 17-registry-decomposition-and-plugin-runtime P02 | 6 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,8 @@ Recent decisions affecting current work:
 - [Phase 16]: All 63 controller methods now delegate to _run_action; _dispatch_pre_action called only in base.py (ARCH-06 complete)
 - [Phase 16]: garden_seed handler uses single-call lambda (vault, **kw) matching all other ActionDefinitions — two-level lambda incompatible with CLI/MCP generator calling convention
 - [Phase 16]: garden_seed registered in creation category; commands/garden.py deleted; generator auto-creates garden CLI group (ARCH-09 complete)
+- [Phase 17]: vault.py uses cache=False in get_plugin_manager() because it mutates the PM with instance-specific built-ins (git-builtin, reweave-builtin) — caching would cause re-registration errors on second Vault construction
+- [Phase 17]: load_plugin_commands passes settings=settings to get_plugin_manager() fixing DEBT-07 (inject_configs gap)
 
 ### Pending Todos
 
@@ -100,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T17:54:05Z
-Stopped at: Completed 16-03-PLAN.md
+Last session: 2026-03-21T18:21:48.084Z
+Stopped at: Completed 17-02-PLAN.md
 Resume file: None
