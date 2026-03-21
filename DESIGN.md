@@ -44,7 +44,7 @@ These rules apply across the entire codebase. Violating any of them is a bug.
 │   17 controllers · _run_action executor pattern      │
 │   pre/post-action hook dispatch · ActionRegistry     │
 ├─────────────────────────────────────────────────────┤
-│         Service Layer (15 services, Section 10)      │
+│         Service Layer (16 services, Section 10)      │
 │   CreateService · QueryService · GraphService        │
 │   SessionService · ReweaveService · CheckService     │
 │   VectorService · RecallService · IngestService      │
