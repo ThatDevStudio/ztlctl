@@ -114,8 +114,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 18-01: Residue removal (workspace_modes, dead helpers, transitional scaffolding)
-- [ ] 18-02: Category cleanup, ServiceError.recovery resolution, embedding config, bridges approximation
+- [ ] 18-01-PLAN.md — Residue removal (workspace_modes.py, mutation category), ServiceError.recovery resolution, REQUIREMENTS update
+- [ ] 18-02-PLAN.md — Embedding dimension constant, bridges k-approximation, REQUIREMENTS update
 
 ### Phase 19: Methodology Guidance and Polaris
 **Goal**: Prose-as-title conventions are documented and checked by the integrity scanner, and a persistent polaris priorities layer is accessible to agents and users
