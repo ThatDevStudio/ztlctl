@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 17-02-PLAN.md
-last_updated: "2026-03-21T18:21:48.086Z"
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-03-21T18:24:48.280Z"
 progress:
   total_phases: 8
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -59,6 +59,7 @@ Plan: 2 of 2
 | Phase 16-plugin-bridge-and-action-executor P01 | 249 | 2 tasks | 4 files |
 | Phase 16-plugin-bridge-and-action-executor P03 | 45 | 2 tasks | 19 files |
 | Phase 17-registry-decomposition-and-plugin-runtime P02 | 6 | 2 tasks | 7 files |
+| Phase 17-registry-decomposition-and-plugin-runtime P01 | 15 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Recent decisions affecting current work:
 - [Phase 16]: garden_seed registered in creation category; commands/garden.py deleted; generator auto-creates garden CLI group (ARCH-09 complete)
 - [Phase 17]: vault.py uses cache=False in get_plugin_manager() because it mutates the PM with instance-specific built-ins (git-builtin, reweave-builtin) — caching would cause re-registration errors on second Vault construction
 - [Phase 17]: load_plugin_commands passes settings=settings to get_plugin_manager() fixing DEBT-07 (inject_configs gap)
+- [Phase 17-registry-decomposition-and-plugin-runtime]: _register_core.py decomposed into 9 feature-local modules; each owns one registration function; __init__.py calls all 9 at module load time (ARCH-07)
 
 ### Pending Todos
 
@@ -103,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T18:21:48.084Z
-Stopped at: Completed 17-02-PLAN.md
+Last session: 2026-03-21T18:24:48.278Z
+Stopped at: Completed 17-01-PLAN.md
 Resume file: None

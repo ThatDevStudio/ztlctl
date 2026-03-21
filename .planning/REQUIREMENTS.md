@@ -15,7 +15,7 @@ Requirements for v3.0 release. Each maps to roadmap phases.
 - [x] **ARCH-04**: Canonical action-event payload model with stable shape (`action_name`, `side_effect`, `payload`, `warnings`)
 - [x] **ARCH-05**: Compatibility bridge reversed — stable action events adapt into legacy hook calls (not legacy → stable)
 - [x] **ARCH-06**: Generic action executor replaces repeated pre/post hook boilerplate in controllers
-- [ ] **ARCH-07**: Action registrations decomposed into feature-local modules (`actions/create.py`, `actions/query.py`, etc.)
+- [x] **ARCH-07**: Action registrations decomposed into feature-local modules (`actions/create.py`, `actions/query.py`, etc.)
 - [x] **ARCH-08**: Centralized plugin runtime discovery — single coherent owner per scope for plugins, profiles, workflows, init steps
 - [x] **ARCH-09**: Command surface convergence — `garden seed` is a first-class action; hybrid patching reduced
 - [ ] **ARCH-10**: Compatibility residue removed — dead controller helpers, deprecated `workspace_modes.py`, transitional scaffolding
@@ -105,7 +105,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARCH-04 | Phase 15 | Complete |
 | ARCH-05 | Phase 16 | Complete |
 | ARCH-06 | Phase 16 | Complete |
-| ARCH-07 | Phase 17 | Pending |
+| ARCH-07 | Phase 17 | Complete |
 | ARCH-08 | Phase 17 | Complete |
 | ARCH-09 | Phase 16 | Complete |
 | ARCH-10 | Phase 18 | Pending |
