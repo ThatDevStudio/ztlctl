@@ -1,78 +1,79 @@
 # Architecture Research
 
-**Domain:** Multi-audience documentation site with agent accessibility (Jekyll + Just the Docs)
-**Researched:** 2026-03-20
+**Domain:** Docs-as-code enforcement and MkDocs site integration for a Python CLI/MCP tool (v3.1 Documentation & Hardening milestone)
+**Researched:** 2026-03-21
 **Confidence:** HIGH
+
+> This document supersedes the v2.1 ARCHITECTURE.md (which described a Jekyll/Just-the-Docs system that was never implemented). The live system is MkDocs + mkdocs-shadcn with GitHub Pages artifact deploy. All findings are derived from reading the actual codebase.
+
+---
 
 ## Standard Architecture
 
 ### System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Authoring Layer                              │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐   │
-│  │  docs/guide/     │  │  docs/dev/       │  │  docs/           │   │
-│  │  (User Guide)    │  │  (Dev Guide)     │  │  (Root pages +   │   │
-│  │  MD + nav        │  │  MD + nav        │  │   llms.txt)      │   │
-│  └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘   │
-└───────────┼─────────────────────┼─────────────────────┼─────────────┘
-            │                     │                     │
-┌───────────┴─────────────────────┴─────────────────────┴─────────────┐
-│                        Build Layer (Jekyll)                           │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │  Just the Docs remote theme                                 │    │
-│  │  nav built from parent: / nav_order: front matter           │    │
-│  │  _config.yml — search, aux_links, excludes                  │    │
-│  └─────────────────────┬───────────────────────────────────────┘    │
-│                        │                                            │
-│  ┌─────────────────────┴───────────────────────────────────────┐    │
-│  │  scripts/gen_llms_txt.py                                    │    │
-│  │  (Pre-build: walks docs/ tree, writes docs/llms.txt)        │    │
-│  └───────────────────────────┬─────────────────────────────────┘    │
-│                              │                                      │
-│  ┌───────────────────────────┴─────────────────────────────────┐    │
-│  │  scripts/build_docs_index.py                                │    │
-│  │  (Pre-package-build: writes src/ztlctl/data/docs_index.json)│    │
-│  └─────────────────────────────────────────────────────────────┘    │
+┌──────────────────────────────────────────────────────────────────────┐
+│                          Authoring Layer                              │
+│                                                                       │
+│  docs/                          docs/guide/      docs/dev/            │
+│  ├── index.md (landing)         (flat pages,     (flat pages,         │
+│  ├── installation.md            referenced by    referenced by        │
+│  ├── quickstart.md              mkdocs.yml nav)  mkdocs.yml nav)      │
+│  ├── [v3.0 feature pages]  <-- NEW: 5 pages                          │
+│  ├── llms.txt (maintained)                                            │
+│  └── llms-full.txt (maintained)                                       │
+│                                                                       │
+│  Internal (excluded from build via mkdocs.yml exclude_docs)          │
+│  └── docs/plans/               <- already excluded                   │
 └──────────────────────────────────────────────────────────────────────┘
-            │
-┌───────────┴──────────────────────────────────────────────────────────┐
-│                          Output Layer                                 │
-│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────────┐   │
-│  │  HTML site   │  │  /llms.txt       │  │  docs_index.json     │   │
-│  │  (GitHub     │  │  (static file,   │  │  (embedded in Python │   │
-│  │   Pages)     │  │   served by GH   │  │   package as data)   │   │
-│  └──────────────┘  │   Pages)         │  └──────────────────────┘   │
-│                    └──────────────────┘                              │
+                          │
+┌─────────────────────────┴────────────────────────────────────────────┐
+│                           Build Layer                                 │
+│                                                                       │
+│  mkdocs.yml — explicit nav: tree drives all navigation               │
+│  mkdocs build --strict  — fatal on warnings (broken refs, bad links) │
+│  mkdocs-shadcn theme                                                  │
+│  mkdocstrings[python] — auto-generates api-reference.md content      │
+│  mkdocs-redirects — handles any URL changes without breaking links   │
+│                                                                       │
+│  NEW: docs linting step (pre-CI or new CI step)                      │
+│  ├── mkdocs build --strict  (already done in docs.yml deploy)        │
+│  ├── linkcheck (markdown-link-check or lychee)                       │
+│  └── example verification (grep or ast-based spot check)             │
 └──────────────────────────────────────────────────────────────────────┘
-            │                          │                │
-┌───────────┴──────────────────────────┴────────────────┴─────────────┐
+                          │
+┌─────────────────────────┴────────────────────────────────────────────┐
+│                           Deploy Layer                                │
+│                                                                       │
+│  docs.yml (GitHub Actions):                                           │
+│  push to develop → mkdocs build → upload Pages artifact              │
+│  → deploy-pages action → https://thatdevstudio.github.io/ztlctl/    │
+│                                                                       │
+│  No gh-pages branch. Artifact-based deploy (v2.1 decision).         │
+└──────────────────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────┴────────────────────────────────────────────┐
 │                         Consumer Layer                                │
-│  ┌──────────────┐  ┌────────────────────┐  ┌──────────────────────┐ │
-│  │  Human users │  │  MCP clients /     │  │  ztlctl docs <query> │ │
-│  │  (browser)   │  │  AI agents         │  │  (CLI command reads  │ │
-│  │              │  │  (llms.txt +       │  │   embedded index,    │ │
-│  │              │  │   docs:// resource)│  │   no network needed) │ │
-│  └──────────────┘  └────────────────────┘  └──────────────────────┘ │
+│                                                                       │
+│  Human users (browser) │ AI agents (llms.txt, llms-full.txt,        │
+│                         │  ztlctl docs <query> CLI, MCP doc search)  │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Component Responsibilities
 
-| Component | Responsibility | Implementation |
-|-----------|----------------|----------------|
-| `docs/guide.md` | User Guide section root — rendered as collapsible nav parent | `nav_order: 2`, `has_children: true` front matter |
-| `docs/guide/` | User Guide content pages — tutorials, concepts, workflows, recipes, Obsidian | Each page: `parent: User Guide`, sequential `nav_order:` |
-| `docs/dev.md` | Developer Guide section root — plugin authors and contributors | `nav_order: 3`, `has_children: true` front matter |
-| `docs/dev/` | Developer Guide content pages — plugin API, hookspecs, architecture, contributing | Each page: `parent: Developer Guide`, sequential `nav_order:` |
-| `docs/index.md` | Landing page — audience routing, quick links to both sections | `nav_order: 1`, no parent |
-| `docs/llms.txt` | Agent/LLM discovery file following llms.txt spec | Generated by `scripts/gen_llms_txt.py`, committed |
-| `docs/_config.yml` | Jekyll config — excludes internal files from public build | Add `plans/` to `exclude:` list |
-| `scripts/gen_llms_txt.py` | Walks `docs/` tree, extracts frontmatter, emits `docs/llms.txt` | Standalone Python, no ztlctl imports |
-| `scripts/build_docs_index.py` | Walks `docs/` tree, strips frontmatter, writes `src/ztlctl/data/docs_index.json` | Run before `uv build`; output committed |
-| `src/ztlctl/commands/docs.py` | `ztlctl docs <query>` Click command — keyword search over embedded index | Reads `docs_index.json` via `importlib.resources` |
-| `src/ztlctl/mcp/resources.py` | Adds `docs://search` MCP resource — agent-queryable documentation | Shares `_docs_search_impl()` with CLI command |
+| Component | Responsibility | Notes |
+|-----------|----------------|-------|
+| `mkdocs.yml nav:` | Single source of truth for site navigation | Must be updated when any page is added or renamed |
+| `docs/` root files | User Guide pages — flat, referenced directly in nav | No `parent:` front matter (MkDocs does not use it) |
+| `docs/guide/index.md` | User Guide section landing page | Modified to link new v3.0 feature pages |
+| `docs/dev/index.md` | Developer Guide section landing page | Unchanged for v3.1 |
+| `docs/llms.txt` | Machine-readable index of doc pages for agent discovery | Hand-maintained; must be updated when pages are added |
+| `docs/llms-full.txt` | Full documentation corpus concatenated for LLM ingestion | Hand-maintained; must be updated when pages change |
+| `docs.yml` | Build and deploy to GitHub Pages on push to develop | Only runs on develop; no PR doc check currently |
+| `pr-ci.yml` | PR gate: lint, format, mypy, pytest, build, pip-audit | No doc checks currently — gap to address in v3.1 |
+| `CLAUDE.md` | Standing instructions for Claude Code | Needs explicit docs-as-code rule |
 
 ---
 
@@ -80,487 +81,427 @@
 
 ```
 docs/
-├── _config.yml                      # Modified: exclude plans/, verify excludes
-├── index.md                         # Landing page — audience routing, nav_order: 1
+├── index.md                         # Modified: add v3.0 features to overview table
+├── concepts.md                      # Modified: add v3.0 types (sessions, contradictions, media)
+├── agentic-workflows.md             # Modified: add v3.0 recipes (recall, polaris, contradiction)
+├── agents.md                        # Modified: add v3.0 tool inventory entries
+├── mcp.md                           # Modified: update tool count (73+), add new resources
 │
-├── guide.md                         # User Guide parent, nav_order: 2, has_children: true
+├── session-recall.md                # NEW: session recall — temporal/topic/topology querying
+├── polaris.md                       # NEW: polaris priorities layer — init, MCP resource, check_alignment
+├── contradiction-detection.md       # NEW: heuristic contradiction scoring, CAT_SEMANTIC, review workflow
+├── media-ingestion.md               # NEW: faster-whisper pipeline, VTT/SRT, two-phase workflow
+├── methodology-guidance.md          # NEW: prose-as-title, title quality check, garden backlog candidates
+│
+├── llms.txt                         # Modified: add 5 new page entries
+├── llms-full.txt                    # Modified: append 5 new pages' full content
+│
 ├── guide/
-│   ├── installation.md              # parent: User Guide, nav_order: 1
-│   ├── quickstart.md                # parent: User Guide, nav_order: 2
-│   ├── tutorial.md                  # parent: User Guide, nav_order: 3
-│   ├── concepts.md                  # parent: User Guide, nav_order: 4
-│   ├── paradigms.md                 # parent: User Guide, nav_order: 5
-│   ├── obsidian.md                  # parent: User Guide, nav_order: 6
-│   ├── commands.md                  # parent: User Guide, nav_order: 7
-│   ├── configuration.md             # parent: User Guide, nav_order: 8
-│   ├── mcp.md                       # parent: User Guide, nav_order: 9
-│   ├── agentic-workflows.md         # parent: User Guide, nav_order: 10
-│   └── troubleshooting.md           # parent: User Guide, nav_order: 11
-│
-├── dev.md                           # Developer Guide parent, nav_order: 3, has_children: true
+│   └── index.md                     # Modified: link new feature pages in User Guide table
 ├── dev/
-│   ├── architecture.md              # parent: Developer Guide, nav_order: 1
-│   ├── contributing.md              # parent: Developer Guide, nav_order: 2
-│   ├── plugin-guide.md              # parent: Developer Guide, nav_order: 3
-│   ├── hookspecs.md                 # parent: Developer Guide, nav_order: 4
-│   ├── api-reference.md             # parent: Developer Guide, nav_order: 5
-│   └── action-registry.md           # parent: Developer Guide, nav_order: 6
-│
-├── llms.txt                         # Generated; committed; served at /ztlctl/llms.txt
-└── plans/                           # Excluded from build; internal planning only
+│   └── index.md                     # Unchanged
+└── plans/                           # Excluded from build (mkdocs.yml exclude_docs)
     └── *.md
 
-scripts/
-├── gen_llms_txt.py                  # New: generates docs/llms.txt from docs/ tree
-└── build_docs_index.py              # New: generates src/ztlctl/data/docs_index.json
+.github/workflows/
+├── pr-ci.yml                        # Modified: add doc-lint job (mkdocs build --strict + link check)
+└── docs.yml                         # Unchanged (already builds + deploys)
 
-src/ztlctl/
-├── commands/
-│   └── docs.py                      # New: `ztlctl docs <query>` Click command
-├── data/
-│   └── docs_index.json              # Generated artifact; committed; included as package data
-└── mcp/
-    └── resources.py                 # Modified: add docs://search resource (7th resource)
+mkdocs.yml                           # Modified: add 5 new pages to nav: User Guide section
+
+CLAUDE.md                            # Modified: add docs-as-code rule (architecture section)
+
+.planning/milestones/v3.1-phases/
+└── [phase files]                    # GSD phases — each feature phase includes doc tasks
 ```
-
-### Files Removed from docs/ Root (After Move)
-
-| File | Disposition |
-|---|---|
-| `installation.md` | Moved to `docs/guide/installation.md` |
-| `quickstart.md` | Moved to `docs/guide/quickstart.md` |
-| `tutorial.md` | Moved to `docs/guide/tutorial.md` |
-| `concepts.md` | Moved to `docs/guide/concepts.md` |
-| `paradigms.md` | Moved to `docs/guide/paradigms.md` |
-| `obsidian.md` | Moved to `docs/guide/obsidian.md` |
-| `commands.md` | Moved to `docs/guide/commands.md` |
-| `configuration.md` | Moved to `docs/guide/configuration.md` |
-| `mcp.md` | Moved to `docs/guide/mcp.md` |
-| `agentic-workflows.md` | Moved to `docs/guide/agentic-workflows.md` |
-| `troubleshooting.md` | Moved to `docs/guide/troubleshooting.md` |
-| `development.md` | Moved to `docs/dev/contributing.md` (rename on move) |
-| `backlog.md` | Removed from public docs; archive in `.planning/` or delete |
-| `research-mapping.md` | Removed from public docs; archive in `.planning/` or delete |
-| `roadmap.md` | Removed from public docs; archive in `.planning/` or delete |
 
 ### Structure Rationale
 
-- **`docs/guide.md` + `docs/guide/`:** Just the Docs determines hierarchy from `parent:` front matter, not from directory structure. The parent page must be a standalone file (`guide.md`), not a directory index. Child pages in `docs/guide/` declare `parent: User Guide` to attach to it.
-- **`docs/dev.md` + `docs/dev/`:** Same pattern for Developer Guide.
-- **New section pages written fresh:** The user-facing content for plugin guides, hookspecs, and API reference does not exist yet and will be written as new files in `docs/dev/`.
-- **`docs/plans/` excluded from build:** Add to `_config.yml` `exclude:` list. GitHub Pages currently serves these files publicly, which is unintended.
-- **`docs/llms.txt` committed:** Generation takes under 1 second for a ~20-page site. Committing the output means it is always present when GitHub Pages builds. No GitHub Actions complexity needed.
-- **`scripts/` at repo root:** Keeps build tools in Python without requiring Jekyll plugins or Ruby. No new project dependencies.
+- **New pages in `docs/` root, not `docs/guide/`:** Existing v2.1 pages (concepts, commands, etc.) live at `docs/` root. The five new v3.0 feature pages follow the same convention. Moving them into `docs/guide/` would require updating all cross-links — no benefit for v3.1.
+- **No subdirectory for v3.0 features:** Five pages do not warrant a new section. They slot into the User Guide nav section alongside existing pages via `mkdocs.yml nav:`.
+- **`mkdocs.yml nav:` is the authoritative navigation registry:** MkDocs with `nav:` defined ignores filesystem layout for navigation. A file that exists in `docs/` but is not in `nav:` is built (if referenced by a page) but not reachable from any navigation. New pages must be added explicitly.
+- **llms.txt and llms-full.txt are hand-maintained:** The v2.1 research proposed a generator script; the actual v2.1 implementation committed hand-maintained files (confirmed by reading the live files). For v3.1, maintain the same approach — add entries when pages are added. The CLAUDE.md rule enforces this.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Just the Docs Parent/Child Navigation via Front Matter
+### Pattern 1: MkDocs nav Registration
 
-**What:** Every page in a section declares its parent with `parent: [exact title]`. The parent page declares `has_children: true`. Three levels use `grand_parent:`. Ordering within a section uses `nav_order:`.
+**What:** Every new doc page must be registered in `mkdocs.yml` under the appropriate section of the `nav:` tree. Without this entry, MkDocs builds the HTML but the page is unreachable from navigation.
 
-**When to use:** All pages in `docs/guide/` and `docs/dev/`. This is the only navigation mechanism Just the Docs supports — there is no sidebar config file, no `_data/navigation.yml`.
+**When to use:** Always — every new `.md` file in `docs/`.
 
-**Trade-offs:** Title matching is string-based and case-sensitive. Renaming a parent page's `title:` breaks all children until they are updated. Keep parent page titles stable.
+**Trade-offs:** Explicit nav requires a mechanical `mkdocs.yml` edit per page. The benefit is that a missing nav entry is detectable: `mkdocs build --strict` emits a warning for docs files not reachable from nav (with `not_in_nav` plugin or by observing "documentation file not found" warnings). Use this as a lint signal.
 
-**Example front matter:**
+**Example — adding the 5 v3.0 pages to nav:**
 
 ```yaml
-# docs/guide.md  — section root (parent page)
----
-title: User Guide
-nav_order: 2
-has_children: true
----
-
-# docs/guide/concepts.md  — child page
----
-title: Core Concepts
-parent: User Guide
-nav_order: 4
----
-
-# docs/guide/workflows/index.md  — grandchild section root
----
-title: Workflows
-parent: User Guide
-has_children: true
-nav_order: 10
----
-
-# docs/guide/workflows/research-capture.md  — grandchild page
----
-title: Research Capture Workflow
-parent: Workflows
-grand_parent: User Guide
-nav_order: 1
----
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quick Start: quickstart.md
+  - User Guide:
+    - guide/index.md
+    - Tutorial: tutorial.md
+    - Core Concepts: concepts.md
+    - Knowledge Paradigms: paradigms.md
+    - Obsidian Starter Kit: obsidian.md
+    - Built-in Plugins: plugins.md
+    - Session Recall: session-recall.md           # NEW
+    - Polaris Priorities: polaris.md              # NEW
+    - Contradiction Detection: contradiction-detection.md  # NEW
+    - Media Ingestion: media-ingestion.md         # NEW
+    - Methodology Guidance: methodology-guidance.md        # NEW
+    - Agentic Workflows: agentic-workflows.md
+    - Command Reference: commands.md
+    - Configuration: configuration.md
+    - Troubleshooting: troubleshooting.md
+    - Best Practices: best-practices.md
+  - Developer Guide:
+    - dev/index.md
+    - Contributing: development.md
+    - Plugin Authoring: plugin-guide.md
+    - API Reference: api-reference.md
+    - MCP Server: mcp.md
+    - Agent System Manual: agents.md
 ```
 
-Note: `has_children: true` is technically redundant in Just the Docs >= 0.10.0 (inferred from children declaring `parent:`), but keep it explicit on section root pages for clarity.
+### Pattern 2: Strict Build as Doc Lint Gate
 
-### Pattern 2: llms.txt Generated from Docs Tree
+**What:** `mkdocs build --strict` converts all MkDocs warnings into errors. This catches: broken internal links, pages in `docs/` not referenced by `nav:`, malformed front matter. Run in PR CI to block merges with broken docs.
 
-**What:** `scripts/gen_llms_txt.py` walks `docs/`, reads YAML frontmatter for `title`, `description`, `parent`, and `nav_order`, groups pages by section, sorts by `nav_order`, filters internal files, and writes `docs/llms.txt` following the [llms.txt spec](https://llmstxt.org/): H1 project name, blockquote summary, H2 sections with markdown links and descriptions.
+**When to use:** In a new `doc-lint` job in `pr-ci.yml`, separate from the main `validate_pr` job so it can be clearly identified in the CI summary.
 
-**When to use:** Run this script whenever docs content changes. Commit the output to `docs/llms.txt`. Do not maintain the file by hand.
+**Trade-offs:** Adds ~30 seconds to PR CI (MkDocs build on a 20-page site is fast). Worth it — catches broken links before merge, not after deploy.
 
-**Trade-offs:** A generation step must be run manually (or added as a pre-commit hook). The alternative — hand-maintenance — produces drift within weeks. For a ~20-page site, generation is trivially fast.
+**Implementation in `pr-ci.yml`:**
 
-**Output format following the llms.txt spec:**
+```yaml
+doc_lint:
+  name: Doc Lint
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+    - name: Install MkDocs dependencies
+      run: pip install mkdocs==1.6.1 mkdocs-shadcn==0.10.2 mkdocs-redirects==1.2.2 "mkdocstrings[python]>=1.0.3"
+    - name: Doc lint (strict build)
+      run: mkdocs build --strict
+    - name: Link check
+      run: |
+        pip install linkchecker
+        linkchecker site/ --check-extern --ignore-url "^https://github.com" --ignore-url "^https://pypi.org"
+```
+
+Note: External link checking is optional and can be scoped to only internal links (`--no-warnings --check-extern` can be omitted) to avoid flakiness from transient network failures in CI.
+
+### Pattern 3: CLAUDE.md Docs-as-Code Rule
+
+**What:** A standing rule in CLAUDE.md that fires whenever code changes touch a feature. The rule is explicit and checkable, not vague ("keep docs current").
+
+**When to use:** Every time a feature is added, modified, or removed.
+
+**Recommended rule text for CLAUDE.md:**
 
 ```markdown
-# ztlctl
+## Documentation Rule
 
-> A local knowledge operating system for human users and AI agents.
-> CLI and MCP tool for Zettelkasten knowledge management.
+Every PR that adds, modifies, or removes a user-visible feature MUST include documentation changes in the same PR. "Same PR" is enforced — do not open a follow-up doc PR.
 
-## User Guide
+**What counts as user-visible:** New CLI commands or flags, new MCP tools/resources/prompts,
+new configuration keys, changed behavior of existing commands, new content types or lifecycle states.
 
-- [Installation](https://thatdevstudio.github.io/ztlctl/guide/installation): Install via pip, uv, or Homebrew
-- [Quick Start](https://thatdevstudio.github.io/ztlctl/guide/quickstart): Your first vault in 9 commands
-- [Core Concepts](https://thatdevstudio.github.io/ztlctl/guide/concepts): Content types, lifecycle states, vault structure
+**Required updates per change:**
+1. The feature's dedicated page in `docs/` — write or update it
+2. `mkdocs.yml nav:` — add the page if it is new
+3. `docs/llms.txt` — add a line for the new page (title + URL)
+4. `docs/llms-full.txt` — append the page's full content
+5. `docs/index.md` quick links table — if the feature warrants a top-level entry
+6. Cross-reference pages — concepts.md, agents.md, agentic-workflows.md, mcp.md as relevant
 
-## Developer Guide
-
-- [Plugin Guide](https://thatdevstudio.github.io/ztlctl/dev/plugin-guide): Writing plugins with hookspecs and custom note types
-- [API Reference](https://thatdevstudio.github.io/ztlctl/dev/api-reference): Plugin contracts, hook signatures, ActionRegistry
-
-## Optional
-
-- [Command Reference](https://thatdevstudio.github.io/ztlctl/guide/commands): Full CLI options and flags reference
-- [Troubleshooting](https://thatdevstudio.github.io/ztlctl/guide/troubleshooting): Common issues and solutions
+**Verification:** Run `mkdocs build --strict` locally before pushing. A clean build means no broken links and no unreachable pages.
 ```
 
-### Pattern 3: Embedded Doc Index for CLI and MCP Search
+### Pattern 4: GSD Phase Doc Task Injection
 
-**What:** `scripts/build_docs_index.py` walks `docs/`, strips YAML frontmatter, extracts section headings and body text, builds an array of page records, and writes `src/ztlctl/data/docs_index.json`. The Python package includes this file as package data. At runtime, `ztlctl docs <query>` and the MCP `docs://search` resource both read the index via `importlib.resources` and perform keyword matching against title, headings, and body.
+**What:** Every GSD phase plan for a feature includes a mandatory doc task block. This is a structural convention in the phase template — not advisory but required to close the phase.
 
-**When to use:** Run before `uv build` (package build). Commit the generated file so it is always current relative to the source docs.
+**When to use:** Every feature phase in every future milestone.
 
-**Trade-offs:** The index is static relative to the installed package version. An older install has older docs — this is intentional and correct behavior. Index size for ~20 pages is negligible (< 100 KB uncompressed).
+**Standard doc task block to include in each phase plan:**
 
-**`docs_index.json` record shape:**
+```markdown
+### Documentation Tasks
 
-```json
-[
-  {
-    "id": "guide/concepts",
-    "title": "Core Concepts",
-    "section": "User Guide",
-    "url": "https://thatdevstudio.github.io/ztlctl/guide/concepts",
-    "description": "Content types, lifecycle states, vault structure",
-    "headings": ["Content Types", "Lifecycle States", "Vault Structure"],
-    "body": "ztlctl manages three durable authored artifact types..."
-  }
-]
+These tasks close in the same phase as the feature — not deferred.
+
+- [ ] Write or update `docs/<feature-page>.md` with CLI usage, MCP tool reference, examples, and agent workflow
+- [ ] Update `mkdocs.yml nav:` to include the new page
+- [ ] Update `docs/llms.txt` with the new page entry
+- [ ] Update `docs/llms-full.txt` with the page's full content
+- [ ] Update cross-reference pages: concepts.md (if new type), agents.md (tool inventory), mcp.md (tool count), agentic-workflows.md (if new recipe)
+- [ ] Verify: `mkdocs build --strict` passes locally
 ```
 
-### Pattern 4: Shared `_docs_search_impl()` for CLI and MCP
+### Pattern 5: Redirect Registration for URL Changes
 
-**What:** Both the CLI command (`commands/docs.py`) and the MCP resource (`mcp/resources.py`) call a shared helper function `_docs_search_impl(query: str, limit: int = 10) -> list[dict]`. This helper loads `docs_index.json` via `importlib.resources` (cached in a module-level variable after the first call) and returns matching records.
+**What:** When a doc page is renamed or moved, the old URL must redirect to the new URL via `mkdocs.yml redirects:`. Without this, any external link (blog posts, agent memory, search engine results) hard-breaks.
 
-**When to use:** This is the existing `_impl` pattern already used across all 25 MCP tool functions. Apply the same pattern here.
+**When to use:** Whenever a doc file is renamed or moved.
 
-**Trade-offs:** None. This is the established project convention — separating testable logic from Click/MCP wiring.
+**Trade-offs:** Requires remembering to add the redirect alongside the file change. The `mkdocs-redirects` plugin is already installed (in both `pyproject.toml` dev deps and `docs.yml` CI). The cost is one YAML line.
 
-```python
-# src/ztlctl/mcp/_docs_search_impl.py  (or inline in resources.py)
-import importlib.resources
-import json
-
-_index: list[dict] | None = None
-
-def _load_docs_index() -> list[dict]:
-    global _index
-    if _index is None:
-        data = importlib.resources.files("ztlctl.data").joinpath("docs_index.json")
-        _index = json.loads(data.read_text())
-    return _index
-
-def _docs_search_impl(query: str, limit: int = 10) -> list[dict]:
-    index = _load_docs_index()
-    q = query.lower()
-    results = []
-    for page in index:
-        score = 0
-        if q in page["title"].lower():
-            score += 3
-        if any(q in h.lower() for h in page["headings"]):
-            score += 2
-        if q in page["body"].lower():
-            score += 1
-        if score > 0:
-            results.append((score, page))
-    results.sort(key=lambda x: x[0], reverse=True)
-    return [r[1] for r in results[:limit]]
+```yaml
+# mkdocs.yml
+plugins:
+  - redirects:
+      redirect_maps:
+        old-page-name.md: new-page-name.md
 ```
 
 ---
 
 ## Data Flow
 
-### 1. `ztlctl docs <query>` CLI Command
+### New Page Integration Flow
 
 ```
-User: ztlctl docs "plugin hooks"
+Author writes docs/session-recall.md
     |
     v
-src/ztlctl/commands/docs.py  (Click command)
-    | calls _docs_search_impl("plugin hooks")
-    v
-_load_docs_index()
-    | importlib.resources.files("ztlctl.data").joinpath("docs_index.json")
-    | cached after first call
-    v
-[docs_index.json]  (embedded in installed package)
-    | keyword match: title (+3), headings (+2), body (+1)
-    | sort by score, truncate to --limit
-    v
-[matched page records]
-    v
-Rich table: Title | Section | Excerpt | URL
-```
-
-### 2. MCP `docs://search` Resource
-
-```
-MCP client: read resource "docs://search?q=plugin+hooks"
+mkdocs.yml nav: — add "Session Recall: session-recall.md" under User Guide
     |
     v
-src/ztlctl/mcp/resources.py  (7th resource)
-    | calls _docs_search_impl("plugin hooks")
-    v
-[same _load_docs_index() call — cached module-level]
-    | keyword match (same logic as CLI)
-    v
-[matched page records]
-    v
-MCP resource response:
-  { "results": [{ "title": "...", "section": "...", "url": "...", "excerpt": "..." }] }
-```
-
-### 3. `llms.txt` Generation (Pre-Commit / Manual)
-
-```
-scripts/gen_llms_txt.py
-    | walks docs/ tree  (os.walk or glob)
-    | for each .md file (excluding plans/, backlog.md, research-mapping.md, roadmap.md):
-    |   parse YAML frontmatter: title, description, parent, nav_order
-    | group pages: no parent -> root, parent=="User Guide" -> User Guide section, etc.
-    | sort by nav_order within each group
-    | emit llms.txt following spec: H1, blockquote, H2 sections, markdown links
-    v
-docs/llms.txt  (committed to repo)
+docs/llms.txt — add line: "- [Session Recall](https://...): ..."
     |
-    v (GitHub Pages build)
-https://thatdevstudio.github.io/ztlctl/llms.txt  (served as static file)
-```
-
-### 4. `docs_index.json` Generation (Pre-Package-Build)
-
-```
-scripts/build_docs_index.py
-    | walks docs/ tree (same exclusions as gen_llms_txt.py)
-    | for each .md file:
-    |   strip YAML frontmatter
-    |   extract: title (from frontmatter), section (from parent: field),
-    |            headings (## lines), body (non-heading text)
-    |   construct URL: baseurl + derived path from file location
     v
-src/ztlctl/data/docs_index.json  (committed to repo)
+docs/llms-full.txt — append page's full content
     |
-    v (uv build)
-[wheel]  includes ztlctl/data/docs_index.json as package data
+    v (PR CI: new doc-lint job)
+mkdocs build --strict
+    | Checks: broken internal links, unreachable pages, bad front matter
+    | Fails PR if any warning/error
+    v
+PR merges to develop
     |
-    v (pip install / uv add)
-[installed package]  importlib.resources can locate docs_index.json
+    v (docs.yml triggered by develop push)
+mkdocs build → upload Pages artifact → deploy-pages
+    |
+    v
+https://thatdevstudio.github.io/ztlctl/session-recall/ live
 ```
 
-### 5. Jekyll Navigation Rendering
+### Existing CI Integration Points
 
 ```
-docs/guide.md          (title: "User Guide", nav_order: 2, has_children: true)
-docs/guide/concepts.md (title: "Core Concepts", parent: "User Guide", nav_order: 4)
+pr-ci.yml (current)                     pr-ci.yml (v3.1)
+──────────────────────────────────      ──────────────────────────────────────
+validate_pr job:                        validate_pr job (unchanged):
+  - ruff check                            - ruff check
+  - ruff format                           - ruff format
+  - mypy                                  - mypy
+  - pytest                                - pytest
+  - uv build                              - uv build
+  - pip-audit                             - pip-audit
+  - mcp extra tests                       - mcp extra tests
+  - commit lint                           - commit lint
+
+                                        doc_lint job (NEW, parallel):
+                                          - mkdocs build --strict
+                                          - (optional) link check
+```
+
+The two jobs run in parallel — `doc_lint` does not need `validate_pr` to complete first and vice versa. PR is blocked if either fails.
+
+### llms.txt and llms-full.txt Update Flow
+
+```
+New page added (e.g., docs/session-recall.md)
     |
-    v (Jekyll build with just-the-docs remote theme)
-Left navigation panel:
-  Home
-  User Guide         (collapsed unless current page is a child)
-    Installation
-    Quick Start
-    Tutorial
-    Core Concepts    <- highlighted (current page)
-    ...
-  Developer Guide    (collapsed)
-    Architecture
-    Contributing
-    ...
+    v
+docs/llms.txt — manual update (CLAUDE.md rule requires this)
+  Add: "- [Session Recall](https://thatdevstudio.github.io/ztlctl/session-recall/): Description"
+    |
+    v
+docs/llms-full.txt — manual update
+  Append: "## Session Recall\n\n[full page content]"
+    |
+    v (committed in same PR as the new page)
+GitHub Pages serves updated llms.txt and llms-full.txt after docs.yml runs
 ```
 
 ---
 
 ## Integration Points
 
-### Jekyll Config Changes
+### New vs Modified Files for v3.1
 
-`docs/_config.yml` requires one addition — `plans/` in the exclude list to prevent GitHub Pages from serving internal planning files publicly:
+**New files (docs):**
 
-```yaml
-exclude:
-  - Gemfile
-  - Gemfile.lock
-  - plans/          # NEW: prevent public serving of internal planning files
-```
+| File | Section | Notes |
+|------|---------|-------|
+| `docs/session-recall.md` | User Guide | CLI usage, MCP resource ref, temporal/topic/topology query examples |
+| `docs/polaris.md` | User Guide | Init scaffold, MCP resource, check_alignment action, agent alignment workflow |
+| `docs/contradiction-detection.md` | User Guide | Heuristic scoring explanation, CAT_SEMANTIC check, contradicts edges, MCP review |
+| `docs/media-ingestion.md` | User Guide | faster-whisper setup, VTT/SRT, two-phase captured→annotated, optional dep install |
+| `docs/methodology-guidance.md` | User Guide | Prose-as-title template, title quality check severity, garden backlog candidates |
 
-The existing `search_enabled: true` setting uses Just the Docs' built-in Lunr.js search, which automatically indexes all non-excluded pages. No search configuration changes are needed — the restructured hierarchy is picked up automatically.
+**Modified files (docs):**
 
-### Python Package Data Registration
+| File | What Changes |
+|------|-------------|
+| `docs/concepts.md` | Add v3.0 content types: media/ingested references, session recall entries, contradiction edges |
+| `docs/agentic-workflows.md` | Add recipes: polaris-aligned session, recall-driven context, contradiction review workflow |
+| `docs/agents.md` | Add v3.0 tool inventory rows: recall_*, check_alignment, detect_contradictions, ingest_* |
+| `docs/mcp.md` | Update tool count (73+), add new resources (sessions/recent, polaris/priorities, contradictions/review) |
+| `docs/llms.txt` | Add 5 new page entries |
+| `docs/llms-full.txt` | Append 5 new pages' full content; update modified pages |
+| `docs/index.md` | Add v3.0 features to "What Makes ztlctl Different" section |
+| `docs/guide/index.md` | Add new pages to User Guide navigation table |
+| `mkdocs.yml` | Add 5 new pages to `nav:` User Guide section |
 
-`src/ztlctl/data/docs_index.json` must be included as package data. Add `src/ztlctl/data/__init__.py` (empty) so `importlib.resources` can locate the directory, and verify `pyproject.toml` includes data files:
+**New files (CI):**
 
-```toml
-# pyproject.toml (verify this section exists or add it)
-[tool.hatch.build.targets.wheel]
-packages = ["src/ztlctl"]
-# hatch includes all package data by default; the data/ subpackage
-# is included because src/ztlctl/data/__init__.py makes it a subpackage
-```
+No new workflow files — the doc lint job is added as a second job inside the existing `pr-ci.yml`.
 
-If the project uses standard setuptools rather than hatch, add to `MANIFEST.in`:
+**Modified files (CI):**
 
-```
-include src/ztlctl/data/docs_index.json
-```
+| File | What Changes |
+|------|-------------|
+| `.github/workflows/pr-ci.yml` | Add `doc_lint` job: `mkdocs build --strict` + optional link check |
 
-### MCP Resource Addition
+**Modified files (project):**
 
-`src/ztlctl/mcp/resources.py` adds a seventh resource. The existing 6 resources are: `vault://info`, `vault://stats`, `vault://schema`, `note://[id]`, `tags://list`, `config://current`. The new resource:
-
-| Resource URI | Query | Returns |
-|---|---|---|
-| `docs://search` | `q` (keyword string) | `{ "results": [{ "title", "section", "url", "excerpt" }] }` |
-
-The resource handler calls `_docs_search_impl(q)`. The `_docs_search_impl` function lives in a shared location that both `commands/docs.py` and `resources.py` can import — either as a standalone module or as a function within `mcp/resources.py` that `commands/docs.py` imports from there.
+| File | What Changes |
+|------|-------------|
+| `CLAUDE.md` | Add explicit docs-as-code rule in a new "Documentation Rule" section |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
-|---|---|---|
-| `scripts/gen_llms_txt.py` -> `docs/` | Reads YAML frontmatter with PyYAML or python-frontmatter | No ztlctl imports; standalone script |
-| `scripts/build_docs_index.py` -> `docs/` | Reads YAML frontmatter + body | Same standalone approach |
-| `commands/docs.py` -> `data/docs_index.json` | `importlib.resources` at runtime | Works in editable installs and wheels |
-| `mcp/resources.py` -> `data/docs_index.json` | Same `importlib.resources` load via shared `_docs_search_impl` | Module-level cache prevents re-reads during MCP server lifetime |
-| `docs/llms.txt` -> GitHub Pages | Static file, no special Jekyll handling | Jekyll serves it as-is; no frontmatter added |
-| `docs/plans/` -> Jekyll | Excluded in `_config.yml` | Not rendered or indexed |
+|----------|---------------|-------|
+| `mkdocs.yml nav:` ↔ `docs/*.md` | MkDocs resolves nav entries as relative paths from docs_dir | Every new page requires both a file and a nav entry |
+| `docs/llms.txt` ↔ GitHub Pages | Static file served as-is | MkDocs does not process it — served at `/llms.txt` relative to site root |
+| `docs/llms-full.txt` ↔ GitHub Pages | Static file served as-is | Same as llms.txt |
+| `mkdocstrings[python]` ↔ `src/ztlctl/` | Auto-generates API reference from docstrings at build time | Requires `allow_inspection: false` in CI (no optional deps installed) |
+| `pr-ci.yml doc_lint` ↔ `mkdocs.yml` | Installs same pinned MkDocs versions as `docs.yml` | Pin versions identically to avoid "passes CI, breaks deploy" |
+| `docs/plans/` ↔ build | `exclude_docs: |` in `mkdocs.yml` already excludes `plans/` | Confirmed — no action needed |
 
 ---
 
-## Build Order and Dependencies
+## Build Order
 
-The four new components have a strict dependency ordering:
+The v3.1 work has a clear dependency chain:
 
 ```
-Step 1: docs/ restructure
-        Move files, update front matter (parent:, nav_order:),
-        create guide.md and dev.md parent pages,
-        create new dev/ content files
+Step 1: doc-lint CI job (pr-ci.yml)
+        Add doc_lint job to pr-ci.yml.
+        No content dependency — can be done first as infrastructure.
+        Unblocks: all subsequent doc PRs are gated before merge.
         |
         v
-Step 2: _config.yml update
-        Add plans/ to exclude list
-        Verify navigation renders correctly (local Jekyll serve)
+Step 2: CLAUDE.md rule
+        Add Documentation Rule section.
+        No content dependency — standing instruction.
         |
-        +--------------------------------+
-        |                                |
-        v                                v
-Step 3a: scripts/gen_llms_txt.py    Step 3b: scripts/build_docs_index.py
-         Run script                           Run script
-         Commit docs/llms.txt                 Commit src/ztlctl/data/docs_index.json
-         Verify served at /llms.txt
-        |                                |
-        |                                v
-        |                        Step 4: commands/docs.py + mcp/resources.py
-        |                                (CLI search command + MCP resource)
-        |                                Requires docs_index.json (Step 3b)
         v
-Step 5: Verify llms.txt served at
-        https://thatdevstudio.github.io/ztlctl/llms.txt
-        after GitHub Pages deployment
+Step 3: 5 new v3.0 feature pages (can be written in any order)
+        session-recall.md, polaris.md, contradiction-detection.md,
+        media-ingestion.md, methodology-guidance.md
+        Each PR: new page + mkdocs.yml nav entry + llms.txt entry +
+                 llms-full.txt append + relevant cross-reference updates
+        Each PR: must pass new doc_lint gate before merge
+        |
+        +──────────────────────────────────────────────┐
+        v                                              v
+Step 4a: Update existing docs                   Step 4b: Quality pass
+         concepts.md, agentic-workflows.md,           Tone/depth/examples audit
+         agents.md, mcp.md, index.md                  across all pages
+         (can be one PR or split by file)              (independent of step 4a)
+        |
+        v
+Step 5: internal doc refresh
+        CLAUDE.md architecture section (reflects v3.0 layer structure),
+        DESIGN.md (post v3.0 architecture decisions),
+        README.md feature list (73+ actions, new features)
+        (independent of steps 3-4; can be done concurrently)
 ```
 
-Steps 3a and 3b are independent. Step 4 depends on Step 3b — the CLI command and MCP resource need `docs_index.json` to exist for tests to pass.
+Steps 3, 4a, 4b, and 5 are independent and can be phased or parallelized. Step 1 (CI gate) and Step 2 (CLAUDE.md rule) should land first so subsequent PRs are covered.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Relying on Directory Structure for Navigation Hierarchy
+### Anti-Pattern 1: Doc PRs Separate from Feature PRs
 
-**What people do:** Move files into `docs/guide/` and `docs/dev/` subdirectories but do not update `parent:` front matter, expecting Just the Docs to infer the hierarchy from the directory layout.
+**What people do:** Write the feature code in one PR, open a follow-up "docs: ..." PR after merge.
 
-**Why it is wrong:** Just the Docs determines navigation hierarchy entirely from `parent:` front matter, not from filesystem structure. A page at `docs/guide/concepts.md` without `parent: User Guide` renders as a top-level page, not under User Guide. The directory structure is invisible to the theme.
+**Why it is wrong:** The follow-up PR gets deprioritized under time pressure and quietly never merges. v3.0 shipped with 5 undocumented features because of exactly this pattern (per PROJECT.md). The CI gate and CLAUDE.md rule exist to close this gap — but only if enforced at the PR that introduces the feature, not after.
 
-**Do this instead:** Every file moved into a subdirectory must have its `parent:` field set to the exact `title:` value of the intended parent page. Update all 16 files as part of the restructure — leaving stale or missing `parent:` fields silently breaks the navigation.
+**Do this instead:** Every feature PR includes the doc page, nav registration, llms.txt update, and cross-reference edits. The doc_lint CI gate makes it a hard requirement, not a soft expectation.
 
-### Anti-Pattern 2: Manually Maintained `llms.txt`
+### Anti-Pattern 2: `mkdocs build` Without `--strict` in CI
 
-**What people do:** Write `docs/llms.txt` by hand when creating a new doc page, or edit it after moving files.
+**What people do:** Run `mkdocs build` without `--strict` in PR CI, assuming the deploy job will catch issues.
 
-**Why it is wrong:** The file drifts immediately. A new page added under time pressure skips the manual llms.txt update. After two or three such occurrences, llms.txt contains dead links and missing entries. Agents receiving stale discovery data make worse tool selections.
+**Why it is wrong:** `mkdocs build` without `--strict` succeeds with warnings for broken internal links and unreachable pages. These become live 404s on the deployed site. The deploy job runs only on develop (post-merge), so broken docs pass the PR gate and land in production.
 
-**Do this instead:** Generate `docs/llms.txt` from the docs tree with `scripts/gen_llms_txt.py`. The generation is deterministic and fast (<1 second). Add a note to CONTRIBUTING.md: "Run `python scripts/gen_llms_txt.py` before committing new or renamed doc files."
+**Do this instead:** Always use `mkdocs build --strict` in both PR CI and the deploy job. One line change.
 
-### Anti-Pattern 3: Network-Dependent CLI Doc Search
+### Anti-Pattern 3: Updating llms.txt and llms-full.txt in a Separate Pass
 
-**What people do:** Implement `ztlctl docs <query>` by fetching from the live GitHub Pages site at query time — either fetching `llms.txt` and parsing it, or hitting a search endpoint.
+**What people do:** Write the new doc page and register it in `mkdocs.yml`, then update llms.txt in a subsequent commit or PR.
 
-**Why it is wrong:** (1) Fails offline (CI, air-gapped systems, no network in subprocess). (2) Fetched content may not match the installed version. (3) Adds 200-500ms latency to every doc query. (4) Makes the command fail silently when GitHub Pages is down or rate-limiting.
+**Why it is wrong:** After the page deploys, `llms.txt` serves an index without the new page entry for days or weeks. Agents consuming llms.txt for capability discovery miss the new feature entirely. llms-full.txt used for LLM context ingestion is similarly stale.
 
-**Do this instead:** Embed `docs_index.json` in the Python package as package data. Read it with `importlib.resources`. Zero network dependency, zero latency, guaranteed version match.
+**Do this instead:** Every PR that adds a new doc page includes the llms.txt and llms-full.txt updates in the same commit. The CLAUDE.md rule lists this as a mandatory item in the per-change checklist.
 
-### Anti-Pattern 4: Duplicating Doc Search Logic in CLI and MCP
+### Anti-Pattern 4: Pinning Different MkDocs Versions in CI vs Deploy
 
-**What people do:** Write keyword search logic directly in `commands/docs.py` and write it again independently in `mcp/resources.py`.
+**What people do:** Update the version in `docs.yml` (the deploy workflow) but not in `pr-ci.yml` (the lint job), or vice versa.
 
-**Why it is wrong:** The project has a clear established convention — MCP tool handlers call `_impl` functions that are independently testable (25 existing examples in `mcp/tools.py`). Duplicating logic violates this convention, creates divergence risk, and splits test coverage across two code paths that must remain identical.
+**Why it is wrong:** A warning that `--strict` would catch in the deploy job but not the lint job means broken docs pass the PR gate. Or a warning caught only in the lint job means the PR is blocked for something the deploy accepts — confusing and noisy.
 
-**Do this instead:** Extract the search logic to `_docs_search_impl(query, limit)`. Both `commands/docs.py` and `mcp/resources.py` import and call it. Test it directly. One function, two callers, one set of tests.
+**Do this instead:** The `doc_lint` job in `pr-ci.yml` installs identical versions: `mkdocs==1.6.1 mkdocs-shadcn==0.10.2 mkdocs-redirects==1.2.2 "mkdocstrings[python]>=1.0.3"`. When versions are bumped, update both files in the same PR.
 
-### Anti-Pattern 5: Leaving Internal Files Served Publicly
+### Anti-Pattern 5: Adding Pages to `docs/guide/` Without Updating Nav
 
-**What people do:** Keep `backlog.md`, `research-mapping.md`, and `roadmap.md` in `docs/` after removing them from the navigation, relying on "if it is not linked, no one will find it."
+**What people do:** Add `docs/guide/session-recall.md` thinking the subdirectory structure implies the nav section.
 
-**Why it is wrong:** GitHub Pages serves every file in `docs/` unless explicitly excluded. These files are indexed by search engines, discoverable by crawlers, and — most relevantly — included in the Just the Docs Lunr.js search index. A user searching for "MCP tools" might surface the internal backlog before the MCP guide.
+**Why it is wrong:** MkDocs with an explicit `nav:` block ignores filesystem hierarchy entirely. A page in `docs/guide/` that is not in `nav:` is reachable only by direct URL — it appears in no navigation panel and does not appear in search results (MkDocs search indexes only nav-registered pages when `nav:` is defined).
 
-**Do this instead:** Add `plans/` to `_config.yml` `exclude:` and physically remove `backlog.md`, `research-mapping.md`, and `roadmap.md` from `docs/`. Archive them in `.planning/` if the content has historical value.
+**Do this instead:** New pages go in `docs/` root (consistent with existing pages). Register them in `mkdocs.yml` `nav:` under the correct section. The guide/index.md section landing page links to them via relative path.
 
 ---
 
 ## Scaling Considerations
 
-This is a documentation site for a local CLI tool. Site delivery scaling is irrelevant (GitHub Pages handles all traffic). The relevant dimension is content volume and search quality:
+This is a local CLI tool docs site. Delivery scaling is not a concern — GitHub Pages handles all traffic. The relevant dimension is content maintenance overhead as the site grows.
 
 | Content Scale | Architecture Adjustments |
-|---|---|
-| ~20 pages (v2.1 launch) | Keyword search in JSON array is sufficient. Full scan completes in < 5ms. |
-| ~50 pages (6-12 months) | No changes needed. Consider adding `--section` filter flag to `ztlctl docs`. |
-| ~200+ pages | Switch embedded index to SQLite FTS5 (ztlctl already has SQLite infrastructure). Index built same way, queried with `fts5` virtual table. |
+|---------------|--------------------------|
+| 20 pages (current) | Hand-maintained llms.txt and llms-full.txt are viable. One CLAUDE.md rule is enough enforcement. |
+| 35-50 pages (v3.1 + next 2 milestones) | Add a `scripts/gen_llms_txt.py` generator (proposed in v2.1 research). Hand-maintenance becomes error-prone past ~30 pages. |
+| 100+ pages | Consider sectioned llms.txt with `## Optional` block per spec. Split llms-full.txt by section to avoid token limits. |
 
-For `llms.txt` specifically: the spec's `Optional` section is the right escape valve at larger scale. Pages that are detailed reference material (commands list, full API reference) move to `## Optional` so agents can skip them if context is constrained.
+The doc_lint CI job scales to any page count — `mkdocs build --strict` runs the same regardless of site size.
 
 ---
 
 ## Sources
 
-- [Just the Docs — Page Levels](https://just-the-docs.com/docs/navigation/main/levels/) — `parent:`, `has_children:`, `nav_order:` front matter, verified 2026-03-20 (HIGH)
-- [Just the Docs — Ancestry](https://just-the-docs.com/docs/navigation/main/ancestry/) — `grand_parent:`, `ancestor:` fields, verified 2026-03-20 (HIGH)
-- [llms.txt specification](https://llmstxt.org/) — H1/blockquote/H2 format, `## Optional` section semantics, verified 2026-03-20 (HIGH)
-- [Python importlib.resources](https://docs.python.org/3/library/importlib.resources.html) — package data access for embedded files (HIGH)
-- Existing ztlctl codebase — `mcp/tools.py` `_impl` pattern, `mcp/resources.py` 6 existing resources, `docs/_config.yml`, `docs/index.md` — read directly 2026-03-20 (HIGH)
+- Existing codebase read directly: `mkdocs.yml`, `.github/workflows/docs.yml`, `.github/workflows/pr-ci.yml`, `docs/index.md`, `docs/guide/index.md`, `docs/dev/index.md`, `docs/llms.txt`, `docs/agents.md`, `docs/mcp.md`, `docs/agentic-workflows.md`, `pyproject.toml` — 2026-03-21 (HIGH)
+- `.planning/PROJECT.md` — v3.1 milestone scope and feature list — 2026-03-21 (HIGH)
+- Previous `.planning/research/ARCHITECTURE.md` (v2.1) — provides history context; not the live system — 2026-03-20 (reference only)
+- MkDocs docs: `--strict` flag converts warnings to errors, `exclude_docs` excludes files from build, explicit `nav:` overrides filesystem discovery — training data confirmed against project's live mkdocs.yml (HIGH)
 
 ---
 
-*Architecture research for: ztlctl v2.1 documentation site restructure*
-*Researched: 2026-03-20*
+*Architecture research for: ztlctl v3.1 documentation site integration and docs-as-code enforcement*
+*Researched: 2026-03-21*
