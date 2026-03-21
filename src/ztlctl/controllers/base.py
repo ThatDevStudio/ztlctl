@@ -8,11 +8,13 @@ the single interface for the registry layer.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from ztlctl.infrastructure.vault import Vault
     from ztlctl.plugins.contracts import ActionRejection
+    from ztlctl.services.result import ServiceResult
 
 logger = logging.getLogger(__name__)
 
@@ -81,22 +83,34 @@ class BaseController:
             return result, None
         return kwargs, None
 
-    def _dispatch_post_action(
+    def _run_action(
         self,
         action_name: str,
         kwargs: dict[str, Any],
-        result: Any,
-    ) -> None:
-        """Invoke the ``post_action`` hook after executing an action.
+        invoke: Callable[[dict[str, Any]], ServiceResult],
+    ) -> ServiceResult:
+        """Execute an action through the pre-action hook pipeline.
 
-        All registered plugins receive this call. Exceptions are caught,
-        logged at DEBUG level, and ignored — plugin failures are warnings.
+        1. Dispatches pre_action hook (plugins may modify kwargs or reject).
+        2. If rejected, returns a ServiceResult with ACTION_REJECTED error.
+        3. Otherwise, calls *invoke* with the (possibly modified) kwargs.
+
+        All controller methods should delegate to this instead of calling
+        _dispatch_pre_action directly.
         """
-        pm = self._vault.plugin_manager
-        if pm is None:
-            return
+        from ztlctl.services.result import ServiceError
+        from ztlctl.services.result import ServiceResult as SR
 
-        try:
-            pm.hook.post_action(action_name=action_name, kwargs=kwargs, result=result)
-        except Exception:
-            logger.debug("post_action dispatch failed for %s", action_name, exc_info=True)
+        kwargs, rejection = self._dispatch_pre_action(action_name, kwargs)
+        if rejection is not None:
+            return SR(
+                ok=False,
+                op=action_name,
+                error=ServiceError(
+                    code="ACTION_REJECTED",
+                    message=rejection.reason,
+                    detail=rejection.detail if isinstance(rejection.detail, dict) else {},
+                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                ),
+            )
+        return invoke(kwargs)

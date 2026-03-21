@@ -1,5 +1,33 @@
 # Milestones
 
+## v3.0 Memory and Hardening (Shipped: 2026-03-21)
+
+**Phases completed:** 8 phases, 20 plans, 27 tasks
+
+**Key accomplishments:**
+
+- EventBusConfig frozen model with 4 configurable fields, ActionEvent domain event model, and EventBus refactored to use configurable timeouts from settings instead of hardcoded values
+- `BaseService._dispatch_post_action_event()`
+- Dead-letter WAL events are now visible in `ztlctl check`, auto-purged at startup, and manually clearable via `event_purge` action registered under maintenance category
+- 1. [Rule 1 - Bug] Variable name collision in graph.py
+- Task 1 — Remove post_action bridge from EventBus (ARCH-05)
+- ServerContext dataclass
+- 1. [Rule 1 - Bug] garden_seed handler calling convention
+- 9 feature-local registration modules
+- One-liner:
+- Dead workspace_modes.py wrapper removed, phantom mutation category purged from MCP generator and plugin manager, and ServiceError.recovery self-documented via Pydantic Field
+- One-liner:
+- Task 1 — Template + Init + MCP resource:
+- check_alignment action: polaris-based advisory decision alignment using keyword-overlap heuristic, auto-generating ztlctl check alignment CLI and check_alignment MCP tool
+- SQLAlchemy-based session recall via date-range temporal filtering and case-insensitive LIKE search on session_logs.summary, with full controller delegation through _run_action
+- recall_topology discovers session pairs sharing log-referenced notes or tags; ztlctl://sessions/recent MCP resource; all 3 recall actions registered in ActionRegistry
+- ContradictionService with three-signal heuristic scoring (cosine 40%, negation 30%, key_points 30%) and thin ContradictionController wrapper through _run_action
+- One-liner:
+- TranscriptionService with guarded faster-whisper import, regex VTT/SRT parsing, and MediaIngestConfig at settings.ingest.media
+- One-liner:
+
+---
+
 ## v2.1 Documentation (Shipped: 2026-03-21)
 
 **Phases completed:** 7 phases, 21 plans, 11 tasks

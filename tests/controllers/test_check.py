@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC
+
 from ztlctl.controllers.check import CheckController
 from ztlctl.infrastructure.vault import Vault
 from ztlctl.services.result import ServiceResult
@@ -59,3 +61,67 @@ class TestCheckController:
         assert result.ok is False
         assert result.error is not None
         assert result.error.code == "NO_BACKUPS"
+
+
+class TestEventPurgeController:
+    """Tests for CheckController.event_purge."""
+
+    def test_event_purge_returns_ok_when_no_dead_letters(self, vault: Vault) -> None:
+        """event_purge returns ok=True with count=0 when no dead-letter rows exist."""
+        vault.init_event_bus(sync=True)
+        ctrl = CheckController(vault)
+        result = ctrl.event_purge()
+        assert isinstance(result, ServiceResult)
+        assert result.ok is True
+        assert result.data["purged_count"] == 0
+
+    def test_event_purge_returns_count_of_purged_rows(self, vault: Vault) -> None:
+        """event_purge deletes dead-letter rows and returns correct count."""
+        from datetime import datetime, timedelta
+
+        from sqlalchemy import insert
+
+        from ztlctl.infrastructure.database.schema import event_wal
+
+        vault.init_event_bus(sync=True)
+
+        old_date = (datetime.now(UTC) - timedelta(days=60)).isoformat()
+
+        with vault.engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_update",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+
+        ctrl = CheckController(vault)
+        result = ctrl.event_purge(older_than_days=30)
+        assert isinstance(result, ServiceResult)
+        assert result.ok is True
+        assert result.data["purged_count"] == 2
+        assert result.data["older_than_days"] == 30
+
+    def test_event_purge_returns_error_when_bus_not_initialized(self, vault: Vault) -> None:
+        """event_purge returns ok=False when event bus is not initialized."""
+        ctrl = CheckController(vault)
+        # vault.event_bus is None (not initialized)
+        result = ctrl.event_purge()
+        assert isinstance(result, ServiceResult)
+        assert result.ok is False
+        assert result.error is not None
+        assert "not initialized" in result.error.message.lower()

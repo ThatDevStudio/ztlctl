@@ -160,8 +160,8 @@ class TestResources:
 class TestResourceCatalog:
     """Tests for resource catalog completeness."""
 
-    def test_catalog_has_17_resources(self):
-        assert len(resource_catalog()) == 17
+    def test_catalog_has_20_resources(self):
+        assert len(resource_catalog()) == 20
 
     def test_agent_reference_in_catalog(self):
         uris = {r["uri"] for r in resource_catalog()}
@@ -414,6 +414,63 @@ class TestRegisterResources:
                     pass
 
 
+class TestGardenBacklogTitleCandidates:
+    """Tests for title_improvement_candidates in garden_backlog_impl (METH-03)."""
+
+    def test_garden_backlog_has_title_improvement_candidates_key(self, vault: Vault):
+        """garden_backlog_impl returns dict with 'title_improvement_candidates' key."""
+        result = garden_backlog_impl(vault)
+        assert "title_improvement_candidates" in result
+
+    def test_title_improvement_candidates_is_list(self, vault: Vault):
+        """title_improvement_candidates is always a list."""
+        result = garden_backlog_impl(vault)
+        assert isinstance(result["title_improvement_candidates"], list)
+
+    def test_empty_vault_returns_empty_candidates(self, vault: Vault):
+        """Empty vault produces no title improvement candidates."""
+        result = garden_backlog_impl(vault)
+        assert result["title_improvement_candidates"] == []
+
+    def test_short_title_note_appears_in_candidates(self, vault: Vault):
+        """Note with a short title appears in title_improvement_candidates."""
+        from ztlctl.services.create import CreateService
+
+        CreateService(vault).create_note("Notes")
+        result = garden_backlog_impl(vault)
+        candidates = result["title_improvement_candidates"]
+        assert len(candidates) >= 1
+        # Each candidate has id and message
+        for cand in candidates:
+            assert "id" in cand
+            assert "message" in cand
+
+    def test_generic_title_note_appears_in_candidates(self, vault: Vault):
+        """Note with a generic title like 'Draft' appears in candidates."""
+        from ztlctl.services.create import CreateService
+
+        CreateService(vault).create_note("Draft")
+        result = garden_backlog_impl(vault)
+        candidates = result["title_improvement_candidates"]
+        assert len(candidates) >= 1
+
+    def test_descriptive_title_not_in_candidates(self, vault: Vault):
+        """Note with a descriptive title does NOT appear in candidates."""
+        from ztlctl.services.create import CreateService
+
+        CreateService(vault).create_note("JWT authentication with refresh token rotation")
+        result = garden_backlog_impl(vault)
+        candidates = result["title_improvement_candidates"]
+        assert len(candidates) == 0
+
+    def test_stale_seeds_and_orphans_still_present(self, vault: Vault):
+        """Existing backlog items (stale_seeds, orphans) still present alongside candidates."""
+        result = garden_backlog_impl(vault)
+        assert "items" in result
+        assert "count" in result
+        assert "title_improvement_candidates" in result
+
+
 class TestDocsResources:
     """Tests for docs_index_impl and docs_search_resource_impl."""
 
@@ -461,3 +518,105 @@ class TestDocsResources:
         registered = set(server.registered_uris)
         assert "ztlctl://docs/index" in registered
         assert "ztlctl://docs/search" in registered
+
+
+class TestSessionsRecentResource:
+    """Tests for sessions_recent_impl and ztlctl://sessions/recent resource."""
+
+    def test_sessions_recent_returns_empty_when_no_sessions(self, vault: Vault):
+        from ztlctl.mcp.resources import sessions_recent_impl
+
+        result = sessions_recent_impl(vault)
+        assert "sessions" in result
+        assert "count" in result
+        assert result["sessions"] == []
+        assert result["count"] == 0
+
+    def test_sessions_recent_returns_last_5(self, vault: Vault):
+        from ztlctl.mcp.resources import sessions_recent_impl
+        from ztlctl.services.session import SessionService
+
+        # Create 6 sessions
+        for i in range(6):
+            SessionService(vault).start(topic=f"Session {i}")
+            SessionService(vault).close()
+
+        result = sessions_recent_impl(vault)
+        assert result["count"] <= 5
+        assert len(result["sessions"]) <= 5
+
+    def test_sessions_recent_has_required_fields(self, vault: Vault):
+        from ztlctl.mcp.resources import sessions_recent_impl
+        from ztlctl.services.session import SessionService
+
+        SessionService(vault).start(topic="My Topic Session")
+        SessionService(vault).close()
+
+        result = sessions_recent_impl(vault)
+        assert result["count"] >= 1
+        session = result["sessions"][0]
+        assert "session_id" in session
+        assert "topic" in session
+        assert "started" in session
+
+    def test_sessions_recent_in_resource_catalog(self):
+        uris = {r["uri"] for r in resource_catalog()}
+        assert "ztlctl://sessions/recent" in uris
+
+    def test_sessions_recent_resource_registered(self, vault: Vault):
+        class _DummyServer:
+            def __init__(self) -> None:
+                self.registered_uris: list[str] = []
+
+            def resource(self, uri: str):
+                def decorator(fn):
+                    self.registered_uris.append(uri)
+                    return fn
+
+                return decorator
+
+        server = _DummyServer()
+        register_resources(server, vault)
+        assert "ztlctl://sessions/recent" in set(server.registered_uris)
+
+
+class TestPolarisResource:
+    """Tests for polaris_impl and ztlctl://polaris resource."""
+
+    def test_polaris_impl_returns_content_when_file_exists(self, vault: Vault):
+        from ztlctl.mcp.resources import polaris_impl
+
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        (polaris_dir / "polaris.md").write_text("# My Polaris\n## Mission\nBuild things.\n")
+
+        result = polaris_impl(vault)
+        assert "My Polaris" in result
+        assert "Mission" in result
+
+    def test_polaris_impl_returns_guidance_when_file_missing(self, vault: Vault):
+        from ztlctl.mcp.resources import polaris_impl
+
+        result = polaris_impl(vault)
+        assert "No polaris file found" in result
+        assert "ztlctl init" in result
+
+    def test_polaris_in_resource_catalog(self):
+        uris = {r["uri"] for r in resource_catalog()}
+        assert "ztlctl://polaris" in uris
+
+    def test_polaris_resource_registered(self, vault: Vault):
+        class _DummyServer:
+            def __init__(self) -> None:
+                self.registered_uris: list[str] = []
+
+            def resource(self, uri: str):
+                def decorator(fn):
+                    self.registered_uris.append(uri)
+                    return fn
+
+                return decorator
+
+        server = _DummyServer()
+        register_resources(server, vault)
+        assert "ztlctl://polaris" in set(server.registered_uris)

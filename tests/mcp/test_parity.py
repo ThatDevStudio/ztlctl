@@ -111,10 +111,10 @@ def test_every_tool_has_annotations(parity_server: tuple[DummyServer, Any]) -> N
 
 
 def test_category_coverage(parity_server: tuple[DummyServer, Any]) -> None:
-    """All 15 action categories produce at least one registered MCP tool."""
+    """All 17 action categories produce at least one registered MCP tool."""
     server, registry = parity_server
     categories = {a.category for a in registry.list_actions()}
-    assert len(categories) == 15, f"Expected 15 categories, got {len(categories)}: {categories}"
+    assert len(categories) == 17, f"Expected 17 categories, got {len(categories)}: {categories}"
     tool_names = set(server.tools.keys())
     for category in categories:
         cat_actions = {a.name for a in registry.list_actions(category=category)}

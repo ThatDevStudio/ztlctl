@@ -338,16 +338,22 @@ class Vault:
         """The loaded plugin manager (None if not initialized)."""
         return self._plugin_manager
 
-    def close(self, *, wait_for_events: bool = True) -> None:
+    def close(self, *, wait_for_events: bool = True, timeout: float | None = None) -> None:
         """Release background workers and DB resources.
 
         Safe to call multiple times.
+
+        Args:
+            wait_for_events: Whether to wait for in-flight events to complete.
+            timeout: Per-future timeout override passed to event bus shutdown.
+                When None, uses the configured ``eventbus.per_future_timeout_seconds``.
         """
         if self._event_bus is not None:
             try:
                 self._event_bus.shutdown(
                     wait=wait_for_events,
                     cancel_futures=not wait_for_events,
+                    timeout=timeout,
                 )
             except Exception:
                 logger.debug("Event bus shutdown failed", exc_info=True)
@@ -369,13 +375,13 @@ class Vault:
         from ztlctl.plugins.builtins.git import GitPlugin
         from ztlctl.plugins.builtins.reweave_plugin import ReweavePlugin
         from ztlctl.plugins.event_bus import EventBus
-        from ztlctl.plugins.manager import PluginManager
+        from ztlctl.plugins.runtime import get_plugin_manager
 
-        pm = PluginManager()
         local_plugins = self.root / ".ztlctl" / "plugins"
-        pm.discover_and_load(local_dir=local_plugins)
         # PLUG-03: validate + pass TOML [plugins.<name>] config to third-party plugins
-        pm.inject_configs(self._settings)
+        # cache=False: vault registers instance-specific built-in plugins (git, reweave) below,
+        # so we must not share this PM with other callers via the module-level cache.
+        pm = get_plugin_manager(local_dir=local_plugins, settings=self._settings, cache=False)
 
         # Register built-in git plugin with vault context
         git_config = self._settings.git
@@ -387,7 +393,21 @@ class Vault:
         pm.register_plugin(reweave_plugin, name="reweave-builtin")
 
         self._plugin_manager = pm
-        self._event_bus = EventBus(self._engine, pm, sync=sync)
+        self._event_bus = EventBus(self._engine, pm, sync=sync, config=self._settings.eventbus)
+
+        # Auto-purge old dead-letter events (D-20)
+        try:
+            purged = self._event_bus.purge_dead_letters()
+            if purged > 0:
+                logger.info("Purged %d old dead-letter event(s) from WAL", purged)
+        except Exception:
+            logger.warning("Dead-letter purge failed; continuing", exc_info=True)
+
+        # Startup recovery: drain pending/failed events from prior runs (D-05)
+        try:
+            self._event_bus.drain()
+        except Exception:
+            logger.warning("Startup event drain failed; continuing", exc_info=True)
 
     def _check_schema_current(self) -> bool:
         """Return True if database schema is at the latest Alembic revision.

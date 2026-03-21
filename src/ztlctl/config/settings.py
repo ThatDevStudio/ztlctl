@@ -25,6 +25,7 @@ from ztlctl.config.discovery import find_config
 from ztlctl.config.models import (
     AgentConfig,
     CheckConfig,
+    EventBusConfig,
     ExportsConfig,
     GardenConfig,
     GitConfig,
@@ -124,6 +125,7 @@ class ZtlSettings(BaseSettings):
     mcp: McpConfig = Field(default_factory=McpConfig)
     exports: ExportsConfig = Field(default_factory=ExportsConfig)
     workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
+    eventbus: EventBusConfig = Field(default_factory=EventBusConfig)
 
     # Retained for type-checker visibility; not used at runtime.
     _toml_path: ClassVar[Path | None] = None

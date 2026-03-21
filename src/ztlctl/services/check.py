@@ -14,11 +14,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import delete, insert, select, text
+from sqlalchemy import delete, func, insert, select, text
 
 from ztlctl.domain.content import parse_frontmatter, render_frontmatter
 from ztlctl.domain.ids import ID_PATTERNS
-from ztlctl.infrastructure.database.schema import edges, node_tags, nodes
+from ztlctl.infrastructure.database.schema import edges, event_wal, node_tags, nodes
 from ztlctl.services._helpers import now_compact, now_iso, today_iso
 from ztlctl.services.base import BaseService
 from ztlctl.services.contracts import CheckResultData, dump_validated
@@ -35,9 +35,11 @@ if TYPE_CHECKING:
 # Issue severity and category constants
 # ---------------------------------------------------------------------------
 
+SEVERITY_INFO = "info"
 SEVERITY_ERROR = "error"
 SEVERITY_WARNING = "warning"
 _SEVERITY_RANK = {
+    SEVERITY_INFO: 0,
     SEVERITY_WARNING: 1,
     SEVERITY_ERROR: 2,
 }
@@ -48,6 +50,20 @@ CAT_GRAPH = "graph_health"
 CAT_STRUCTURAL = "structural_validation"
 CAT_GARDEN = "garden_health"
 CAT_SCHEMA_VERSION = "schema_version"
+CAT_SEMANTIC = "semantic_analysis"
+
+# Title quality advisory — patterns considered too short or generic
+_GENERIC_TITLE_PATTERNS: frozenset[str] = frozenset(
+    {
+        "untitled",
+        "new note",
+        "note",
+        "notes",
+        "draft",
+        "temp",
+        "test",
+    }
+)
 
 
 class _ConsistencyReadError(ValueError):
@@ -93,6 +109,8 @@ class CheckService(BaseService):
                 issues.extend(self._check_structural_validation(conn))
             with trace_span("garden_health"):
                 issues.extend(self._check_garden_health(conn))
+        with trace_span("semantic_analysis"):
+            issues.extend(self._check_semantic())
 
         issues = [
             issue
@@ -145,11 +163,18 @@ class CheckService(BaseService):
                 fixes.extend(self._fix_reindex_edges(txn, today))
                 fixes.extend(self._fix_reorder_frontmatter(txn))
 
-        return ServiceResult(
+        fix_result = ServiceResult(
             ok=True,
             op="fix",
             data={"fixes": fixes, "count": len(fixes)},
         )
+        self._dispatch_post_action_event(
+            action_name="fix",
+            payload=fix_result.data,
+            warnings=[],
+            result=fix_result,
+        )
+        return fix_result
 
     @traced
     def rebuild(self) -> ServiceResult:
@@ -261,7 +286,7 @@ class CheckService(BaseService):
             nodes_materialized = 0
             warnings.append("Graph metric materialization failed after rebuild")
 
-        return ServiceResult(
+        rebuild_result = ServiceResult(
             ok=True,
             op="rebuild",
             data={
@@ -272,6 +297,13 @@ class CheckService(BaseService):
             },
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name="rebuild",
+            payload=rebuild_result.data,
+            warnings=warnings,
+            result=rebuild_result,
+        )
+        return rebuild_result
 
     @traced
     def rollback(self) -> ServiceResult:
@@ -312,6 +344,96 @@ class CheckService(BaseService):
             data={
                 "backup_file": latest.name,
                 "restored_from": str(latest),
+            },
+        )
+
+    @traced
+    def check_alignment(self, *, decision: str) -> ServiceResult:
+        """Check a decision description against polaris priorities.
+
+        Returns structured data: {aligned, relevant_priorities, reasoning}.
+        Alignment is heuristic — keyword overlap between decision and priorities.
+        aligned is always True (advisory, never blocking).
+        """
+        polaris_path = self._vault.root / "garden" / "groves" / "polaris.md"
+        if not polaris_path.exists():
+            return ServiceResult(
+                ok=True,
+                op="check_alignment",
+                data={
+                    "aligned": True,
+                    "relevant_priorities": [],
+                    "reasoning": (
+                        "No polaris file configured. "
+                        "Create garden/groves/polaris.md or run ztlctl init."
+                    ),
+                    "polaris_exists": False,
+                },
+            )
+
+        polaris_raw = polaris_path.read_text(encoding="utf-8")
+        _fm, body = parse_frontmatter(polaris_raw)
+
+        # Extract priority lines (numbered items under "Current Priorities")
+        priorities: list[str] = []
+        in_priorities = False
+        for line in body.splitlines():
+            stripped = line.strip()
+            if stripped.lower().startswith("## current priorities"):
+                in_priorities = True
+                continue
+            if in_priorities and stripped.startswith("##"):
+                break
+            if in_priorities and stripped and (stripped[0].isdigit() or stripped.startswith("-")):
+                text = stripped.lstrip("0123456789.-) ").strip()
+                if text:
+                    priorities.append(text)
+
+        # Extract decision principles
+        principles: list[str] = []
+        in_principles = False
+        for line in body.splitlines():
+            stripped = line.strip()
+            if stripped.lower().startswith("## decision principles"):
+                in_principles = True
+                continue
+            if in_principles and stripped.startswith("##"):
+                break
+            if in_principles and stripped and stripped.startswith("-"):
+                text = stripped.lstrip("- ").strip()
+                if text:
+                    principles.append(text)
+
+        # Heuristic relevance: keyword overlap between decision and each priority/principle
+        _stopwords = frozenset(
+            {"the", "a", "an", "is", "to", "and", "or", "of", "in", "for", "with", "on", "at", "by"}
+        )
+        decision_words = set(decision.lower().split()) - _stopwords
+        relevant: list[str] = []
+        for p in priorities + principles:
+            p_words = set(p.lower().split()) - _stopwords
+            if decision_words & p_words:
+                relevant.append(p)
+
+        if relevant:
+            reasoning = f"Decision relates to {len(relevant)} polaris priorities/principles."
+        else:
+            reasoning = (
+                "No direct keyword overlap found between the decision "
+                "and current polaris priorities."
+            )
+
+        return ServiceResult(
+            ok=True,
+            op="check_alignment",
+            data={
+                "aligned": True,  # Advisory — never blocks
+                "relevant_priorities": relevant,
+                "reasoning": reasoning,
+                "polaris_exists": True,
+                "decision": decision,
+                "all_priorities": priorities,
+                "all_principles": principles,
             },
         )
 
@@ -622,10 +744,12 @@ class CheckService(BaseService):
         return issues
 
     def _check_structural_validation(self, conn: Connection) -> list[dict[str, Any]]:
-        """Category 4: ID format, status validity, tag format."""
+        """Category 4: ID format, status validity, tag format, title quality."""
         issues: list[dict[str, Any]] = []
 
-        all_nodes = conn.execute(select(nodes.c.id, nodes.c.type, nodes.c.status)).fetchall()
+        all_nodes = conn.execute(
+            select(nodes.c.id, nodes.c.type, nodes.c.status, nodes.c.title)
+        ).fetchall()
 
         # Collect valid statuses per type from lifecycle
         from ztlctl.domain.lifecycle import (
@@ -692,6 +816,46 @@ class CheckService(BaseService):
                         "fix_action": None,
                     }
                 )
+
+        # Title quality advisory (info severity)
+        for row in all_nodes:
+            title = str(row.title or "").strip()
+            title_lower = title.lower()
+            word_count = len(title.split())
+            is_generic = title_lower in _GENERIC_TITLE_PATTERNS or title_lower.startswith(
+                "notes on "
+            )
+            if word_count <= 3 or is_generic:
+                issues.append(
+                    {
+                        "category": CAT_STRUCTURAL,
+                        "severity": SEVERITY_INFO,
+                        "node_id": row.id,
+                        "message": (
+                            f"Title quality: '{title}' is short or generic — "
+                            "consider a prose title that captures the specific insight "
+                            "(see methodology.md for examples)"
+                        ),
+                        "fix_action": None,
+                    }
+                )
+
+        # Dead-letter event count (D-19)
+        dead_letter_count = conn.execute(
+            select(func.count()).select_from(event_wal).where(event_wal.c.status == "dead_letter")
+        ).scalar_one()
+
+        if dead_letter_count > 0:
+            issues.append(
+                {
+                    "category": CAT_STRUCTURAL,
+                    "severity": SEVERITY_INFO,
+                    "message": (
+                        f"{dead_letter_count} dead-letter event(s) in WAL. "
+                        "Run 'ztlctl event purge' to clear."
+                    ),
+                }
+            )
 
         return issues
 
@@ -785,6 +949,42 @@ class CheckService(BaseService):
                 }
             )
 
+        return issues
+
+    def _check_semantic(self) -> list[dict[str, Any]]:
+        """Category 6: semantic analysis — contradiction candidates via vector similarity.
+
+        Gracefully skips if VectorService is unavailable (no vector index).
+        Returns CheckIssue dicts with severity=SEVERITY_INFO.
+        """
+        from ztlctl.services.contradiction import ContradictionService
+
+        svc = ContradictionService(self._vault)
+        result = svc.find_candidates()
+
+        if not result.ok:
+            return []
+
+        candidates = result.data.get("candidates", [])
+        issues: list[dict[str, Any]] = []
+        for cand in candidates:
+            title_a = cand.get("title_a", cand.get("note_a", ""))
+            title_b = cand.get("title_b", cand.get("note_b", ""))
+            score = cand.get("score", 0.0)
+            signals = cand.get("signals", [])
+            issues.append(
+                {
+                    "severity": SEVERITY_INFO,
+                    "category": CAT_SEMANTIC,
+                    "message": (
+                        f"Possible contradiction: '{title_a}' vs '{title_b}' (score: {score:.2f})"
+                    ),
+                    "note_a": cand.get("note_a"),
+                    "note_b": cand.get("note_b"),
+                    "score": score,
+                    "signals": signals,
+                }
+            )
         return issues
 
     # ------------------------------------------------------------------

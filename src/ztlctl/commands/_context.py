@@ -107,5 +107,5 @@ class AppContext:
     def close(self) -> None:
         """Release held resources after command execution."""
         if self._vault is not None:
-            # Keep command teardown non-blocking for async plugin dispatch.
-            self._vault.close(wait_for_events=False)
+            timeout = self.settings.eventbus.shutdown_timeout_seconds
+            self._vault.close(wait_for_events=True, timeout=timeout)

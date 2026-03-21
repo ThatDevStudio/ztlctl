@@ -8,6 +8,7 @@ Transport: stdio default (sub-ms latency), streamable HTTP optional.
 from __future__ import annotations
 
 import importlib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +23,15 @@ try:
 except ImportError:
     pass
 
-__all__ = ["create_server", "mcp_available"]
+__all__ = ["ServerContext", "create_server", "mcp_available"]
+
+
+@dataclass
+class ServerContext:
+    """MCP server and its backing vault for lifecycle management."""
+
+    server: Any  # FastMCP instance
+    vault: Any  # Vault instance (Any to avoid import when mcp not installed)
 
 
 def create_server(
@@ -30,11 +39,12 @@ def create_server(
     vault_root: Path | None = None,
     host: str = "127.0.0.1",
     port: int = 8000,
-) -> Any:
+) -> ServerContext:
     """Create and configure the MCP server.
 
     Creates a Vault from *vault_root* (or CWD) and registers all tools,
-    resources, and prompts. Returns the FastMCP instance.
+    resources, and prompts. Returns a ServerContext holding both the FastMCP
+    instance and the Vault for lifecycle management.
 
     *host* and *port* configure the bind address for HTTP transports
     (sse, streamable-http). They are ignored when using stdio.
@@ -61,4 +71,4 @@ def create_server(
     register_resources(server, vault)
     register_prompts(server, vault)
 
-    return server
+    return ServerContext(server=server, vault=vault)

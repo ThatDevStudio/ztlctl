@@ -235,7 +235,7 @@ class UpdateService(BaseService):
                     warnings.append(f"Vector re-indexing skipped: {exc}")
 
         # ── RESPOND ──────────────────────────────────────────
-        return ServiceResult(
+        result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -246,6 +246,13 @@ class UpdateService(BaseService):
             },
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=result.data,
+            warnings=warnings,
+            result=result,
+        )
+        return result
 
     @traced
     def archive(self, content_id: str) -> ServiceResult:
@@ -295,12 +302,19 @@ class UpdateService(BaseService):
             warnings,
         )
 
-        return ServiceResult(
+        result = ServiceResult(
             ok=True,
             op="archive",
             data={"id": content_id, "path": node_row.path},
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name="archive",
+            payload=result.data,
+            warnings=warnings,
+            result=result,
+        )
+        return result
 
     @traced
     def supersede(self, old_id: str, new_id: str) -> ServiceResult:

@@ -16,7 +16,7 @@ def load_plugin_commands(ctx: click.Context) -> dict[str, click.Command]:
     """Resolve plugin CLI commands for the current invocation context."""
     from ztlctl.actions.registry import get_action_registry
     from ztlctl.config.settings import ZtlSettings
-    from ztlctl.plugins.manager import PluginManager
+    from ztlctl.plugins.runtime import get_plugin_manager
 
     try:
         settings = ZtlSettings.from_cli(
@@ -32,8 +32,10 @@ def load_plugin_commands(ctx: click.Context) -> dict[str, click.Command]:
     except Exception:
         return {}
 
-    pm = PluginManager()
-    pm.discover_and_load(local_dir=settings.vault_root / ".ztlctl" / "plugins")
+    pm = get_plugin_manager(
+        local_dir=settings.vault_root / ".ztlctl" / "plugins",
+        settings=settings,  # DEBT-07: inject_configs support
+    )
 
     import ztlctl.actions  # noqa: F401 — ensure registry is populated
 
@@ -69,11 +71,6 @@ def register_commands(cli: click.Group) -> None:
     from ztlctl.commands.update import update
 
     cli.add_command(update)
-
-    # garden: not in ActionRegistry (calls CreateService with maturity=seed directly)
-    from ztlctl.commands.garden import garden
-
-    cli.add_command(garden)
 
     # init: The generator creates an 'init' group with regenerate/staleness subcommands.
     # We harvest those subcommands, then replace the generated group with the hand-written

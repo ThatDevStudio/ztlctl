@@ -161,7 +161,7 @@ class ReweaveService(BaseService):
             warnings,
         )
 
-        return ServiceResult(
+        result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -171,6 +171,13 @@ class ReweaveService(BaseService):
             },
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=result.data,
+            warnings=warnings,
+            result=result,
+        )
+        return result
 
     @traced
     def prune(
@@ -243,7 +250,7 @@ class ReweaveService(BaseService):
 
         # Remove stale links
         pruned = self._prune_links(target_id, stale)
-        return ServiceResult(
+        prune_result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -252,6 +259,13 @@ class ReweaveService(BaseService):
                 "count": len(pruned),
             },
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=prune_result.data,
+            warnings=[],
+            result=prune_result,
+        )
+        return prune_result
 
     @traced
     def undo(self, *, reweave_id: int | None = None) -> ServiceResult:
@@ -305,7 +319,7 @@ class ReweaveService(BaseService):
 
         # Apply undo operations
         undone = self._apply_undo(entries)
-        return ServiceResult(
+        undo_result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -313,6 +327,13 @@ class ReweaveService(BaseService):
                 "count": len(undone),
             },
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=undo_result.data,
+            warnings=[],
+            result=undo_result,
+        )
+        return undo_result
 
     # ------------------------------------------------------------------
     # Discovery

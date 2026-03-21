@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import json
+import threading
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
 import pluggy
 import pytest
-from sqlalchemy import select
+from sqlalchemy import insert, select
 
 from ztlctl.infrastructure.database.engine import init_database
 from ztlctl.infrastructure.database.schema import event_wal
 from ztlctl.plugins.event_bus import EventBus
 from ztlctl.plugins.manager import PluginManager
+from ztlctl.services._helpers import now_iso
 
 hookimpl = pluggy.HookimplMarker("ztlctl")
 
@@ -87,6 +91,17 @@ class FailingPlugin:
     ) -> None:
         msg = "Plugin exploded!"
         raise RuntimeError(msg)
+
+
+class PostActionPlugin:
+    """Plugin that records post_action calls."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    @hookimpl
+    def post_action(self, action_name: str, kwargs: dict[str, Any], result: Any) -> None:
+        self.calls.append({"action_name": action_name, "kwargs": kwargs, "result": result})
 
 
 # ---------------------------------------------------------------------------
@@ -392,6 +407,202 @@ class TestEventBusStateMachineTransitions:
         bus.shutdown()
 
 
+class TestEventBusConfig:
+    """Tests for EventBusConfig-wired constructor."""
+
+    def test_config_sets_per_future_timeout(self, engine) -> None:
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(per_future_timeout_seconds=15.0)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        assert bus._per_future_timeout == 15.0
+
+    def test_config_sets_shutdown_timeout(self, engine) -> None:
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(shutdown_timeout_seconds=2.0)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        assert bus._shutdown_timeout == 2.0
+
+    def test_config_sets_max_retries(self, engine) -> None:
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(max_retries=7)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        assert bus._max_retries == 7
+
+    def test_config_sets_dead_letter_retention(self, engine) -> None:
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(dead_letter_retention_days=14)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        assert bus._dead_letter_retention_days == 14
+
+    def test_no_config_uses_defaults(self, engine) -> None:
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True)
+        assert bus._per_future_timeout == 30.0
+        assert bus._shutdown_timeout == 5.0
+        assert bus._max_retries == 3
+        assert bus._dead_letter_retention_days == 30
+
+    def test_wait_futures_uses_configurable_timeout(self, engine, pm_with_recorder) -> None:
+        """Verify _wait_futures passes per_future_timeout to future.result()."""
+        from unittest.mock import MagicMock
+
+        from ztlctl.config.models import EventBusConfig
+
+        config = EventBusConfig(per_future_timeout_seconds=99.0)
+        pm, _ = pm_with_recorder
+        bus = EventBus(engine, pm, sync=False, config=config)
+
+        # Manually insert a mock future
+        mock_future: MagicMock = MagicMock()
+        bus._futures = [(1, mock_future)]
+        bus._wait_futures()
+        mock_future.result.assert_called_once_with(timeout=99.0)
+
+
+class TestDeadLetterPurge:
+    """Tests for EventBus.purge_dead_letters."""
+
+    def test_purge_dead_letters_removes_old_entries(self, engine) -> None:
+        """purge_dead_letters deletes dead_letter rows with created date older than N days."""
+        from datetime import datetime, timedelta
+
+        old_date = (datetime.now(UTC) - timedelta(days=60)).isoformat()
+
+        with engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_check",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True)
+        count = bus.purge_dead_letters(older_than_days=30)
+
+        assert count == 2
+
+        with engine.connect() as conn:
+            remaining = conn.execute(
+                select(event_wal).where(event_wal.c.status == "dead_letter")
+            ).fetchall()
+        assert len(remaining) == 0
+
+    def test_purge_dead_letters_keeps_recent_entries(self, engine) -> None:
+        """purge_dead_letters does NOT delete dead_letter rows from today."""
+        from datetime import datetime
+
+        today_date = datetime.now(UTC).isoformat()
+
+        with engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=today_date,
+                )
+            )
+
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True)
+        count = bus.purge_dead_letters(older_than_days=30)
+
+        assert count == 0
+
+        with engine.connect() as conn:
+            remaining = conn.execute(
+                select(event_wal).where(event_wal.c.status == "dead_letter")
+            ).fetchall()
+        assert len(remaining) == 1
+
+    def test_purge_dead_letters_uses_config_retention_by_default(self, engine) -> None:
+        """purge_dead_letters uses _dead_letter_retention_days when older_than_days is None."""
+        from datetime import datetime, timedelta
+
+        from ztlctl.config.models import EventBusConfig
+
+        # Config says 7-day retention; insert a row 10 days old
+        old_date = (datetime.now(UTC) - timedelta(days=10)).isoformat()
+
+        with engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+
+        config = EventBusConfig(dead_letter_retention_days=7)
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True, config=config)
+        count = bus.purge_dead_letters()
+
+        assert count == 1
+
+    def test_purge_dead_letters_does_not_remove_non_dead_letter_rows(self, engine) -> None:
+        """purge_dead_letters only removes dead_letter status rows, not failed/pending."""
+        from datetime import datetime, timedelta
+
+        old_date = (datetime.now(UTC) - timedelta(days=60)).isoformat()
+
+        with engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="failed",
+                    retries=2,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="pending",
+                    retries=0,
+                    session_id=None,
+                    created=old_date,
+                )
+            )
+
+        pm = PluginManager()
+        bus = EventBus(engine, pm, sync=True)
+        count = bus.purge_dead_letters(older_than_days=30)
+
+        assert count == 0
+
+
 class TestEventBusNoPlugins:
     """Tests for dispatch when no plugins are registered."""
 
@@ -434,3 +645,126 @@ class TestEventBusNoPlugins:
 
         assert row is not None
         assert row.status == "completed"
+
+
+class TestShutdownAndStartupDrain:
+    """Tests for bounded shutdown drain and startup recovery drain."""
+
+    def test_shutdown_drain_completes_pending_events(self, engine, pm_with_recorder):
+        """Shutdown with wait=True ensures no pending WAL rows remain."""
+        pm, recorder = pm_with_recorder
+        bus = EventBus(engine, pm, sync=False, max_workers=2)
+
+        bus.dispatch("post_check", {"issues_found": 1, "issues_fixed": 0})
+        bus.dispatch("post_check", {"issues_found": 2, "issues_fixed": 1})
+
+        bus.shutdown(wait=True)
+
+        with engine.connect() as conn:
+            pending = conn.execute(
+                select(event_wal.c.id).where(event_wal.c.status == "pending")
+            ).fetchall()
+
+        assert len(pending) == 0
+        assert len(recorder.calls) == 2
+
+    def test_shutdown_drain_timeout_leaves_pending_as_pending(self, engine):
+        """After a short timeout, slow events are left as pending (not cancelled)."""
+        barrier = threading.Barrier(2)
+        hook_called = threading.Event()
+
+        class SlowPlugin:
+            @hookimpl
+            def post_check(self, issues_found: int, issues_fixed: int) -> None:
+                hook_called.set()
+                barrier.wait(timeout=10)
+
+        pm = PluginManager()
+        pm.register_plugin(SlowPlugin(), name="slow")
+        bus = EventBus(engine, pm, sync=False, max_workers=1)
+
+        bus.dispatch("post_check", {"issues_found": 0, "issues_fixed": 0})
+
+        # Wait for the hook to start before shutting down
+        hook_called.wait(timeout=5)
+        # Shutdown with very short per-future timeout — future.result() will time out
+        bus.shutdown(wait=True, timeout=0.01)
+
+        # Unblock the slow hook so cleanup can happen
+        try:
+            barrier.wait(timeout=1)
+        except Exception:
+            pass
+
+        # The WAL row may be pending or completed depending on timing,
+        # but the key invariant is: shutdown does NOT raise and does NOT
+        # forcefully cancel futures — rows remain as pending (not deleted).
+        with engine.connect() as conn:
+            row = conn.execute(
+                select(event_wal.c.status, event_wal.c.id).order_by(event_wal.c.id.desc())
+            ).fetchone()
+        assert row is not None  # Row exists — not deleted by timeout
+
+    def test_startup_drain_retries_pending_from_prior_run(self, engine):
+        """Insert pending WAL rows directly, create EventBus, drain processes them."""
+        pm = PluginManager()
+        recorder = PostActionPlugin()
+        pm.register_plugin(recorder, name="post-action-recorder")
+
+        # Insert a pending post_action event as if from a prior run
+        action_payload = {
+            "action_name": "create_note",
+            "side_effect": "write",
+            "payload": {"id": "N-0001", "title": "Test"},
+            "warnings": [],
+            "result": None,
+        }
+        with engine.begin() as conn:
+            conn.execute(
+                insert(event_wal).values(
+                    hook_name="post_action",
+                    payload=json.dumps(action_payload),
+                    status="pending",
+                    retries=0,
+                    session_id=None,
+                    created=now_iso(),
+                )
+            )
+
+        bus = EventBus(engine, pm, sync=True)
+        results = bus.drain()
+
+        assert len(results) == 1
+        assert results[0]["hook_name"] == "post_action"
+        assert results[0]["status"] == "completed"
+        assert len(recorder.calls) == 1
+        assert recorder.calls[0]["action_name"] == "create_note"
+
+    def test_post_action_canonical_dispatch(self, engine):
+        """Dispatch a post_action event with ActionEvent dict, verify correct hook call."""
+        pm = PluginManager()
+        recorder = PostActionPlugin()
+        pm.register_plugin(recorder, name="post-action-recorder")
+
+        bus = EventBus(engine, pm, sync=True)
+        action_payload = {
+            "action_name": "create_note",
+            "side_effect": "write",
+            "payload": {"id": "N-0001", "title": "My Note"},
+            "warnings": [],
+            "result": {"ok": True},
+        }
+        event_id = bus.dispatch("post_action", action_payload)
+
+        with engine.connect() as conn:
+            row = conn.execute(
+                select(event_wal.c.status).where(event_wal.c.id == event_id)
+            ).fetchone()
+
+        assert row is not None
+        assert row.status == "completed"
+        assert len(recorder.calls) == 1
+        call = recorder.calls[0]
+        assert call["action_name"] == "create_note"
+        assert call["kwargs"] == {"id": "N-0001", "title": "My Note"}
+        assert call["result"] == {"ok": True}

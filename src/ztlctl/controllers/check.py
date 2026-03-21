@@ -16,99 +16,86 @@ class CheckController(BaseController):
     def check(self, *, min_severity: str = "warning") -> ServiceResult:
         """Report integrity issues without modifying anything."""
         from ztlctl.services.check import CheckService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"min_severity": min_severity}
 
-        kwargs, rejection = self._dispatch_pre_action("check", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="check",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CheckService(self._vault).check(min_severity=kw["min_severity"])
 
-        result = CheckService(self._vault).check(min_severity=kwargs["min_severity"])
-
-        self._dispatch_post_action("check", kwargs, result)
-        return result
+        return self._run_action("check", kwargs, _invoke)
 
     def fix(self, *, level: str = "safe") -> ServiceResult:
         """Automatically repair issues. Level: 'safe' or 'aggressive'."""
         from ztlctl.services.check import CheckService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"level": level}
 
-        kwargs, rejection = self._dispatch_pre_action("fix", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="fix",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CheckService(self._vault).fix(level=kw["level"])
 
-        result = CheckService(self._vault).fix(level=kwargs["level"])
-
-        self._dispatch_post_action("fix", kwargs, result)
-        return result
+        return self._run_action("fix", kwargs, _invoke)
 
     def rebuild(self) -> ServiceResult:
         """Full DB rebuild from filesystem (files are truth)."""
         from ztlctl.services.check import CheckService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {}
 
-        kwargs, rejection = self._dispatch_pre_action("rebuild", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="rebuild",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CheckService(self._vault).rebuild()
 
-        result = CheckService(self._vault).rebuild()
-
-        self._dispatch_post_action("rebuild", kwargs, result)
-        return result
+        return self._run_action("rebuild", kwargs, _invoke)
 
     def rollback(self) -> ServiceResult:
         """Restore DB from latest backup."""
         from ztlctl.services.check import CheckService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {}
 
-        kwargs, rejection = self._dispatch_pre_action("rollback", kwargs)
-        if rejection is not None:
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CheckService(self._vault).rollback()
+
+        return self._run_action("rollback", kwargs, _invoke)
+
+    def check_alignment(self, *, decision: str) -> ServiceResult:
+        """Check decision alignment against polaris priorities."""
+        from ztlctl.services.check import CheckService
+
+        kwargs: dict[str, Any] = {"decision": decision}
+
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CheckService(self._vault).check_alignment(**kw)
+
+        return self._run_action("check_alignment", kwargs, _invoke)
+
+    def event_purge(self, *, older_than_days: int | None = None) -> ServiceResult:
+        """Purge dead-letter events from the WAL.
+
+        Deletes dead-letter rows older than older_than_days (defaults to
+        config dead_letter_retention_days). Returns count purged.
+        """
+        from ztlctl.services.result import ServiceError, ServiceResult
+
+        bus = self._vault.event_bus
+        if bus is None:
             return ServiceResult(
                 ok=False,
-                op="rollback",
+                op="event_purge",
                 error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
+                    code="EVENT_BUS_NOT_INITIALIZED",
+                    message="Event bus not initialized",
                 ),
             )
 
-        result = CheckService(self._vault).rollback()
+        days = (
+            older_than_days
+            if older_than_days is not None
+            else self._vault.settings.eventbus.dead_letter_retention_days
+        )
+        count = bus.purge_dead_letters(older_than_days=days)
 
-        self._dispatch_post_action("rollback", kwargs, result)
-        return result
+        return ServiceResult(
+            ok=True,
+            op="event_purge",
+            data={"purged_count": count, "older_than_days": days},
+        )

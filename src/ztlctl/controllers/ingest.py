@@ -17,27 +17,13 @@ class IngestController(BaseController):
     def list_providers(self) -> ServiceResult:
         """List registered source providers."""
         from ztlctl.services.ingest import IngestService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {}
 
-        kwargs, rejection = self._dispatch_pre_action("list_providers", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="list_providers",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return IngestService(self._vault).list_providers()
 
-        result = IngestService(self._vault).list_providers()
-
-        self._dispatch_post_action("list_providers", kwargs, result)
-        return result
+        return self._run_action("list_providers", kwargs, _invoke)
 
     def ingest_text(
         self,
@@ -63,7 +49,6 @@ class IngestController(BaseController):
     ) -> ServiceResult:
         """Ingest raw text into a note or reference."""
         from ztlctl.services.ingest import IngestService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {
             "title": title,
@@ -86,42 +71,29 @@ class IngestController(BaseController):
             "no_reweave": no_reweave,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("ingest_text", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="ingest_text",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return IngestService(self._vault).ingest_text(
+                kw["title"],
+                kw["body_text"],
+                target_type=kw["target_type"],
+                topic=kw["topic"],
+                tags=kw["tags"],
+                session=kw["session"],
+                subtype=kw["subtype"],
+                summary=kw["summary"],
+                source_kind=kw["source_kind"],
+                modalities=kw["modalities"],
+                capture_agent=kw["capture_agent"],
+                capture_method=kw["capture_method"],
+                citations=kw["citations"],
+                excerpts=kw["excerpts"],
+                artifacts=kw["artifacts"],
+                source_bundle=kw["source_bundle"],
+                dry_run=kw["dry_run"],
+                no_reweave=kw["no_reweave"],
             )
 
-        result = IngestService(self._vault).ingest_text(
-            kwargs["title"],
-            kwargs["body_text"],
-            target_type=kwargs["target_type"],
-            topic=kwargs["topic"],
-            tags=kwargs["tags"],
-            session=kwargs["session"],
-            subtype=kwargs["subtype"],
-            summary=kwargs["summary"],
-            source_kind=kwargs["source_kind"],
-            modalities=kwargs["modalities"],
-            capture_agent=kwargs["capture_agent"],
-            capture_method=kwargs["capture_method"],
-            citations=kwargs["citations"],
-            excerpts=kwargs["excerpts"],
-            artifacts=kwargs["artifacts"],
-            source_bundle=kwargs["source_bundle"],
-            dry_run=kwargs["dry_run"],
-            no_reweave=kwargs["no_reweave"],
-        )
-
-        self._dispatch_post_action("ingest_text", kwargs, result)
-        return result
+        return self._run_action("ingest_text", kwargs, _invoke)
 
     def ingest_file(
         self,
@@ -147,7 +119,6 @@ class IngestController(BaseController):
     ) -> ServiceResult:
         """Ingest a plain text or markdown file."""
         from ztlctl.services.ingest import IngestService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {
             "path": path,
@@ -170,42 +141,72 @@ class IngestController(BaseController):
             "no_reweave": no_reweave,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("ingest_file", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="ingest_file",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return IngestService(self._vault).ingest_file(
+                Path(kw["path"]),
+                title=kw["title"],
+                target_type=kw["target_type"],
+                topic=kw["topic"],
+                tags=kw["tags"],
+                session=kw["session"],
+                subtype=kw["subtype"],
+                summary=kw["summary"],
+                source_kind=kw["source_kind"],
+                modalities=kw["modalities"],
+                capture_agent=kw["capture_agent"],
+                capture_method=kw["capture_method"],
+                citations=kw["citations"],
+                excerpts=kw["excerpts"],
+                artifacts=kw["artifacts"],
+                source_bundle=kw["source_bundle"],
+                dry_run=kw["dry_run"],
+                no_reweave=kw["no_reweave"],
             )
 
-        result = IngestService(self._vault).ingest_file(
-            Path(kwargs["path"]),
-            title=kwargs["title"],
-            target_type=kwargs["target_type"],
-            topic=kwargs["topic"],
-            tags=kwargs["tags"],
-            session=kwargs["session"],
-            subtype=kwargs["subtype"],
-            summary=kwargs["summary"],
-            source_kind=kwargs["source_kind"],
-            modalities=kwargs["modalities"],
-            capture_agent=kwargs["capture_agent"],
-            capture_method=kwargs["capture_method"],
-            citations=kwargs["citations"],
-            excerpts=kwargs["excerpts"],
-            artifacts=kwargs["artifacts"],
-            source_bundle=kwargs["source_bundle"],
-            dry_run=kwargs["dry_run"],
-            no_reweave=kwargs["no_reweave"],
-        )
+        return self._run_action("ingest_file", kwargs, _invoke)
 
-        self._dispatch_post_action("ingest_file", kwargs, result)
-        return result
+    def ingest_media(
+        self,
+        path: Path | str,
+        *,
+        title: str | None = None,
+        topic: str | None = None,
+        tags: list[str] | None = None,
+        session: str | None = None,
+        subtype: str | None = None,
+        summary: str | None = None,
+        dry_run: bool = False,
+        no_reweave: bool = False,
+    ) -> ServiceResult:
+        """Ingest a media file or transcript into a captured reference."""
+        from ztlctl.services.ingest import IngestService
+
+        kwargs: dict[str, Any] = {
+            "path": path,
+            "title": title,
+            "topic": topic,
+            "tags": tags,
+            "session": session,
+            "subtype": subtype,
+            "summary": summary,
+            "dry_run": dry_run,
+            "no_reweave": no_reweave,
+        }
+
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return IngestService(self._vault).ingest_media(
+                Path(kw["path"]),
+                title=kw["title"],
+                topic=kw["topic"],
+                tags=kw["tags"],
+                session=kw["session"],
+                subtype=kw["subtype"],
+                summary=kw["summary"],
+                dry_run=kw["dry_run"],
+                no_reweave=kw["no_reweave"],
+            )
+
+        return self._run_action("ingest_media", kwargs, _invoke)
 
     def ingest_url(
         self,
@@ -232,7 +233,6 @@ class IngestController(BaseController):
     ) -> ServiceResult:
         """Ingest a URL through a registered source provider."""
         from ztlctl.services.ingest import IngestService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {
             "url": url,
@@ -256,40 +256,27 @@ class IngestController(BaseController):
             "no_reweave": no_reweave,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("ingest_url", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="ingest_url",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return IngestService(self._vault).ingest_url(
+                kw["url"],
+                provider=kw["provider"],
+                title=kw["title"],
+                target_type=kw["target_type"],
+                topic=kw["topic"],
+                tags=kw["tags"],
+                session=kw["session"],
+                subtype=kw["subtype"],
+                summary=kw["summary"],
+                source_kind=kw["source_kind"],
+                modalities=kw["modalities"],
+                capture_agent=kw["capture_agent"],
+                capture_method=kw["capture_method"],
+                citations=kw["citations"],
+                excerpts=kw["excerpts"],
+                artifacts=kw["artifacts"],
+                source_bundle=kw["source_bundle"],
+                dry_run=kw["dry_run"],
+                no_reweave=kw["no_reweave"],
             )
 
-        result = IngestService(self._vault).ingest_url(
-            kwargs["url"],
-            provider=kwargs["provider"],
-            title=kwargs["title"],
-            target_type=kwargs["target_type"],
-            topic=kwargs["topic"],
-            tags=kwargs["tags"],
-            session=kwargs["session"],
-            subtype=kwargs["subtype"],
-            summary=kwargs["summary"],
-            source_kind=kwargs["source_kind"],
-            modalities=kwargs["modalities"],
-            capture_agent=kwargs["capture_agent"],
-            capture_method=kwargs["capture_method"],
-            citations=kwargs["citations"],
-            excerpts=kwargs["excerpts"],
-            artifacts=kwargs["artifacts"],
-            source_bundle=kwargs["source_bundle"],
-            dry_run=kwargs["dry_run"],
-            no_reweave=kwargs["no_reweave"],
-        )
-
-        self._dispatch_post_action("ingest_url", kwargs, result)
-        return result
+        return self._run_action("ingest_url", kwargs, _invoke)

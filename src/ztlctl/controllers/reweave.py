@@ -21,7 +21,6 @@ class ReweaveController(BaseController):
         min_score_override: float | None = None,
     ) -> ServiceResult:
         """Run reweave on a specific item or the latest creation."""
-        from ztlctl.services.result import ServiceError, ServiceResult
         from ztlctl.services.reweave import ReweaveService
 
         kwargs: dict[str, Any] = {
@@ -30,27 +29,14 @@ class ReweaveController(BaseController):
             "min_score_override": min_score_override,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("reweave", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="reweave",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return ReweaveService(self._vault).reweave(
+                content_id=kw["content_id"],
+                dry_run=kw["dry_run"],
+                min_score_override=kw["min_score_override"],
             )
 
-        result = ReweaveService(self._vault).reweave(
-            content_id=kwargs["content_id"],
-            dry_run=kwargs["dry_run"],
-            min_score_override=kwargs["min_score_override"],
-        )
-
-        self._dispatch_post_action("reweave", kwargs, result)
-        return result
+        return self._run_action("reweave", kwargs, _invoke)
 
     def prune(
         self,
@@ -59,53 +45,25 @@ class ReweaveController(BaseController):
         dry_run: bool = False,
     ) -> ServiceResult:
         """Remove stale links that score below threshold."""
-        from ztlctl.services.result import ServiceError, ServiceResult
         from ztlctl.services.reweave import ReweaveService
 
         kwargs: dict[str, Any] = {"content_id": content_id, "dry_run": dry_run}
 
-        kwargs, rejection = self._dispatch_pre_action("prune", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="prune",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return ReweaveService(self._vault).prune(
+                content_id=kw["content_id"],
+                dry_run=kw["dry_run"],
             )
 
-        result = ReweaveService(self._vault).prune(
-            content_id=kwargs["content_id"],
-            dry_run=kwargs["dry_run"],
-        )
-
-        self._dispatch_post_action("prune", kwargs, result)
-        return result
+        return self._run_action("prune", kwargs, _invoke)
 
     def undo(self, *, reweave_id: int | None = None) -> ServiceResult:
         """Reverse a reweave operation via audit trail."""
-        from ztlctl.services.result import ServiceError, ServiceResult
         from ztlctl.services.reweave import ReweaveService
 
         kwargs: dict[str, Any] = {"reweave_id": reweave_id}
 
-        kwargs, rejection = self._dispatch_pre_action("undo", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="undo",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return ReweaveService(self._vault).undo(reweave_id=kw["reweave_id"])
 
-        result = ReweaveService(self._vault).undo(reweave_id=kwargs["reweave_id"])
-
-        self._dispatch_post_action("undo", kwargs, result)
-        return result
+        return self._run_action("undo", kwargs, _invoke)

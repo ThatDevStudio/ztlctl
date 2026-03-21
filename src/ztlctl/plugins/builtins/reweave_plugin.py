@@ -66,15 +66,18 @@ class ReweavePlugin:
             logger.debug("Skipping post-action reweave for action=%s", action_name)
             return
 
-        # Guard: skip if result indicates failure. None = pass-through (bridge path).
-        if result is not None and (not hasattr(result, "ok") or not result.ok):
-            return
+        # Guard: skip if result indicates failure. None = pass-through.
+        # Result may be a ServiceResult object or a dict (from ActionEvent serialization).
+        if result is not None:
+            ok = result.get("ok") if isinstance(result, dict) else getattr(result, "ok", True)
+            if not ok:
+                return
 
         settings = self._vault.settings
 
-        # Extract content_id from kwargs (same key in both EventBus bridge payload
-        # and controller-dispatched kwargs)
-        content_id: str = kwargs.get("content_id", "")
+        # Extract content_id from kwargs. ActionEvent payloads use "id" (from
+        # ServiceResult.data), legacy controller kwargs used "content_id".
+        content_id: str = kwargs.get("content_id", "") or kwargs.get("id", "")
 
         if not content_id:
             logger.debug("Skipping post-action reweave: no content_id in kwargs")

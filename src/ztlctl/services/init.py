@@ -19,7 +19,6 @@ from ztlctl.plugins.contracts import (
     VaultInitStepContribution,
     VaultInitStepResult,
 )
-from ztlctl.plugins.manager import PluginManager
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
@@ -155,8 +154,9 @@ def _collect_init_steps(
     profile_registry: WorkspaceProfileRegistry,
 ) -> list[VaultInitStepContribution]:
     """Discover init steps from entry-point plugins plus legacy scaffolds."""
-    plugin_manager = PluginManager()
-    plugin_manager.discover_and_load(local_dir=None, include_entrypoints=True)
+    from ztlctl.plugins.runtime import get_plugin_manager
+
+    plugin_manager = get_plugin_manager(local_dir=None, include_entrypoints=True)
     steps = list(plugin_manager.vault_init_step_contributions())
     for profile_id, contribution in profile_registry.profiles.items():
         scaffold = contribution.init_scaffold
@@ -403,6 +403,16 @@ class InitService:
         for filename, content in rendered.items():
             (self_dir / filename).write_text(content, encoding="utf-8")
             files_created.append(f"self/{filename}")
+
+        # 5b. RENDER POLARIS
+        polaris_env = build_template_environment("self", vault_root=vault_path)
+        polaris_content = polaris_env.get_template("polaris.md.j2").render(
+            vault_name=name, created=created
+        )
+        polaris_dir = vault_path / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        (polaris_dir / "polaris.md").write_text(polaris_content, encoding="utf-8")
+        files_created.append("garden/groves/polaris.md")
 
         # 6. RUN INIT STEPS
         init_step_result = _run_init_steps(

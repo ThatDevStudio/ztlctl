@@ -102,9 +102,20 @@ class SearchConfig(BaseModel):
 
     semantic_enabled: bool = False
     embedding_model: str = "local"
+    # Must match DEFAULT_EMBEDDING_DIM in ztlctl.infrastructure.embeddings
     embedding_dim: int = 384
     half_life_days: float = 30.0
     semantic_weight: float = 0.5
+
+
+class MediaIngestConfig(BaseModel):
+    """[ingest.media] section."""
+
+    model_config = {"frozen": True}
+
+    whisper_model: str = "base"
+    language: str | None = None
+    compute_type: str = "int8"
 
 
 class IngestConfig(BaseModel):
@@ -116,6 +127,7 @@ class IngestConfig(BaseModel):
     auto_reweave: bool = True
     default_target_type: str = "reference"
     providers: dict[str, Any] = Field(default_factory=dict)
+    media: MediaIngestConfig = Field(default_factory=MediaIngestConfig)
 
 
 class SessionConfig(BaseModel):
@@ -220,3 +232,14 @@ class ExportsConfig(BaseModel):
     model_config = {"frozen": True}
 
     dashboard: DashboardExportConfig = Field(default_factory=DashboardExportConfig)
+
+
+class EventBusConfig(BaseModel):
+    """[eventbus] section."""
+
+    model_config = {"frozen": True}
+
+    shutdown_timeout_seconds: float = 5.0
+    max_retries: int = 3
+    dead_letter_retention_days: int = 30
+    per_future_timeout_seconds: float = 30.0

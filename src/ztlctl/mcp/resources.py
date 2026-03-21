@@ -1,9 +1,9 @@
 """MCP resource definitions — URI-based resources.
 
-URIs: ztlctl://context, ztlctl://self/identity, ztlctl://self/methodology,
-ztlctl://overview, ztlctl://work-queue, ztlctl://review/dashboard,
-ztlctl://garden/backlog, ztlctl://decision-queue, ztlctl://capture/spec,
-ztlctl://topics, ztlctl://agent-reference.
+URIs: ztlctl://context, ztlctl://polaris, ztlctl://self/identity,
+ztlctl://self/methodology, ztlctl://overview, ztlctl://work-queue,
+ztlctl://review/dashboard, ztlctl://garden/backlog, ztlctl://decision-queue,
+ztlctl://capture/spec, ztlctl://topics, ztlctl://agent-reference.
 Each resource has a ``_<name>_impl`` function testable without the mcp package.
 (DESIGN.md Section 16)
 """
@@ -30,6 +30,7 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
         "uri": "ztlctl://recipes/knowledge-synthesis",
         "description": "Knowledge-synthesis workflow: search, find gaps, draft, reweave.",
     },
+    {"uri": "ztlctl://polaris", "description": "The vault's polaris priorities document."},
     {"uri": "ztlctl://self/identity", "description": "The vault's identity document."},
     {"uri": "ztlctl://self/methodology", "description": "The vault's methodology document."},
     {"uri": "ztlctl://overview", "description": "Vault overview with counts and recent items."},
@@ -69,6 +70,14 @@ _RESOURCE_CATALOG: tuple[dict[str, str], ...] = (
             "Use the docs_search tool to search the corpus by query string."
         ),
     },
+    {
+        "uri": "ztlctl://sessions/recent",
+        "description": "Last 5 sessions with summaries, timestamps, and note counts.",
+    },
+    {
+        "uri": "ztlctl://review/contradictions",
+        "description": "Contradiction candidate pairs scored by heuristic analysis.",
+    },
 )
 
 
@@ -104,6 +113,17 @@ def self_methodology_impl(vault: Any) -> str:
     if path.exists():
         return str(path.read_text(encoding="utf-8"))
     return "No methodology file found. Run `ztlctl init` to generate one."
+
+
+def polaris_impl(vault: Any) -> str:
+    """Read garden/groves/polaris.md from the vault."""
+    path = vault.root / "garden" / "groves" / "polaris.md"
+    if path.exists():
+        return str(path.read_text(encoding="utf-8"))
+    return (
+        "No polaris file found. Run `ztlctl init` to generate one, "
+        "or create garden/groves/polaris.md manually."
+    )
 
 
 def overview_impl(vault: Any) -> dict[str, Any]:
@@ -155,7 +175,7 @@ def garden_backlog_impl(vault: Any) -> dict[str, Any]:
 
     review = QueryService(vault).vault_review(top=10)
     if not review.ok:
-        return {"items": [], "count": 0}
+        return {"items": [], "count": 0, "title_improvement_candidates": []}
 
     backlog = [
         *review.data.get("stale_seeds", []),
@@ -169,7 +189,31 @@ def garden_backlog_impl(vault: Any) -> dict[str, Any]:
             continue
         seen.add(item_id)
         items.append(item)
-    return {"items": items, "count": len(items)}
+
+    # Title improvement candidates (from check at info severity)
+    from ztlctl.services.check import CAT_STRUCTURAL, SEVERITY_INFO, CheckService
+
+    check_result = CheckService(vault).check(min_severity="info")
+    title_candidates: list[dict[str, Any]] = []
+    if check_result.ok:
+        for issue in check_result.data.get("issues", []):
+            if (
+                issue.get("category") == CAT_STRUCTURAL
+                and issue.get("severity") == SEVERITY_INFO
+                and "Title quality" in str(issue.get("message", ""))
+            ):
+                title_candidates.append(
+                    {
+                        "id": issue.get("node_id"),
+                        "message": issue.get("message"),
+                    }
+                )
+
+    return {
+        "items": items,
+        "count": len(items),
+        "title_improvement_candidates": title_candidates,
+    }
 
 
 def decision_queue_impl(vault: Any) -> dict[str, Any]:
@@ -641,6 +685,33 @@ def docs_search_resource_impl(_vault: Any = None) -> dict[str, Any]:
     }
 
 
+def sessions_recent_impl(vault: Any) -> dict[str, Any]:
+    """Return the last 5 sessions with per-session summaries."""
+    from ztlctl.services.recall import RecallService
+
+    result = RecallService(vault).recall_temporal()
+    if not result.ok:
+        return {"sessions": [], "count": 0}
+
+    all_sessions: list[dict[str, Any]] = result.data.get("sessions", [])
+    # Sessions already ordered by created_at desc; take first 5
+    recent = all_sessions[:5]
+    return {"sessions": recent, "count": len(recent)}
+
+
+def contradictions_review_impl(vault: Any) -> dict[str, Any]:
+    """Return contradiction candidate pairs scored by heuristic analysis."""
+    from ztlctl.services.contradiction import ContradictionService
+
+    result = ContradictionService(vault).find_candidates()
+    if not result.ok:
+        return {"candidates": [], "count": 0}
+    return {
+        "candidates": result.data.get("candidates", []),
+        "count": result.data.get("count", 0),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Registration — wraps _impl functions with FastMCP decorators
 # ---------------------------------------------------------------------------
@@ -665,6 +736,11 @@ def register_resources(server: Any, vault: Any) -> None:
     def methodology_resource() -> str:
         """The vault's methodology document."""
         return self_methodology_impl(vault)
+
+    @server.resource("ztlctl://polaris")  # type: ignore[untyped-decorator]
+    def polaris_resource() -> str:
+        """The vault's polaris priorities document."""
+        return polaris_impl(vault)
 
     @server.resource("ztlctl://overview")  # type: ignore[untyped-decorator]
     def overview_resource() -> str:
@@ -761,6 +837,20 @@ def register_resources(server: Any, vault: Any) -> None:
         import json
 
         return json.dumps(docs_search_resource_impl(vault), indent=2)
+
+    @server.resource("ztlctl://sessions/recent")  # type: ignore[untyped-decorator]
+    def sessions_recent_resource() -> str:
+        """Last 5 sessions with summaries, timestamps, and note counts."""
+        import json
+
+        return json.dumps(sessions_recent_impl(vault), indent=2)
+
+    @server.resource("ztlctl://review/contradictions")  # type: ignore[untyped-decorator]
+    def contradictions_review_resource() -> str:
+        """Contradiction candidate pairs scored by heuristic analysis."""
+        import json
+
+        return json.dumps(contradictions_review_impl(vault), indent=2)
 
     plugin_manager = getattr(vault, "plugin_manager", None)
     if plugin_manager is None:

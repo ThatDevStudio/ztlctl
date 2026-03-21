@@ -885,6 +885,109 @@ class TestBackupPruning:
         assert "ztlctl-20260101T000000.db" in remaining_names
 
 
+class TestDeadLetterCheckReporting:
+    """Tests for dead-letter event reporting in CheckService."""
+
+    def test_check_reports_dead_letter_events(self, vault: Vault) -> None:
+        """CheckService reports dead-letter WAL rows as info-severity structural issue."""
+        from ztlctl.infrastructure.database.schema import event_wal
+
+        # Insert dead_letter WAL rows
+        with vault.engine.begin() as conn:
+            conn.execute(
+                __import__("sqlalchemy", fromlist=["insert"])
+                .insert(event_wal)
+                .values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created="2026-01-01T00:00:00+00:00",
+                )
+            )
+            conn.execute(
+                __import__("sqlalchemy", fromlist=["insert"])
+                .insert(event_wal)
+                .values(
+                    hook_name="post_update",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created="2026-01-01T00:00:00+00:00",
+                )
+            )
+            conn.execute(
+                __import__("sqlalchemy", fromlist=["insert"])
+                .insert(event_wal)
+                .values(
+                    hook_name="post_check",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created="2026-01-01T00:00:00+00:00",
+                )
+            )
+
+        svc = CheckService(vault)
+        # Use min_severity="info" so info issues are included
+        result = svc.check(min_severity="info")
+
+        assert result.ok
+        dead_letter_issues = [
+            i for i in result.data["issues"] if "dead-letter" in i.get("message", "")
+        ]
+        assert len(dead_letter_issues) == 1
+        issue = dead_letter_issues[0]
+        assert issue["category"] == "structural_validation"
+        assert issue["severity"] == "info"
+        assert "3 dead-letter" in issue["message"]
+        assert (
+            "event purge" in issue["message"].lower()
+            or "event_purge" in issue["message"]
+            or "ztlctl event purge" in issue["message"].lower()
+        )
+
+    def test_check_no_dead_letter_issue_when_none_exist(self, vault: Vault) -> None:
+        """CheckService does not report dead-letter issue when WAL has no dead_letter rows."""
+        svc = CheckService(vault)
+        result = svc.check(min_severity="info")
+
+        assert result.ok
+        dead_letter_issues = [
+            i for i in result.data["issues"] if "dead-letter" in i.get("message", "")
+        ]
+        assert len(dead_letter_issues) == 0
+
+    def test_check_dead_letter_filtered_out_at_warning_severity(self, vault: Vault) -> None:
+        """Dead-letter info issue is hidden when min_severity='warning'."""
+        from ztlctl.infrastructure.database.schema import event_wal
+
+        with vault.engine.begin() as conn:
+            conn.execute(
+                __import__("sqlalchemy", fromlist=["insert"])
+                .insert(event_wal)
+                .values(
+                    hook_name="post_create",
+                    payload="{}",
+                    status="dead_letter",
+                    retries=3,
+                    session_id=None,
+                    created="2026-01-01T00:00:00+00:00",
+                )
+            )
+
+        svc = CheckService(vault)
+        result = svc.check(min_severity="warning")
+
+        dead_letter_issues = [
+            i for i in result.data["issues"] if "dead-letter" in i.get("message", "")
+        ]
+        assert len(dead_letter_issues) == 0
+
+
 class TestRebuildCompleteness:
     """Additional named rebuild tests for plan acceptance criteria."""
 
@@ -913,3 +1016,242 @@ class TestRebuildCompleteness:
             recovered_b = conn.execute(select(nodes.c.id).where(nodes.c.id == data_b["id"])).first()
         assert recovered_a is not None
         assert recovered_b is not None
+
+
+# ---------------------------------------------------------------------------
+# Title quality checks (METH-01)
+# ---------------------------------------------------------------------------
+
+
+class TestTitleQualityCheck:
+    """Title quality advisory (info severity) under CAT_STRUCTURAL."""
+
+    def test_single_word_title_flagged_at_info(self, vault: Vault) -> None:
+        """A 1-word title like 'Notes' is flagged at info severity."""
+        create_note(vault, "Notes")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) >= 1
+
+    def test_two_word_title_flagged_at_info(self, vault: Vault) -> None:
+        """A 2-word title like 'My Notes' is flagged at info severity."""
+        create_note(vault, "My Notes")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "My Notes" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+
+    def test_three_word_title_flagged_at_info(self, vault: Vault) -> None:
+        """A 3-word title like 'Notes on X' is flagged at info severity."""
+        create_note(vault, "Notes on X")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "Notes on X" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+
+    def test_generic_title_untitled_flagged(self, vault: Vault) -> None:
+        """Generic title 'Untitled' is flagged at info severity."""
+        create_note(vault, "Untitled")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "Untitled" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+
+    def test_generic_title_new_note_flagged(self, vault: Vault) -> None:
+        """Generic title 'New Note' is flagged at info severity."""
+        create_note(vault, "New Note")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "New Note" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+
+    def test_descriptive_title_not_flagged(self, vault: Vault) -> None:
+        """A descriptive 4+ word title is NOT flagged."""
+        create_note(vault, "JWT authentication with refresh token rotation")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if i.get("category") == "structural_validation"
+            and i.get("severity") == "info"
+            and "Title quality" in str(i.get("message", ""))
+            and "JWT authentication with refresh token rotation" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 0
+
+    def test_title_issues_hidden_at_warning_severity(self, vault: Vault) -> None:
+        """Title quality issues (info) are NOT visible at default min_severity='warning'."""
+        create_note(vault, "Notes")
+        result_warning = CheckService(vault).check(min_severity="warning")
+        result_info = CheckService(vault).check(min_severity="info")
+        assert result_warning.ok
+        assert result_info.ok
+
+        warning_title_issues = [
+            i for i in result_warning.data["issues"] if "Title quality" in str(i.get("message", ""))
+        ]
+        info_title_issues = [
+            i for i in result_info.data["issues"] if "Title quality" in str(i.get("message", ""))
+        ]
+        assert len(warning_title_issues) == 0
+        assert len(info_title_issues) >= 1
+
+    def test_title_issue_category_and_severity(self, vault: Vault) -> None:
+        """Title quality issues have correct category and severity."""
+        from ztlctl.services.check import CAT_STRUCTURAL, SEVERITY_INFO
+
+        create_note(vault, "Draft")
+        result = CheckService(vault).check(min_severity="info")
+        assert result.ok
+        title_issues = [
+            i
+            for i in result.data["issues"]
+            if "Title quality" in str(i.get("message", "")) and "Draft" in str(i.get("message", ""))
+        ]
+        assert len(title_issues) == 1
+        assert title_issues[0]["category"] == CAT_STRUCTURAL
+        assert title_issues[0]["severity"] == SEVERITY_INFO
+
+
+# ---------------------------------------------------------------------------
+# check_alignment() — polaris alignment heuristic
+# ---------------------------------------------------------------------------
+
+
+class TestCheckAlignment:
+    def test_no_polaris_returns_ok(self, vault: Vault) -> None:
+        """When polaris file does not exist, check_alignment returns ok=True."""
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Should I add a new feature to the CLI?")
+        assert result.ok
+        assert result.op == "check_alignment"
+
+    def test_no_polaris_aligned_true(self, vault: Vault) -> None:
+        """Without polaris file, aligned is True and relevant_priorities is empty."""
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Should I refactor the query service?")
+        assert result.data["aligned"] is True
+        assert result.data["relevant_priorities"] == []
+        assert isinstance(result.data["reasoning"], str)
+        assert len(result.data["reasoning"]) > 0
+
+    def test_no_polaris_polaris_exists_false(self, vault: Vault) -> None:
+        """Without polaris file, polaris_exists is False."""
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Add a search feature")
+        assert result.data["polaris_exists"] is False
+
+    def test_result_data_structure(self, vault: Vault) -> None:
+        """Result data contains aligned (bool), relevant_priorities (list), reasoning (str)."""
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Some decision")
+        assert isinstance(result.data["aligned"], bool)
+        assert isinstance(result.data["relevant_priorities"], list)
+        assert isinstance(result.data["reasoning"], str)
+
+    def test_with_polaris_file_returns_ok(self, vault: Vault) -> None:
+        """When polaris file exists, check_alignment returns ok=True."""
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        polaris_path = polaris_dir / "polaris.md"
+        polaris_path.write_text(
+            "---\ntitle: Polaris\n---\n\n"
+            "## Current Priorities\n\n"
+            "1. Build a fast search feature\n"
+            "2. Improve documentation quality\n"
+            "3. Reduce technical debt\n\n"
+            "## Decision Principles\n\n"
+            "- Prefer simplicity over complexity\n"
+            "- Optimize for agent-friendliness\n",
+            encoding="utf-8",
+        )
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="We should build search")
+        assert result.ok
+        assert result.data["polaris_exists"] is True
+
+    def test_with_polaris_relevant_priorities_populated(self, vault: Vault) -> None:
+        """Decision with keyword overlap surfaces matching priorities."""
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        polaris_path = polaris_dir / "polaris.md"
+        polaris_path.write_text(
+            "---\ntitle: Polaris\n---\n\n"
+            "## Current Priorities\n\n"
+            "1. Build a fast search feature\n"
+            "2. Improve documentation quality\n"
+            "3. Reduce technical debt\n\n",
+            encoding="utf-8",
+        )
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="We should build search improvements")
+        assert result.ok
+        # "search" and "build" appear in priority 1 — should be in relevant_priorities
+        assert len(result.data["relevant_priorities"]) >= 1
+
+    def test_with_polaris_no_overlap_empty_relevant(self, vault: Vault) -> None:
+        """Decision with no keyword overlap produces empty relevant_priorities."""
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        polaris_path = polaris_dir / "polaris.md"
+        polaris_path.write_text(
+            "---\ntitle: Polaris\n---\n\n"
+            "## Current Priorities\n\n"
+            "1. Migrate database schemas\n"
+            "2. Optimize indexing performance\n\n",
+            encoding="utf-8",
+        )
+        svc = CheckService(vault)
+        result = svc.check_alignment(decision="Paint the office walls")
+        assert result.ok
+        assert result.data["relevant_priorities"] == []
+
+    def test_aligned_always_true(self, vault: Vault) -> None:
+        """aligned is always True — advisory, never blocking."""
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        polaris_path = polaris_dir / "polaris.md"
+        polaris_path.write_text(
+            "---\ntitle: Polaris\n---\n\n## Current Priorities\n\n1. Build search\n\n",
+            encoding="utf-8",
+        )
+        svc = CheckService(vault)
+        # Even with no overlap, aligned should be True
+        result = svc.check_alignment(decision="Paint the office walls")
+        assert result.data["aligned"] is True

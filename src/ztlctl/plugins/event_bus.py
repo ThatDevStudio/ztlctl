@@ -14,7 +14,7 @@ import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 
 from ztlctl.infrastructure.database.schema import event_wal
 from ztlctl.services._helpers import now_iso
@@ -22,23 +22,10 @@ from ztlctl.services._helpers import now_iso
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
+    from ztlctl.config.models import EventBusConfig
     from ztlctl.plugins.manager import PluginManager
 
 logger = logging.getLogger(__name__)
-
-# Maps per-event hook names to post_action action names.
-# post_create is handled specially: action_name is refined using content_type
-# from the payload (e.g. "create_note", "create_reference", "create_task").
-_HOOK_TO_ACTION: dict[str, str] = {
-    "post_create": "create",  # Refined at dispatch time using content_type
-    "post_update": "update",
-    "post_close": "close",
-    "post_reweave": "reweave",
-    "post_session_start": "session_start",
-    "post_session_close": "session_close",
-    "post_check": "check",
-    "post_init": "init",
-}
 
 
 class EventBus:
@@ -58,13 +45,23 @@ class EventBus:
         plugin_manager: PluginManager,
         *,
         sync: bool = False,
+        config: EventBusConfig | None = None,
         max_retries: int = 3,
         max_workers: int = 2,
     ) -> None:
         self._engine = engine
         self._pm = plugin_manager
         self._sync = sync
-        self._max_retries = max_retries
+        if config is not None:
+            self._max_retries = config.max_retries
+            self._per_future_timeout = config.per_future_timeout_seconds
+            self._shutdown_timeout = config.shutdown_timeout_seconds
+            self._dead_letter_retention_days = config.dead_letter_retention_days
+        else:
+            self._max_retries = max_retries
+            self._per_future_timeout = 30.0
+            self._shutdown_timeout = 5.0
+            self._dead_letter_retention_days = 30
         self._executor: ThreadPoolExecutor | None = (
             None if sync else ThreadPoolExecutor(max_workers=max_workers)
         )
@@ -140,15 +137,55 @@ class EventBus:
 
         return results
 
-    def shutdown(self, *, wait: bool = True, cancel_futures: bool = False) -> None:
+    def purge_dead_letters(self, *, older_than_days: int | None = None) -> int:
+        """Delete dead-letter WAL rows older than N days. Returns count deleted.
+
+        If older_than_days is None, uses self._dead_letter_retention_days from config.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        retention = (
+            older_than_days if older_than_days is not None else self._dead_letter_retention_days
+        )
+        cutoff = (datetime.now(UTC) - timedelta(days=retention)).isoformat()
+
+        with self._engine.begin() as conn:
+            count = conn.execute(
+                select(func.count())
+                .select_from(event_wal)
+                .where(
+                    event_wal.c.status == "dead_letter",
+                    event_wal.c.created < cutoff,
+                )
+            ).scalar_one()
+
+            if count > 0:
+                conn.execute(
+                    delete(event_wal).where(
+                        event_wal.c.status == "dead_letter",
+                        event_wal.c.created < cutoff,
+                    )
+                )
+
+        return count
+
+    def shutdown(
+        self,
+        *,
+        wait: bool = True,
+        cancel_futures: bool = False,
+        timeout: float | None = None,
+    ) -> None:
         """Shutdown ThreadPoolExecutor.
 
         Args:
             wait: Whether to wait for in-flight tasks to finish.
             cancel_futures: Whether pending (not yet running) futures should be cancelled.
+            timeout: Per-future timeout override. When None, uses the configured
+                ``per_future_timeout_seconds``.
         """
         if wait:
-            self._wait_futures()
+            self._wait_futures(timeout=timeout)
         else:
             self._futures.clear()
 
@@ -190,9 +227,32 @@ class EventBus:
     ) -> None:
         """Attempt to dispatch a hook. Update WAL status on success/failure.
 
-        After dispatching the per-event hook, also fires post_action for any
-        migrated plugins that implement the stable post_action hookspec.
+        Handles two dispatch paths:
+        - ``post_action``: payload is an ActionEvent dict; calls post_action
+          with action_name/kwargs/result extracted from the ActionEvent.
+        - All other hooks: dispatches the per-event hook directly. Services own
+          all post_action emission; no bridge is fired from here (ARCH-05).
         """
+        if hook_name == "post_action":
+            # Canonical post_action: payload is ActionEvent dict (D-15)
+            post_action_fn = getattr(self._pm.hook, "post_action", None)
+            if post_action_fn is None:
+                self._mark_completed(event_id)
+                return
+            try:
+                post_action_fn(
+                    action_name=payload["action_name"],
+                    kwargs=payload["payload"],
+                    result=payload.get("result"),
+                )
+            except Exception as exc:
+                logger.debug("post_action hook failed: %s", exc)
+                self._mark_failed(event_id, str(exc))
+            else:
+                self._mark_completed(event_id)
+            return
+
+        # Per-event hook dispatch (deprecated hooks)
         hook_fn = getattr(self._pm.hook, hook_name, None)
         if hook_fn is None:
             self._mark_completed(event_id)
@@ -204,21 +264,6 @@ class EventBus:
                 self._mark_failed(event_id, str(exc))
             else:
                 self._mark_completed(event_id)
-
-        # Bridge: also fire post_action so migrated plugins receive lifecycle events.
-        # This runs regardless of whether the per-event hook had subscribers or failed.
-        action_name = _HOOK_TO_ACTION.get(hook_name)
-        if action_name is not None:
-            # Refine create action name using content_type from payload
-            if hook_name == "post_create":
-                content_type = payload.get("content_type", "note")
-                action_name = f"create_{content_type}"
-            try:
-                post_action_fn = getattr(self._pm.hook, "post_action", None)
-                if post_action_fn is not None:
-                    post_action_fn(action_name=action_name, kwargs=payload, result=None)
-            except Exception:
-                logger.debug("post_action bridge failed for %s", hook_name, exc_info=True)
 
     def _mark_completed(self, event_id: int) -> None:
         """Mark an event as completed in the WAL."""
@@ -250,15 +295,27 @@ class EventBus:
                 )
             )
 
-    def _wait_futures(self, *, event_ids: set[int] | None = None) -> None:
-        """Wait for all in-flight async futures to complete."""
+    def _wait_futures(
+        self,
+        *,
+        event_ids: set[int] | None = None,
+        timeout: float | None = None,
+    ) -> None:
+        """Wait for all in-flight async futures to complete.
+
+        Args:
+            event_ids: When set, only wait for futures with these event IDs.
+            timeout: Per-future timeout override. When None, uses the configured
+                ``per_future_timeout_seconds``.
+        """
+        per_future_timeout = timeout if timeout is not None else self._per_future_timeout
         remaining: list[tuple[int, Future[None]]] = []
         for event_id, future in self._futures:
             if event_ids is not None and event_id not in event_ids:
                 remaining.append((event_id, future))
                 continue
             try:
-                future.result(timeout=30)
+                future.result(timeout=per_future_timeout)
             except Exception:
                 pass  # Errors already handled in _execute_hook
         self._futures = remaining

@@ -109,7 +109,7 @@ class SessionService(BaseService):
         warnings: list[str] = []
         self._dispatch_event("post_session_start", {"session_id": session_id}, warnings)
 
-        return ServiceResult(
+        result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -120,6 +120,14 @@ class SessionService(BaseService):
             },
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=result.data,
+            warnings=warnings,
+            result=result,
+            session_id=session_id,
+        )
+        return result
 
     @traced
     def close(self, *, summary: str | None = None) -> ServiceResult:
@@ -219,7 +227,7 @@ class SessionService(BaseService):
             bus.drain(event_ids=[close_event_id])
 
         # -- REPORT --
-        return ServiceResult(
+        result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -231,6 +239,14 @@ class SessionService(BaseService):
             },
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=result.data,
+            warnings=warnings,
+            result=result,
+            session_id=session_id,
+        )
+        return result
 
     @traced
     def reopen(self, session_id: str) -> ServiceResult:
@@ -295,7 +311,8 @@ class SessionService(BaseService):
                 )
             )
 
-        return ServiceResult(
+        warnings: list[str] = []
+        result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -303,6 +320,14 @@ class SessionService(BaseService):
                 "status": "open",
             },
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=result.data,
+            warnings=warnings,
+            result=result,
+            session_id=session_id,
+        )
+        return result
 
     @traced
     def status(self) -> ServiceResult:
@@ -601,7 +626,7 @@ class SessionService(BaseService):
             warnings,
         )
 
-        return ServiceResult(
+        result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -614,6 +639,14 @@ class SessionService(BaseService):
             },
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=result.data,
+            warnings=warnings,
+            result=result,
+            session_id=session_id,
+        )
+        return result
 
     # ------------------------------------------------------------------
     # Close pipeline helpers

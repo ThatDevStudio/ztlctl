@@ -76,7 +76,7 @@ class CheckIssue(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     category: str
-    severity: Literal["warning", "error"]
+    severity: Literal["info", "warning", "error"]
     node_id: str | None = None
     message: str
     fix_action: str | None = None
@@ -240,6 +240,7 @@ class AgentContextLayers(BaseModel):
     recent_decisions: list[DecisionContextItem] = Field(default_factory=list)
     work_queue: list[WorkQueueItem] = Field(default_factory=list)
     log_entries: list[LogEntryContextItem] = Field(default_factory=list)
+    polaris: str | None = None
     topic_content: list[ContextContentItem] = Field(default_factory=list)
     graph_adjacent: list[ContextContentItem] = Field(default_factory=list)
     background: list[ContextContentItem] = Field(default_factory=list)
@@ -439,7 +440,7 @@ class SourceBundleData(BaseModel):
     """Durable source bundle persisted beside a captured reference."""
 
     version: Literal[1] = 1
-    input_kind: Literal["text", "file", "url"]
+    input_kind: Literal["text", "file", "url", "media"]
     title: str
     source_kind: str | None = None
     modalities: list[str] = Field(default_factory=list)

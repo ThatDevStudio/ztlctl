@@ -292,12 +292,19 @@ class CreateService(BaseService):
             )
             self._vector_index_created(created, warnings)
 
-        return ServiceResult(
+        batch_result = ServiceResult(
             ok=True,
             op="create_batch",
             data={"created": results, "errors": errors},
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name="create_batch",
+            payload=batch_result.data,
+            warnings=warnings,
+            result=batch_result,
+        )
+        return batch_result
 
     # ------------------------------------------------------------------
     # Six-stage pipeline (private)
@@ -352,12 +359,19 @@ class CreateService(BaseService):
 
         self._vector_index_created(created, warnings)
 
-        return ServiceResult(
+        final = ServiceResult(
             ok=True,
             op=result.op,
             data=result.data,
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name=final.op,
+            payload=final.data,
+            warnings=warnings,
+            result=final,
+        )
+        return final
 
     def _create_content_in_txn(
         self,

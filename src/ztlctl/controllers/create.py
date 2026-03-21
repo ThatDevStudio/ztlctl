@@ -30,7 +30,6 @@ class CreateController(BaseController):
     ) -> ServiceResult:
         """Create a new note."""
         from ztlctl.services.create import CreateService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {
             "title": title,
@@ -45,35 +44,22 @@ class CreateController(BaseController):
             "aliases": aliases,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("create_note", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="create_note",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CreateService(self._vault).create_note(
+                kw["title"],
+                subtype=kw["subtype"],
+                tags=kw["tags"],
+                topic=kw["topic"],
+                session=kw["session"],
+                maturity=kw["maturity"],
+                body=kw["body"],
+                key_points=kw["key_points"],
+                links=kw["links"],
+                aliases=kw["aliases"],
+                dispatch_post_create=dispatch_post_create,
             )
 
-        result = CreateService(self._vault).create_note(
-            kwargs["title"],
-            subtype=kwargs["subtype"],
-            tags=kwargs["tags"],
-            topic=kwargs["topic"],
-            session=kwargs["session"],
-            maturity=kwargs["maturity"],
-            body=kwargs["body"],
-            key_points=kwargs["key_points"],
-            links=kwargs["links"],
-            aliases=kwargs["aliases"],
-            dispatch_post_create=dispatch_post_create,
-        )
-
-        self._dispatch_post_action("create_note", kwargs, result)
-        return result
+        return self._run_action("create_note", kwargs, _invoke)
 
     def create_reference(
         self,
@@ -109,7 +95,6 @@ class CreateController(BaseController):
     ) -> ServiceResult:
         """Create a new reference to an external source."""
         from ztlctl.services.create import CreateService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {
             "title": title,
@@ -141,52 +126,39 @@ class CreateController(BaseController):
             "language": language,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("create_reference", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="create_reference",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CreateService(self._vault).create_reference(
+                kw["title"],
+                url=kw["url"],
+                canonical_url=kw["canonical_url"],
+                subtype=kw["subtype"],
+                tags=kw["tags"],
+                topic=kw["topic"],
+                session=kw["session"],
+                aliases=kw["aliases"],
+                links=kw["links"],
+                key_points=kw["key_points"],
+                body=kw["body"],
+                summary=kw["summary"],
+                excerpts=kw["excerpts"],
+                notes=kw["notes"],
+                provenance=kw["provenance"],
+                source_provider=kw["source_provider"],
+                source_type=kw["source_type"],
+                source_kind=kw["source_kind"],
+                modalities=kw["modalities"],
+                capture_agent=kw["capture_agent"],
+                capture_method=kw["capture_method"],
+                citations=kw["citations"],
+                artifacts=kw["artifacts"],
+                source_bundle_path=kw["source_bundle_path"],
+                retrieved_at=kw["retrieved_at"],
+                content_hash=kw["content_hash"],
+                language=kw["language"],
+                dispatch_post_create=dispatch_post_create,
             )
 
-        result = CreateService(self._vault).create_reference(
-            kwargs["title"],
-            url=kwargs["url"],
-            canonical_url=kwargs["canonical_url"],
-            subtype=kwargs["subtype"],
-            tags=kwargs["tags"],
-            topic=kwargs["topic"],
-            session=kwargs["session"],
-            aliases=kwargs["aliases"],
-            links=kwargs["links"],
-            key_points=kwargs["key_points"],
-            body=kwargs["body"],
-            summary=kwargs["summary"],
-            excerpts=kwargs["excerpts"],
-            notes=kwargs["notes"],
-            provenance=kwargs["provenance"],
-            source_provider=kwargs["source_provider"],
-            source_type=kwargs["source_type"],
-            source_kind=kwargs["source_kind"],
-            modalities=kwargs["modalities"],
-            capture_agent=kwargs["capture_agent"],
-            capture_method=kwargs["capture_method"],
-            citations=kwargs["citations"],
-            artifacts=kwargs["artifacts"],
-            source_bundle_path=kwargs["source_bundle_path"],
-            retrieved_at=kwargs["retrieved_at"],
-            content_hash=kwargs["content_hash"],
-            language=kwargs["language"],
-            dispatch_post_create=dispatch_post_create,
-        )
-
-        self._dispatch_post_action("create_reference", kwargs, result)
-        return result
+        return self._run_action("create_reference", kwargs, _invoke)
 
     def create_task(
         self,
@@ -200,7 +172,6 @@ class CreateController(BaseController):
     ) -> ServiceResult:
         """Create a new task."""
         from ztlctl.services.create import CreateService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {
             "title": title,
@@ -211,30 +182,17 @@ class CreateController(BaseController):
             "session": session,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("create_task", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="create_task",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CreateService(self._vault).create_task(
+                kw["title"],
+                priority=kw["priority"],
+                impact=kw["impact"],
+                effort=kw["effort"],
+                tags=kw["tags"],
+                session=kw["session"],
             )
 
-        result = CreateService(self._vault).create_task(
-            kwargs["title"],
-            priority=kwargs["priority"],
-            impact=kwargs["impact"],
-            effort=kwargs["effort"],
-            tags=kwargs["tags"],
-            session=kwargs["session"],
-        )
-
-        self._dispatch_post_action("create_task", kwargs, result)
-        return result
+        return self._run_action("create_task", kwargs, _invoke)
 
     def create_batch(
         self,
@@ -244,27 +202,13 @@ class CreateController(BaseController):
     ) -> ServiceResult:
         """Create multiple items atomically (or partially if partial=True)."""
         from ztlctl.services.create import CreateService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {
             "items": items,
             "partial": partial,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("create_batch", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="create_batch",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return CreateService(self._vault).create_batch(kw["items"], partial=kw["partial"])
 
-        result = CreateService(self._vault).create_batch(kwargs["items"], partial=kwargs["partial"])
-
-        self._dispatch_post_action("create_batch", kwargs, result)
-        return result
+        return self._run_action("create_batch", kwargs, _invoke)

@@ -65,30 +65,35 @@ class TestVerboseTelemetry:
         """Verbose + JSON mode serializes telemetry in the meta field."""
         result = self.runner.invoke(cli, ["-v", "--json", "create", "note", "JSON Tel Note"])
         assert result.exit_code == 0
-        # The JSON output may have structlog lines before it; find the JSON object
+        # The JSON output may have structlog lines before it and git warnings
+        # after it; find the main multi-line JSON payload by trying to parse
+        # incrementally and stopping when we get a valid object with "ok".
         lines = result.output.strip().splitlines()
-        # The formatted JSON result spans multiple lines; find the main payload
         json_text = result.output.strip()
-        # Skip any structlog lines at the start (they're also valid JSON but single-line)
         main_lines: list[str] = []
         capture = False
         for line in lines:
             if line.strip().startswith("{") and not capture:
-                # Could be a structlog line or the start of the result JSON
                 try:
                     obj = json.loads(line)
-                    # If it parses as a single line and has "ok" key, it's the result
                     if "ok" in obj:
                         json_text = line
                         break
                 except json.JSONDecodeError:
-                    # Multi-line JSON starts here
                     capture = True
                     main_lines.append(line)
             elif capture:
                 main_lines.append(line)
+                # Try to parse what we have so far — stop if it's valid JSON
+                try:
+                    candidate = json.loads("\n".join(main_lines))
+                    if isinstance(candidate, dict) and "ok" in candidate:
+                        json_text = "\n".join(main_lines)
+                        break
+                except json.JSONDecodeError:
+                    continue
 
-        if main_lines:
+        if main_lines and json_text == result.output.strip():
             json_text = "\n".join(main_lines)
 
         data = json.loads(json_text)

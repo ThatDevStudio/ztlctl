@@ -122,6 +122,24 @@ class ContextAssembler:
             for e in layers["log_entries"]:
                 layer_1_tokens += estimate_tokens(json.dumps(e))
 
+            # Polaris priorities (token-budgeted at 500 tokens)
+            polaris_path = self._vault.root / "garden" / "groves" / "polaris.md"
+            if polaris_path.exists():
+                polaris_raw = polaris_path.read_text(encoding="utf-8")
+                polaris_tokens = estimate_tokens(polaris_raw)
+                if polaris_tokens > 500:
+                    # Truncate to ~500 tokens (rough char estimate: 500 * 4 = 2000 chars)
+                    char_limit = 500 * 4
+                    polaris_raw = (
+                        polaris_raw[:char_limit]
+                        + "\n\n[... polaris truncated to fit token budget ...]"
+                    )
+                    polaris_tokens = 500
+                layers["polaris"] = polaris_raw
+                layer_1_tokens += polaris_tokens
+            else:
+                layers["polaris"] = None
+
             token_count += layer_1_tokens
             if span:
                 span.tokens = layer_1_tokens

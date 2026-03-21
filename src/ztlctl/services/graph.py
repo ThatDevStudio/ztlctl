@@ -382,7 +382,9 @@ class GraphService(BaseService):
         if g.number_of_nodes() == 0:
             return self._empty_graph_result("bridges")
 
-        bc = nx.betweenness_centrality(g)
+        node_count = g.number_of_nodes()
+        k_param = None if node_count <= 500 else min(500, node_count)
+        bc = nx.betweenness_centrality(g, k=k_param, seed=42)
 
         # Filter to non-zero centrality and sort descending
         nonzero = [(n, c) for n, c in bc.items() if c > 0]
@@ -494,7 +496,7 @@ class GraphService(BaseService):
                 with trace_span("update_target_file"):
                     self._remove_link_from_file(txn, target, source_id, str(source.title), warnings)
 
-        return ServiceResult(
+        unlink_result = ServiceResult(
             ok=True,
             op=op,
             data={
@@ -505,6 +507,13 @@ class GraphService(BaseService):
             },
             warnings=warnings,
         )
+        self._dispatch_post_action_event(
+            action_name=op,
+            payload=unlink_result.data,
+            warnings=warnings,
+            result=unlink_result,
+        )
+        return unlink_result
 
     def _remove_link_from_file(
         self,
