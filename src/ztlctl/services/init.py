@@ -19,7 +19,6 @@ from ztlctl.plugins.contracts import (
     VaultInitStepContribution,
     VaultInitStepResult,
 )
-from ztlctl.plugins.manager import PluginManager
 from ztlctl.services._helpers import today_iso
 from ztlctl.services.result import ServiceError, ServiceResult
 from ztlctl.services.telemetry import traced
@@ -155,8 +154,9 @@ def _collect_init_steps(
     profile_registry: WorkspaceProfileRegistry,
 ) -> list[VaultInitStepContribution]:
     """Discover init steps from entry-point plugins plus legacy scaffolds."""
-    plugin_manager = PluginManager()
-    plugin_manager.discover_and_load(local_dir=None, include_entrypoints=True)
+    from ztlctl.plugins.runtime import get_plugin_manager
+
+    plugin_manager = get_plugin_manager(local_dir=None, include_entrypoints=True)
     steps = list(plugin_manager.vault_init_step_contributions())
     for profile_id, contribution in profile_registry.profiles.items():
         scaffold = contribution.init_scaffold

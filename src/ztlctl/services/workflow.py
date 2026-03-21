@@ -195,11 +195,9 @@ class WorkflowService:
     @staticmethod
     def _load_plugin_manager(vault_root: Path) -> Any | None:
         """Load plugin contributions for workflow export and validation."""
-        from ztlctl.plugins.manager import PluginManager
+        from ztlctl.plugins.runtime import get_plugin_manager
 
-        pm = PluginManager()
-        pm.discover_and_load(local_dir=vault_root / ".ztlctl" / "plugins")
-        return pm
+        return get_plugin_manager(local_dir=vault_root / ".ztlctl" / "plugins")
 
     @staticmethod
     def _surface_catalogs(vault_root: Path) -> dict[str, Any]:

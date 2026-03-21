@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Literal
 
 from ztlctl.plugins.contracts import WorkspaceProfileContribution
-from ztlctl.plugins.manager import PluginManager
 
 type WorkspaceProfileId = str
 DashboardViewer = Literal["obsidian", "none"]
@@ -159,8 +158,9 @@ def discover_workspace_profiles(
         aliases={"none": CORE_PROFILE_ID, "vanilla": CORE_PROFILE_ID},
     )
 
-    plugin_manager = PluginManager()
-    plugin_manager.discover_and_load(
+    from ztlctl.plugins.runtime import get_plugin_manager
+
+    plugin_manager = get_plugin_manager(
         local_dir=local_dir,
         include_entrypoints=include_entrypoints,
     )

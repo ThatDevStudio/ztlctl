@@ -16,7 +16,7 @@ def load_plugin_commands(ctx: click.Context) -> dict[str, click.Command]:
     """Resolve plugin CLI commands for the current invocation context."""
     from ztlctl.actions.registry import get_action_registry
     from ztlctl.config.settings import ZtlSettings
-    from ztlctl.plugins.manager import PluginManager
+    from ztlctl.plugins.runtime import get_plugin_manager
 
     try:
         settings = ZtlSettings.from_cli(
@@ -32,8 +32,10 @@ def load_plugin_commands(ctx: click.Context) -> dict[str, click.Command]:
     except Exception:
         return {}
 
-    pm = PluginManager()
-    pm.discover_and_load(local_dir=settings.vault_root / ".ztlctl" / "plugins")
+    pm = get_plugin_manager(
+        local_dir=settings.vault_root / ".ztlctl" / "plugins",
+        settings=settings,  # DEBT-07: inject_configs support
+    )
 
     import ztlctl.actions  # noqa: F401 — ensure registry is populated
 

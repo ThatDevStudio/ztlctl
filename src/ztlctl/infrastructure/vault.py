@@ -375,13 +375,13 @@ class Vault:
         from ztlctl.plugins.builtins.git import GitPlugin
         from ztlctl.plugins.builtins.reweave_plugin import ReweavePlugin
         from ztlctl.plugins.event_bus import EventBus
-        from ztlctl.plugins.manager import PluginManager
+        from ztlctl.plugins.runtime import get_plugin_manager
 
-        pm = PluginManager()
         local_plugins = self.root / ".ztlctl" / "plugins"
-        pm.discover_and_load(local_dir=local_plugins)
         # PLUG-03: validate + pass TOML [plugins.<name>] config to third-party plugins
-        pm.inject_configs(self._settings)
+        # cache=False: vault registers instance-specific built-in plugins (git, reweave) below,
+        # so we must not share this PM with other callers via the module-level cache.
+        pm = get_plugin_manager(local_dir=local_plugins, settings=self._settings, cache=False)
 
         # Register built-in git plugin with vault context
         git_config = self._settings.git

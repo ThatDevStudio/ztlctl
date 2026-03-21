@@ -72,6 +72,21 @@ def test_inject_configs_not_called_when_settings_none() -> None:
     mock_pm.inject_configs.assert_not_called()
 
 
+def test_cache_false_returns_fresh_instance() -> None:
+    """cache=False always creates a new PM instance even for the same scope."""
+    pm1 = get_plugin_manager(cache=False)
+    pm2 = get_plugin_manager(cache=False)
+    assert pm1 is not pm2
+
+
+def test_cache_false_does_not_populate_cache() -> None:
+    """cache=False does not store the PM in the module-level cache."""
+    pm_uncached = get_plugin_manager(cache=False)
+    # Now call with cache=True (default) — should create a new (different) instance
+    pm_cached = get_plugin_manager()
+    assert pm_uncached is not pm_cached
+
+
 def test_inject_configs_called_on_cached_instance() -> None:
     """inject_configs is called on the cached PM when settings is provided on repeat call."""
     settings = MagicMock()

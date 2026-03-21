@@ -15,6 +15,7 @@ def get_plugin_manager(
     local_dir: Path | None = None,
     include_entrypoints: bool = True,
     settings: Any = None,
+    cache: bool = True,
 ) -> PluginManager:
     """Return a discovered PluginManager, creating one if needed for this scope.
 
@@ -24,16 +25,21 @@ def get_plugin_manager(
         settings: If provided, calls inject_configs(settings) on the PM.
             Config injection runs on every call even for cached instances,
             since settings may differ between invocations.
+        cache: Whether to store and retrieve the PM from the module-level cache.
+            Set to False when the caller will mutate the PM (e.g., register
+            vault-instance-specific built-in plugins) to prevent stale instances
+            from being returned on subsequent calls.
 
     Returns:
         A fully discovered PluginManager instance.
     """
     key = (local_dir, include_entrypoints)
-    pm = _cache.get(key)
+    pm = _cache.get(key) if cache else None
     if pm is None:
         pm = PluginManager()
         pm.discover_and_load(local_dir=local_dir, include_entrypoints=include_entrypoints)
-        _cache[key] = pm
+        if cache:
+            _cache[key] = pm
     if settings is not None:
         pm.inject_configs(settings)
     return pm
