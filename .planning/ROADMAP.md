@@ -42,7 +42,7 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
 
 **Milestone Goal:** Harden the core architecture (event model, action execution, plugin discovery) and add memory-layer features (session recall, polaris priorities, contradiction detection, ingestion pipeline, methodology guidance) that make ztlctl a persistent memory system for agents and humans.
 
-- [ ] **Phase 15: Event Model Hardening** - Reliable event delivery, canonical payload shape, service-only post_action emission
+- [x] **Phase 15: Event Model Hardening** - Reliable event delivery, canonical payload shape, service-only post_action emission (completed 2026-03-21)
 - [ ] **Phase 16: Plugin Bridge and Action Executor** - Bridge reversal, generic action executor, MCP graceful shutdown
 - [ ] **Phase 17: Registry Decomposition and Plugin Runtime** - Feature-local action registrations, centralized plugin discovery
 - [ ] **Phase 18: Architecture Cleanup** - Residue removal, phantom category fix, embedding config, graph performance
@@ -68,7 +68,7 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
 Plans:
 - [x] 15-01-PLAN.md — EventBusConfig + ActionEvent models + EventBus constructor refactor
 - [x] 15-02-PLAN.md — Service-only post_action emission, shutdown/startup drain, controller cleanup
-- [ ] 15-03-PLAN.md — Dead-letter reporting, auto-purge, event_purge action
+- [x] 15-03-PLAN.md — Dead-letter reporting, auto-purge, event_purge action
 
 ### Phase 16: Plugin Bridge and Action Executor
 **Goal**: The compatibility bridge is reversed so stable events drive legacy hooks, a generic action executor eliminates controller boilerplate, and MCP server shuts down cleanly
@@ -202,7 +202,7 @@ Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 �
 | 12. Doc Search Integration | v2.1 | 3/3 | Complete | 2026-03-20 |
 | 13. Actions Artifact Deploy | v2.1 | 1/1 | Complete | 2026-03-20 |
 | 14. Documentation Quality Pass | v2.1 | 5/5 | Complete | 2026-03-20 |
-| 15. Event Model Hardening | v3.0 | 2/3 | In Progress|  |
+| 15. Event Model Hardening | v3.0 | 3/3 | Complete   | 2026-03-21 |
 | 16. Plugin Bridge and Action Executor | v3.0 | 0/3 | Not started | - |
 | 17. Registry Decomposition and Plugin Runtime | v3.0 | 0/2 | Not started | - |
 | 18. Architecture Cleanup | v3.0 | 0/2 | Not started | - |
