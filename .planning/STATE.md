@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 15-03-PLAN.md
-last_updated: "2026-03-21T16:59:53.564Z"
+stopped_at: Completed 15-04-PLAN.md
+last_updated: "2026-03-21T17:18:41.433Z"
 progress:
   total_phases: 8
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
@@ -55,6 +55,7 @@ Plan: 3 of 3
 | Phase 15-event-model-hardening P01 | 18 | 2 tasks | 8 files |
 | Phase 15-event-model-hardening P02 | 60 | 2 tasks | 22 files |
 | Phase 15 P03 | 20 | 2 tasks | 10 files |
+| Phase 15-event-model-hardening P04 | 371 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [Phase 15-event-model-hardening]: Startup drain is best-effort: failure logs warning and continues
 - [Phase 15]: SEVERITY_INFO rank=0 so dead-letter issues only appear at min_severity='info', not default 'warning'
 - [Phase 15]: event_purge placed in 'maintenance' category (not 'check') — operational housekeeping vs. integrity scanning
+- [Phase 15-event-model-hardening]: _dispatch_post_action_event placed after _dispatch_event and before return in all write methods
+- [Phase 15-event-model-hardening]: graph.py unlink uses unlink_result variable name to avoid CursorResult type collision
 
 ### Pending Todos
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T16:59:53.561Z
-Stopped at: Completed 15-03-PLAN.md
+Last session: 2026-03-21T17:18:41.431Z
+Stopped at: Completed 15-04-PLAN.md
 Resume file: None
