@@ -83,9 +83,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 16-01: Bridge reversal — stable action events adapt into legacy hook calls
-- [ ] 16-02: Generic action executor replacing controller pre/post boilerplate
-- [ ] 16-03: `garden seed` convergence and MCP graceful shutdown
+- [ ] 16-01-PLAN.md — Bridge reversal (ARCH-05) + generic _run_action executor on BaseController (ARCH-06)
+- [ ] 16-02-PLAN.md — MCP graceful shutdown with ServerContext and vault cleanup (DEBT-04)
+- [ ] 16-03-PLAN.md — Controller migration to _run_action (ARCH-06) + garden_seed ActionDefinition (ARCH-09)
 
 ### Phase 17: Registry Decomposition and Plugin Runtime
 **Goal**: Action registrations live in feature-local modules, plugin/profile/workflow discovery is handled by a single coherent runtime owner, and load_plugin_commands participates in config injection
