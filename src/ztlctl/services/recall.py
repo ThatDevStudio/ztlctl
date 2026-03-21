@@ -191,3 +191,20 @@ class RecallService(BaseService):
             op=op,
             data={"sessions": sessions, "count": len(sessions), "query": query},
         )
+
+    @traced
+    def recall_topology(self, *, limit: int = 10) -> ServiceResult:
+        """Return most-connected notes across sessions (stub — implemented in Plan 02).
+
+        Args:
+            limit: Maximum number of top nodes to return.
+
+        Returns:
+            ServiceResult with data={"nodes": [], "count": 0} (stub).
+        """
+        # Stub: full implementation in Phase 20 Plan 02
+        return ServiceResult(
+            ok=True,
+            op="recall_topology",
+            data={"nodes": [], "count": 0, "limit": limit},
+        )
