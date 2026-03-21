@@ -42,8 +42,6 @@ class GraphController(BaseController):
         result = GraphService(self._vault).related(
             kwargs["content_id"], depth=kwargs["depth"], top=kwargs["top"]
         )
-
-        self._dispatch_post_action("related", kwargs, result)
         return result
 
     def themes(self) -> ServiceResult:
@@ -67,8 +65,6 @@ class GraphController(BaseController):
             )
 
         result = GraphService(self._vault).themes()
-
-        self._dispatch_post_action("themes", kwargs, result)
         return result
 
     def rank(self, *, top: int = 20) -> ServiceResult:
@@ -92,8 +88,6 @@ class GraphController(BaseController):
             )
 
         result = GraphService(self._vault).rank(top=kwargs["top"])
-
-        self._dispatch_post_action("rank", kwargs, result)
         return result
 
     def path(self, source_id: str, target_id: str) -> ServiceResult:
@@ -117,8 +111,6 @@ class GraphController(BaseController):
             )
 
         result = GraphService(self._vault).path(kwargs["source_id"], kwargs["target_id"])
-
-        self._dispatch_post_action("path", kwargs, result)
         return result
 
     def gaps(self, *, top: int = 20) -> ServiceResult:
@@ -142,8 +134,6 @@ class GraphController(BaseController):
             )
 
         result = GraphService(self._vault).gaps(top=kwargs["top"])
-
-        self._dispatch_post_action("gaps", kwargs, result)
         return result
 
     def bridges(self, *, top: int = 20) -> ServiceResult:
@@ -167,8 +157,6 @@ class GraphController(BaseController):
             )
 
         result = GraphService(self._vault).bridges(top=kwargs["top"])
-
-        self._dispatch_post_action("bridges", kwargs, result)
         return result
 
     def unlink(self, source_id: str, target_id: str, *, both: bool = False) -> ServiceResult:
@@ -198,8 +186,6 @@ class GraphController(BaseController):
         result = GraphService(self._vault).unlink(
             kwargs["source_id"], kwargs["target_id"], both=kwargs["both"]
         )
-
-        self._dispatch_post_action("unlink", kwargs, result)
         return result
 
     def materialize_metrics(self) -> ServiceResult:
@@ -223,6 +209,4 @@ class GraphController(BaseController):
             )
 
         result = GraphService(self._vault).materialize_metrics()
-
-        self._dispatch_post_action("materialize_metrics", kwargs, result)
         return result

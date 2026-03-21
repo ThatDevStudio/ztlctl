@@ -53,8 +53,6 @@ class WorkflowController(BaseController):
         result = WorkflowService.init_workflow(
             kwargs["vault_root"], kwargs["choices"], force_trust=kwargs["force_trust"]
         )
-
-        self._dispatch_post_action("init_workflow", kwargs, result)
         return result
 
     def update_workflow(
@@ -92,8 +90,6 @@ class WorkflowController(BaseController):
             choices=kwargs["choices"],
             force_trust=kwargs["force_trust"],
         )
-
-        self._dispatch_post_action("update_workflow", kwargs, result)
         return result
 
     def export_assets(
@@ -122,8 +118,6 @@ class WorkflowController(BaseController):
             )
 
         result = WorkflowService.export_assets(kwargs["vault_root"], client=kwargs["client"])
-
-        self._dispatch_post_action("export_assets", kwargs, result)
         return result
 
     def validate_assets(
@@ -152,8 +146,6 @@ class WorkflowController(BaseController):
             )
 
         result = WorkflowService.validate_assets(kwargs["vault_root"], client=kwargs["client"])
-
-        self._dispatch_post_action("validate_assets", kwargs, result)
         return result
 
     def read_answers(self, vault_root: Path) -> WorkflowChoices | None:

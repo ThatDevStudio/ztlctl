@@ -43,8 +43,6 @@ class ExportController(BaseController):
         result = ExportService(self._vault).export_markdown(
             Path(kwargs["output_dir"]), filters=kwargs["filters"]
         )
-
-        self._dispatch_post_action("export_markdown", kwargs, result)
         return result
 
     def export_indexes(
@@ -75,8 +73,6 @@ class ExportController(BaseController):
         result = ExportService(self._vault).export_indexes(
             Path(kwargs["output_dir"]), filters=kwargs["filters"]
         )
-
-        self._dispatch_post_action("export_indexes", kwargs, result)
         return result
 
     def export_graph(
@@ -128,8 +124,6 @@ class ExportController(BaseController):
                     "node_count": svc_result.data.get("node_count", 0),
                 },
             )
-
-        self._dispatch_post_action("export_graph", kwargs, result)
         return result
 
     def export_dashboard(
@@ -160,6 +154,4 @@ class ExportController(BaseController):
         result = ExportService(self._vault).export_dashboard(
             Path(kwargs["output_dir"]), viewer=kwargs["viewer"]
         )
-
-        self._dispatch_post_action("export_dashboard", kwargs, result)
         return result

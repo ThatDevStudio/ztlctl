@@ -34,8 +34,6 @@ class UpgradeController(BaseController):
             )
 
         result = UpgradeService(self._vault).check_pending()
-
-        self._dispatch_post_action("check_pending", kwargs, result)
         return result
 
     def apply(self) -> ServiceResult:
@@ -59,8 +57,6 @@ class UpgradeController(BaseController):
             )
 
         result = UpgradeService(self._vault).apply()
-
-        self._dispatch_post_action("apply", kwargs, result)
         return result
 
     def stamp_current(self) -> ServiceResult:
@@ -84,6 +80,4 @@ class UpgradeController(BaseController):
             )
 
         result = UpgradeService(self._vault).stamp_current()
-
-        self._dispatch_post_action("stamp_current", kwargs, result)
         return result

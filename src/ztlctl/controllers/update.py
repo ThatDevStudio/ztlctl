@@ -34,8 +34,6 @@ class UpdateController(BaseController):
             )
 
         result = UpdateService(self._vault).update(kwargs["content_id"], changes=kwargs["changes"])
-
-        self._dispatch_post_action("update", kwargs, result)
         return result
 
     def archive(self, content_id: str) -> ServiceResult:
@@ -59,8 +57,6 @@ class UpdateController(BaseController):
             )
 
         result = UpdateService(self._vault).archive(kwargs["content_id"])
-
-        self._dispatch_post_action("archive", kwargs, result)
         return result
 
     def supersede(self, old_id: str, new_id: str) -> ServiceResult:
@@ -84,6 +80,4 @@ class UpdateController(BaseController):
             )
 
         result = UpdateService(self._vault).supersede(kwargs["old_id"], kwargs["new_id"])
-
-        self._dispatch_post_action("supersede", kwargs, result)
         return result

@@ -64,8 +64,6 @@ class DiscoveryController(BaseController):
             op="discover_categories",
             data={"categories": categories, "count": len(categories)},
         )
-
-        self._dispatch_post_action("discover_categories", kwargs, result)
         return result
 
     def activate_category(self, *, category: str, **_kwargs: Any) -> Any:
@@ -116,8 +114,6 @@ class DiscoveryController(BaseController):
                 "tool_count": len(tool_names),
             },
         )
-
-        self._dispatch_post_action("activate_category", kwargs, result)
         return result
 
     def deactivate_category(self, *, category: str, **_kwargs: Any) -> Any:
@@ -193,6 +189,4 @@ class DiscoveryController(BaseController):
             op="deactivate_category",
             data={"category": kwargs["category"], "deactivated": True},
         )
-
-        self._dispatch_post_action("deactivate_category", kwargs, result)
         return result

@@ -43,8 +43,6 @@ class VectorController(BaseController):
                 "Semantic search unavailable — install sqlite-vec and sentence-transformers"
             )
         result = ServiceResult(ok=True, op="vector_status", data=data)
-
-        self._dispatch_post_action("vector_status", kwargs, result)
         return result
 
     def reindex_all(self) -> ServiceResult:
@@ -68,6 +66,4 @@ class VectorController(BaseController):
             )
 
         result = VectorService(self._vault).reindex_all()
-
-        self._dispatch_post_action("reindex_all", kwargs, result)
         return result

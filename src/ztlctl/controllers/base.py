@@ -81,22 +81,4 @@ class BaseController:
             return result, None
         return kwargs, None
 
-    def _dispatch_post_action(
-        self,
-        action_name: str,
-        kwargs: dict[str, Any],
-        result: Any,
-    ) -> None:
-        """Invoke the ``post_action`` hook after executing an action.
 
-        All registered plugins receive this call. Exceptions are caught,
-        logged at DEBUG level, and ignored — plugin failures are warnings.
-        """
-        pm = self._vault.plugin_manager
-        if pm is None:
-            return
-
-        try:
-            pm.hook.post_action(action_name=action_name, kwargs=kwargs, result=result)
-        except Exception:
-            logger.debug("post_action dispatch failed for %s", action_name, exc_info=True)

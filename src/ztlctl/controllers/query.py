@@ -34,8 +34,6 @@ class QueryController(BaseController):
             )
 
         result = QueryService(self._vault).count_items(include_archived=kwargs["include_archived"])
-
-        self._dispatch_post_action("count_items", kwargs, result)
         return result
 
     def search(
@@ -82,8 +80,6 @@ class QueryController(BaseController):
             rank_by=kwargs["rank_by"],
             limit=kwargs["limit"],
         )
-
-        self._dispatch_post_action("search", kwargs, result)
         return result
 
     def get(self, content_id: str) -> ServiceResult:
@@ -107,8 +103,6 @@ class QueryController(BaseController):
             )
 
         result = QueryService(self._vault).get(kwargs["content_id"])
-
-        self._dispatch_post_action("get", kwargs, result)
         return result
 
     def list_items(
@@ -170,8 +164,6 @@ class QueryController(BaseController):
             sort=kwargs["sort"],
             limit=kwargs["limit"],
         )
-
-        self._dispatch_post_action("list_items", kwargs, result)
         return result
 
     def work_queue(self, *, space: str | None = None) -> ServiceResult:
@@ -195,8 +187,6 @@ class QueryController(BaseController):
             )
 
         result = QueryService(self._vault).work_queue(space=kwargs["space"])
-
-        self._dispatch_post_action("work_queue", kwargs, result)
         return result
 
     def list_tags(self, *, prefix: str | None = None, limit: int = 100) -> ServiceResult:
@@ -220,8 +210,6 @@ class QueryController(BaseController):
             )
 
         result = QueryService(self._vault).list_tags(prefix=kwargs["prefix"], limit=kwargs["limit"])
-
-        self._dispatch_post_action("list_tags", kwargs, result)
         return result
 
     def decision_support(
@@ -252,8 +240,6 @@ class QueryController(BaseController):
         result = QueryService(self._vault).decision_support(
             topic=kwargs["topic"], space=kwargs["space"]
         )
-
-        self._dispatch_post_action("decision_support", kwargs, result)
         return result
 
     def topic_packet(
@@ -285,8 +271,6 @@ class QueryController(BaseController):
         result = QueryService(self._vault).topic_packet(
             kwargs["topic"], mode=kwargs["mode"], budget=kwargs["budget"]
         )
-
-        self._dispatch_post_action("topic_packet", kwargs, result)
         return result
 
     def draft_from_topic(
@@ -327,8 +311,6 @@ class QueryController(BaseController):
             mode=kwargs["mode"],
             budget=kwargs["budget"],
         )
-
-        self._dispatch_post_action("draft_from_topic", kwargs, result)
         return result
 
     def vault_review(self, *, top: int = 10, stale_days: int = 7) -> ServiceResult:
@@ -354,6 +336,4 @@ class QueryController(BaseController):
         result = QueryService(self._vault).vault_review(
             top=kwargs["top"], stale_days=kwargs["stale_days"]
         )
-
-        self._dispatch_post_action("vault_review", kwargs, result)
         return result

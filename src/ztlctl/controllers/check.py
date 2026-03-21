@@ -34,8 +34,6 @@ class CheckController(BaseController):
             )
 
         result = CheckService(self._vault).check(min_severity=kwargs["min_severity"])
-
-        self._dispatch_post_action("check", kwargs, result)
         return result
 
     def fix(self, *, level: str = "safe") -> ServiceResult:
@@ -59,8 +57,6 @@ class CheckController(BaseController):
             )
 
         result = CheckService(self._vault).fix(level=kwargs["level"])
-
-        self._dispatch_post_action("fix", kwargs, result)
         return result
 
     def rebuild(self) -> ServiceResult:
@@ -84,8 +80,6 @@ class CheckController(BaseController):
             )
 
         result = CheckService(self._vault).rebuild()
-
-        self._dispatch_post_action("rebuild", kwargs, result)
         return result
 
     def rollback(self) -> ServiceResult:
@@ -109,6 +103,4 @@ class CheckController(BaseController):
             )
 
         result = CheckService(self._vault).rollback()
-
-        self._dispatch_post_action("rollback", kwargs, result)
         return result

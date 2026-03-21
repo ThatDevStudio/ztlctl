@@ -334,39 +334,48 @@ class TestBaseControllerDispatch:
         assert result_kwargs is original_kwargs
         assert rejection is None
 
-    def test_dispatch_post_action_no_pm(self) -> None:
-        """_dispatch_post_action is a no-op when no plugin manager."""
-        from ztlctl.controllers.base import BaseController
+    def test_dispatch_post_action_event_no_event_bus(self) -> None:
+        """_dispatch_post_action_event is a no-op when no event bus."""
+        from ztlctl.services.base import BaseService
 
         vault = self._make_vault_with_pm(None)
-        controller = BaseController(vault)
+        vault.event_bus = None  # type: ignore[assignment]
+        service = BaseService(vault)
+        warnings: list[str] = []
 
-        # Should not raise
-        controller._dispatch_post_action("create", {"title": "test"}, result=None)
+        # Should not raise and should return None
+        result = service._dispatch_post_action_event(
+            "create", {"title": "test"}, warnings, result=None
+        )
+        assert result is None
 
-    def test_dispatch_post_action_fires(self) -> None:
-        """_dispatch_post_action invokes post_action on all plugins."""
-        from ztlctl.controllers.base import BaseController
+    def test_dispatch_post_action_event_emits_canonical_event(self) -> None:
+        """_dispatch_post_action_event emits ActionEvent through the WAL via EventBus."""
+        from unittest.mock import MagicMock
 
-        pm = PluginManager()
-        received: list[dict[str, Any]] = []
+        from ztlctl.services.base import BaseService
 
-        class ObserverPlugin:
-            @hookimpl
-            def post_action(self, action_name: str, kwargs: dict[str, Any], result: Any) -> None:
-                received.append({"action_name": action_name, "result": result})
+        vault = self._make_vault_with_pm(None)
+        mock_bus = MagicMock()
+        mock_bus.dispatch.return_value = 42
+        vault.event_bus = mock_bus  # type: ignore[assignment]
+        service = BaseService(vault)
+        warnings: list[str] = []
 
-        pm.register_plugin(ObserverPlugin(), name="observer")
+        event_id = service._dispatch_post_action_event(
+            "create_note", {"id": "N-0001", "title": "Test"}, warnings, result={"ok": True}
+        )
 
-        vault = self._make_vault_with_pm(pm)
-        controller = BaseController(vault)
-        sentinel = object()
-
-        controller._dispatch_post_action("create", {"title": "test"}, result=sentinel)
-
-        assert len(received) == 1
-        assert received[0]["action_name"] == "create"
-        assert received[0]["result"] is sentinel
+        assert event_id == 42
+        mock_bus.dispatch.assert_called_once()
+        call_args = mock_bus.dispatch.call_args
+        # First positional arg is hook_name
+        assert call_args[0][0] == "post_action"
+        # Second positional arg is payload (ActionEvent dict)
+        payload = call_args[0][1]
+        assert payload["action_name"] == "create_note"
+        assert payload["side_effect"] == "write"
+        assert payload["payload"] == {"id": "N-0001", "title": "Test"}
 
     def test_dispatch_pre_action_exception_returns_originals(
         self, caplog: pytest.LogCaptureFixture

@@ -1,7 +1,9 @@
-"""Spot-check tests for pre/post-action hook wiring in controllers.
+"""Spot-check tests for pre-action hook wiring in controllers.
 
 Verifies that controller methods call _dispatch_pre_action with the correct
-action name and kwargs dict, and _dispatch_post_action after service calls.
+action name and kwargs dict. Post-action dispatch is now handled at the
+service layer via BaseService._dispatch_post_action_event() — controllers
+no longer call _dispatch_post_action.
 """
 
 from __future__ import annotations
@@ -26,8 +28,8 @@ def _ok_result(op: str) -> ServiceResult:
 
 
 class TestCheckControllerHookWiring:
-    def test_check_controller_check_dispatches_hooks(self) -> None:
-        """CheckController.check() dispatches pre and post action hooks."""
+    def test_check_controller_check_dispatches_pre_action(self) -> None:
+        """CheckController.check() dispatches pre_action hook with correct args."""
         from ztlctl.controllers.check import CheckController
 
         ctrl = _make_controller(CheckController)
@@ -40,14 +42,12 @@ class TestCheckControllerHookWiring:
                 "_dispatch_pre_action",
                 return_value=(expected_kwargs, None),
             ) as mock_pre,
-            patch.object(ctrl, "_dispatch_post_action") as mock_post,
             patch("ztlctl.services.check.CheckService") as mock_svc_cls,
         ):
             mock_svc_cls.return_value.check.return_value = ok
             result = ctrl.check(min_severity="error")
 
         mock_pre.assert_called_once_with("check", {"min_severity": "error"})
-        mock_post.assert_called_once_with("check", expected_kwargs, ok)
         assert result is ok
 
 
@@ -65,7 +65,6 @@ class TestCreateControllerHookWiring:
 
         with (
             patch.object(ctrl, "_dispatch_pre_action", side_effect=capture_pre),
-            patch.object(ctrl, "_dispatch_post_action"),
             patch("ztlctl.services.create.CreateService") as mock_svc_cls,
         ):
             mock_svc_cls.return_value.create_note.return_value = _ok_result("create_note")
@@ -78,8 +77,8 @@ class TestCreateControllerHookWiring:
 
 
 class TestDiscoveryControllerHookWiring:
-    def test_discovery_controller_activate_dispatches_hooks(self) -> None:
-        """DiscoveryController.activate_category() dispatches pre and post action hooks."""
+    def test_discovery_controller_activate_dispatches_pre_action(self) -> None:
+        """DiscoveryController.activate_category() dispatches pre_action hook."""
         from ztlctl.controllers.discovery import DiscoveryController
 
         ctrl = _make_controller(DiscoveryController)
@@ -91,7 +90,6 @@ class TestDiscoveryControllerHookWiring:
                 "_dispatch_pre_action",
                 return_value=(expected_kwargs, None),
             ) as mock_pre,
-            patch.object(ctrl, "_dispatch_post_action") as mock_post,
             patch("ztlctl.mcp.generator.activate_category", return_value=True),
             patch("ztlctl.actions.registry.get_action_registry") as mock_reg,
         ):
@@ -99,13 +97,12 @@ class TestDiscoveryControllerHookWiring:
             result = ctrl.activate_category(category="export")
 
         mock_pre.assert_called_once_with("activate_category", {"category": "export"})
-        assert mock_post.called
         assert result.ok is True
 
 
 class TestExportControllerHookWiring:
-    def test_export_controller_export_markdown_dispatches_hooks(self) -> None:
-        """ExportController.export_markdown() dispatches pre and post action hooks."""
+    def test_export_controller_export_markdown_dispatches_pre_action(self) -> None:
+        """ExportController.export_markdown() dispatches pre_action hook with correct args."""
         from ztlctl.controllers.export import ExportController
 
         ctrl = _make_controller(ExportController)
@@ -118,7 +115,6 @@ class TestExportControllerHookWiring:
                 "_dispatch_pre_action",
                 return_value=(expected_kwargs, None),
             ) as mock_pre,
-            patch.object(ctrl, "_dispatch_post_action") as mock_post,
             patch("ztlctl.services.export.ExportService") as mock_svc_cls,
         ):
             mock_svc_cls.return_value.export_markdown.return_value = ok
@@ -127,13 +123,12 @@ class TestExportControllerHookWiring:
         mock_pre.assert_called_once_with(
             "export_markdown", {"output_dir": "/tmp/out", "filters": None}
         )
-        mock_post.assert_called_once_with("export_markdown", expected_kwargs, ok)
         assert result is ok
 
 
 class TestGraphControllerHookWiring:
-    def test_graph_controller_related_dispatches_hooks(self) -> None:
-        """GraphController.related() dispatches pre and post action hooks."""
+    def test_graph_controller_related_dispatches_pre_action(self) -> None:
+        """GraphController.related() dispatches pre_action hook with correct args."""
         from ztlctl.controllers.graph import GraphController
 
         ctrl = _make_controller(GraphController)
@@ -146,7 +141,6 @@ class TestGraphControllerHookWiring:
                 "_dispatch_pre_action",
                 return_value=(expected_kwargs, None),
             ) as mock_pre,
-            patch.object(ctrl, "_dispatch_post_action") as mock_post,
             patch("ztlctl.services.graph.GraphService") as mock_svc_cls,
         ):
             mock_svc_cls.return_value.related.return_value = ok
@@ -155,13 +149,12 @@ class TestGraphControllerHookWiring:
         mock_pre.assert_called_once_with(
             "related", {"content_id": "ZTL-001", "depth": 2, "top": 20}
         )
-        mock_post.assert_called_once_with("related", expected_kwargs, ok)
         assert result is ok
 
 
 class TestIngestControllerHookWiring:
-    def test_ingest_controller_ingest_text_dispatches_hooks(self) -> None:
-        """IngestController.ingest_text() dispatches pre and post action hooks."""
+    def test_ingest_controller_ingest_text_dispatches_pre_action(self) -> None:
+        """IngestController.ingest_text() dispatches pre_action hook with correct args."""
         from ztlctl.controllers.ingest import IngestController
 
         ctrl = _make_controller(IngestController)
@@ -173,7 +166,6 @@ class TestIngestControllerHookWiring:
 
         with (
             patch.object(ctrl, "_dispatch_pre_action", side_effect=capture_pre) as mock_pre,
-            patch.object(ctrl, "_dispatch_post_action"),
             patch("ztlctl.services.ingest.IngestService") as mock_svc_cls,
         ):
             mock_svc_cls.return_value.ingest_text.return_value = _ok_result("ingest_text")
@@ -186,8 +178,8 @@ class TestIngestControllerHookWiring:
 
 
 class TestInitControllerHookWiring:
-    def test_init_controller_init_vault_dispatches_hooks(self) -> None:
-        """InitController.init_vault() dispatches pre and post action hooks."""
+    def test_init_controller_init_vault_dispatches_pre_action(self) -> None:
+        """InitController.init_vault() dispatches pre_action hook with correct args."""
         from ztlctl.controllers.init_ctrl import InitController
 
         ctrl = _make_controller(InitController)
@@ -208,7 +200,6 @@ class TestInitControllerHookWiring:
                 "_dispatch_pre_action",
                 return_value=(expected_kwargs, None),
             ) as mock_pre,
-            patch.object(ctrl, "_dispatch_post_action") as mock_post,
             patch("ztlctl.services.init.InitService") as mock_svc_cls,
         ):
             mock_svc_cls.init_vault.return_value = ok
@@ -226,7 +217,6 @@ class TestInitControllerHookWiring:
                 "no_workflow": False,
             },
         )
-        mock_post.assert_called_once_with("init_vault", expected_kwargs, ok)
         assert result is ok
 
 
@@ -244,7 +234,6 @@ class TestRejectionBehavior:
                 "_dispatch_pre_action",
                 return_value=({"min_severity": "warning"}, rejection),
             ),
-            patch.object(ctrl, "_dispatch_post_action") as mock_post,
             patch("ztlctl.services.check.CheckService") as mock_svc_cls,
         ):
             result = ctrl.check()
@@ -253,5 +242,4 @@ class TestRejectionBehavior:
         assert result.error is not None
         assert result.error.code == "ACTION_REJECTED"
         assert result.error.message == "blocked"
-        mock_post.assert_not_called()
         mock_svc_cls.assert_not_called()

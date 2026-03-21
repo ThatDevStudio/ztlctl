@@ -70,8 +70,6 @@ class InitController(BaseController):
             topics=kwargs["topics"],
             no_workflow=kwargs["no_workflow"],
         )
-
-        self._dispatch_post_action("init_vault", kwargs, result)
         return result
 
     def regenerate_self(self) -> ServiceResult:
@@ -95,8 +93,6 @@ class InitController(BaseController):
             )
 
         result = InitService.regenerate_self(self._vault)
-
-        self._dispatch_post_action("regenerate_self", kwargs, result)
         return result
 
     def check_staleness(self) -> ServiceResult:
@@ -120,6 +116,4 @@ class InitController(BaseController):
             )
 
         result = InitService.check_staleness(self._vault)
-
-        self._dispatch_post_action("check_staleness", kwargs, result)
         return result

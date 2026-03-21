@@ -48,8 +48,6 @@ class ReweaveController(BaseController):
             dry_run=kwargs["dry_run"],
             min_score_override=kwargs["min_score_override"],
         )
-
-        self._dispatch_post_action("reweave", kwargs, result)
         return result
 
     def prune(
@@ -81,8 +79,6 @@ class ReweaveController(BaseController):
             content_id=kwargs["content_id"],
             dry_run=kwargs["dry_run"],
         )
-
-        self._dispatch_post_action("prune", kwargs, result)
         return result
 
     def undo(self, *, reweave_id: int | None = None) -> ServiceResult:
@@ -106,6 +102,4 @@ class ReweaveController(BaseController):
             )
 
         result = ReweaveService(self._vault).undo(reweave_id=kwargs["reweave_id"])
-
-        self._dispatch_post_action("undo", kwargs, result)
         return result

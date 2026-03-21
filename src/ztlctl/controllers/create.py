@@ -71,8 +71,6 @@ class CreateController(BaseController):
             aliases=kwargs["aliases"],
             dispatch_post_create=dispatch_post_create,
         )
-
-        self._dispatch_post_action("create_note", kwargs, result)
         return result
 
     def create_reference(
@@ -184,8 +182,6 @@ class CreateController(BaseController):
             language=kwargs["language"],
             dispatch_post_create=dispatch_post_create,
         )
-
-        self._dispatch_post_action("create_reference", kwargs, result)
         return result
 
     def create_task(
@@ -232,8 +228,6 @@ class CreateController(BaseController):
             tags=kwargs["tags"],
             session=kwargs["session"],
         )
-
-        self._dispatch_post_action("create_task", kwargs, result)
         return result
 
     def create_batch(
@@ -265,6 +259,4 @@ class CreateController(BaseController):
             )
 
         result = CreateService(self._vault).create_batch(kwargs["items"], partial=kwargs["partial"])
-
-        self._dispatch_post_action("create_batch", kwargs, result)
         return result

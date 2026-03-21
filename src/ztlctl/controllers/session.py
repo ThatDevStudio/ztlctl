@@ -34,8 +34,6 @@ class SessionController(BaseController):
             )
 
         result = SessionService(self._vault).start(kwargs["topic"])
-
-        self._dispatch_post_action("start", kwargs, result)
         return result
 
     def close(self, *, summary: str | None = None) -> ServiceResult:
@@ -59,8 +57,6 @@ class SessionController(BaseController):
             )
 
         result = SessionService(self._vault).close(summary=kwargs["summary"])
-
-        self._dispatch_post_action("close", kwargs, result)
         return result
 
     def reopen(self, session_id: str) -> ServiceResult:
@@ -84,8 +80,6 @@ class SessionController(BaseController):
             )
 
         result = SessionService(self._vault).reopen(kwargs["session_id"])
-
-        self._dispatch_post_action("reopen", kwargs, result)
         return result
 
     def status(self) -> ServiceResult:
@@ -109,8 +103,6 @@ class SessionController(BaseController):
             )
 
         result = SessionService(self._vault).status()
-
-        self._dispatch_post_action("status", kwargs, result)
         return result
 
     def log_entry(
@@ -163,8 +155,6 @@ class SessionController(BaseController):
             references=kwargs["references"],
             metadata=kwargs["metadata"],
         )
-
-        self._dispatch_post_action("log_entry", kwargs, result)
         return result
 
     def cost(self, *, report: int | None = None) -> ServiceResult:
@@ -188,8 +178,6 @@ class SessionController(BaseController):
             )
 
         result = SessionService(self._vault).cost(report=kwargs["report"])
-
-        self._dispatch_post_action("cost", kwargs, result)
         return result
 
     def context(
@@ -227,8 +215,6 @@ class SessionController(BaseController):
             budget=kwargs["budget"],
             ignore_checkpoints=kwargs["ignore_checkpoints"],
         )
-
-        self._dispatch_post_action("context", kwargs, result)
         return result
 
     def brief(self) -> ServiceResult:
@@ -252,8 +238,6 @@ class SessionController(BaseController):
             )
 
         result = SessionService(self._vault).brief()
-
-        self._dispatch_post_action("brief", kwargs, result)
         return result
 
     def extract_decision(self, session_id: str, *, title: str | None = None) -> ServiceResult:
@@ -279,6 +263,4 @@ class SessionController(BaseController):
         result = SessionService(self._vault).extract_decision(
             kwargs["session_id"], title=kwargs["title"]
         )
-
-        self._dispatch_post_action("extract_decision", kwargs, result)
         return result

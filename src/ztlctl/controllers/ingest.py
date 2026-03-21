@@ -35,8 +35,6 @@ class IngestController(BaseController):
             )
 
         result = IngestService(self._vault).list_providers()
-
-        self._dispatch_post_action("list_providers", kwargs, result)
         return result
 
     def ingest_text(
@@ -119,8 +117,6 @@ class IngestController(BaseController):
             dry_run=kwargs["dry_run"],
             no_reweave=kwargs["no_reweave"],
         )
-
-        self._dispatch_post_action("ingest_text", kwargs, result)
         return result
 
     def ingest_file(
@@ -203,8 +199,6 @@ class IngestController(BaseController):
             dry_run=kwargs["dry_run"],
             no_reweave=kwargs["no_reweave"],
         )
-
-        self._dispatch_post_action("ingest_file", kwargs, result)
         return result
 
     def ingest_url(
@@ -290,6 +284,4 @@ class IngestController(BaseController):
             dry_run=kwargs["dry_run"],
             no_reweave=kwargs["no_reweave"],
         )
-
-        self._dispatch_post_action("ingest_url", kwargs, result)
         return result
