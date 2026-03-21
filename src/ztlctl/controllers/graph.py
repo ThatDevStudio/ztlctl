@@ -22,147 +22,74 @@ class GraphController(BaseController):
     ) -> ServiceResult:
         """Find related content via spreading activation (BFS with decay)."""
         from ztlctl.services.graph import GraphService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"content_id": content_id, "depth": depth, "top": top}
 
-        kwargs, rejection = self._dispatch_pre_action("related", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="related",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return GraphService(self._vault).related(
+                kw["content_id"], depth=kw["depth"], top=kw["top"]
             )
 
-        result = GraphService(self._vault).related(
-            kwargs["content_id"], depth=kwargs["depth"], top=kwargs["top"]
-        )
-        return result
+        return self._run_action("related", kwargs, _invoke)
 
     def themes(self) -> ServiceResult:
         """Discover topic clusters via community detection."""
         from ztlctl.services.graph import GraphService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {}
 
-        kwargs, rejection = self._dispatch_pre_action("themes", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="themes",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return GraphService(self._vault).themes()
 
-        result = GraphService(self._vault).themes()
-        return result
+        return self._run_action("themes", kwargs, _invoke)
 
     def rank(self, *, top: int = 20) -> ServiceResult:
         """Identify important nodes via PageRank."""
         from ztlctl.services.graph import GraphService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"top": top}
 
-        kwargs, rejection = self._dispatch_pre_action("rank", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="rank",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return GraphService(self._vault).rank(top=kw["top"])
 
-        result = GraphService(self._vault).rank(top=kwargs["top"])
-        return result
+        return self._run_action("rank", kwargs, _invoke)
 
     def path(self, source_id: str, target_id: str) -> ServiceResult:
         """Find shortest connection chain between two nodes."""
         from ztlctl.services.graph import GraphService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"source_id": source_id, "target_id": target_id}
 
-        kwargs, rejection = self._dispatch_pre_action("path", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="path",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return GraphService(self._vault).path(kw["source_id"], kw["target_id"])
 
-        result = GraphService(self._vault).path(kwargs["source_id"], kwargs["target_id"])
-        return result
+        return self._run_action("path", kwargs, _invoke)
 
     def gaps(self, *, top: int = 20) -> ServiceResult:
         """Find structural holes — nodes with high constraint."""
         from ztlctl.services.graph import GraphService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"top": top}
 
-        kwargs, rejection = self._dispatch_pre_action("gaps", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="gaps",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return GraphService(self._vault).gaps(top=kw["top"])
 
-        result = GraphService(self._vault).gaps(top=kwargs["top"])
-        return result
+        return self._run_action("gaps", kwargs, _invoke)
 
     def bridges(self, *, top: int = 20) -> ServiceResult:
         """Find bridge nodes via betweenness centrality."""
         from ztlctl.services.graph import GraphService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"top": top}
 
-        kwargs, rejection = self._dispatch_pre_action("bridges", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="bridges",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return GraphService(self._vault).bridges(top=kw["top"])
 
-        result = GraphService(self._vault).bridges(top=kwargs["top"])
-        return result
+        return self._run_action("bridges", kwargs, _invoke)
 
     def unlink(self, source_id: str, target_id: str, *, both: bool = False) -> ServiceResult:
         """Remove links from source_id to target_id."""
         from ztlctl.services.graph import GraphService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {
             "source_id": source_id,
@@ -170,43 +97,20 @@ class GraphController(BaseController):
             "both": both,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("unlink", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="unlink",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return GraphService(self._vault).unlink(
+                kw["source_id"], kw["target_id"], both=kw["both"]
             )
 
-        result = GraphService(self._vault).unlink(
-            kwargs["source_id"], kwargs["target_id"], both=kwargs["both"]
-        )
-        return result
+        return self._run_action("unlink", kwargs, _invoke)
 
     def materialize_metrics(self) -> ServiceResult:
         """Compute and store graph metrics in the nodes table."""
         from ztlctl.services.graph import GraphService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {}
 
-        kwargs, rejection = self._dispatch_pre_action("materialize_metrics", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="materialize_metrics",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return GraphService(self._vault).materialize_metrics()
 
-        result = GraphService(self._vault).materialize_metrics()
-        return result
+        return self._run_action("materialize_metrics", kwargs, _invoke)

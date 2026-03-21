@@ -23,27 +23,15 @@ class ExportController(BaseController):
     ) -> ServiceResult:
         """Copy all content files to output_dir, preserving relative paths."""
         from ztlctl.services.export import ExportService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"output_dir": output_dir, "filters": filters}
 
-        kwargs, rejection = self._dispatch_pre_action("export_markdown", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="export_markdown",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return ExportService(self._vault).export_markdown(
+                Path(kw["output_dir"]), filters=kw["filters"]
             )
 
-        result = ExportService(self._vault).export_markdown(
-            Path(kwargs["output_dir"]), filters=kwargs["filters"]
-        )
-        return result
+        return self._run_action("export_markdown", kwargs, _invoke)
 
     def export_indexes(
         self,
@@ -53,27 +41,15 @@ class ExportController(BaseController):
     ) -> ServiceResult:
         """Generate index files grouped by type and topic."""
         from ztlctl.services.export import ExportService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"output_dir": output_dir, "filters": filters}
 
-        kwargs, rejection = self._dispatch_pre_action("export_indexes", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="export_indexes",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return ExportService(self._vault).export_indexes(
+                Path(kw["output_dir"]), filters=kw["filters"]
             )
 
-        result = ExportService(self._vault).export_indexes(
-            Path(kwargs["output_dir"]), filters=kwargs["filters"]
-        )
-        return result
+        return self._run_action("export_indexes", kwargs, _invoke)
 
     def export_graph(
         self,
@@ -90,41 +66,30 @@ class ExportController(BaseController):
         ``result.data["content"]`` for CLI/MCP consumers to render.
         """
         from ztlctl.services.export import ExportService
-        from ztlctl.services.result import ServiceError, ServiceResult
+        from ztlctl.services.result import ServiceResult
 
         kwargs: dict[str, Any] = {"fmt": fmt, "output_file": output_file, "filters": filters}
 
-        kwargs, rejection = self._dispatch_pre_action("export_graph", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="export_graph",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            svc_result = ExportService(self._vault).export_graph(
+                fmt=kw["fmt"], filters=kw["filters"]
             )
+            if not svc_result.ok or kw["output_file"] is None:
+                return svc_result
+            else:
+                out_path = Path(kw["output_file"])
+                out_path.write_text(svc_result.data["content"], encoding="utf-8")
+                return ServiceResult(
+                    ok=True,
+                    op="export_graph",
+                    data={
+                        "format": kw["fmt"],
+                        "output_file": kw["output_file"],
+                        "node_count": svc_result.data.get("node_count", 0),
+                    },
+                )
 
-        svc_result = ExportService(self._vault).export_graph(
-            fmt=kwargs["fmt"], filters=kwargs["filters"]
-        )
-        if not svc_result.ok or kwargs["output_file"] is None:
-            result = svc_result
-        else:
-            out_path = Path(kwargs["output_file"])
-            out_path.write_text(svc_result.data["content"], encoding="utf-8")
-            result = ServiceResult(
-                ok=True,
-                op="export_graph",
-                data={
-                    "format": kwargs["fmt"],
-                    "output_file": kwargs["output_file"],
-                    "node_count": svc_result.data.get("node_count", 0),
-                },
-            )
-        return result
+        return self._run_action("export_graph", kwargs, _invoke)
 
     def export_dashboard(
         self,
@@ -134,24 +99,12 @@ class ExportController(BaseController):
     ) -> ServiceResult:
         """Export an external review workbench plus review and dossier artifacts."""
         from ztlctl.services.export import ExportService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {"output_dir": output_dir, "viewer": viewer}
 
-        kwargs, rejection = self._dispatch_pre_action("export_dashboard", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="export_dashboard",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return ExportService(self._vault).export_dashboard(
+                Path(kw["output_dir"]), viewer=kw["viewer"]
             )
 
-        result = ExportService(self._vault).export_dashboard(
-            Path(kwargs["output_dir"]), viewer=kwargs["viewer"]
-        )
-        return result
+        return self._run_action("export_dashboard", kwargs, _invoke)

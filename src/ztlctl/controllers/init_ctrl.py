@@ -36,7 +36,6 @@ class InitController(BaseController):
     ) -> ServiceResult:
         """Create a new ztlctl vault at path."""
         from ztlctl.services.init import InitService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {
             "path": path,
@@ -48,72 +47,37 @@ class InitController(BaseController):
             "no_workflow": no_workflow,
         }
 
-        kwargs, rejection = self._dispatch_pre_action("init_vault", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="init_vault",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return InitService.init_vault(
+                kw["path"],
+                name=kw["name"],
+                profile=kw["profile"],
+                client=kw["client"],
+                tone=kw["tone"],
+                topics=kw["topics"],
+                no_workflow=kw["no_workflow"],
             )
 
-        result = InitService.init_vault(
-            kwargs["path"],
-            name=kwargs["name"],
-            profile=kwargs["profile"],
-            client=kwargs["client"],
-            tone=kwargs["tone"],
-            topics=kwargs["topics"],
-            no_workflow=kwargs["no_workflow"],
-        )
-        return result
+        return self._run_action("init_vault", kwargs, _invoke)
 
     def regenerate_self(self) -> ServiceResult:
         """Re-render self/ files from current vault settings."""
         from ztlctl.services.init import InitService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {}
 
-        kwargs, rejection = self._dispatch_pre_action("regenerate_self", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="regenerate_self",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return InitService.regenerate_self(self._vault)
 
-        result = InitService.regenerate_self(self._vault)
-        return result
+        return self._run_action("regenerate_self", kwargs, _invoke)
 
     def check_staleness(self) -> ServiceResult:
         """Compare ztlctl.toml mtime vs self/*.md mtimes."""
         from ztlctl.services.init import InitService
-        from ztlctl.services.result import ServiceError, ServiceResult
 
         kwargs: dict[str, Any] = {}
 
-        kwargs, rejection = self._dispatch_pre_action("check_staleness", kwargs)
-        if rejection is not None:
-            return ServiceResult(
-                ok=False,
-                op="check_staleness",
-                error=ServiceError(
-                    code="ACTION_REJECTED",
-                    message=rejection.reason,
-                    detail=rejection.detail,
-                    recovery=f"Action rejected by plugin: {rejection.reason}",
-                ),
-            )
+        def _invoke(kw: dict[str, Any]) -> ServiceResult:
+            return InitService.check_staleness(self._vault)
 
-        result = InitService.check_staleness(self._vault)
-        return result
+        return self._run_action("check_staleness", kwargs, _invoke)
