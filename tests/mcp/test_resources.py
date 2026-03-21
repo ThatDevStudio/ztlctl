@@ -160,8 +160,8 @@ class TestResources:
 class TestResourceCatalog:
     """Tests for resource catalog completeness."""
 
-    def test_catalog_has_17_resources(self):
-        assert len(resource_catalog()) == 17
+    def test_catalog_has_18_resources(self):
+        assert len(resource_catalog()) == 18
 
     def test_agent_reference_in_catalog(self):
         uris = {r["uri"] for r in resource_catalog()}
@@ -461,3 +461,45 @@ class TestDocsResources:
         registered = set(server.registered_uris)
         assert "ztlctl://docs/index" in registered
         assert "ztlctl://docs/search" in registered
+
+
+class TestPolarisResource:
+    """Tests for polaris_impl and ztlctl://polaris resource."""
+
+    def test_polaris_impl_returns_content_when_file_exists(self, vault: Vault):
+        from ztlctl.mcp.resources import polaris_impl
+
+        polaris_dir = vault.root / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        (polaris_dir / "polaris.md").write_text("# My Polaris\n## Mission\nBuild things.\n")
+
+        result = polaris_impl(vault)
+        assert "My Polaris" in result
+        assert "Mission" in result
+
+    def test_polaris_impl_returns_guidance_when_file_missing(self, vault: Vault):
+        from ztlctl.mcp.resources import polaris_impl
+
+        result = polaris_impl(vault)
+        assert "No polaris file found" in result
+        assert "ztlctl init" in result
+
+    def test_polaris_in_resource_catalog(self):
+        uris = {r["uri"] for r in resource_catalog()}
+        assert "ztlctl://polaris" in uris
+
+    def test_polaris_resource_registered(self, vault: Vault):
+        class _DummyServer:
+            def __init__(self) -> None:
+                self.registered_uris: list[str] = []
+
+            def resource(self, uri: str):
+                def decorator(fn):
+                    self.registered_uris.append(uri)
+                    return fn
+
+                return decorator
+
+        server = _DummyServer()
+        register_resources(server, vault)
+        assert "ztlctl://polaris" in set(server.registered_uris)

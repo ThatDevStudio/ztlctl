@@ -101,7 +101,8 @@ class TestInitVault:
     def test_none_client_no_obsidian_dir(self, tmp_path: Path) -> None:
         InitService.init_vault(tmp_path, name="none-vault", profile="core")
         assert not (tmp_path / ".obsidian").exists()
-        assert not (tmp_path / "garden").exists()
+        # garden/groves/polaris.md is scaffolded for all profiles
+        assert (tmp_path / "garden" / "groves" / "polaris.md").is_file()
 
     def test_missing_profile_returns_profile_not_found(self, tmp_path: Path) -> None:
         result = InitService.init_vault(tmp_path, name="missing-vault", profile="missing-profile")
@@ -277,6 +278,24 @@ class PostInitProfilePlugin:
         assert "garden/README.md" in files
         assert ".ztlctl/workflow-answers.yml" in files
         assert ".ztlctl/workflow/README.md" in files
+
+    def test_polaris_file_created(self, tmp_path: Path) -> None:
+        result = InitService.init_vault(tmp_path, name="polaris-vault")
+        assert result.ok
+        polaris_path = tmp_path / "garden" / "groves" / "polaris.md"
+        assert polaris_path.is_file()
+
+    def test_polaris_in_files_created(self, tmp_path: Path) -> None:
+        result = InitService.init_vault(tmp_path, name="polaris-manifest")
+        files = result.data["files_created"]
+        assert "garden/groves/polaris.md" in files
+
+    def test_polaris_contains_required_sections(self, tmp_path: Path) -> None:
+        InitService.init_vault(tmp_path, name="polaris-sections")
+        content = (tmp_path / "garden" / "groves" / "polaris.md").read_text(encoding="utf-8")
+        assert "Mission" in content
+        assert "Current Priorities" in content
+        assert "Decision Principles" in content
 
     def test_result_data_fields(self, tmp_path: Path) -> None:
         result = InitService.init_vault(

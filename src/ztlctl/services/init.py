@@ -404,6 +404,16 @@ class InitService:
             (self_dir / filename).write_text(content, encoding="utf-8")
             files_created.append(f"self/{filename}")
 
+        # 5b. RENDER POLARIS
+        polaris_env = build_template_environment("self", vault_root=vault_path)
+        polaris_content = polaris_env.get_template("polaris.md.j2").render(
+            vault_name=name, created=created
+        )
+        polaris_dir = vault_path / "garden" / "groves"
+        polaris_dir.mkdir(parents=True, exist_ok=True)
+        (polaris_dir / "polaris.md").write_text(polaris_content, encoding="utf-8")
+        files_created.append("garden/groves/polaris.md")
+
         # 6. RUN INIT STEPS
         init_step_result = _run_init_steps(
             vault_path=vault_path,
