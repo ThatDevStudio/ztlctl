@@ -63,12 +63,12 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
   3. Every mutating action has exactly one `post_action` producer — the service layer — with no controller-side write dispatch
   4. All `post_action` events carry a stable `action_name / side_effect / payload / warnings` shape that plugins can depend on
   5. EventBus drain timeout and dead-letter handling strategy are configurable in settings rather than hardcoded or silently accumulating
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 15-01: WAL drain on shutdown and startup recovery
-- [ ] 15-02: Service-only post_action emission and canonical payload model
-- [ ] 15-03: EventBus timeout config and dead-letter cleanup strategy
+- [ ] 15-01-PLAN.md — EventBusConfig + ActionEvent models + EventBus constructor refactor
+- [ ] 15-02-PLAN.md — Service-only post_action emission, shutdown/startup drain, controller cleanup
+- [ ] 15-03-PLAN.md — Dead-letter reporting, auto-purge, event_purge action
 
 ### Phase 16: Plugin Bridge and Action Executor
 **Goal**: The compatibility bridge is reversed so stable events drive legacy hooks, a generic action executor eliminates controller boilerplate, and MCP server shuts down cleanly
@@ -79,7 +79,7 @@ Plans:
   2. Controllers no longer contain repeated pre/post hook dispatch boilerplate — a shared action executor handles that path once
   3. `garden seed` exercises the same pre-action and post-commit machinery as all other create flows
   4. `ztlctl serve` exits cleanly without dangling asyncio tasks or open file handles when the MCP client disconnects
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 16-01: Bridge reversal — stable action events adapt into legacy hook calls
@@ -94,7 +94,7 @@ Plans:
   1. `_register_core.py` is decomposed — each feature area owns its ActionDefinitions in a local `actions/` module colocated with the relevant service/controller code
   2. Plugin runtime discovery happens once per process scope — `PluginManager` is not reconstructed independently for init steps, workspace profiles, workflow export, and live vault runtime
   3. `load_plugin_commands` uses the same discovery path and config injection as the vault runtime plugin manager
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 17-01: Feature-local action registration modules
@@ -110,7 +110,7 @@ Plans:
   3. `ServiceError.recovery` field is either populated by services or removed — no unused structural debt in the error model
   4. Embedding dimensions are configurable in settings — no hardcoded vector dimension values remain in source
   5. `bridges()` uses k-approximation for betweenness centrality above a vault size threshold — the command stays responsive for vaults up to 5,000 notes
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 18-01: Residue removal (workspace_modes, dead helpers, transitional scaffolding)
@@ -126,7 +126,7 @@ Plans:
   3. The `check_alignment` action accepts a decision description and returns structured polaris context the agent can reason against
   4. `ztlctl check` under `CAT_STRUCTURAL` flags notes with short or generic titles at info severity — the garden backlog resource includes title improvement candidates alongside stale seeds and orphans
   5. The prose-as-title convention and concrete examples are present in the `methodology.md.j2` init template
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 19-01: Polaris init scaffold, MCP resource, and context assembler integration
@@ -143,7 +143,7 @@ Plans:
   3. User can discover which sessions share content or recurring topics — the topology view shows session connectivity
   4. An MCP agent reading `ztlctl://sessions/recent` receives the last N sessions with summaries without invoking a command
   5. `recall_temporal`, `recall_topic`, and `recall_topology` are registered actions in ActionRegistry with RecallService backing them
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 20-01: RecallService with temporal and topic recall
@@ -159,7 +159,7 @@ Plans:
   3. User can confirm a contradiction and a `contradicts` edge is recorded in the graph between the two notes
   4. An MCP agent reading `ztlctl://review/contradictions` receives current contradiction candidate pairs without invoking a command
   5. `check_contradictions` is a registered action in ActionRegistry under the analysis category
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 21-01: Candidate pair discovery and heuristic scoring
@@ -175,7 +175,7 @@ Plans:
   3. The `ingest_media` MCP tool is auto-generated from ActionRegistry and accepts the same parameters as the CLI command
   4. Whisper model selection, language hints, and output preferences are configurable in a `[ingest.media]` config section
   5. The captured reference source bundle contains `normalized_text`, `capture_agent`, and `modalities` from the transcription output — ready for an agent to annotate to `annotated` status
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 22-01: Source provider plugin scaffolding and whisper transcription integration
