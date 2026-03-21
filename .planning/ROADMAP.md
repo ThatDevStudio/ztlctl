@@ -49,7 +49,7 @@ Full details: `.planning/milestones/v2.1-ROADMAP.md`
 - [x] **Phase 19: Methodology Guidance and Polaris** - Title quality checks, prose-as-title template, polaris priorities layer (completed 2026-03-21)
 - [x] **Phase 20: Session Recall** - Temporal, topic, and topology querying across session history (completed 2026-03-21)
 - [x] **Phase 21: Contradiction Detection** - Semantic integrity analysis, contradiction edges, review dashboard (completed 2026-03-21)
-- [ ] **Phase 22: Ingestion Pipeline** - Media and transcript ingestion via source provider plugin
+- [x] **Phase 22: Ingestion Pipeline** - Media and transcript ingestion via source provider plugin (completed 2026-03-21)
 
 ## Phase Details
 
@@ -180,7 +180,7 @@ Plans:
 
 Plans:
 - [x] 22-01-PLAN.md — TranscriptionService with whisper integration, transcript parsing, and MediaIngestConfig
-- [ ] 22-02-PLAN.md — IngestService.ingest_media method, controller wiring, ActionRegistry registration
+- [x] 22-02-PLAN.md — IngestService.ingest_media method, controller wiring, ActionRegistry registration
 
 ## Progress
 
@@ -210,4 +210,4 @@ Phases execute in numeric order: 15 → 16 → 17 → 18 → 19 → 20 → 21 �
 | 19. Methodology Guidance and Polaris | v3.0 | 3/3 | Complete    | 2026-03-21 |
 | 20. Session Recall | v3.0 | 2/2 | Complete    | 2026-03-21 |
 | 21. Contradiction Detection | v3.0 | 2/2 | Complete    | 2026-03-21 |
-| 22. Ingestion Pipeline | v3.0 | 1/2 | In Progress|  |
+| 22. Ingestion Pipeline | v3.0 | 2/2 | Complete   | 2026-03-21 |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Memory and Hardening
 status: unknown
-stopped_at: Completed 22-01-PLAN.md
-last_updated: "2026-03-21T20:24:04.832Z"
+stopped_at: Completed 22-02-PLAN.md
+last_updated: "2026-03-21T20:31:08.337Z"
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 20
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 # Project State
@@ -70,6 +70,7 @@ Plan: 2 of 2
 | Phase 21-contradiction-detection P01 | 5 | 2 tasks | 4 files |
 | Phase 21-contradiction-detection P02 | 8 | 2 tasks | 8 files |
 | Phase 22-ingestion-pipeline P01 | 3 | 2 tasks | 3 files |
+| Phase 22-ingestion-pipeline P02 | 4 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -124,6 +125,9 @@ Recent decisions affecting current work:
 - [Phase 22-01]: TranscriptionService is stateless utility (not BaseService subclass) — no Vault access needed for file transcription
 - [Phase 22-01]: faster-whisper import guarded inside _transcribe_media() — module-level guard would prevent instantiation on import
 - [Phase 22-01]: MediaIngestConfig composes into IngestConfig.media — settings.ingest.media.whisper_model/language/compute_type pattern
+- [Phase 22]: source_path stored at top level of bundle JSON via extra-field injection post-normalization
+- [Phase 22]: SourceBundleData.input_kind Literal extended to include 'media'
+- [Phase 22]: ingest_media always targets reference type — enforces two-phase captured to annotated workflow
 
 ### Pending Todos
 
@@ -137,6 +141,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T20:24:04.829Z
-Stopped at: Completed 22-01-PLAN.md
+Last session: 2026-03-21T20:31:08.334Z
+Stopped at: Completed 22-02-PLAN.md
 Resume file: None
