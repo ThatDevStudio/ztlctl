@@ -1,335 +1,535 @@
-# Pitfalls Research
+# Claude Code Plugin Development Pitfalls
 
-**Domain:** Documentation quality overhaul — adding professional-grade docs to an existing Python CLI/MCP tool (ztlctl v3.1)
-**Researched:** 2026-03-21
-**Confidence:** HIGH (infrastructure, drift, tone) / MEDIUM (agent-specific docs patterns) / HIGH (ztlctl-specific analysis from source)
+**Domain:** Claude Code plugin for an existing Python MCP tool (ztlctl v4.0 — Agentic Skills)
+**Researched:** 2026-03-22
+**Confidence:** HIGH (official docs verified) / MEDIUM (community issues, bug trackers) / LOW (single-source observations)
+
+---
+
+## Scope
+
+This document covers pitfalls specific to building a Claude Code plugin that wraps an existing Python/MCP tool. The ztlctl MCP server already works. The risks are in the plugin wrapper, skill design, hooks, distribution, and the Python-to-JS boundary where the MCP server is launched by the plugin.
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Documenting What the Tool Does Instead of What the User Needs to Accomplish
+### Pitfall 1: Directory Structure — Components Inside `.claude-plugin/`
 
 **What goes wrong:**
-Pages become feature inventories: "The `create note` command accepts the following flags: `--title`, `--tags`, `--topic`, `--links`..." Users arrive with a goal — "I want to capture a research finding" — not with a desire to enumerate flags. The docs are technically complete but practically useless because they describe the tool from the inside out rather than the user's task from the outside in.
-
-ztlctl has 73+ actions, 15 services, and 5 command groups. A reference-first organization makes every feature discoverable but makes every workflow invisible.
+`commands/`, `agents/`, `skills/`, and `hooks/` directories are placed inside `.claude-plugin/` alongside `plugin.json`. Claude Code looks for these directories at the plugin root, not inside `.claude-plugin/`. The plugin loads, `plugin.json` parses correctly, but every skill and command is silently missing.
 
 **Why it happens:**
-The people writing the docs know the codebase. They reach for the structure they already understand: commands, flags, services. Writing from a user's mental model requires deliberately stepping outside the implementation.
+The `.claude-plugin/` directory is the first thing you create. It feels like "the plugin config directory" so components naturally land there. The distinction — manifest inside, everything else outside — is not intuitively obvious.
 
-**How to avoid:**
-Structure pages around user goals, not CLI commands. Each major page should open with "When you want to X, you..." not "The X command provides...". The reference table (flags, options, types) belongs after the narrative explanation, not before it.
+**Consequences:**
+Plugin appears installed and valid. No error is shown. All skills, agents, and hooks are simply absent. Debugging is difficult because the plugin "works" from the manifest perspective.
 
-For ztlctl specifically: every new v3.0 feature page (session recall, polaris, contradiction detection, media ingestion) should open with the *problem it solves*, then show the solution, then provide the reference. The `agents.md` page already does this correctly and is the model to follow.
+**Prevention:**
+```
+plugin-root/
+├── .claude-plugin/
+│   └── plugin.json       <- ONLY this belongs here
+├── skills/               <- at root
+├── agents/               <- at root
+├── hooks/                <- at root
+└── .mcp.json             <- at root
+```
+Run `claude plugin validate` before testing. Check `claude --debug` output for "loading plugin" messages that enumerate discovered components.
 
-**Warning signs:**
-- A page's first heading is a command name
-- Flags and options appear before any explanation of why you'd use them
-- The page has no examples showing an end-to-end workflow
+**Detection:**
+`claude --debug` shows "No commands found" or "No skills found" even though files exist. Plugin installs without error but `/ztlctl:*` slash commands do not appear.
 
-**Phase to address:**
-Documentation quality overhaul phase — apply to all new and updated pages before publishing.
+**Phase to address:** Plugin scaffolding phase — enforce structure from the first commit.
 
 ---
 
-### Pitfall 2: CLI Examples That Drift from Source on the First Feature Change
+### Pitfall 2: Python MCP Server Stdout Pollution Breaking stdio Transport
 
 **What goes wrong:**
-Every example in the docs claims `ztlctl session recall --topic python --limit 10`. Three weeks later, a flag is renamed, a default changes, or the command gains a required positional argument. The example still "works" syntactically but produces wrong output or fails silently. Users copy-paste it and get a confusing result.
-
-For ztlctl v3.1, all five new v3.0 feature pages need fresh examples. These pages will be written exactly once during the milestone and never reviewed against source again unless there is a structural enforcement mechanism.
+The ztlctl MCP server is launched by the plugin via `uvx` over stdio. Any `print()` statement, logging to stdout, startup banner, or library that writes to stdout (e.g., dotenv v17+) corrupts the JSON-RPC stream. Claude Code receives malformed JSON, the connection fails, and the server appears disconnected.
 
 **Why it happens:**
-Documentation is written in a sprint, then falls into maintenance limbo. There is no CI step that runs docs examples against the actual CLI. Documentation PRs don't require a source-verified badge. The ztlctl v2.1 docs already found 15+ inaccurate commands during its quality pass — that correction happened once, manually.
+Python developers routinely use `print()` for debug output. In a normal CLI context this is harmless. In stdio MCP transport, stdout is a structured protocol channel — any non-JSON byte is fatal.
 
-**How to avoid:**
-1. Every CLI example in docs must be verified against the actual CLI output at time of writing. Use `uv run ztlctl <command> --help` as ground truth — copy flag names verbatim.
-2. Add a CLAUDE.md rule: "When writing or updating any CLI example, run the command against the source and confirm output matches before committing."
-3. For the most critical examples (quickstart, agentic-workflows, agents.md), add a CI smoke test that runs the example commands against a real vault and asserts non-zero success.
-4. When an action is renamed or a flag changes, add a docs update task to the PR that made the change.
+**Consequences:**
+MCP server shows as disconnected in Claude Code. All MCP tool calls fail silently or with a generic timeout error. Symptoms look like a configuration problem, not a logging problem — this is the hardest class of bug to diagnose.
 
-**Warning signs:**
-- A docs PR is merged without any `uv run ztlctl` verification step
-- An example uses a flag name that differs by even one character from `--help` output
-- Examples for v3.0 features were written before the feature was finalized
+**Prevention:**
+- All logging in ztlctl MCP server must go to stderr: `print("...", file=sys.stderr)` or via structlog/logging configured to stderr (ztlctl already uses structlog to stderr — preserve this)
+- Set `PYTHONUNBUFFERED=1` in `.mcp.json` environment config to prevent buffering stalls
+- Audit all startup paths for `print()` calls before shipping the plugin
+- If any dependency (e.g., a logging library, import-time side effects) writes to stdout, silence it at the entry point
+- Test server startup in isolation: `echo '{"jsonrpc":"2.0","method":"initialize",...}' | uvx ztlctl serve` and verify the response is clean JSON
 
-**Phase to address:**
-Documentation-as-code enforcement phase — establish the rule before writing new pages. Apply retroactively to all existing examples in the quality pass phase.
+**Detection:**
+Claude Code shows "MCP server disconnected" or "Request timed out" immediately after connection. Running `uvx ztlctl serve` manually and piping input shows non-JSON output mixed with JSON-RPC responses.
+
+**Phase to address:** MCP integration phase — verify clean stdio before any skill testing.
 
 ---
 
-### Pitfall 3: Over-Documenting Internal Architecture That Users Don't Need
+### Pitfall 3: Version Bump Without Plugin Caching Invalidation
 
 **What goes wrong:**
-The architecture is genuinely interesting: 6-layer package structure, ActionRegistry define-once pattern, WAL-backed event bus, 4-layer action model. But writing extensive docs about `domain/` vs `infrastructure/` separation, or how `_dispatch_post_action_event` works internally, creates noise in the wrong place. Users following the user guide encounter architecture diagrams meant for plugin authors. Plugin authors encounter user-guide workflows when they need hookspec signatures.
-
-This is already partially solved by the two-track navigation (User Guide + Developer Guide), but the risk is that new pages for v3.0 features blur the line — "session recall" belongs in User Guide, "how session recall stores temporal edges in SQLite" belongs nowhere unless it's in DESIGN.md.
+The plugin code is updated and pushed to the marketplace repository, but `version` in `plugin.json` is not incremented. Claude Code uses the cached version and users never see the update. `claude plugin update` reports "already at latest version" because the version string is unchanged, even though the commit is newer.
 
 **Why it happens:**
-The author knows the implementation and finds it interesting. The impulse is to share internal knowledge because it feels like it adds depth. But architectural detail in user-facing docs adds cognitive overhead without helping the user accomplish anything.
+Semantic versioning discipline that exists for Python packages (`cz bump`) does not automatically apply to the plugin manifest. The plugin is a different artifact with its own versioning lifecycle.
 
-**How to avoid:**
-Apply the test: "Does knowing this help a user accomplish their goal?" If yes, include it. If it only satisfies curiosity or explains implementation choices, it belongs in DESIGN.md or a Developer Guide architecture page — not in user-facing docs.
+**Consequences:**
+Bug fixes and skill improvements are invisible to users. The plugin appears current. Support issues arise from users running stale versions they believe are up to date.
 
-For v3.1: new pages for session recall, polaris, contradiction detection, media ingestion, and methodology guidance should be tested against this filter before publishing. Internal details about the WAL drain, the cosine similarity threshold, or the faster-whisper frame size don't belong in user-facing pages.
+**Prevention:**
+- Treat `plugin.json` version as a gate: no merge to main without a version bump when skill content, hooks, or MCP config changes
+- Add a CI check that verifies `version` was incremented in any PR that modifies plugin files
+- Maintain a `CHANGELOG.md` in the plugin repo to make version history visible
+- Use pre-release versions (`2.0.0-beta.1`) for testing before promoting to stable
 
-**Warning signs:**
-- A user-facing page contains class names, method names, or module paths
-- A page explains *why* a technical decision was made rather than *what to do*
-- The page references `infrastructure/`, `domain/`, or layer names by name
+**Detection:**
+`claude plugin update ztlctl-skills@marketplace` reports "already at latest" but `git log` shows new commits. Users report bugs that were fixed in recent commits.
 
-**Phase to address:**
-Documentation quality overhaul phase — apply the "Does this help the user accomplish their goal?" filter during writing and review.
+**Phase to address:** Distribution phase — establish as a mandatory PR gate from day one.
 
 ---
 
-### Pitfall 4: Missing the Beginner-to-Advanced Progression
+### Pitfall 4: MCP Server Namespace Collision Under `--plugin-dir` vs Installed
 
 **What goes wrong:**
-A new user reads the quickstart, installs the tool, creates their first note — and then has no path forward. The docs jump from "here's how to create a note" directly to "here's the advanced reweave algorithm configuration" with nothing in between. The intermediate user — who has a vault, understands the basic workflow, and wants to integrate sessions or polaris priorities — has no guide that meets them where they are.
-
-ztlctl's feature set now spans: basic CRUD (create/update/close), search and graph, session lifecycle, reweave and enrichment, semantic search, polaris priorities, contradiction detection, and media ingestion. Each of these represents a step up in conceptual complexity. If docs don't sequence them, users get overwhelmed or miss capabilities entirely.
+When loaded via `--plugin-dir` for development, Claude Code adds a `plugin_<plugin-name>_` prefix to MCP tool names. The same plugin installed from a marketplace does not apply this prefix. Skill `allowed-tools` declarations that reference `mcp__ztlctl__*` work when installed but fail silently under `--plugin-dir` because the runtime tool names are `mcp__plugin_ztlctl_skills__ztlctl__*`.
 
 **Why it happens:**
-Docs are added feature-by-feature as features ship. Each new page explains its feature in isolation. No one steps back to ask "what is the progression from a new user to a power user, and does each page in the navigation correspond to a step in that progression?"
+This is a documented Claude Code bug (issue #29360). The plugin-dir loading path applies namespacing that the marketplace installation path does not, and skill frontmatter allowed-tools wildcards are not transformed to match.
 
-**How to avoid:**
-Map the intended user journey before writing any new pages:
-1. Install + first vault (quickstart)
-2. Daily capture workflow (create, update, close, best-practices)
-3. Finding and connecting knowledge (search, graph, reweave)
-4. Working in sessions (session lifecycle, session recall)
-5. Strategic alignment (polaris priorities, contradiction detection)
-6. Ingestion at scale (media ingestion, methodology guidance)
-7. Extensibility (plugins, agentic workflows)
+**Consequences:**
+Skills that restrict tool access via `allowed-tools: mcp__ztlctl__*` appear to work in development (tools show in debug output) but Claude cannot access them without per-use approval. The discrepancy is invisible — development tests pass, production behavior differs.
 
-Each new v3.0 page should be placed explicitly on this journey. The User Guide navigation order should reflect progression from simple to complex.
+**Prevention:**
+- Test skills using `claude plugin install` to a local marketplace, not just `--plugin-dir`, before declaring them ready
+- Do not rely exclusively on `allowed-tools` wildcards for MCP tool access during development — verify under install path
+- Monitor issue #29360 for a fix; design skills defensively by not over-restricting `allowed-tools` when the wildcard behavior cannot be verified
 
-**Warning signs:**
-- User Guide navigation order is roughly chronological by feature ship date, not by user progression
-- An intermediate feature (sessions) appears before a foundational one (search)
-- New feature pages are added to the bottom of the nav without considering where they fall in the user journey
+**Detection:**
+Skills require approval for MCP tool calls when installed but not during `--plugin-dir` testing. `claude --debug` shows different tool name prefixes between the two load paths.
 
-**Phase to address:**
-Navigation and information architecture phase — establish the progression map before writing new feature pages.
+**Phase to address:** Skill integration testing phase — always test installed, not just `--plugin-dir`.
 
 ---
 
-### Pitfall 5: Inconsistent Tone Across the Three-Audience Model
+### Pitfall 5: Stop Hook Infinite Loop
 
 **What goes wrong:**
-ztlctl already established a three-audience model: end users (mentor tone), developers (peer tone), agents (structured schemas). But when five new pages are added by one author in a sprint, all five may sound like the same voice — regardless of which track they're in. Alternatively, pages updated across multiple PRs by different contributors develop a patchwork of styles: some pages say "you can use," others say "the tool supports," others say "execute the following command."
-
-Tone inconsistency is subtle but erodes the sense that the docs are a coherent product rather than a collection of notes.
+A `Stop` hook uses `exit 2` to block Claude's completion (to enforce a review step, for example). Claude tries to stop, the hook blocks it with exit 2, Claude tries to stop again, the hook blocks it again — infinite loop. The session hangs with no way out except killing the process.
 
 **Why it happens:**
-No style guide exists to constrain contributors. The three-audience model is documented as a decision in PROJECT.md but not as an actionable writing guide. When the same person writes user-facing and developer-facing pages in the same session, the mental context switch doesn't happen automatically.
+`exit 2` from a `Stop` hook signals "block this stop and reprocess." This is the correct signal for blocking tool calls, but in the context of `Stop`, it causes Claude to retry the stop indefinitely.
 
-**How to avoid:**
-1. Write a one-page style guide as a CLAUDE.md appendix or a `docs/CONTRIBUTING.md`. Define:
-   - User Guide tone: second person ("you"), present tense, active voice, no jargon without definition, goal-first
-   - Developer Guide tone: first-person plural optional ("we"), technical terms assumed, rationale welcome
-   - Agent docs tone: third-person declarative, schema-first, no narrative
-2. Add a checklist to the docs PR template: "Which audience is this page for? Does the tone match?"
-3. When adding v3.0 feature pages, assign each page to exactly one audience track and write it entirely in that voice.
+**Consequences:**
+Session hangs. User must force-quit Claude Code. Any unsaved context is lost. If the hook is in a plugin delivered to users, it makes the plugin unusable.
 
-**Warning signs:**
-- A user-guide page says "the ActionRegistry dispatches..." (developer voice)
-- An agent-facing page says "you might want to consider..." (user voice)
-- Two pages in the same section use different verb forms for the same concept
+**Prevention:**
+All `Stop` hooks must check the `stop_hook_active` field in the hook input JSON. If `stop_hook_active` is `true`, the hook must exit 0 — Claude has already been blocked once and is retrying, so the hook must allow the stop:
+```bash
+#!/bin/bash
+INPUT=$(cat)
+STOP_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false')
+if [ "$STOP_ACTIVE" = "true" ]; then exit 0; fi
+# ... hook logic that may exit 2
+```
 
-**Phase to address:**
-Style guide establishment phase (early) — define tone before writing new pages. Quality pass phase — audit existing pages for tone consistency.
+**Detection:**
+Session hangs after Claude completes a response. CPU stays high. No progress. Force-quit required.
+
+**Phase to address:** Hooks implementation phase — apply the `stop_hook_active` guard to every `Stop` hook before testing.
 
 ---
 
-### Pitfall 6: Technically Correct But Not Helpful — The "Reference Dump" Anti-Pattern
+### Pitfall 6: Skill Description Overlap Causing Activation Failure
 
 **What goes wrong:**
-Pages contain every fact about a feature but answer no questions. A contradiction detection page that lists all the fields returned by `get_contradictions`, explains the heuristic scoring algorithm, describes every filter flag, and shows the TOML config options — but never shows a user how to act on a contradiction finding — is technically complete and practically useless.
-
-The test: can a user who reads the page accomplish something they couldn't accomplish before? If yes, the page is helpful. If the page only tells them what exists, it fails.
+Two skills have descriptions that cover overlapping scenarios. When the user's request could match either, Claude cannot pick one, picks the wrong one, or falls back to base knowledge without activating either skill. Worse, a skill with a vague description ("Use for zettelkasten operations") competes with a more specific skill ("Use when starting a research session") — the vague one suppresses the specific one.
 
 **Why it happens:**
-Reference-style writing is easier to produce. It maps directly from source code: list the flags, list the return fields, list the config keys. Explaining what to *do* with those capabilities requires understanding the user's workflow, which takes more thought.
+Skills are written in isolation, each optimized for its own purpose. No one reviews all descriptions together to check for overlap. The ztlctl domain is cohesive (everything relates to notes and knowledge), which makes overlap likely.
 
-**How to avoid:**
-Every feature page must include at least one end-to-end "doing" example — not just command syntax, but a narrative that shows what the user starts with, what they run, and what they do next. For contradiction detection: "You've been capturing notes on a research topic for two weeks. Run `ztlctl check contradictions` to find where your thinking has evolved or diverged. Here's what the output looks like, and here's how to resolve a contradiction by updating a note."
+**Consequences:**
+Core workflows silently use base model knowledge instead of the curated skill workflow. The skill exists, is installed, but never fires for the scenarios it was designed for.
 
-For v3.1 specifically: session recall, polaris priorities, contradiction detection, media ingestion, and methodology guidance pages should each pass the "can a user accomplish something after reading this?" test before merging.
+**Prevention:**
+- Write descriptions that answer exactly "when to activate" using unique action verbs and specific context markers
+- Bad: "Use for ztlctl knowledge management operations"
+- Good: "Use when the user asks to start, begin, or open a work or research session in their ztlctl vault"
+- After writing all skill descriptions, read them together as a list and verify no two descriptions could match the same user request
+- Use `disable-model-invocation: true` for skills that should only be invoked manually (e.g., `/ztlctl:capture` for explicit capture, not auto-triggered)
+- Test activation rates: for each skill, write 5 prompts that should trigger it and verify it fires
 
-**Warning signs:**
-- Page has complete flag reference but no workflow narrative
-- Examples show command invocation but not what to do with the output
-- No "typical usage" or "when to use this" section
+**Detection:**
+Manually invoking `/ztlctl:session-start` works, but asking "Let's start a research session" does not activate it. `What skills are available?` shows the skill, but it never fires automatically.
 
-**Phase to address:**
-Documentation quality overhaul phase — apply the "accomplish something" test to every new and updated page.
+**Phase to address:** Skill design phase — review all descriptions as a set before implementation.
 
 ---
 
-### Pitfall 7: v3.0 Feature Pages That Don't Update Existing Cross-References
+### Pitfall 7: SKILL.md Content Persisting in Context Window for the Entire Session
 
 **What goes wrong:**
-Five new feature pages are added. They're well-written, well-placed in the navigation, and source-verified. But `concepts.md` still doesn't mention contradiction detection. `agentic-workflows.md` still describes the session workflow without mentioning polaris priorities alignment. `agents.md` system capability table is missing `check_alignment`, `recall_sessions`, and `ingest_source`. The new pages exist but the existing docs don't point to them, so users following the established paths never discover the new capabilities.
+When Claude invokes a skill, the full SKILL.md content is injected into conversation history as a hidden message. It persists and is sent with every subsequent API call for the rest of the session. A 500-line "session lifecycle" skill invoked at the start of a session occupies tokens for every subsequent exchange — even simple follow-ups that have nothing to do with session management.
 
 **Why it happens:**
-New pages are scoped as "add this page." Cross-reference updates feel like separate work and get deferred. There is no checklist that asks "which existing pages need to link to this new page?"
+Skills are designed to be authoritative — their full content is always available. The trade-off (context window consumption for the rest of the session) is not visible during development because individual sessions are short.
 
-**How to avoid:**
-For each new v3.0 feature page, identify every existing page where a cross-reference belongs:
-- `concepts.md` → add new content types or mechanics
-- `agentic-workflows.md` → add new workflow patterns
-- `agents.md` → update system capabilities table and MCP tool list
-- `mcp.md` → update tool reference if new MCP tools are added
-- `llms.txt` and `llms-full.txt` → add new page entries
+**Consequences:**
+In long sessions, multiple invoked skills accumulate in context, crowding out conversation history. Context compaction occurs earlier. Response quality degrades. A 200K context window may have ~70K usable tokens after tool definitions and loaded skills.
 
-Make this identification explicit in the PR checklist for every docs PR that adds a new page.
+**Prevention:**
+- Keep SKILL.md under 500 lines. The official guidance: keep `SKILL.md` under 500 lines; move detailed reference to supporting files (reference.md, examples.md) that Claude loads only when needed
+- Use progressive disclosure: SKILL.md describes the workflow at high level; detailed step references are in separate files linked from SKILL.md
+- Prefer `context: fork` for heavy skills — forked subagent skills run in isolation and don't accumulate in the parent session context
+- Do not encode reference content (MCP tool signatures, full parameter lists) directly in SKILL.md — Claude already has MCP tool descriptions; link to them or abbreviate
+- For ztlctl: the session lifecycle skill is the most at-risk (multi-step, many MCP calls) — design it with `context: fork` and a lean SKILL.md
 
-**Warning signs:**
-- `agents.md` capability table has fewer rows than the ActionRegistry has registered actions
-- `concepts.md` doesn't mention a feature that has been shipped for two releases
-- `llms.txt` doesn't include a page that was added in the same milestone
+**Detection:**
+Slow response times after several skill invocations. `/context` shows high context usage. Context compaction triggers mid-session during complex workflows.
 
-**Phase to address:**
-New page authoring phase — require cross-reference audit as a PR gate. Also addressed in llms.txt/llms-full.txt update phase.
+**Phase to address:** Skill content design phase — apply 500-line limit before writing any skill.
 
 ---
 
-### Pitfall 8: llms.txt and llms-full.txt Going Stale After v3.0 Addition
+### Pitfall 8: Hook Script Not Executable on First Install
 
 **What goes wrong:**
-`llms.txt` was built during v2.1 for the documentation site as it existed then. After v3.1 adds five new pages, the file still reflects the v2.1 page set. Agents using `llms.txt` for navigation don't know about session recall, polaris priorities, contradiction detection, or media ingestion. `llms-full.txt` concatenates page content and also becomes stale.
-
-This is a v3.1-specific instance of the general staleness pitfall documented in v2.1 research. The risk is identical but the trigger is different: the staleness here comes from adding pages, not restructuring them.
+Hook scripts are committed to the repository without execute permissions (`chmod +x`). On install, the hook fires, tries to run the script, gets a permission denied error, and either silently passes (exit 0) or blocks incorrectly (exit 2, depending on error handling). On macOS the failure may be silent; on Linux, the error is visible but only in `claude --debug`.
 
 **Why it happens:**
-`llms.txt` is treated as a finished artifact, not a living index. PRs that add new docs pages don't include an `llms.txt` update in their scope.
+Git does not preserve execute permissions by default on some systems. Developers test on their own machine (where the script was already executable) and do not verify the installed permission state.
 
-**How to avoid:**
-1. Regenerate `llms-full.txt` as a build step (`scripts/gen_llms_txt.py` already exists per v2.1 architecture). Run it as part of the docs build.
-2. Add a CI check: count the pages in `docs/` (excluding internal/plans), count the entries in `llms.txt`, and fail if they differ.
-3. Include `llms.txt` and `llms-full.txt` updates explicitly in the scope of every milestone docs phase.
+**Consequences:**
+Hooks appear to install correctly but never execute. The plugin's safety or automation features (lint on save, telemetry on session start) are silently inactive.
 
-**Warning signs:**
-- `llms.txt` entry count is lower than the docs page count
-- A new feature page exists under `docs/` but has no entry in `llms.txt`
-- `llms-full.txt` file size hasn't grown after adding multiple new pages
+**Prevention:**
+- Always verify hook script permissions after `git clone` of the plugin repo: `ls -la hooks/scripts/`
+- Explicitly set permissions in the plugin's SessionStart hook or README installation steps: `chmod +x ${CLAUDE_PLUGIN_ROOT}/scripts/*.sh`
+- Add a setup validation to the plugin's CI: verify all files in `scripts/` have execute bit set
+- Use the `${CLAUDE_PLUGIN_ROOT}` variable in hook commands so paths are absolute after install
 
-**Phase to address:**
-Agent accessibility update phase — scope as an explicit deliverable, not an afterthought.
+**Detection:**
+Hooks do not fire after installation. `claude --debug` shows "Permission denied" for hook commands. Manual execution of the script from a shell fails with "Permission denied."
 
----
-
-## Technical Debt Patterns
-
-Shortcuts that seem reasonable but create long-term problems.
-
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Write feature pages without source-verifying examples | Faster to write | Examples drift within one release; users copy broken commands | Never — always verify against `--help` output |
-| Update `agents.md` capability table by memory | Avoids reading source | Table omits new actions; agents get incomplete tool inventory | Never — diff against ActionRegistry |
-| Add new pages to bottom of nav by default | Zero nav redesign effort | Navigation reflects feature ship order, not user journey | Only if page genuinely belongs at the end of the user journey |
-| Write user-facing pages with developer-voice explanations | Author writes what they know | Tone patchwork erodes docs coherence; users get confused by jargon | Never in User Guide track |
-| Defer cross-reference updates to a "cleanup pass" | Unblocks page authoring | New pages are invisible to users following existing navigation paths | Never — do cross-references in the same PR as the page |
-| Use placeholder/stub content for sections not yet written | Unblocks page structure | Ships empty sections; degrades trust; agents get empty context | Never — write real content or don't create the section |
-| Skip `llms-full.txt` regeneration after adding pages | Saves one build step | Agent tools that rely on full-text context get incomplete knowledge base | Never in a docs milestone |
+**Phase to address:** Hooks implementation phase — add a CI permission check before distribution.
 
 ---
 
-## Integration Gotchas
+## Moderate Pitfalls
 
-Common mistakes when connecting documentation to the tool's surfaces.
+### Pitfall 9: Using `exit 1` Instead of `exit 2` in Security Gate Hooks
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| `agents.md` + ActionRegistry | Writing capability table from memory | Diff against `src/ztlctl/actions/` registered definitions; every action that has an MCP tool should have a row |
-| `mcp.md` + auto-generated tools | Documenting tool signatures by hand | Auto-generated tools from ActionRegistry may have parameter names that differ from CLI flags; read `src/ztlctl/mcp/` as source of truth |
-| `llms.txt` + docs site | Pointing to relative paths | All `llms.txt` URLs must be absolute (full domain); test each URL against the deployed site |
-| `ztlctl docs` CLI command + page content | Returning raw markdown with frontmatter | The `---` YAML block is navigation metadata; strip before returning to any consumer |
-| MkDocs `--strict` flag + new pages | Adding pages without nav entries | `mkdocs build --strict` fails on pages not listed in `nav:` in `mkdocs.yml`; add nav entry in same commit as page |
-| CLAUDE.md enforcement rule + PR workflow | Writing the rule but not auditing existing pages | New rule prevents future drift but existing pages already have stale examples; schedule a retroactive audit as a milestone task |
+**What goes wrong:**
+A PreToolUse hook is intended as a gate that blocks dangerous operations. The hook exits with code 1 when it wants to block. Exit 1 means "error" — Claude Code logs it and continues the tool call. The "security gate" is a suggestion that is always ignored.
 
----
+**Prevention:**
+- `exit 0` — pass, proceed with tool call
+- `exit 1` — non-blocking error, logged only, tool call proceeds
+- `exit 2` — blocking error, tool call is cancelled, stderr is shown to Claude
 
-## UX Pitfalls
+Use `exit 2` for any hook that is meant to prevent a tool from executing.
 
-Common user experience mistakes for a CLI/MCP tool with three audiences.
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| No "when to use this" section on feature pages | Users don't know if they need the feature; advanced users skip pages that would help them | Every feature page starts with a 1–2 sentence "When this matters" framing |
-| Session recall page with no comparison to existing `session context` command | Users don't know the difference; may use the wrong tool | Explicit comparison: "Use session recall when... use session context when..." |
-| Polaris priorities page framed as a configuration guide | Users see it as optional setup, not as a core alignment practice | Frame polaris as "the strategic layer of your vault" — define its purpose before its mechanics |
-| Contradiction detection page with only automated detection | Users don't know how to act on a detected contradiction | Include a resolution workflow: "Found a contradiction? Here's how to decide whether to update, link, or mark it as intentional" |
-| Media ingestion page without noting the optional dependency | Users install ztlctl and `ztlctl ingest file audio.mp3` fails with an opaque error | Prominently note at top of page: "Requires `uv add ztlctl[faster-whisper]` — see Installation" |
-| Agent docs missing failure mode documentation | Agents encounter undocumented errors and either retry blindly or fail silently | `agents.md` should document every `ServiceResult` error category with a structured recovery action |
+**Phase to address:** Hooks implementation phase.
 
 ---
 
-## "Looks Done But Isn't" Checklist
+### Pitfall 10: Slow Hooks Degrading Autonomy Speed
 
-Things that appear complete in docs PRs but are missing critical pieces.
+**What goes wrong:**
+A PostToolUse hook that runs a linter, calls the MCP server, or performs file analysis takes 3-5 seconds per invocation. On a session with 50 file edits, this adds 2.5+ minutes of dead time. Autonomous sessions that were supposed to run hands-free are now interactive because the bottleneck makes them slow enough that users intervene.
 
-- [ ] **New feature page authored:** Cross-references added in `concepts.md`, `agentic-workflows.md`, `agents.md`, and `mcp.md` — verify each file was touched in the same PR
-- [ ] **CLI examples written:** Every example verified with `uv run ztlctl <command> --help` or actual execution — flag names copied verbatim from output, not from memory
-- [ ] **`agents.md` updated:** Capability table row count matches registered action count in `src/ztlctl/actions/` — run `grep -r "ActionDefinition" src/ztlctl/actions/ | wc -l` as a proxy check
-- [ ] **`llms.txt` updated:** Entry count matches deployable docs page count — run `ls docs/*.md docs/**/*.md | grep -v plans | wc -l` as proxy check
-- [ ] **`llms-full.txt` regenerated:** File modification timestamp is newer than any new doc page timestamp
-- [ ] **MkDocs nav updated:** New page appears in `nav:` section of `mkdocs.yml` — `mkdocs build --strict` passes with zero warnings
-- [ ] **Optional dependency callout present:** Any page for a feature with an optional dep (faster-whisper, sentence-transformers) has an explicit install note at the top
-- [ ] **Tone verified:** Page re-read from top to bottom asking "which audience is this for?" — no user-guide pages with developer voice, no agent pages with narrative voice
-- [ ] **Internal/implementation details removed:** Page passes the "does knowing this help the user accomplish their goal?" filter — no class names, layer names, or architectural rationale in user-facing pages
-- [ ] **Progression placement confirmed:** Page placed in nav at the correct position in the beginner-to-advanced journey, not appended to the bottom by default
+**Prevention:**
+- Keep hooks under 500ms for synchronous operations
+- Use matchers to narrow execution scope: `"matcher": "Write|Edit"` only for lint hooks, not all tool events
+- Move expensive validation to PostToolUse (non-blocking) rather than PreToolUse (blocking)
+- For ztlctl: any hook that calls MCP tools (e.g., indexing after a session) should be async/non-blocking
+
+**Phase to address:** Hooks optimization phase.
 
 ---
 
-## Recovery Strategies
+### Pitfall 11: `$HOME` and Environment Variables Not Expanded in JSON Hook Paths
 
-When pitfalls occur despite prevention, how to recover.
+**What goes wrong:**
+Hook command paths in `hooks.json` use `$HOME` or other shell variables that are not expanded in JSON string context. The hook silently fails to load. `${CLAUDE_PLUGIN_ROOT}` is the only variable that Claude Code expands in hook configurations.
 
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| CLI examples found to be wrong after publish | LOW | Source-verify all examples on the affected pages; submit a fix PR; add the CLAUDE.md verification rule to prevent recurrence |
-| `agents.md` capability table is stale | LOW | Diff against ActionRegistry registrations; add missing rows; this is a one-time audit per release |
-| Tone patchwork across pages | MEDIUM | Establish style guide first; then audit pages one by one — user guide pages identified by track in nav; one edit pass per page |
-| Missing beginner-to-advanced progression | MEDIUM | Reorder nav in `mkdocs.yml` (nav order is config-controlled, no file moves needed); add progression framing to section landing pages |
-| New pages invisible because no cross-references | LOW | Audit existing pages for natural mention points; add cross-reference links in a single pass PR |
-| `llms.txt` stale after page additions | LOW | Regenerate with `scripts/gen_llms_txt.py` or add entries manually; add CI check to prevent recurrence |
-| Feature pages are reference dumps with no workflow narrative | HIGH | Requires rewriting the narrative framing of affected pages; cannot be patched with cross-references alone; plan as a dedicated task in the quality pass phase |
+**Prevention:**
+- Use `${CLAUDE_PLUGIN_ROOT}` for all plugin-relative paths in hooks and MCP configs
+- Use `${CLAUDE_PLUGIN_DATA}` for persistent state that survives updates
+- Never use `$HOME`, `$USER`, `~/`, or other shell variables in `hooks.json` or `.mcp.json`
+- Use absolute paths for user-level system dependencies (e.g., `/usr/local/bin/python3`)
+
+**Phase to address:** Hooks implementation phase.
 
 ---
 
-## Pitfall-to-Phase Mapping
+### Pitfall 12: Plugin Files Referencing Paths Outside the Plugin Directory
 
-How roadmap phases should address these pitfalls.
+**What goes wrong:**
+A plugin skill references a shared utility at `../../shared/utils.py` or a script at `../scripts/run.sh`. When the plugin is installed from a marketplace, Claude Code copies the plugin to `~/.claude/plugins/cache/`. Files outside the plugin root are not copied. The path traversal fails with a file-not-found error that is invisible until after installation.
 
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Documenting tool internals instead of user goals | Pre-writing: establish "user goal" frame before authoring | Each new page opens with "When you want to..." not "The X command..." |
-| CLI examples drifting from source | Enforcement: add CLAUDE.md rule + PR checklist before authoring | CI smoke test on critical examples; PR author attestation on flag names |
-| Over-documenting internal architecture | Writing + review: apply "Does this help the user accomplish their goal?" filter | User Guide pages contain zero class names or layer references |
-| Missing beginner-to-advanced progression | Navigation phase: map user journey before adding pages | Nav order reflects skill progression; no feature appears before its prerequisites |
-| Inconsistent tone across audiences | Style guide: define tone rules before authoring phase | Each page re-read from the audience's perspective before merging |
-| Reference dumps with no workflow narrative | Writing phase: require "doing" example before page is considered complete | Every page passes "can a user accomplish something after reading this?" test |
-| v3.0 pages not cross-referenced from existing docs | Authoring phase: cross-reference audit is a PR gate | `concepts.md`, `agentic-workflows.md`, `agents.md` all touch same PR as new page |
-| `llms.txt`/`llms-full.txt` stale | Agent accessibility phase: regeneration is a build step | CI page-count check; `llms-full.txt` size grows monotonically across releases |
+**Why it happens:**
+During development the paths work because the filesystem contains both the plugin directory and the referenced external files. The caching behavior is only apparent after installation.
+
+**Prevention:**
+- All files the plugin needs must be inside the plugin root at the time of installation
+- Use symlinks within the plugin directory to reference external files: `ln -s /path/to/shared ./shared` — symlinks are honored during the cache copy
+- For Python dependencies, use `${CLAUDE_PLUGIN_DATA}` with a SessionStart hook that installs them on first run
+
+**Phase to address:** Distribution preparation phase.
+
+---
+
+### Pitfall 13: Plugin-MCP Synchronization Mismatch After Install
+
+**What goes wrong:**
+A plugin is installed via `claude plugin install`, appears "installed" in the UI, but the plugin's MCP server is not enabled in `.claude.json`. MCP tool calls fail with misleading "Request timed out" errors. The user believes the plugin is working because it shows as installed.
+
+**Why it happens:**
+This is a documented Claude Code bug (issue #18762). The plugin installation can succeed at the metadata level while the MCP server activation step fails silently.
+
+**Prevention:**
+- After installing the plugin, verify the MCP server is active: run `claude mcp list` and confirm the server appears
+- Include a verification step in the plugin README's installation instructions
+- Document the manual workaround: add the MCP server config directly to `.claude.json` or `.mcp.json` if the automatic activation fails
+
+**Detection:**
+Plugin installed, skills visible in `/help`, but all skill invocations that call MCP tools fail with timeout errors. `claude mcp list` does not show the ztlctl server.
+
+**Phase to address:** Distribution and onboarding phase.
+
+---
+
+### Pitfall 14: Skill Context Budget Overflow When Many Skills Are Installed
+
+**What goes wrong:**
+Skill descriptions are loaded into context so Claude knows what is available. The budget scales at 2% of the context window (approximately 16,000 characters as fallback). If the plugin provides many skills, some skill descriptions are dropped to fit the budget. Dropped skills are invisible to Claude — it cannot invoke them, and the user does not know they exist.
+
+**Prevention:**
+- Keep skill descriptions under 150 characters where possible — they are selection criteria, not documentation
+- Bad description: "Use this skill for the comprehensive multi-step ztlctl research session workflow that includes polaris priorities alignment, vault context assembly, and semantic search preparation"
+- Good description: "Use when starting a focused research session in the ztlctl vault"
+- Run `/context` to check for skill budget warnings after loading the plugin
+- Set `SLASH_COMMAND_TOOL_CHAR_BUDGET` environment variable if budget overflow is a consistent problem
+
+**Phase to address:** Skill design phase.
+
+---
+
+### Pitfall 15: Cross-Platform Windows Compatibility for uvx-Based MCP Server
+
+**What goes wrong:**
+The plugin's `.mcp.json` launches ztlctl via `uvx ztlctl serve`. On Windows, `uvx` may not be on PATH in Claude Code's subprocess environment. PowerShell execution policies may block the command. The server fails to start with a cryptic "command not found" error.
+
+**Prevention:**
+- Use the full path to `uvx` or `python` when possible, or document that `uv` must be on the system PATH
+- For Windows users, provide a fallback launch command using `python -m ztlctl serve` with the virtualenv's Python
+- Test the `.mcp.json` command on Windows (via WSL2 or native) before distribution
+- Document the Windows installation prerequisite: `uv` installed and on PATH via `winget install astral-sh.uv`
+- Consider providing a `.mcp.json` variant or instructions for Windows in the plugin README
+
+**Phase to address:** Distribution phase — Windows validation before marketplace submission.
+
+---
+
+### Pitfall 16: Skills Duplicating MCP Tool Functionality Instead of Orchestrating It
+
+**What goes wrong:**
+A skill is written that reimplements logic already in the MCP server — for example, encoding the full 6-stage create pipeline in the SKILL.md instead of calling the `create_note` MCP tool. The skill becomes a parallel implementation that drifts from the server's actual behavior when the server is updated.
+
+**Why it happens:**
+Skills feel like the place to describe "how things work." But skills are orchestration guides, not implementations. The MCP tools already encode the domain logic.
+
+**Consequences:**
+Skill behavior diverges from server behavior over time. Updates to the MCP server's pipeline (new stages, new validation) are not reflected in the skill. Users get inconsistent results between direct MCP tool calls and skill-guided calls.
+
+**Prevention:**
+- Skills should describe **when** to use which tools and **in what sequence**, not **what those tools do internally**
+- Never replicate logic from ztlctl's ActionRegistry in SKILL.md — trust the tool descriptions
+- Skill content should look like: "Call `ztlctl://create_note` with `{title, type, content}`. If the result contains `needs_reweave: true`, follow with `ztlctl://reweave_note`."
+- Not: "The create pipeline validates title length, generates a sequential ID, persists to SQLite, indexes in FTS5, runs reweave scoring..."
+
+**Phase to address:** Skill design phase — establish this as a design principle before writing any skill.
+
+---
+
+## Minor Pitfalls
+
+### Pitfall 17: Plugin Name Using Spaces or Non-Kebab Characters
+
+**What goes wrong:**
+`plugin.json` `name` field uses spaces, underscores, or capital letters. This field becomes the skill namespace (e.g., `/ztlctl skills:capture` instead of `/ztlctl-skills:capture`). Commands with spaces in the namespace break slash command autocomplete. Skill names using underscores are inconsistent with Claude Code's kebab-case convention.
+
+**Prevention:**
+Use lowercase kebab-case names only: `"name": "ztlctl-skills"`. This produces clean namespaced commands: `/ztlctl-skills:capture`.
+
+**Phase to address:** Plugin scaffolding.
+
+---
+
+### Pitfall 18: Not Restarting Claude Code After Configuration Changes
+
+**What goes wrong:**
+MCP server configs in `.mcp.json` are modified during development. Changes do not take effect until Claude Code is restarted. The developer tests the old configuration and wonders why the fix did not work.
+
+**Prevention:**
+Use `/reload-plugins` within Claude Code to pick up changes to skills, agents, and hooks without a full restart. For MCP server configuration changes (command, args, env vars), a full restart is required.
+
+**Phase to address:** Development workflow — document in plugin README.
+
+---
+
+### Pitfall 19: Agent Frontmatter Using Unsupported Fields
+
+**What goes wrong:**
+Plugin agents are defined with `hooks`, `mcpServers`, or `permissionMode` frontmatter fields. These fields are supported for user-defined agents but are explicitly not supported for plugin-shipped agents (per official docs). The agent loads, but the unsupported fields are silently ignored — or in some Claude Code versions, cause the agent to fail validation.
+
+**Prevention:**
+Plugin agents support: `name`, `description`, `model`, `effort`, `maxTurns`, `tools`, `disallowedTools`, `skills`, `memory`, `background`, `isolation` (only valid value: `"worktree"`). Do not include `hooks`, `mcpServers`, or `permissionMode` in plugin agent definitions.
+
+**Phase to address:** Agent design phase.
+
+---
+
+### Pitfall 20: `disable-model-invocation: true` Missing on Side-Effect Skills
+
+**What goes wrong:**
+A skill like "capture research" or "close session" does not have `disable-model-invocation: true`. Claude infers from context that it's a good time to capture a finding and automatically invokes the skill — triggering a vault write, a session update, or an MCP tool call that the user did not intend to initiate. The skill fires without explicit user request.
+
+**Prevention:**
+Any skill with side effects that should only run on explicit user request must include `disable-model-invocation: true` in frontmatter. Skills that are safe for Claude to invoke proactively (read-only context assembly, reference lookups) can omit it.
+
+For ztlctl: capture, create, update, close, session-start, session-close, export — all must have `disable-model-invocation: true`. Read-only skills (vault-context, graph-explore) may allow automatic invocation.
+
+**Phase to address:** Skill design phase.
+
+---
+
+## Python MCP + Plugin Boundary — Integration Pitfalls
+
+The boundary between Claude Code (JS/TS runtime) and ztlctl (Python process) creates a specific class of failure modes.
+
+| Failure Mode | Root Cause | Prevention |
+|---|---|---|
+| Server disconnects immediately | Python print() to stdout corrupts JSON-RPC | All output to stderr; PYTHONUNBUFFERED=1 |
+| Server connects but tools time out | Python process buffering stdout | Set PYTHONUNBUFFERED=1 in .mcp.json env |
+| Server not found on PATH | `uvx` or `uv` not in Claude Code subprocess PATH | Use full path or document PATH requirement |
+| Windows: command not found | PowerShell execution policy blocks uvx | Document Windows prerequisite; provide fallback |
+| Tool names differ dev vs installed | Plugin-dir namespacing bug (#29360) | Test under install path, not just --plugin-dir |
+| Skills can't call MCP tools without approval | allowed-tools wildcard not transformed | Test under installed state; use broader wildcards |
+| Server crashes on vault missing | ztlctl requires initialized vault | Add vault existence check in SessionStart hook; surface error clearly |
+| Encoding issues on Windows | Python default encoding vs utf-8 | Set PYTHONUTF8=1 in .mcp.json env |
+
+---
+
+## Testing Strategy Recommendations
+
+### Development Loop
+
+```
+1. Develop skill content in .claude/skills/ (standalone, short names)
+2. Test with /skill-name directly — iterate quickly
+3. Move to plugin structure when ready to share
+4. Test with --plugin-dir ./ztlctl-skills (namespaced /ztlctl-skills:skill-name)
+5. Install to local scope from a test marketplace
+6. Test under installed state — this is the canonical test
+```
+
+**Do not declare a skill ready until step 6 passes.** Steps 1-4 can hide the namespace collision pitfall (#4) and the plugin-MCP sync pitfall (#13).
+
+### Skill Testing
+
+- For each skill: write 5 prompts that should trigger it (auto-invocation) and verify it fires
+- For each skill: write 3 prompts that should NOT trigger it and verify it does not fire (description overlap check)
+- For skills with `disable-model-invocation: true`: verify they do not auto-fire under any circumstance
+
+### Hook Testing
+
+- Test each hook individually with a minimal triggering scenario
+- Verify exit codes: for blocking hooks, test that exit 2 blocks and exit 0 passes
+- Test Stop hooks with and without `stop_hook_active` set to verify the infinite-loop guard
+- Measure execution time — anything over 500ms needs optimization or conversion to PostToolUse
+
+### MCP Integration Testing
+
+- Verify server starts: `echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}' | uvx ztlctl serve`
+- Verify no stdout pollution: capture stdout during server startup and tool invocation
+- Verify all 73+ tools are listed in `claude mcp list` after plugin install
+- Test a representative skill end-to-end: invoke skill, confirm it calls the expected MCP tools, confirm result
+
+### Distribution Testing
+
+- Test `claude plugin install <plugin>@<marketplace>` on a clean machine
+- Verify `claude mcp list` shows ztlctl server after install
+- Test `claude plugin update` after bumping version in plugin.json
+- Test on macOS (primary), verify on Linux, document Windows status
+
+---
+
+## Phase-Specific Warnings
+
+| Phase Topic | Likely Pitfall | Mitigation |
+|---|---|---|
+| Plugin scaffolding | Components inside .claude-plugin/ | Enforce structure in PR template; validate with `claude plugin validate` |
+| MCP integration | stdout pollution on server startup | Audit all Python print() calls before plugin testing begins |
+| Skill descriptions | Overlap causing activation failure | Review all descriptions as a set; test activation with sample prompts |
+| Skill content | Too long, persists in context | 500-line limit; use supporting files; consider `context: fork` for heavy workflows |
+| Side-effect skills | Auto-invocation of write operations | `disable-model-invocation: true` on all create/update/delete/session skills |
+| Hook implementation | Wrong exit code on security gates | Use exit 2 for blocking; add stop_hook_active guard on Stop hooks |
+| Hook performance | Slow hooks degrading autonomy | Keep under 500ms; use matchers; move expensive checks to PostToolUse |
+| Distribution | No version bump = stale cache | CI gate on version increment; treat plugin.json version as a mandatory PR field |
+| Distribution | Plugin-MCP sync mismatch after install | Verify with `claude mcp list` post-install; document workaround in README |
+| Windows support | uvx not on PATH | Document prerequisite; provide fallback command; test on Windows before marketplace submission |
+
+---
+
+## Distribution Checklist
+
+Before submitting to the official Anthropic marketplace (`platform.claude.com/plugins/submit`):
+
+- [ ] `claude plugin validate` passes with zero warnings
+- [ ] All hook scripts have execute permissions in the committed repository
+- [ ] `plugin.json` has `name`, `version`, `description`, `author`, `repository`, `license`
+- [ ] Version is >= `1.0.0` and follows semantic versioning
+- [ ] `CHANGELOG.md` exists and documents the current version
+- [ ] `README.md` covers: prerequisites (uv, Python 3.13), installation steps, post-install verification (`claude mcp list`), Windows notes
+- [ ] MCP server tested for clean stdout (no non-JSON output)
+- [ ] All skill descriptions reviewed as a set for overlap
+- [ ] All side-effect skills have `disable-model-invocation: true`
+- [ ] Plugin tested under installed state (not just `--plugin-dir`)
+- [ ] Plugin tested on macOS (primary) and at minimum documented for Linux/Windows
+- [ ] Version bump is a mandatory PR gate (CI enforced or policy enforced)
+- [ ] No paths outside plugin root (no `../` traversals in hooks or MCP config)
+- [ ] `${CLAUDE_PLUGIN_ROOT}` used for all plugin-relative paths
+- [ ] `${CLAUDE_PLUGIN_DATA}` used for any state that should persist across updates
+- [ ] Hook exit codes verified: `exit 2` for blocking, `exit 0` for pass, `exit 1` for warning-only
 
 ---
 
 ## Sources
 
-- [10 Common Developer Documentation Mistakes — Document360](https://document360.com/blog/developer-documentation-mistakes/) — structure, outdated content, missing setup, error scenarios (MEDIUM confidence — paywalled content accessed via search summary)
-- [Why Stripe's API Docs Are the Benchmark — APIDog](https://apidog.com/blog/stripe-docs/) — progressive layers, interactive examples, features-not-shipped-until-docs-written cultural practice (HIGH confidence)
-- [Optimizing Technical Documentation for LLMs and AI Agents — Biel.ai](https://biel.ai/blog/optimizing-docs-for-ai-agents-complete-guide) — standalone pages, single-question sections, consistent terminology, complete examples (MEDIUM confidence — blog post, verified against multiple sources)
-- [Docs Linting Guide — Fern](https://buildwithfern.com/post/docs-linting-guide) — Vale linter, CI enforcement, link checking (MEDIUM confidence)
-- [Avoiding the Silent Stale Doc Problem — Daryl J. White](https://djw.fyi/portfolio/preventing-drift/) — docs drift root causes, automation approaches (MEDIUM confidence)
-- [Voice and Tone — Google Developer Documentation Style Guide](https://developers.google.com/style/tone) — tone consistency rules, second-person preference, active voice (HIGH confidence — official Google guide)
-- [Top 10 Information Architecture Mistakes — Nielsen Norman Group](https://www.nngroup.com/articles/top-10-ia-mistakes/) — navigation invisibility, organizational principles, findability (HIGH confidence — NNGroup primary research)
-- [How to Develop a Consistent Tone in Technical Documentation — WriteAtlas](https://writeatlas.com/how-to-develop-a-consistent-tone-and-voice-in-technical-documentation/) — style guide as linguistic constitution, reviewer role (MEDIUM confidence)
-- ztlctl source analysis: `docs/` page inventory, `docs/agents.md` capability table, `docs/best-practices.md` pattern reference, `docs/agentic-workflows.md`, `.planning/PROJECT.md` v3.0 feature list, MEMORY.md project state
+- [Claude Code Plugins Reference — official docs](https://code.claude.com/docs/en/plugins-reference) — manifest schema, directory structure, path rules, version management (HIGH confidence — official)
+- [Create Claude Code Plugins — official docs](https://code.claude.com/docs/en/plugins) — skill structure, testing with --plugin-dir, /reload-plugins (HIGH confidence — official)
+- [Claude Code Skills — official docs](https://code.claude.com/docs/en/skills) — SKILL.md frontmatter, invocation control, context behavior, 500-line guidance (HIGH confidence — official)
+- [Claude Code Hooks Reference — official docs](https://code.claude.com/docs/en/hooks) — hook events, exit codes, stop_hook_active (HIGH confidence — official)
+- [Claude Code MCP Docs — official docs](https://code.claude.com/docs/en/mcp) — stdio transport, uvx usage, cross-platform setup (HIGH confidence — official)
+- [5 Claude Code Hook Mistakes — dev.to/yurukusa](https://dev.to/yurukusa/5-claude-code-hook-mistakes-that-silently-break-your-safety-net-58l3) — exit code mistakes, $HOME expansion, slow hooks, context monitoring (MEDIUM confidence — community article, verified against official docs)
+- [GitHub issue #29360 — anthropics/claude-code](https://github.com/anthropics/claude-code/issues/29360) — plugin-dir namespacing breaks allowed-tools (MEDIUM confidence — bug tracker, open issue)
+- [GitHub issue #18762 — anthropics/claude-code](https://github.com/anthropics/claude-code/issues/18762) — plugin-MCP config mismatch causing timeout errors (MEDIUM confidence — bug tracker)
+- [GitHub issue #15145 — anthropics/claude-code](https://github.com/anthropics/claude-code/issues/15145) — incorrect plugin namespacing for MCP servers (MEDIUM confidence — bug tracker)
+- [Plugin update detection issue #31462 — anthropics/claude-code](https://github.com/anthropics/claude-code/issues/31462) — plugin update mechanism gaps (MEDIUM confidence — bug tracker)
+- [Claude plugin update fast-forward bug — issue #29071](https://github.com/anthropics/claude-code/issues/29071) — `claude plugin update` fails to advance branch (MEDIUM confidence — bug tracker)
+- [Why Intended Skills Don't Fire — medium.com/@taki4416](https://medium.com/@taki4416/why-intended-skills-dont-fire-an-anti-pattern-in-claude-code-skill-a8c5230a9a5e) — skill description overlap anti-pattern (LOW confidence — 403 on verification, confirmed by independent sources)
+- [Context window persistence problem — claudefa.st](https://claudefa.st/blog/guide/mechanics/context-buffer-management) — skill injection persisting through session (MEDIUM confidence — verified against official docs behavior)
+- [Invisible Limitations of Skills — medium.com/@cheparsky](https://medium.com/@cheparsky/ai-in-testing-9-the-invisible-limitations-of-claude-code-skills-you-didnt-know-f3adbdcf3680) — context accumulation, skill budget overflow (LOW confidence — 403 on verification)
+- [Python MCP stdio stdout pollution — multiple sources](https://gofastmcp.com/integrations/claude-code) — print() to stdout breaks JSON-RPC (HIGH confidence — confirmed by official MCP docs and multiple independent sources)
+- [What I Learned Building Three Claude Code Plugins — medium.com/pierce-lamb](https://pierce-lamb.medium.com/what-i-learned-while-building-a-trilogy-of-claude-code-plugins-72121823172b) — directory structure mistakes, context limits (LOW confidence — 403 on verification, key findings confirmed by official docs)
 
 ---
-*Pitfalls research for: documentation quality overhaul — adding professional-grade docs to an existing Python CLI/MCP tool*
-*Researched: 2026-03-21*
+
+*Pitfalls research for: v4.0 Agentic Skills — Claude Code plugin wrapping existing Python/MCP ztlctl tool*
+*Researched: 2026-03-22*
