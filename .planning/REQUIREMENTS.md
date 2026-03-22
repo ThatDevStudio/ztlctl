@@ -16,11 +16,11 @@ Requirements for v4.0 release. Each maps to roadmap phases.
 
 ### Table Stakes Skills
 
-- [ ] **SKIL-01**: `ztl:orient` skill provides vault status overview — recent activity, open sessions, polaris priorities, work queue summary — via composing discover_tools, session_status, and agent_context MCP calls
+- [x] **SKIL-01**: `ztl:orient` skill provides vault status overview — recent activity, open sessions, polaris priorities, work queue summary — via composing discover_tools, session_status, and agent_context MCP calls
 - [ ] **SKIL-02**: `ztl:session` skill manages full session lifecycle — start (with polaris alignment), capture during session, close (with enrichment pipeline) — via session_start, create_note/reference/task, session_close MCP calls
-- [ ] **SKIL-03**: `ztl:capture` skill guides structured content creation — notes, references, tasks with appropriate metadata, tags, and links — via create_note, create_reference, create_task MCP calls with reweave follow-up
+- [x] **SKIL-03**: `ztl:capture` skill guides structured content creation — notes, references, tasks with appropriate metadata, tags, and links — via create_note, create_reference, create_task MCP calls with reweave follow-up
 - [ ] **SKIL-04**: `ztl:review-triage` skill runs vault health check and surfaces actionable items — integrity issues, work queue priorities, garden backlog — via check_integrity, work_queue, vault_review MCP calls
-- [ ] **SKIL-05**: `ztl:align` skill evaluates decisions against polaris priorities — reads polaris document, runs check_alignment, presents structured alignment analysis for agent decision-making
+- [x] **SKIL-05**: `ztl:align` skill evaluates decisions against polaris priorities — reads polaris document, runs check_alignment, presents structured alignment analysis for agent decision-making
 
 ### Differentiator Skills
 
@@ -81,11 +81,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLGN-02 | Phase 28 | Complete |
 | PLGN-03 | Phase 28 | Complete |
 | PLGN-04 | Phase 28 | Complete |
-| SKIL-01 | Phase 29 | Pending |
+| SKIL-01 | Phase 29 | Complete |
 | SKIL-02 | Phase 29 | Pending |
-| SKIL-03 | Phase 29 | Pending |
+| SKIL-03 | Phase 29 | Complete |
 | SKIL-04 | Phase 29 | Pending |
-| SKIL-05 | Phase 29 | Pending |
+| SKIL-05 | Phase 29 | Complete |
 | SKIL-06 | Phase 30 | Pending |
 | SKIL-07 | Phase 30 | Pending |
 | SKIL-08 | Phase 30 | Pending |

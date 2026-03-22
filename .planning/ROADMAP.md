@@ -74,7 +74,7 @@ Full details: `.planning/milestones/v3.1-ROADMAP.md`
 **Milestone Goal:** Create a production-grade Claude Code plugin for ztlctl that wraps the MCP server with deep skills encoding core vault workflows, enabling agents to orchestrate zettelkasten operations through guided skill invocations rather than raw tool calls. Distribute via Claude Code plugin marketplace.
 
 - [x] **Phase 28: Plugin Foundation** - Scaffold correct plugin directory layout, validate MCP stdio transport, wire vault gate hook, and establish CI gate for plugin validation (completed 2026-03-22)
-- [ ] **Phase 29: MVP Skills** - Implement five table-stakes skills (orient, session, capture, review-triage, align) that cover the core vault workflows agents use most
+- [x] **Phase 29: MVP Skills** - Implement five table-stakes skills (orient, session, capture, review-triage, align) that cover the core vault workflows agents use most (completed 2026-03-22)
 - [ ] **Phase 30: Differentiator Skills** - Implement five advanced skills (synthesize, decision-support, orient-session, garden-health, review-contradictions) that encode ztlctl's unique capabilities
 - [ ] **Phase 31: Commands, Agents, and Distribution** - Wire slash commands as skill entry points, implement autonomous agents, and validate end-to-end marketplace installation
 - [ ] **Phase 32: Validation and Hardening** - Run the full distribution checklist, validate skill activation under installed state, and lock in CI gates before marketplace submission
@@ -105,10 +105,10 @@ Plans:
   3. Asking to capture a note, reference, or task causes `ztl:capture` to search the vault for existing related content, create the item with appropriate metadata and links, and trigger reweave — without the user specifying MCP tool names
   4. Asking to review the work queue or vault health causes `ztl:review-triage` to surface integrity issues, work queue priorities, and garden backlog, then present a proposed action set for user approval before executing any writes
   5. Asking whether a decision aligns with priorities causes `ztl:align` to read the polaris document, run `check_alignment`, and present a structured alignment analysis with a clear recommendation
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 29-01-PLAN.md — Create orient, capture, and align skills (read-heavy, low-complexity workflows)
-- [ ] 29-02-PLAN.md — Create session and review-triage skills (medium-complexity workflows with path detection and batch confirmation)
+- [x] 29-01-PLAN.md — Create orient, capture, and align skills (read-heavy, low-complexity workflows)
+- [x] 29-02-PLAN.md — Create session and review-triage skills (medium-complexity workflows with path detection and batch confirmation)
 
 ### Phase 30: Differentiator Skills
 **Goal**: Five advanced skills are installed and correctly activated, covering knowledge synthesis, decision analysis, recall-driven sessions, garden maintenance, and contradiction review — each encoding multi-step workflows that would be error-prone to perform through raw MCP calls
@@ -154,7 +154,7 @@ Plans:
 | 15-22. v3.0 Memory and Hardening | v3.0 | 22/22 | Complete | 2026-03-21 |
 | 23-27. v3.1 Documentation & Hardening | v3.1 | 10/10 | Complete | 2026-03-22 |
 | 28. Plugin Foundation | v4.0 | 2/2 | Complete    | 2026-03-22 |
-| 29. MVP Skills | v4.0 | 0/2 | In Progress | - |
+| 29. MVP Skills | v4.0 | 2/2 | Complete   | 2026-03-22 |
 | 30. Differentiator Skills | v4.0 | 0/? | Not started | - |
 | 31. Commands, Agents, and Distribution | v4.0 | 0/? | Not started | - |
 | 32. Validation and Hardening | v4.0 | 0/? | Not started | - |
