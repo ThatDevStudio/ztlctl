@@ -60,4 +60,3 @@ site/
 
 # Vale style packages (downloaded by vale sync)
 .vale/styles/
-!.vale/styles/Vocab/
