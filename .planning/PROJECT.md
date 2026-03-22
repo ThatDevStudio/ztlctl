@@ -57,20 +57,13 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - ✓ Internal docs current (CLAUDE.md 16 services/73 actions, DESIGN.md 9 new decisions, README.md v3.0 features) — v3.1
 - ✓ Tech debt cleared: IngestService post_action dispatch, stale docstrings — v3.1
 
+- ✓ Claude Code plugin with 10 workflow skills, 5 slash commands, 2 autonomous agents — v4.0
+- ✓ Marketplace distribution: marketplace.json, version sync, comprehensive README — v4.0
+- ✓ Plugin validation: 58-test suite, CI plugin_validate job, vault gate hook — v4.0
+
 ### Active
 
-<!-- Current milestone: v4.0 Agentic Skills -->
-
-## Current Milestone: v4.0 Agentic Skills
-
-**Goal:** Create a production-grade Claude Code plugin for ztlctl that wraps the MCP server with deep skills encoding core vault workflows, enabling agents to orchestrate zettelkasten operations through guided skill invocations rather than raw tool calls. Distribute via Claude Code plugin marketplace.
-
-**Target features:**
-- Claude Code plugin packaging: plugin.json manifest, hooks, commands, agents, skills — full plugin structure
-- Deep skills wrapping MCP tools: session lifecycle, capture workflows, research pipelines, review cycles, decision support — each skill encodes a multi-step workflow from the docs
-- Agentic workflow orchestration: skills that compose multiple MCP tool calls into coherent workflows (e.g., "start research session" = session start + context assembly + polaris alignment + capture pipeline)
-- Marketplace distribution: hosting, versioning, installation via Claude Code plugin registry
-- MCP server integration: skills wrap and enhance the existing 73+ MCP tools, not duplicate them
+<!-- Next milestone TBD -->
 
 ### Out of Scope
 
@@ -83,7 +76,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ## Context
 
-**Current state (v4.0 Phase 28 complete):** 126 source files (28,275 LOC Python), 141+ test files, 2055+ tests passing, mypy strict, ruff clean. 16 services, 17 controllers, 73 registered actions, auto-generated MCP adapter (73+ tools from ActionRegistry), semantic search, session recall, contradiction detection, media ingestion. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern, 4-layer action model (Data/Service/Controller/Registry), feature-local action registration (9 modules), centralized PluginManager factory, reliable event delivery with WAL drain. Documentation: CI-gated (MkDocs strict + Vale + pymarkdownlnt), 5 v3.0 feature pages, Diataxis-classified nav, llms.txt/llms-full.txt agent discovery indexes current. Claude Code plugin foundation: validated manifest, clean MCP stdio transport (PYTHONUNBUFFERED=1), PreToolUse vault gate hook, CI plugin_validate job (8 gates).
+**Current state (v4.0 shipped):** 126 source files (28,275 LOC Python), 141+ test files (29,329+ LOC), 2055+ tests passing, mypy strict, ruff clean. 16 services, 17 controllers, 73 registered actions, auto-generated MCP adapter (73+ tools from ActionRegistry). Claude Code plugin: 44 files (2,499 LOC), 10 workflow skills (orient, session, capture, review-triage, align, synthesize, decision-support, orient-session, garden-health, review-contradictions), 5 slash commands, 2 autonomous agents (research + maintenance), vault gate hook, 58-test validation suite, marketplace distribution with version sync.
 
 **Key architectural insight (realized):** CLI and MCP are auto-generated presentation layers over a unified ActionRegistry — define once, generate both surfaces. This is the foundation all future work builds on.
 
@@ -133,4 +126,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | Documentation Conventions in CLAUDE.md | Google CLI style, 3-type admonitions, "What's next" links | ✓ Good — enforced by CI + CLAUDE.md |
 
 ---
-*Last updated: 2026-03-22 after Phase 28 Plugin Foundation complete*
+*Last updated: 2026-03-22 after v4.0 Agentic Skills milestone complete*
