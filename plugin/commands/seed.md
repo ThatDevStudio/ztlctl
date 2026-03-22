@@ -3,24 +3,8 @@ description: Quick-capture a seed note with minimal ceremony
 argument-hint: <title> [tags...]
 ---
 
-Quick-capture a seed note into the ztlctl vault. Minimal friction — capture the idea before it's lost.
+Use the `ztl:capture` skill in seed mode to quick-capture an idea with `$ARGUMENTS` as the seed title and optional tags.
 
-## Instructions
+Pass `$ARGUMENTS` directly. The skill creates a seed note with minimal ceremony — no duplicate checking, no extensive metadata prompts. The goal is zero-friction capture before the idea is lost.
 
-1. **Parse arguments** from `$ARGUMENTS`:
-   - First argument or quoted string = note title
-   - Additional arguments that look like tags (contain `/`) = tags
-   - If no arguments provided, ask the user for a title
-
-2. **Create the seed** by calling the `garden_seed` MCP tool with:
-   - `title`: the note title
-   - `tags`: any tags parsed from arguments (optional)
-   - `topic`: infer from context if a session is active (optional)
-
-3. **Confirm creation** — show the user:
-   - The seed ID and title
-   - A brief note that seeds should be developed (seed → budding → evergreen)
-
-Keep this fast and minimal. No duplicate checking, no reweave, no follow-up questions. The point is zero-friction capture.
-
-Use MCP tools exclusively — do not shell out to the ztlctl CLI.
+Do not duplicate seed creation logic here — delegate entirely to the skill in seed mode.
