@@ -1,290 +1,745 @@
-# Stack Research
+# Technology Stack: v4.0 Agentic Skills — Claude Code Plugin
 
-**Domain:** Documentation quality tooling for a Python CLI/MCP tool (ztlctl v3.1)
-**Researched:** 2026-03-21
-**Confidence:** HIGH
+**Project:** ztlctl Claude Code Plugin
+**Researched:** 2026-03-22
+**Confidence:** HIGH — all findings verified from live installed plugin source code
 
-> This document covers NEW stack additions for v3.1. The existing stack (Python 3.13, Click,
-> pluggy, Pydantic, FastMCP via `mcp` package) is established and unchanged.
-> The MkDocs + mkdocs-shadcn docs site is also established (v2.1 shipped) — do not replace
-> the theme or the two-track nav structure. See the v2.1 STACK.md (in git history) for that
-> prior research. This file focuses exclusively on what v3.1 needs: prose quality enforcement,
-> docs-as-code CI, and UX-improving MkDocs plugins.
+> This document covers the Claude Code plugin ecosystem exclusively. All existing ztlctl stack
+> (Python 3.13, uv, Click, Pydantic, FastMCP, pluggy) is unchanged and not re-researched.
+> The plugin itself is a filesystem artifact — no new Python packages are required for the
+> plugin directory structure. The .mcp.json integration uses the already-running `ztlctl serve`.
 
 ---
 
-## What Already Exists (Do Not Re-Research)
+## Existing Capabilities Not Re-Researched
 
-| Existing Capability | Status |
-|---------------------|--------|
-| MkDocs + mkdocs-shadcn 0.10.2 | Deployed on GitHub Pages; `mkdocs build --strict` passes |
-| mkdocstrings (Python handler, Google docstring style) | In place; API reference auto-generated |
-| mkdocs-redirects | In place in `mkdocs.yml` |
-| Two-track nav (User Guide + Developer Guide) | In place via `mkdocs.yml` nav |
-| llms.txt + llms-full.txt | Committed static files in `docs/` |
-| 20 doc pages, agents.md system manual | In place |
-| pre-commit with ruff + commitizen | In `.pre-commit-config.yaml` |
-| `mkdocs build --strict` passes | Enforced in existing CI |
+| Capability | Status |
+|------------|--------|
+| `ztlctl serve` (stdio + streamable-http + sse) | Shipping in v3.x; FastMCP via `mcp` package |
+| 73+ MCP tools auto-generated from ActionRegistry | In place |
+| Python 3.13, uv, Click, Pydantic, SQLAlchemy Core | Established, unchanged |
+| pluggy event bus, EntryPoint plugin system | Established, unchanged |
 
 ---
 
-## Recommended Stack — New Additions Only
+## Plugin Filesystem Structure
 
-### Core Technologies
+**Verified from:** `plugins/example-plugin/`, `plugins/hookify/`, `plugins/plugin-dev/`,
+`external_plugins/greptile/`, and the Vercel plugin (cached at version `3fe23669ec5a`).
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Vale | 3.14.1 | Prose linter — enforces writing quality rules on all Markdown docs | The definitive tool for docs-as-code prose linting. Written in Go (fast, zero Python dep). Understands Markdown structure (won't flag code blocks or config examples). Has first-class pre-commit integration. Used by Grafana, GitLab, Red Hat, Google, GitHub. The Google style package provides exactly the tone (active voice, second person, present tense, clear action verbs) that Stripe/Docker-quality docs use. Version 3.14.1 (2025-03-20) is current |
-| Vale Google style | 0.6.3 | Style rules derived from Google Developer Documentation Style Guide | The Google style is the right fit for a CLI developer tool: it enforces second person ("you"), active voice, present tense, avoidance of Latin abbreviations (e.g., i.e.), clear heading casing, and avoidance of ambiguous pronouns. Version 0.6.3 (April 2025). Installed via `vale sync` — no vendored files needed. The alternative (Microsoft) is better for enterprise software docs; Google fits CLI/developer tools |
-| pymarkdownlnt | 0.9.34 | Markdown structure linter — enforces consistent heading hierarchy, list formatting, code fence syntax | Python-native alternative to markdownlint-cli2 (which requires Node.js). Since ztlctl is a Python project with `uv` as the package manager, adding a Node.js runtime for Markdown linting is a hard no. pymarkdownlnt is GFM-compliant, has 46 rules, supports pre-commit hooks, and is installable via `uv add --group dev`. Token-analyzes docs rather than regex scanning — catches structural issues Vale misses |
-| lychee | 0.15.x | External broken link checker — verifies all HTTP(S) links in docs actually resolve | MkDocs `--strict` catches broken *internal* links (missing pages). It does NOT check external URLs. Lychee is a Rust-based async link checker used by large open-source projects (Apache, Mozilla). Run in CI via `lycheeverse/lychee-action`. Use cache + `.lycheeignore` for rate-limit management. Runs independently of MkDocs build — no Python dependency, no theme dependency |
-
-### Supporting Libraries
-
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| `mkdocs-git-revision-date-localized-plugin` | 1.5.1 | Adds "last updated" date to each doc page from git history | Adds professional signal of currency. Readers see when a page was last touched — critical for a fast-moving project like ztlctl where v3.0 features need visibly fresh docs. Pulls from `git log` at build time. Compatible with mkdocs-shadcn (theme-agnostic via template injection). Use `enable_creation_date: true` to also show when the page was first written |
-| `pymdownx.superfences` | bundled in pymdownx | Fenced code blocks with language identifiers and titles | Already pulling pymdownx for admonitions; superfences enables `title="filename.py"` annotations on code blocks — a key Stripe/Docker quality signal. No new `uv add` needed if pymdownx is already installed |
-| `pymdownx.tabbed` | bundled in pymdownx | Tabbed code examples (e.g., "Python | Shell | Config") | Useful for the new v3.0 feature pages (session recall, contradiction detection) where the same workflow needs CLI + MCP + agent examples shown side-by-side. mkdocs-shadcn confirms tab support |
-
-### Development Tools
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `vale sync` (one-time setup) | Downloads Google style package into `.vale/styles/Google/` | Run once after checking out repo. `.vale/styles/` should be `.gitignore`d — downloaded on demand, not vendored. The `.vale.ini` at repo root pins the package version |
-| `pymarkdown scan docs/` | Scans all Markdown files for structural issues before build | Run in pre-commit and in CI `docs-lint` job. Use `--config .pymarkdown.json` for rule overrides. Key rules to enable: MD001 (heading increment), MD010 (no tabs), MD013 (line length — set to 120 not 80), MD022 (headings surrounded by blank lines), MD032 (lists surrounded by blank lines) |
-| `mkdocs build --strict` | MkDocs build that fails on any warning | Already in CI. Catches broken internal links, missing nav entries, malformed YAML front matter. Do NOT add `-v` (verbose) flag — a known MkDocs bug causes `-v --strict` to suppress strict failures |
-
----
-
-## Installation
-
-```bash
-# Prose linting
-uv add --group dev vale  # NOTE: vale is a Go binary; install via brew or official installer instead
-# Correct install: brew install vale  OR  via GitHub releases
-# OR: use the pre-commit hook which downloads vale automatically (recommended)
-
-# Markdown structure linting
-uv add --group dev pymarkdownlnt
-
-# "Last updated" dates on doc pages
-uv add --group dev mkdocs-git-revision-date-localized-plugin
-
-# pymdownx (for superfences + tabbed) — may already be transitively installed
-uv add --group dev pymdown-extensions
+```
+ztlctl/
+├── .claude-plugin/
+│   └── plugin.json          # Plugin manifest (REQUIRED — must be at this exact path)
+├── .mcp.json                 # MCP server config connecting Claude to ztlctl serve
+├── commands/                 # Slash commands (user-invoked via /command-name)
+│   └── session-start.md
+├── agents/                   # Subagent definitions (Claude-spawned specialized agents)
+│   └── vault-curator.md
+├── skills/                   # Skill directories (model-invoked contextual guidance)
+│   ├── session-lifecycle/
+│   │   ├── SKILL.md          # Trigger description + workflow instructions (REQUIRED)
+│   │   └── references/       # Optional supplementary docs loaded on demand
+│   │       └── session-patterns.md
+│   ├── capture-workflow/
+│   │   └── SKILL.md
+│   └── research-pipeline/
+│       └── SKILL.md
+├── hooks/
+│   └── hooks.json            # Hook event configuration
+└── README.md
 ```
 
-**Vale installation note:** Vale is a Go binary, not a Python package. Do not `uv add vale`. Install
-via `brew install vale` for local development. In CI, use the official GitHub Action
-`errata-ai/vale-action@v2` which handles binary installation automatically. The pre-commit hook
-approach (using `errata-ai/vale` repo) also works and is self-contained.
+**Key discovery:** The `skills/<name>/SKILL.md` layout is the current preferred format.
+The legacy `commands/*.md` flat layout is still supported but not recommended for new plugins.
+Both are loaded identically by Claude Code — only directory organization differs.
 
 ---
 
-## Alternatives Considered
+## plugin.json Manifest
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| Vale + Google style | Vale + Microsoft style | Microsoft style is better for enterprise software (Windows, Office, Azure docs). Google style fits developer CLIs and open-source tools — matches ztlctl's persona |
-| Vale + Google style | write-good Vale package | write-good is a subset (passive voice, weasel words). Use it as a *supplement* to Google, not a replacement. Add both if passive voice is a recurring issue after initial audit |
-| pymarkdownlnt | markdownlint-cli2 | If the project uses Node.js already. markdownlint-cli2 is more widely adopted and has a GitHub Action, but requires Node.js runtime. pymarkdownlnt avoids adding a second runtime to a pure-Python project |
-| lychee (CI only) | mlc (Markup Link Checker) | mlc is Rust-based and similar. lychee has more active maintenance, better rate-limit handling, and a widely-used GitHub Action (`lycheeverse/lychee-action`) |
-| mkdocs-git-revision-date-localized | Manual `last_modified` frontmatter | Manual frontmatter goes stale immediately. Git-based date is always accurate and requires zero author discipline |
-| pymdownx.superfences | Standard fenced_code | Standard fenced code works fine for basic examples; superfences adds `title=` and `hl_lines=` annotations needed for Stripe-quality code examples |
+**File location:** `.claude-plugin/plugin.json` (REQUIRED — not `.claude/`, not root)
 
----
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| `doc8` | doc8 is an RST (reStructuredText) linter, not Markdown. Wrong tool entirely | `pymarkdownlnt` for Markdown structure |
-| `proselint` Vale package | proselint has false-positive rates that frustrate developers; many rules are opinionated about literary prose, not technical writing. Blocks CI noisily on phrases that are completely acceptable in developer docs | Vale + Google style; add write-good selectively for passive voice |
-| MkDocs `--verbose` flag in CI | A known bug in MkDocs causes `-v --strict` to suppress strict-mode failures (issue #3991). CI must use `mkdocs build --strict` without `-v` | `mkdocs build --strict` |
-| Markdoc (Stripe's framework) | Stripe's MDX-based authoring system. Excellent for interactive API docs with custom React components, but requires a Node.js/Next.js site rebuild. ztlctl's docs are MkDocs-based; Markdoc would replace the entire docs pipeline | Continue with MkDocs + MDX-style features via pymdownx extensions |
-| mkdocs-macros-plugin | Jinja2 macros in Markdown seem powerful but create a hybrid authoring model that confuses contributors and breaks when docs are read as raw Markdown (e.g., via llms.txt). ztlctl's agent accessibility depends on clean raw Markdown | Write docs as plain Markdown; use admonitions and tabs for rich content |
-| Automated link checking at pre-commit stage | External link checking at commit time is slow (network calls), flaky (rate limits), and blocks local development for no quality gain. External links rarely break between commits | Run lychee only in CI on a scheduled basis (weekly) or on PR to main |
-| Vale `MinAlertLevel = suggestion` in CI | Suggestions are not CI-blocking; they add noise. In CI, set `MinAlertLevel = error`. In pre-commit (local), set to `warning` so writers see guidance without being blocked | `MinAlertLevel = error` in CI, `warning` locally |
-
----
-
-## Stack Patterns by Feature
-
-**Docs-as-code CI enforcement (new `docs-lint` job in `.github/workflows/`):**
-
-```yaml
-# .github/workflows/docs-lint.yml
-- name: Lint prose (Vale)
-  uses: errata-ai/vale-action@v2
-  with:
-    files: docs/
-    version: 3.14.1
-
-- name: Lint Markdown structure (pymarkdownlnt)
-  run: uv run pymarkdown scan docs/
-
-- name: Build docs (MkDocs strict)
-  run: uv run mkdocs build --strict
-```
-
-Run broken-link check separately on schedule (not every PR) to avoid flakiness:
-```yaml
-# .github/workflows/docs-links.yml  (scheduled weekly)
-- uses: lycheeverse/lychee-action@v1
-  with:
-    args: --verbose --no-progress docs/
-```
-
-**Vale configuration (`.vale.ini` at repo root):**
-
-```ini
-StylesPath = .vale/styles
-MinAlertLevel = warning
-
-Packages = Google
-
-[*.md]
-BasedOnStyles = Vale, Google
-```
-
-Run `vale sync` once after checkout. Add `.vale/styles/` to `.gitignore`.
-
-**Selective Vale rule overrides for technical docs (`.vale.ini` additions):**
-
-```ini
-[*.md]
-BasedOnStyles = Vale, Google
-# CLI command names are proper nouns — don't flag them for heading case
-Google.Headings = NO
-# ztlctl uses "e.g." and "i.e." deliberately in some contexts
-Google.Latin = suggestion
-```
-
-**pymarkdownlnt configuration (`.pymarkdown.json` at repo root):**
+### Field Reference (verified from manifest-reference.md)
 
 ```json
 {
-  "plugins": {
-    "md013": {
-      "enabled": true,
-      "line_length": 120,
-      "heading_line_length": 120,
-      "code_block_line_length": 160
-    },
-    "md033": {
-      "enabled": false
+  "name": "ztlctl",
+  "version": "1.0.0",
+  "description": "Zettelkasten knowledge management for Claude Code — skills for session lifecycle, capture workflows, research pipelines, review cycles, and decision support wrapping ztlctl's 73+ MCP tools.",
+  "author": {
+    "name": "ThatDevStudio",
+    "email": "support@thatdev.studio",
+    "url": "https://github.com/ThatDevStudio/ztlctl"
+  },
+  "homepage": "https://ztlctl.thatdev.studio/docs",
+  "repository": "https://github.com/ThatDevStudio/ztlctl",
+  "license": "MIT",
+  "keywords": [
+    "zettelkasten",
+    "knowledge-management",
+    "second-brain",
+    "notes",
+    "mcp",
+    "agentic",
+    "session",
+    "research"
+  ]
+}
+```
+
+**Required fields:** `name` only. Everything else is optional but recommended for marketplace.
+
+**Name rules:**
+- kebab-case, lowercase letters/numbers/hyphens only
+- Must match: `/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/`
+- Unique across installed plugins
+
+**Component path fields** (all optional — Claude Code uses conventional defaults):
+
+| Field | Default | Override |
+|-------|---------|---------|
+| `commands` | `./commands/` | String or array of paths |
+| `agents` | `./agents/` | String or array of paths |
+| `skills` | `./skills/` | String (Vercel uses `"skills": "skills"`) |
+| `hooks` | `./hooks/hooks.json` | Path string or inline object |
+| `mcpServers` | `./.mcp.json` | Path string or inline object |
+
+**Note on `skills` field:** Observed in Vercel plugin's `.cursor-plugin/plugin.json` as
+`"skills": "skills"`. The Claude Code plugin manifest uses `.claude-plugin/plugin.json`
+but the `skills` path field follows the same convention.
+
+---
+
+## SKILL.md Format
+
+**Verified from:** example-plugin skills, skill-creator SKILL.md, hookify writing-rules SKILL.md,
+Vercel observability SKILL.md (most comprehensive real-world example).
+
+### Minimal SKILL.md (model-invoked)
+
+```markdown
+---
+name: session-lifecycle
+description: This skill should be used when the user wants to "start a session", "begin work", "open a session", "end my session", "close session", discusses session management in ztlctl, or needs to orchestrate a multi-step zettelkasten workflow. Encodes the full session start → capture → close pipeline using ztlctl MCP tools.
+version: 1.0.0
+---
+
+# Session Lifecycle Skill
+
+[Skill body — instructions for Claude on how to execute this workflow]
+```
+
+### Full SKILL.md with All Supported Frontmatter
+
+```markdown
+---
+name: session-lifecycle
+description: [TRIGGER DESCRIPTION — the most important field]
+version: 1.0.0
+license: MIT
+# For user-invoked command layout only (skills/<name>/SKILL.md used as a command):
+argument-hint: <vault-path> [--topic <topic>]
+allowed-tools: [mcp__plugin_ztlctl_ztlctl__session_start, mcp__plugin_ztlctl_ztlctl__context_assemble]
+model: inherit
+---
+```
+
+### Frontmatter Fields (verified)
+
+| Field | Required | Type | Notes |
+|-------|----------|------|-------|
+| `name` | YES | string | Skill identifier; matches directory name by convention |
+| `description` | YES | string | PRIMARY TRIGGER MECHANISM — describes when Claude should invoke |
+| `version` | no | string | Semantic version (e.g., `1.0.0`) |
+| `license` | no | string | License identifier |
+| `argument-hint` | no | string | Shown in `/help`; only for user-invoked command layout |
+| `allowed-tools` | no | array | Pre-approved tools — reduces permission prompts |
+| `model` | no | string | Override model (`"haiku"`, `"sonnet"`, `"opus"`, `"inherit"`) |
+
+**Advanced Vercel-style metadata** (observed in Vercel observability skill — HIGH confidence
+these fields are real as they're in deployed plugin code, but undocumented in Anthropic's
+official example plugins):
+
+```yaml
+metadata:
+  priority: 6                    # Ordering hint for skill selection
+  docs:
+    - "https://example.com/docs" # Official docs Claude should consult
+  pathPatterns:                  # File path patterns that trigger skill injection
+    - 'instrumentation.ts'
+  bashPatterns:                  # Bash command patterns that trigger injection
+    - '\bvercel\s+logs?\b'
+  promptSignals:                 # Prompt text patterns for triggering
+    phrases:
+      - "add logging"
+    allOf:
+      - [add, logging]
+    anyOf:
+      - "monitoring"
+    minScore: 6
+validate:                        # Validation rules checked against open files
+  - pattern: "export.*function"
+    message: "Wrap in try/catch for production debugging"
+    severity: warn
+    skipIfFileContains: "console\\.error"
+retrieval:
+  aliases:
+    - monitoring
+  intents:
+    - add monitoring
+  entities:
+    - Web Analytics
+chainTo:                         # Skill chaining — load another skill when pattern matches
+  - pattern: 'console\.log\s*\('
+    targetSkill: another-skill
+    message: "Console.log detected — loading guidance."
+```
+
+**Confidence on advanced fields:** MEDIUM — present in live Vercel plugin source, injected
+into hook context at runtime, clearly functional. Not documented in official example-plugin
+or plugin-dev reference. Use the `description` field as the primary trigger; treat advanced
+fields as progressive enhancement.
+
+### Three-Level Progressive Disclosure (verified from skill-creator)
+
+```
+Level 1: SKILL.md frontmatter (name + description)
+         Always loaded into context (~100 words)
+         Purpose: trigger detection
+
+Level 2: SKILL.md body
+         Loaded when skill activates (<500 lines recommended)
+         Purpose: workflow instructions for Claude
+
+Level 3: Bundled resources in subdirectories
+         Loaded on demand by skill body instructions
+         Purpose: reference docs, scripts, examples
+```
+
+**Directory structure for complex skills:**
+```
+skills/session-lifecycle/
+├── SKILL.md                    # Primary — always loaded
+├── references/
+│   ├── workflow-patterns.md    # Read when user asks about session patterns
+│   └── mcp-tools-reference.md  # Read when composing tool sequences
+├── examples/
+│   └── research-session.md     # Example session transcript
+└── scripts/
+    └── validate-vault.sh       # Helper script (executes without loading into context)
+```
+
+### Description Field Best Practices (verified from skill-creator)
+
+The description is the trigger mechanism. Claude tends to "undertrigger" — err on the side
+of pushy descriptions:
+
+```yaml
+# WEAK — undertriggered
+description: Session management for ztlctl vaults.
+
+# STRONG — verified pattern from skill-creator guidance
+description: This skill should be used when the user wants to "start a session", "begin work",
+  mentions "zettelkasten", "vault", "capture notes", "research session", or discusses any
+  ztlctl workflow involving MCP tools. Make sure to use this skill whenever session lifecycle
+  or vault operations are mentioned, even if the user doesn't say "session" explicitly.
+```
+
+Include:
+- Exact trigger phrases in quotes
+- Keywords indicating relevance
+- Topic areas covered
+- Anti-narrowing language ("even if...")
+
+---
+
+## Commands (Slash Commands)
+
+**Verified from:** example-plugin, hookify commands, plugin-dev examples.
+
+### Format
+
+```markdown
+---
+description: Start a ztlctl knowledge session for the current project
+argument-hint: [--topic <topic>] [--vault <path>]
+allowed-tools: [mcp__plugin_ztlctl_ztlctl__session_start, mcp__plugin_ztlctl_ztlctl__context_assemble, mcp__plugin_ztlctl_ztlctl__polaris_check_alignment]
+model: sonnet
+---
+
+# Start Knowledge Session
+
+Invoked as: /ztlctl-session-start
+
+## Instructions
+
+1. Check if vault is initialized (use ztlctl_vault_status MCP tool)
+2. Start a session (ztlctl_session_start)
+3. Assemble context for the current project (ztlctl_context_assemble)
+4. Check alignment with Polaris priorities (ztlctl_polaris_check_alignment)
+5. Report session state and recommended next actions
+
+Arguments: $ARGUMENTS
+```
+
+### Command Frontmatter
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `description` | YES | Shown in `/help` |
+| `argument-hint` | no | Usage hint displayed to user |
+| `allowed-tools` | no | Pre-approved tools list |
+| `model` | no | Model override |
+
+**Commands vs skills:** Commands are user-invoked via `/command-name`. Skills are
+model-invoked based on context. For ztlctl, the primary interface is skills (automatic
+activation). Commands provide explicit invocation for power users.
+
+---
+
+## Agents
+
+**Verified from:** hookify agents/, Vercel agents/, plugin-dev agent-development SKILL.md.
+
+### Format
+
+```markdown
+---
+name: vault-curator
+description: Use this agent when analyzing vault health, running integrity checks, finding
+  orphaned notes, or curating the knowledge graph. Examples: <example>Context: User wants
+  to clean up vault\nuser: "analyze my vault health"\nassistant: "I'll spawn the vault
+  curator agent to analyze structure and health metrics"</example>
+model: inherit
+color: blue
+tools: ["mcp__plugin_ztlctl_ztlctl__check_integrity", "mcp__plugin_ztlctl_ztlctl__graph_gaps", "mcp__plugin_ztlctl_ztlctl__list_items"]
+---
+
+You are a zettelkasten vault curator specializing in knowledge graph health and maintenance.
+
+[System prompt defining agent behavior, responsibilities, analysis process, output format]
+```
+
+### Agent Frontmatter
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `name` | YES | Agent identifier |
+| `description` | YES | When to spawn, with examples |
+| `model` | no | `"inherit"`, `"haiku"`, `"sonnet"`, `"opus"` |
+| `color` | no | `"blue"`, `"yellow"`, `"green"`, `"red"` — visual distinction |
+| `tools` | no | Array of allowed tool names |
+
+**Description format for agents** (verified from hookify conversation-analyzer.md):
+
+```yaml
+description: Use this agent when [condition]. Examples: <example>Context: [context]\nuser: "[user message]"\nassistant: "[how Claude responds]"\n<commentary>[why agent is used]</commentary></example>
+```
+
+Agents are spawned by Claude (not by users). They receive an isolated context and operate
+on a focused task. The `description` field determines when the parent Claude spawns the agent.
+
+---
+
+## Hooks System
+
+**Verified from:** hookify hooks.json + Python implementations, plugin-dev hook-development SKILL.md.
+
+### hooks.json Structure (plugin format)
+
+The plugin hook file uses a **wrapper format** — hooks events are nested under a `"hooks"` key:
+
+```json
+{
+  "description": "ztlctl vault awareness hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "mcp__plugin_ztlctl_ztlctl__*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/pretooluse.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**CRITICAL:** Plugin `hooks.json` uses `{"hooks": {...}}` wrapper. User `.claude/settings.json`
+hooks use the event names directly at top level. These are different formats — do NOT confuse them.
+
+### Hook Events (all verified)
+
+| Event | When | Primary Use for ztlctl |
+|-------|------|----------------------|
+| `PreToolUse` | Before any tool executes | Validate MCP tool calls; add vault context |
+| `PostToolUse` | After tool executes | React to tool results; update session state |
+| `UserPromptSubmit` | When user submits prompt | Detect ztlctl intent; inject vault context |
+| `Stop` | When main agent wants to stop | Ensure session closed; check work queue |
+| `SubagentStop` | When subagent wants to stop | Validate subagent task completion |
+| `SessionStart` | Session begins | Load vault status; inject project context |
+| `SessionEnd` | Session ends | Cleanup; auto-close ztlctl session |
+| `PreCompact` | Before context compaction | Preserve critical vault state |
+| `Notification` | Claude sends notification | Log activity |
+
+### Hook Types
+
+**Command hooks** — deterministic, bash/Python scripts:
+```json
+{
+  "type": "command",
+  "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/pretooluse.py",
+  "timeout": 10
+}
+```
+
+**Prompt hooks** — LLM-driven, for context-aware decisions:
+```json
+{
+  "type": "prompt",
+  "prompt": "Check if vault is initialized before MCP tool use. Return systemMessage if vault not found.",
+  "timeout": 30
+}
+```
+
+### Hook I/O Protocol (verified from hookify Python implementations)
+
+**Input:** JSON on stdin
+```json
+{
+  "session_id": "abc123",
+  "transcript_path": "/path/to/transcript.txt",
+  "cwd": "/current/working/dir",
+  "permission_mode": "ask|allow",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "mcp__plugin_ztlctl_ztlctl__session_start",
+  "tool_input": {},
+  "tool_result": {}
+}
+```
+
+**Output:** JSON on stdout
+```json
+{
+  "systemMessage": "Message injected into Claude's context",
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow"
+  }
+}
+```
+
+**PreToolUse permission decisions:**
+- `"allow"` — proceed
+- `"deny"` — block the tool call
+- `"ask"` — prompt user for confirmation
+
+**Stop event decisions:**
+```json
+{
+  "decision": "block",
+  "reason": "Open session detected — run ztlctl session close before stopping.",
+  "systemMessage": "Reminder: close your ztlctl session"
+}
+```
+
+**Exit codes:**
+- `0` — success, stdout shown in transcript
+- `2` — blocking error, stderr fed back to Claude
+- Other — non-blocking error, logged
+
+### Environment Variables in Hooks
+
+```bash
+$CLAUDE_PLUGIN_ROOT    # Plugin installation directory (ALWAYS use for portable paths)
+$CLAUDE_PROJECT_DIR    # Current project root
+$CLAUDE_ENV_FILE       # SessionStart only: write "export VAR=val" to persist env vars
+$CLAUDE_CODE_REMOTE    # Set if running in remote context
+```
+
+### Matchers
+
+```json
+"matcher": "Bash"                         # Exact tool name
+"matcher": "Write|Edit|MultiEdit"         # Pipe-separated OR
+"matcher": "*"                            # All tools
+"matcher": "mcp__plugin_ztlctl_ztlctl__*" # Regex — all ztlctl MCP tools
+```
+
+Matchers are case-sensitive. Use regex patterns to match MCP tool names by prefix.
+
+---
+
+## MCP Server Integration (.mcp.json)
+
+**Verified from:** example-plugin .mcp.json (HTTP), greptile .mcp.json (HTTP with auth headers),
+Vercel .mcp.json (HTTP), plugin-dev mcp-integration SKILL.md.
+
+### .mcp.json Format
+
+```json
+{
+  "ztlctl": {
+    "type": "stdio",
+    "command": "ztlctl",
+    "args": ["serve"],
+    "env": {
+      "ZTLCTL_VAULT": "${ZTLCTL_VAULT_PATH}"
     }
   }
 }
 ```
 
-Disable MD033 (inline HTML) because MkDocs admonitions use HTML-adjacent syntax that pymarkdownlnt flags.
+### Transport Type Selection for ztlctl
 
-**Adding "last updated" dates to pages (mkdocs.yml addition):**
+| Transport | Config | Use When |
+|-----------|--------|---------|
+| `stdio` | `"command": "ztlctl", "args": ["serve"]` | ztlctl installed in user's PATH (recommended default) |
+| `http` | `"type": "http", "url": "http://localhost:8000"` | User already running `ztlctl serve --transport streamable-http` |
+| `sse` | `"type": "sse", "url": "http://localhost:8000"` | SSE transport variant |
 
+**Recommended: stdio** — Claude Code spawns and manages the `ztlctl serve` process. No
+pre-running server needed. Zero user configuration. Vault path passed via env var.
+
+**stdio example with uv for isolation:**
+```json
+{
+  "ztlctl": {
+    "type": "stdio",
+    "command": "uvx",
+    "args": ["--from", "ztlctl[mcp]", "ztlctl", "serve"],
+    "env": {
+      "ZTLCTL_VAULT_PATH": "${ZTLCTL_VAULT_PATH}"
+    }
+  }
+}
+```
+
+### MCP Tool Naming Convention (verified from plugin-dev mcp-integration SKILL.md)
+
+When the plugin is named `ztlctl` and the MCP server is named `ztlctl`:
+
+```
+mcp__plugin_<plugin-name>_<server-name>__<tool-name>
+
+Example:
+  Plugin: ztlctl
+  Server: ztlctl
+  Tool: session_start
+  Full name: mcp__plugin_ztlctl_ztlctl__session_start
+```
+
+**Use in allowed-tools:**
 ```yaml
-plugins:
-  - search
-  - redirects:
-      redirect_maps: {}
-  - git-revision-date-localized:
-      enable_creation_date: true
-      type: date
-  - mkdocstrings:
-      # ... existing config unchanged
+allowed-tools:
+  - "mcp__plugin_ztlctl_ztlctl__session_start"
+  - "mcp__plugin_ztlctl_ztlctl__context_assemble"
 ```
 
-**pymdownx.superfences for code block titles (mkdocs.yml markdown_extensions):**
-
+**Wildcard (use sparingly):**
 ```yaml
-markdown_extensions:
-  - admonition
-  - attr_list
-  - def_list
-  - fenced_code
-  - footnotes
-  - tables
-  - toc:
-      permalink: true
-  - pymdownx.superfences
-  - pymdownx.tabbed:
-      alternate_style: true
+allowed-tools:
+  - "mcp__plugin_ztlctl_ztlctl__*"
 ```
-
-Code blocks in docs then support:
-```markdown
-```python title="src/ztlctl/services/session.py"
-# example code
-```
-```
-
-**CLAUDE.md docs-as-code enforcement rule (doc-as-code pattern):**
-
-Add to `CLAUDE.md` architecture section: "Every phase plan that adds a user-facing feature MUST include a `docs/` task. Docs are shipped with the feature, not after it. `mkdocs build --strict` must pass before a PR is opened."
 
 ---
 
-## Version Compatibility
+## Marketplace Distribution
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| Vale 3.14.1 | Python n/a (Go binary) | No Python version dependency. Works on macOS, Linux, Windows |
-| Vale Google style 0.6.3 | Vale 3.x | Compatible. Installed via `vale sync` with `Packages = Google` in `.vale.ini` |
-| pymarkdownlnt 0.9.34 | Python 3.10+ | Confirmed Python 3.13 compatible |
-| mkdocs-git-revision-date-localized 1.5.1 | MkDocs 1.x, Python 3.8+ | Theme-agnostic; confirmed working January 2026. Requires git history available at build time (use `fetch-depth: 0` in GitHub Actions checkout) |
-| mkdocs-shadcn 0.10.2 | MkDocs 1.x, Python 3.8+ | Current; released March 19, 2026. mkdocstrings support is alpha but working |
-| pymdownx (superfences, tabbed) | mkdocs-shadcn 0.10.2 | Explicitly confirmed compatible in mkdocs-shadcn docs |
-| lychee-action v1 | GitHub Actions | Version-agnostic; binary is downloaded at run time. Use `--cache` flag for rate-limit resilience |
+**Verified from:** README.md of `anthropics/claude-plugins-official`, known_marketplaces.json,
+installed_plugins.json, external_plugins directory, plugin-dev marketplace-considerations.md.
+
+### How the Marketplace Works
+
+The official marketplace is a **GitHub repository** at `anthropics/claude-plugins-official`:
+
+```
+anthropics/claude-plugins-official/
+├── plugins/          # Internal Anthropic plugins
+│   └── example-plugin/
+│       └── .claude-plugin/plugin.json
+│       └── skills/
+│       └── ...
+├── external_plugins/ # Third-party partner plugins
+│   └── greptile/
+│       └── .claude-plugin/plugin.json
+│       └── .mcp.json
+│       └── README.md
+└── README.md         # Submission instructions
+```
+
+**Plugin install command:**
+```bash
+/plugin install ztlctl@claude-plugins-official
+```
+
+Or browse via `/plugin > Discover` in Claude Code.
+
+### Submission Process
+
+**External plugin submission:**
+1. Create plugin in own GitHub repository (e.g., `ThatDevStudio/ztlctl` — already exists)
+2. The plugin files live at the repo root (`.claude-plugin/plugin.json`, `skills/`, etc.)
+3. Submit via [plugin directory submission form](https://clau.de/plugin-directory-submission)
+4. Anthropic reviews for quality and security
+5. Plugin listed in `external_plugins/<plugin-name>/` with a pointer to the source repo
+
+**What external plugins look like in the marketplace:**
+
+The greptile external plugin is a minimal stub:
+```
+external_plugins/greptile/
+├── .claude-plugin/plugin.json    # Metadata stub
+├── .mcp.json                     # MCP server config
+└── README.md
+```
+
+This suggests external plugins can be either full plugin directories OR minimal stubs
+pointing to an MCP server. For ztlctl, a full plugin with skills is the right approach.
+
+### Versioning Strategy
+
+**Observed patterns:**
+- `anthropics/claude-plugins-official` plugins use git commit SHA as version:
+  `"version": "61c0597779bd"` — auto-updated on marketplace sync
+- `figma@claude-plugins-official` uses semver: `"version": "1.2.0"`
+- `superpowers@claude-plugins-official` uses semver: `"version": "5.0.5"`
+- `greptile` has no version field in plugin.json (uses default)
+
+**Recommendation for ztlctl plugin:** Use semver (`"version": "1.0.0"`) in `.claude-plugin/plugin.json`.
+Version the plugin directory independently from the Python package version if needed,
+or keep them in sync.
+
+### Distribution Options
+
+| Option | How | Pros | Cons |
+|--------|-----|------|------|
+| Official marketplace | Submit to `anthropics/claude-plugins-official` | Discoverability, `/plugin install name@claude-plugins-official` | Requires Anthropic approval, review process |
+| Own marketplace | Host GitHub repo, user adds via `/plugin add-marketplace github:ThatDevStudio/ztlctl-plugins` | Full control, no approval | Less discoverable, users must know repo |
+| Bundled in ztlctl repo | Plugin directory lives in `ztlctl` repo root | Single repo, single release | User must install manually or via custom marketplace |
+| PyPI + auto-install | Ship plugin files in Python package, `ztlctl install-plugin` command creates `.claude-plugin/` | Seamless for existing users | Non-standard, requires manual integration step |
+
+**Recommended approach:** Bundle plugin directory in the `ztlctl` repo itself (option 3),
+then submit to official marketplace as an external plugin (option 1). The marketplace entry
+points to the `ztlctl` repo. This gives both discoverability and a single source of truth.
+
+### Local Installation (Development)
+
+Claude Code discovers plugins by scanning:
+1. User scope: `~/.claude/plugins/` (user-installed)
+2. Project scope: `.claude-plugin/` in current working directory
+
+**For development:** Place `.claude-plugin/plugin.json` + plugin files in `ztlctl/`
+(repo root). Claude Code auto-loads them when working in the ztlctl project directory.
+
+For user-scope install during development:
+```bash
+/plugin install --local /path/to/ztlctl
+```
 
 ---
 
-## Technical Writing Standards
+## GSD Plugin Reference Structure
 
-No tool to install — these are guidelines for the doc quality pass itself.
+**Verified from:** `/Users/shparki/.claude/get-shit-done/` directory inspection.
 
-**Reference:** Google Developer Documentation Style Guide (https://developers.google.com/style)
+The GSD (get-shit-done) plugin is delivered differently from the marketplace pattern.
+It installs hooks into `.claude/settings.json` directly and delivers commands as `.md`
+files in `~/.claude/commands/` (global user scope). Its hooks:
 
-Key principles that apply directly to ztlctl docs:
+```
+SessionStart → gsd-check-update.js (update check)
+PostToolUse  → gsd-context-monitor.js (context budget tracking)
+PreToolUse   → gsd-prompt-guard.js (guard against over-writing)
+statusLine   → gsd-statusline.js (status display)
+```
 
-| Principle | Application |
-|-----------|-------------|
-| Second person ("you") | "You can configure ztlctl by..." not "Users can configure..." |
-| Active voice | "ztlctl creates a note" not "A note is created by ztlctl" |
-| Present tense | "The command returns" not "The command will return" |
-| Sentence-case headings | "Session recall" not "Session Recall" |
-| Numbered lists for sequences | Procedures (init, configure, run) use numbered steps |
-| Bulleted lists for non-ordered | Options, features, caveats use bullets |
-| Code formatting for commands | All CLI commands in backticks; full commands in code blocks |
-| Concrete task framing | Page titles answer "How do I..."; body opens with what the reader achieves |
+**Key insight for ztlctl:** GSD uses hooks for session-level concerns (context monitoring,
+update checks). ztlctl's plugin should use hooks similarly for vault-level concerns:
+- `SessionStart`: Detect vault path, inject vault status as system context
+- `Stop`: Check for unclosed ztlctl sessions
+- `UserPromptSubmit`: Detect ztlctl-relevant intent early
 
-**Three-audience tone model (already established in v2.1, reinforce in v3.1):**
+---
 
-| Audience | Tone | Pages |
-|----------|------|-------|
-| End users (knowledge workers) | Mentor — warm, encouraging, explains why | guide/ pages, tutorial, quickstart |
-| Developers/plugin authors | Peer — direct, technical, assumes competence | dev/ pages, plugin-guide, api-reference |
-| Agents | Structured — schema-first, deterministic, no narrative | agents.md, llms.txt, mcp.md |
+## Vercel Plugin Reference Structure
+
+**Verified from:** cached plugin at `/Users/shparki/.claude/plugins/cache/claude-plugins-official/vercel/3fe23669ec5a/`
+
+The Vercel plugin is the most sophisticated reference implementation. Key patterns:
+
+**Scale:** 60+ skills, 3 agents, 6 commands, 1 MCP server (HTTP OAuth)
+
+**Skill organization:** Each skill is a domain (`nextjs/`, `observability/`, `workflow/`).
+Skills use the advanced metadata frontmatter (`pathPatterns`, `bashPatterns`, `promptSignals`,
+`chainTo`) for precision triggering via the Vercel PreToolUse hook.
+
+**Hook system:** Vercel's `hooks/src/` contains the skill injection engine. When a file
+path or bash command matches a skill's `pathPatterns` or `bashPatterns`, the skill is
+injected into Claude's context via the PreToolUse hook. This is the **skill injection
+pattern** — hooks read SKILL.md frontmatter and inject skill content contextually.
+
+**Agent pattern:** Vercel's agents (`deployment-expert.md`, `performance-optimizer.md`,
+`ai-architect.md`) are diagnostic specialists — each encodes a decision tree for their domain.
+
+**Takeaway for ztlctl:** The Vercel plugin's architecture is the production template.
+ztlctl should replicate:
+- Domain-organized skills (one per major workflow)
+- A `SessionStart` hook that loads vault status and injects it as system context
+- Agents as specialized diagnostic tools (vault-curator, research-analyst)
+- skills use `description` field for semantic triggering (simpler is fine for v1)
+
+---
+
+## No New Dependencies Required
+
+The ztlctl Claude Code plugin is a **pure filesystem artifact**. No new Python packages
+are needed. All plugin components are:
+
+- Markdown files (`.md`) — skills, commands, agents
+- JSON files (`.json`) — plugin.json manifest, hooks.json, .mcp.json
+- Optional: Python/bash scripts for hooks (use existing Python 3.13 from PATH)
+
+The only runtime dependency is `ztlctl` itself (already installed) for the MCP server.
 
 ---
 
 ## Sources
 
-- [Vale GitHub](https://github.com/vale-cli/vale) — v3.14.1 release (2025-03-20) confirmed (HIGH)
-- [Vale docs — pre-commit integration](https://vale.sh/docs/integrations/pre-commit) — two-hook setup (sync + check) confirmed (HIGH)
-- [Vale Google style GitHub](https://github.com/errata-ai/Google) — v0.6.3 (April 2025), CC BY 4.0 license (HIGH)
-- [Vale packages docs](https://vale.sh/docs/keys/packages) — `Packages = Google`, `vale sync` workflow (HIGH)
-- [pymarkdownlnt PyPI](https://pypi.org/project/pymarkdownlnt/) — v0.9.34, Python 3.10+, 46 rules (HIGH)
-- [pymarkdownlnt pre-commit docs](https://pymarkdown.readthedocs.io/en/latest/advanced_pre-commit/) — hook configuration (HIGH)
-- [lychee-action GitHub](https://github.com/lycheeverse/lychee-action) — async Rust link checker, GitHub Action (HIGH)
-- [mkdocs-git-revision-date-localized PyPI](https://pypi.org/project/mkdocs-git-revision-date-localized-plugin/) — v1.5.1, January 2026 (HIGH)
-- [mkdocs-shadcn GitHub](https://github.com/asiffer/mkdocs-shadcn) — v0.10.2 (2026-03-19), pymdownx + mkdocstrings confirmed compatible (HIGH)
-- [MkDocs strict mode issues](https://github.com/mkdocs/mkdocs/issues/3842) — `-v --strict` bug confirmed (MEDIUM)
-- [Google Developer Documentation Style Guide](https://developers.google.com/style) — highlights, word list, tone guidance (HIGH)
-- [markdownlint-cli2 GitHub](https://github.com/DavidAnson/markdownlint-cli2) — considered and rejected (requires Node.js) (HIGH)
-- Existing `mkdocs.yml` (direct inspection) — current plugins, extensions, theme config (HIGH)
-- Existing `.pre-commit-config.yaml` (direct inspection) — current hooks, no Node.js runtime (HIGH)
+**All sources are first-party — directly read from installed plugin files on this machine.**
+
+| Source | Confidence | Notes |
+|--------|------------|-------|
+| `plugins/example-plugin/` (marketplace) | HIGH | Reference implementation by Anthropic |
+| `plugins/hookify/` (marketplace) | HIGH | Hook system reference; full Python implementation |
+| `plugins/plugin-dev/` (marketplace) | HIGH | Plugin authoring guide with full reference docs |
+| `plugins/skill-creator/` (marketplace) | HIGH | Skill authoring process and schema reference |
+| `external_plugins/greptile/` | HIGH | Minimal external plugin pattern |
+| `vercel` plugin (cached `3fe23669ec5a`) | HIGH | Production-scale reference with advanced skill patterns |
+| `known_marketplaces.json` | HIGH | Marketplace GitHub repo location |
+| `installed_plugins.json` | HIGH | Version and install patterns for 21 plugins |
+| `claude-plugins-official/README.md` | HIGH | Marketplace structure, submission process |
+| `plugin-dev` skill reference docs | HIGH | manifest-reference.md, hook-development SKILL.md, mcp-integration SKILL.md |
+| `~/.claude/settings.json` | HIGH | Live GSD hook registration pattern |
+| `ztlctl/src/ztlctl/commands/serve.py` | HIGH | Confirmed transport options (stdio, streamable-http, sse) |
 
 ---
-*Stack research for: ztlctl v3.1 — Documentation quality overhaul and docs-as-code enforcement*
-*Researched: 2026-03-21*
+
+*Stack research for: ztlctl v4.0 — Claude Code Plugin with Agentic Skills*
+*Researched: 2026-03-22*

@@ -1,250 +1,553 @@
-# Feature Research
+# Feature Research: ztlctl Claude Code Plugin Skills
 
-**Domain:** Professional-grade CLI/MCP developer tool documentation quality
-**Researched:** 2026-03-21
-**Confidence:** HIGH (Stripe/Docker patterns from primary sources; Diataxis from official site; CLI conventions from CLIG and Google style guide)
+**Domain:** Claude Code plugin with deep zettelkasten workflow skills
+**Researched:** 2026-03-22
+**Confidence:** HIGH (ztlctl docs, agents.md, and agentic-workflows.md are primary source; superpowers/feature-dev skill structure observed directly from installed plugins)
 
 ---
 
 ## Context
 
-This research covers the v3.1 milestone: raising documentation to professional-grade quality (Stripe/Docker/Obsidian-caliber). The docs infrastructure already exists: MkDocs with mkdocs-shadcn theme, two-track navigation (User Guide + Developer Guide), llms.txt, agents.md, API reference. The gap is quality of execution, not presence of structure.
+This research covers the v4.0 milestone: creating a production-grade Claude Code plugin that wraps the ztlctl MCP server with deep skills encoding core vault workflows. The MCP server already exposes 73+ tools. The plugin's job is NOT to add more tools — it is to encode the knowledge-work workflows those tools enable into skills that guide agents through correct multi-step sequences.
 
-**Existing docs inventory (v2.1 era):**
-- User Guide: tutorial, concepts, paradigms, obsidian, plugins, agentic-workflows, commands, configuration, troubleshooting, best-practices
-- Developer Guide: contributing, plugin-guide, api-reference, mcp, agents
-- Agent accessibility: llms.txt, llms-full.txt, `ztlctl docs` CLI, MCP doc search
+**Key insight from existing plugin analysis (superpowers, feature-dev):** Skills are workflow encoders. They answer "how to do X with these tools" — not "what tools exist." The agent already has the tool list from MCP discovery. Skills encode the WHY, WHEN, and SEQUENCE of tool composition.
 
-**v3.0 features with no documentation yet:** session recall, polaris priorities, contradiction detection, media ingestion, methodology guidance.
+**What already exists in ztlctl that skills should wrap:**
 
----
-
-## Feature Landscape
-
-### Table Stakes (Users Expect These)
-
-Features a professional-grade docs site for a CLI developer tool must have. Missing any = docs feel incomplete or amateur.
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Diataxis-aligned page structure (tutorial / how-to / reference / explanation as distinct types) | Every high-quality developer tool docs site separates learning from reference; mixing them makes both worse | HIGH | Structural audit required; most existing pages mix types; Diataxis is the canonical framework (diataxis.fr, adopted by Ubuntu/Canonical, Django, Kubernetes) |
-| Quick Start producing a working result in < 5 minutes | Table stakes for every modern dev tool; absence signals the tool is hard to set up | LOW | `quickstart.md` exists but predates v3.0; needs updating |
-| Concept page with tool-specific terminology defined before use | "Reweave," "polaris," "WAL," "garden maturity," "session" — users from outside the PKM world need grounding | MEDIUM | `concepts.md` exists; needs v3.0 additions (recall, polaris, contradiction, ingestion) |
-| Command reference: option table (flag / default / description) + examples per command | Docker's three-column pattern is the gold standard; users scan this constantly; examples are more important than the table | MEDIUM | `commands.md` exists, source-verified; needs v3.0 command additions |
-| Consistent CLI syntax conventions throughout | Google dev style + CLIG + Telerik style guide all converge: `[optional]`, `{required}`, `$` prompts, "The output is similar to the following:" before terminal output | LOW | Convention-only; apply globally across all pages |
-| Examples before option tables on every command page | CLIG: "Lead with examples — users gravitate toward them over other documentation forms" | LOW | Commands page starts with glance table; invert: most common invocation first |
-| Working copy-pasteable examples | Every example must work against source; not pseudocode; verified against ActionRegistry | LOW | Source-verification discipline established in v2.1; maintain for v3.0 additions |
-| Callout admonitions used consistently (Warning / Note / Tip / Danger) | Docker, Stripe, and Obsidian all use visual callouts for critical information; MkDocs admonition extension already enabled | LOW | Extension is enabled; usage is inconsistent; needs standardized taxonomy |
-| Cross-linking between related pages | Users land anywhere; they need to find adjacent concepts; Stripe's "fast paths for happy flow" pattern | LOW | Some cross-linking exists; needs systematic coverage |
-| "What's next" navigation at end of each page | Guides users through a logical progression; prevents dead-ends | LOW | Currently absent on most pages |
-| Troubleshooting that maps errors to diagnosis to fix | Every real tool breaks; users who can't self-diagnose churn | MEDIUM | `troubleshooting.md` exists; verify v3.0 completeness |
-| Progressive disclosure: simple usage first, advanced options after | CLIG and Stripe both prioritize happy path before edge cases; don't front-load complexity | MEDIUM | Currently most pages lead with comprehensive tables; restructure to simple → complete |
+From `agentic-workflows.md` and `agents.md`:
+- Session lifecycle: `session_start` → work → `session_close` with enrichment pipeline
+- Context assembly: 5-layer context payload via `agent_context`
+- Research capture: `search` → `ingest_source` → `create_note` → `reweave`
+- Recall loading: `ztlctl://sessions/recent` → `recall_temporal` → `recall_topic` → `get_document`
+- Polaris alignment: `ztlctl://polaris` → `check_alignment` before any significant action
+- Contradiction review: `ztlctl://review/contradictions` → `get_document` → `confirm_contradiction`
+- Review triage: `work_queue` → `get_document` → `update_content` / `close_content`
+- Knowledge synthesis: `search` → `graph_gaps` → `draft_from_topic` → `reweave`
+- Garden maintenance: `vault_review` → `graph_gaps` → `graph_bridges` → targeted updates
+- Decision support: `decision_support` → `check_alignment` → `create_note --subtype decision`
 
 ---
 
-### Differentiators (Competitive Advantage)
+## Docs-to-Skills Mapping
 
-Features that set documentation apart from adequate to excellent. These create real quality separation.
+Every docs page that describes a workflow is a candidate for a skill. The mapping below is direct — from page to skill.
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Five dedicated v3.0 feature pages (session recall, polaris, contradiction detection, media ingestion, methodology guidance) | Without conceptual grounding, users can't compose these features; they are non-obvious in paradigm and require motivation before mechanics | HIGH | Each page needs: what it is → why it exists → CLI usage → MCP tool surface → agent workflows → examples |
-| Three-audience tone model executed consistently | Stripe separates quickstarts (new users) from API ref (experts); ztlctl has user/developer/agent tracks — each track needs a distinct, sustained voice | MEDIUM | Decision already recorded in PROJECT.md; v3.1 applies it consistently: mentor tone for User Guide, peer tone for Developer Guide, structured schema for agents |
-| Per-feature MCP tool surface documented alongside CLI surface | ztlctl's MCP tools are the primary interface for agents; every feature page should document both the CLI command and the equivalent MCP tool call | MEDIUM | `agents.md` covers this globally but per-feature MCP coverage is missing in all v3.0 feature pages |
-| Glossary page for domain-specific terms | Zettelkasten, polaris, reweave, garden, WAL, session recall, contradiction score — users from outside the PKM world need a reference point | MEDIUM | No glossary exists; build it during feature page writing; each new term links here |
-| Error messages as teaching moments in troubleshooting | CLIG: "rewrite expected failures for humans with actionable guidance" — not just what went wrong, but why and what to run instead | MEDIUM | Upgrade troubleshooting.md from symptom lists to diagnostic narratives |
-| Methodology guidance section with concrete advice | ztlctl is an opinionated knowledge tool; the "right way to think about notes" is as valuable as command syntax; Obsidian help documents its philosophy | HIGH | `paradigms.md` exists but v3.0 adds prose-as-title convention, garden backlog candidates, title quality checks, polaris alignment — needs dedicated methodology content |
-| Documentation-as-code enforcement (CLAUDE.md rule + GSD phase enforcement) | Professional orgs (Stripe) treat docs as part of definition of done; ad-hoc changes accumulate rot; structural enforcement prevents drift | MEDIUM | CLAUDE.md rule needed: no feature phase completes without docs task; GSD phase template to include docs tasks |
-| Source-verified examples in CI | Draft.dev: "automate the testing of code examples within your CI/CD pipeline to guarantee they are always up-to-date" | HIGH | v2.1 established manual source-verification; CI automation prevents regression; high value but high cost |
+| Docs Page | Workflow Described | Skill Name | Complexity |
+|-----------|-------------------|------------|------------|
+| `agentic-workflows.md` — Session Lifecycle | start → work → close with enrichment pipeline | `ztl:session` | MEDIUM |
+| `agentic-workflows.md` — Polaris-aligned startup | read polaris → check alignment → start session | `ztl:start-session` | LOW |
+| `agentic-workflows.md` — Recall-driven context loading | read recent sessions → recall → fetch notes → start | `ztl:recall-context` | MEDIUM |
+| `agentic-workflows.md` — Contradiction review | read contradictions → inspect pairs → confirm | `ztl:review-contradictions` | MEDIUM |
+| `agentic-workflows.md` — Recipe 1: Research Capture | search → create note → reweave | `ztl:capture` | LOW |
+| `agentic-workflows.md` — Recipe 2: Review Triage | work-queue → inspect → update/archive | `ztl:review-triage` | MEDIUM |
+| `agentic-workflows.md` — Recipe 3: Knowledge Synthesis | search → gaps → draft → reweave | `ztl:synthesize` | MEDIUM |
+| `agentic-workflows.md` — Context Assembly | agent_context with layers | `ztl:orient` | LOW |
+| `session-recall.md` — Full recall workflow | temporal + topic + topology recall | `ztl:recall-context` | MEDIUM |
+| `polaris.md` — Alignment checking | check_alignment before decisions | `ztl:check-alignment` | LOW |
+| `contradiction-detection.md` — Agent review loop | contradictions → inspect → confirm | `ztl:review-contradictions` | MEDIUM |
+| `best-practices.md` — Agent workflow discipline | session wrap, success-check discipline | Built into all skills | N/A |
+| `agents.md` — Session Management Flow | status check → start → work → close | `ztl:session` | MEDIUM |
+| `agents.md` — Recall Flow | 5-step recall sequence | `ztl:recall-context` | MEDIUM |
+| `agents.md` — Research Capture Flow | 6-step research → capture → close | `ztl:capture` | LOW |
+| `mcp.md` — Discovery pattern | discover_tools → describe_tool → agent-reference | `ztl:orient` | LOW |
 
 ---
 
-### Anti-Features (Commonly Requested, Often Problematic)
+## Table Stakes Skills
 
-Features that seem like improvements but create maintenance debt or harm the reading experience.
+Skills users expect from a ztlctl Claude Code plugin. Missing any = the plugin feels incomplete and forces agents back to raw MCP calls.
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Auto-generated command reference as primary docs | "Always up to date!" | Auto-generated docs have no examples, no rationale, no curation; they become search engine penalties; Draft.dev names this explicitly as an anti-pattern | Use mkdocstrings for API reference only; hand-curate all user-facing command and concept docs |
-| Interleaving tutorial content with reference content on the same page | "Less to maintain" | Users in "learning mode" and "looking up a flag" have incompatible reading patterns; mixing both serves neither — Diataxis is definitive; this is the single most common documentation quality failure | Keep tutorial, how-to, reference, and explanation as distinct page types; cross-link between them |
-| Fully versioned docs (separate site per release) | "Users on different versions need version-specific docs" | Extreme maintenance burden for a small team; most CLI users upgrade quickly; version sprawl fragments the audience | Version note blocks on changed behavior (e.g., "Added in v3.0"); clear changelog; point to latest |
-| Long single-page "everything on one page" design | "Power users want ctrl+F" | Breaks TOC, pagination, and load time; hostile for scan-read patterns | llms-full.txt already serves the "everything on one page" use case for machines; multi-page structure for humans |
-| Padded "this page covers…" meta-commentary | "Sets expectations for the reader" | Wastes the user's first sentence; the heading already sets expectations | Start with the answer; context after, not before |
-| Exhaustive option tables without examples | "Complete coverage!" | Tables without examples teach what flags exist, not how to use them; users remain confused about actual usage | Every option table must link to or include an example; use progressive disclosure |
-| Embedded AI chat widget in the docs site | "Interactive docs!" | Requires external API key, ongoing cost, and MkDocs is a static site — no server side; also redundant with MCP doc search already built | llms.txt + llms-full.txt + MCP `search_docs` covers the AI accessibility use case without a chat widget |
+### 1. `ztl:orient` — Vault Orientation
+
+**What it does:** Load vault context before any work begins. Reads identity, methodology, polaris priorities, and assembles a topic-focused context payload.
+
+**Why expected:** Agents entering a vault cold have no idea what's in it, what the vault's owner cares about, or what existing content is relevant. Every agent workflow starts with orientation. Without this skill, every agent has to figure out the `ztlctl://` resource chain from scratch.
+
+**MCP tools composed:** `ztlctl://self/identity` (resource), `ztlctl://self/methodology` (resource), `ztlctl://polaris` (resource), `agent_context`
+
+**Trigger pattern:** "start work", "what's in the vault", "orient yourself", "load context", beginning of any session
+
+**Workflow:**
+1. Read `ztlctl://self/identity` — understand vault personality and structure
+2. Read `ztlctl://polaris` — load strategic priorities (always included in Layer 1 context)
+3. Call `agent_context(topic=<user-topic>, budget=8000)` — assemble 5-layer context payload
+4. Report: current session state, active priorities, relevant content count
+
+**Interaction model:** Autonomous. No user checkpoints. Returns structured context summary.
+
+**Complexity:** LOW
+
+---
+
+### 2. `ztl:session` — Session Lifecycle Management
+
+**What it does:** Manages the full arc of a bounded work session: pre-flight check → polaris alignment → start → work gate → close with enrichment report.
+
+**Why expected:** Sessions are the primary coordination primitive in ztlctl. Every agent-driven workflow should be wrapped in a session. This skill encodes the discipline documented in `best-practices.md` and `agents.md` Session Management Flow.
+
+**MCP tools composed:** `session_status`, `ztlctl://polaris`, `check_alignment`, `session_start`, `session_close`
+
+**Trigger pattern:** "start a session", "begin work on X", "open a research session", "close session", "end session"
+
+**Workflow (open path):**
+1. `session_status()` — check if a session is already open; if yes, surface the active session ID and ask user to confirm close or reuse
+2. Read `ztlctl://polaris` — load current priorities
+3. `check_alignment(decision="Open session: {topic}")` — advisory alignment check; report relevant_priorities
+4. `session_start(topic="{topic}")` — open session; return session ID
+5. Read `ztlctl://self/methodology` — ensure agent knows vault's workflow conventions
+6. Report: session ID, relevant polaris priorities, methodology summary
+
+**Workflow (close path):**
+1. `session_close(summary="{summary}")` — close session; receive enrichment report
+2. Parse and report: reweave_count, orphan_count, integrity_issues
+3. If integrity_issues > 0: surface warning with `ztlctl check check` suggestion
+
+**Interaction model:** Checkpoint-based on open path (user confirms topic before starting). Autonomous on close path.
+
+**Complexity:** MEDIUM
+
+---
+
+### 3. `ztl:capture` — Research Capture
+
+**What it does:** Encode the research-capture workflow: orient to existing knowledge → ingest sources → create synthesis note → auto-link.
+
+**Why expected:** Capturing knowledge is the most frequent agent operation in a zettelkasten. This directly encodes Recipe 1 from `agentic-workflows.md` with the pre-flight orientation step added.
+
+**MCP tools composed:** `search`, `agent_context`, `ingest_source`, `create_note`, `reweave`
+
+**Trigger pattern:** "capture this", "create a note about X", "ingest this source", "add to vault", "save this research"
+
+**Workflow:**
+1. `search(query="{topic}", limit=10)` — check what already exists; avoid duplicates
+2. If active session: skip `agent_context` (already oriented); else call `agent_context(topic="{topic}", budget=4000)`
+3. For each source to ingest: `ingest_source(title="{title}", content="{text}", input_kind="text", target_type="reference")` — creates `captured` reference
+4. `create_note(title="{synthesis title}", tags=["{domain/scope}"], session=<session_id>)` — create synthesis note; Reweave plugin fires automatically
+5. Report: created IDs, reweave_suggestions from create response, any duplicate warnings from step 1
+
+**Anti-pattern prevented:** Agents calling `reweave` manually after each create (double-reweave). This skill relies on the Reweave plugin's auto-fire and only calls explicit `reweave` when `--no-reweave` was used.
+
+**Interaction model:** Autonomous. Surfaces duplicate warnings as checkpoints only when step 1 finds a near-duplicate title.
+
+**Complexity:** LOW
+
+---
+
+### 4. `ztl:review-triage` — Work Queue Review
+
+**What it does:** Surface the prioritized work queue, inspect each item, update or archive as appropriate.
+
+**Why expected:** Review cycles are table stakes for any knowledge management tool. This directly encodes Recipe 2 from `agentic-workflows.md`.
+
+**MCP tools composed:** `work_queue`, `get_document`, `update_content`, `close_content`
+
+**Trigger pattern:** "review my notes", "work queue", "what needs attention", "clear the backlog", "triage"
+
+**Workflow:**
+1. `work_queue()` — load prioritized queue (all actionable items)
+2. For each item in queue: `get_document(content_id="{id}")` — fetch full content
+3. Evaluate each item: stale? actionable? complete? orphaned?
+4. For items needing updates: `update_content(content_id="{id}", changes={maturity: "budding"})` or status transition
+5. For completed/irrecoverable items: `close_content(content_id="{id}")`
+6. Report: items reviewed, items updated, items archived, items left in queue
+
+**Interaction model:** Checkpoint-based. After scanning queue, present summary and ask "Should I process all, or only items with score > X?" Batch process approved items. Surface any irreversible archives for explicit confirmation.
+
+**Complexity:** MEDIUM
+
+---
+
+### 5. `ztl:orient-session` — Recall-Driven Session Start
+
+**What it does:** Before starting a new session on a recurring topic, load context from prior sessions to avoid re-doing work.
+
+**Why expected:** Knowledge work is iterative. Agents that don't load prior session context repeat work and miss continuations. This directly encodes the Recall-driven context loading recipe from `agentic-workflows.md`.
+
+**MCP tools composed:** `ztlctl://sessions/recent` (resource), `recall_temporal`, `recall_topic`, `get_document`, `session_start`
+
+**Trigger pattern:** "continue work on X", "resume research", "pick up where I left off on X", "start session with context"
+
+**Workflow:**
+1. Read `ztlctl://sessions/recent` — scan last 5 sessions for relevance
+2. `recall_topic(query="{topic}")` — find sessions with matching log entries
+3. For relevant sessions: extract `note_ids`; call `get_document` on key notes to rebuild context
+4. Summarize: "Found N prior sessions on this topic. Key notes: [list]. Last worked on: [date]."
+5. `session_start(topic="{topic} — continued")` — start new session grounded in prior context
+6. Report: session ID, prior context summary, relevant note IDs loaded
+
+**Interaction model:** Checkpoint-based. Before opening the new session, present prior context summary and ask user to confirm continuation.
+
+**Complexity:** MEDIUM
+
+---
+
+## Differentiator Skills
+
+Skills that make this plugin unique. Not expected by users of generic MCP plugins, but immediately valuable when discovered.
+
+### 6. `ztl:align` — Polaris-First Decision Gate
+
+**What it does:** Before any significant decision, content creation, or session opening, check alignment against vault strategic priorities. Makes polaris a lived habit rather than a document that gets written once and never consulted.
+
+**Why it's a differentiator:** No other knowledge management plugin has a first-class "is this on-strategy?" check as a skill. This directly implements the `polaris.md` agent decision workflow and the strategic audit trail pattern.
+
+**MCP tools composed:** `ztlctl://polaris` (resource), `check_alignment`, `create_note`
+
+**Trigger pattern:** "should I work on X", "is this aligned", "check priority", "polaris check", "before deciding"
+
+**Workflow:**
+1. Read `ztlctl://polaris` — load mission, priorities, decision principles
+2. `check_alignment(decision="{proposed action}")` — get relevant_priorities and reasoning
+3. If `relevant_priorities` is non-empty: "Decision aligns with [N] polaris priorities: [list]. Proceeding."
+4. If `relevant_priorities` is empty: "No direct priority overlap found. Polaris priorities are: [list]. Proceed anyway? (yes/no)"
+5. Optionally: `create_note(title="Decision: {title}", subtype="decision", body="Alignment checked: ...")` — create audit trail note
+
+**Interaction model:** Checkpoint-based. Always surfaces alignment result before proceeding. User confirms on empty-overlap case.
+
+**Complexity:** LOW
+
+---
+
+### 7. `ztl:synthesize` — Knowledge Synthesis
+
+**What it does:** Consolidate scattered knowledge on a topic into a synthesis artifact, surfacing structural gaps in the process.
+
+**Why it's a differentiator:** Synthesis is the core value of a zettelkasten — not just capturing, but connecting. This skill encodes Recipe 3 from `agentic-workflows.md`, which no raw MCP call sequence makes obvious.
+
+**MCP tools composed:** `search`, `graph_gaps`, `topic_packet`, `draft_from_topic`, `create_note`, `reweave`
+
+**Trigger pattern:** "synthesize X", "summarize what I know about X", "connect my notes on X", "find gaps in X", "create synthesis"
+
+**Workflow:**
+1. `search(query="{topic}", limit=20)` — survey existing content
+2. `graph_gaps(top=10)` — find structural isolation in the knowledge graph
+3. `topic_packet(topic="{topic}", mode="learn")` — get comprehensive topic context with gaps, bridges, stale items
+4. If no mature synthesis note exists: `draft_from_topic(topic="{topic}", target="note")` — generate draft payload
+5. Present draft to user for approval/modification
+6. `create_note(title="{synthesis title}", body="{approved draft}", tags=["{topic}"])` — write to vault
+7. Report: note ID, existing notes connected, gaps surfaced, bridge candidates
+
+**Interaction model:** Checkpoint-based. Draft is presented for approval before writing to vault. User can modify title and key points before commit.
+
+**Complexity:** MEDIUM
+
+---
+
+### 8. `ztl:review-contradictions` — Contradiction Review
+
+**What it does:** Run the contradiction detection loop: find semantically-close conflicting notes, inspect each pair, confirm genuine contradictions as graph edges.
+
+**Why it's a differentiator:** Contradiction management is a unique ztlctl capability with no analog in typical knowledge tools. The agent review loop in `contradiction-detection.md` is complex enough that it needs a skill to encode the correct evaluation process.
+
+**MCP tools composed:** `ztlctl://review/contradictions` (resource), `check_contradictions`, `get_document`, `confirm_contradiction`
+
+**Trigger pattern:** "review contradictions", "find conflicting notes", "check for inconsistencies", "contradiction check"
+
+**Workflow:**
+1. Read `ztlctl://review/contradictions` — load current candidate list
+2. If no candidates: run `check_contradictions(max_pairs=20)` to generate fresh candidates
+3. For each candidate pair (score > 0.5):
+   a. `get_document(content_id="{note_a}")` and `get_document(content_id="{note_b}")` in parallel
+   b. Evaluate: do the notes genuinely contradict each other? Check `signals` field.
+   c. Present pair with verdict: "Genuine contradiction" or "False positive (compatible claims)"
+4. For confirmed contradictions: `confirm_contradiction(note_a="{a}", note_b="{b}")`
+5. Report: pairs reviewed, genuine contradictions confirmed, false positives dismissed
+
+**Interaction model:** Checkpoint-based per pair. Agent proposes verdict; user confirms before `confirm_contradiction` fires. Never auto-confirm — contradictions require human judgment.
+
+**Complexity:** MEDIUM
+
+---
+
+### 9. `ztl:garden-health` — Garden Maintenance
+
+**What it does:** Audit vault health: orphan notes, structural gaps, bridge nodes at risk, stale seeds. Produces a prioritized remediation queue.
+
+**Why it's a differentiator:** Garden health is a holistic vault operation that requires composing multiple analysis tools in the right sequence. No single MCP tool surfaces the full picture. This skill assembles the complete view.
+
+**MCP tools composed:** `vault_review`, `graph_gaps`, `graph_bridges`, `ztlctl://garden/backlog` (resource), `ztlctl://review/dashboard` (resource), `work_queue`
+
+**Trigger pattern:** "vault health", "garden review", "check my vault", "orphan sweep", "what's stale", "maintenance"
+
+**Workflow:**
+1. Read `ztlctl://garden/backlog` — stale seeds and orphan notes
+2. Read `ztlctl://review/dashboard` — external review workbench snapshot
+3. `vault_review()` — comprehensive aggregate snapshot (stale count, orphan count, maturity distribution)
+4. `graph_gaps(top=10)` — structurally isolated clusters
+5. `graph_bridges(top=10)` — high-value bridge nodes that, if lost, would disconnect clusters
+6. Synthesize: "Vault health: X orphans, Y stale seeds, Z structural gaps. Top bridge risk: [note title]."
+7. Produce prioritized action list: connect orphans → promote stale seeds → document gaps
+
+**Interaction model:** Autonomous audit, then checkpoint. Present health summary. Ask: "Should I process orphans automatically (reweave), or review each manually?"
+
+**Complexity:** HIGH
+
+---
+
+### 10. `ztl:decision-support` — Decision-Support Assembly
+
+**What it does:** Assemble structured decision context: existing decision notes, contradictions, polaris alignment, relevant references — all scoped to a topic.
+
+**Why it's a differentiator:** Decision support combines `decision_support`, `check_alignment`, contradiction data, and topic packets into a unified briefing. Raw tool calls don't compose these automatically.
+
+**MCP tools composed:** `decision_support`, `ztlctl://polaris` (resource), `check_alignment`, `ztlctl://decision-queue` (resource), `topic_packet`
+
+**Trigger pattern:** "help me decide X", "decision context for X", "what do my notes say about X decision", "decision briefing"
+
+**Workflow:**
+1. `decision_support(topic="{topic}")` — aggregate relevant decisions, tasks, references
+2. Read `ztlctl://decision-queue` — recent decisions plus active work queue
+3. Read `ztlctl://polaris` — current priorities
+4. `check_alignment(decision="{proposed decision}")` — advisory polaris check
+5. `topic_packet(topic="{topic}", mode="decision")` — decision-mode packet with supporting/conflicting links
+6. Synthesize and present: prior decisions, conflicting signals, polaris alignment, recommended action
+
+**Interaction model:** Autonomous. Returns structured briefing. No writes unless user asks to record a decision after reviewing.
+
+**Complexity:** MEDIUM
+
+---
+
+## Anti-Features
+
+Skills that seem valuable but should NOT be built.
+
+| Anti-Feature | Why Requested | Why Problematic | What to Do Instead |
+|--------------|---------------|-----------------|-------------------|
+| `ztl:search` — Skill that just calls `search` | "Make searching easier" | This is a single raw MCP call. Skills should encode multi-step workflows, not wrap atomic operations. A skill that calls `search` is just friction. | Call `search` directly from MCP. Use `ztl:orient` when you need context before searching. |
+| `ztl:create-note` — Skill wrapping `create_note` | "Ensure correct tagging" | A single-tool skill with validation is CLAUDE.md system prompt content, not a skill. Skills encode sequences, not validation rules. | Put tagging conventions in the skill's system prompt context. Add `domain/scope` tagging guidance to `ztl:capture`. |
+| `ztl:get` — Skill wrapping `get_document` | "Always load full content" | `get_document` IS the full content call. Adding a skill around it adds no value. | Call `get_document` directly. |
+| Fully autonomous contradiction confirming | "Save time in review" | `confirm_contradiction` inserts permanent bidirectional graph edges. Auto-confirming without human judgment can corrupt the knowledge graph with false positives. | Always checkpoint before `confirm_contradiction`. Never auto-confirm. |
+| Rigid session templates ("daily review session", "weekly synthesis session") | "Structure my week" | Time-based triggers are user calendar territory. Rigid templates force workflows that don't match the user's actual patterns. The vault doesn't know what day it is. | Compose existing skills (orient + session + review-triage) ad hoc. Let users build their own sequences. |
+| `ztl:init-vault` — Skill for initializing a vault | "Make setup easier" | Init is a one-time operation, not a recurring workflow. It doesn't need skill-level encoding — `ztlctl init` with the right flags is sufficient, and there's nothing to compose. | Document `ztlctl init` properly; don't wrap it in a skill. |
+| Skills that duplicate the 3 existing recipes verbatim | "Encode the recipes as skills" | `ztlctl://recipes/research-capture`, `ztlctl://recipes/review-triage`, `ztlctl://recipes/knowledge-synthesis` are already MCP resources. Skills should extend and compose, not duplicate. | `ztl:capture` extends Recipe 1 with polaris orientation. `ztl:synthesize` extends Recipe 3 with draft-and-approve gate. `ztl:review-triage` extends Recipe 2 with batch confirmation. |
+| Skills that manage plugin configuration | "Configure reweave thresholds" | Plugin config is TOML file territory. Skills shouldn't write config files. | Direct the user to `ztlctl.toml` and `configuration.md`. |
+| A single "do everything" `ztl:workflow` skill | "One command to rule them all" | Monolithic skills lose the composability that makes the skill system valuable. An 800-token omnibus skill that tries to handle all cases degrades every invocation. | Keep skills scoped to one workflow pattern. Let users compose `ztl:orient` + `ztl:session` + `ztl:capture` as needed. |
+
+---
+
+## Skill Composition Patterns
+
+From analyzing superpowers skills and ztlctl's agentic workflow docs, three composition patterns emerge:
+
+### Pattern 1: Sequential — Read-Decide-Write
+
+Used by: `ztl:capture`, `ztl:align`, `ztl:session`
+
+```
+resource_read → tool_read → decision_gate → tool_write → report
+```
+
+Steps are strictly ordered. Each step's output feeds the next. No parallelism needed. The decision gate is where checkpoints live — before any write operation.
+
+**Implementation guidance:** Use `result.ok` check between every step. Surface `error.recovery` on failure. Never proceed to write phase if read phase fails.
+
+---
+
+### Pattern 2: Fan-Out — Parallel Reads, Synthesized Report
+
+Used by: `ztl:garden-health`, `ztl:decision-support`, `ztl:orient`
+
+```
+parallel_reads → synthesis → conditional_writes
+```
+
+Multiple read-only calls run simultaneously (vault_review + graph_gaps + graph_bridges). Synthesis assembles the full picture. Optional write phase only if user confirms.
+
+**Implementation guidance:** Call all read tools in a single round before synthesizing. Don't read one, synthesize, read another — that leaks intermediate state into the report. Fan out, then consolidate.
+
+---
+
+### Pattern 3: Loop — Enumerate-Inspect-Act
+
+Used by: `ztl:review-triage`, `ztl:review-contradictions`
+
+```
+list_all → for each item: inspect → checkpoint → conditional_act → report
+```
+
+The loop pattern is the riskiest — it scales with vault size and can issue many write calls. Skills using this pattern MUST batch checkpoint: present the full proposed action set before any writes, let user approve/prune, then execute in bulk.
+
+**Implementation guidance:** Never call `confirm_contradiction` or `close_content` in a loop without a pre-loop checkpoint. The loop generates a proposed action list; execution is a separate phase after user approval.
+
+---
+
+## MCP Tool Composition Reference
+
+The 10 skills above decompose into these MCP tool/resource calls:
+
+| MCP Surface | Used By | Read/Write |
+|-------------|---------|------------|
+| `ztlctl://self/identity` | `ztl:orient` | Read |
+| `ztlctl://self/methodology` | `ztl:orient`, `ztl:session` | Read |
+| `ztlctl://polaris` | `ztl:orient`, `ztl:session`, `ztl:align`, `ztl:decision-support` | Read |
+| `ztlctl://sessions/recent` | `ztl:orient-session` | Read |
+| `ztlctl://review/contradictions` | `ztl:review-contradictions` | Read |
+| `ztlctl://review/dashboard` | `ztl:garden-health` | Read |
+| `ztlctl://garden/backlog` | `ztl:garden-health` | Read |
+| `ztlctl://decision-queue` | `ztl:decision-support` | Read |
+| `session_status` | `ztl:session` | Read |
+| `session_start` | `ztl:session`, `ztl:orient-session` | Write |
+| `session_close` | `ztl:session` | Write |
+| `check_alignment` | `ztl:align`, `ztl:session`, `ztl:decision-support` | Read |
+| `agent_context` | `ztl:orient`, `ztl:capture` | Read |
+| `search` | `ztl:capture`, `ztl:synthesize` | Read |
+| `ingest_source` | `ztl:capture` | Write |
+| `create_note` | `ztl:capture`, `ztl:synthesize` | Write |
+| `reweave` | `ztl:capture`, `ztl:synthesize` | Write |
+| `work_queue` | `ztl:review-triage` | Read |
+| `get_document` | `ztl:review-triage`, `ztl:review-contradictions` | Read |
+| `update_content` | `ztl:review-triage` | Write |
+| `close_content` | `ztl:review-triage` | Write |
+| `recall_temporal` | `ztl:orient-session` | Read |
+| `recall_topic` | `ztl:orient-session` | Read |
+| `vault_review` | `ztl:garden-health` | Read |
+| `graph_gaps` | `ztl:synthesize`, `ztl:garden-health` | Read |
+| `graph_bridges` | `ztl:garden-health` | Read |
+| `check_contradictions` | `ztl:review-contradictions` | Read |
+| `confirm_contradiction` | `ztl:review-contradictions` | Write |
+| `decision_support` | `ztl:decision-support` | Read |
+| `topic_packet` | `ztl:synthesize`, `ztl:decision-support` | Read |
+| `draft_from_topic` | `ztl:synthesize` | Read (draft only, no vault write) |
+
+---
+
+## User Interaction Model
+
+**Three tiers from observed plugin patterns (superpowers, feature-dev):**
+
+| Tier | Pattern | Used When |
+|------|---------|-----------|
+| Autonomous | Skill runs to completion, reports results | Read-only workflows, orientation, analysis |
+| Checkpoint-based | Skill pauses before writes, presents proposed actions, proceeds on approval | Any skill with write operations that are hard to undo |
+| Interactive | Skill asks questions during execution to handle ambiguity | Synthesis (draft approval), session start (topic confirmation) |
+
+**Recommendation for ztlctl skills:** Default to checkpoint-based for all write operations. The vault is the user's knowledge system — writes should never happen without user awareness. Fully autonomous mode is appropriate for `ztl:orient` and `ztl:garden-health` (analysis-only). Interactive mode is appropriate for `ztl:synthesize` (draft approval gate).
+
+**Key principle from superpowers analysis:** "If a skill applies, you don't have a choice. You MUST use it." Skills should be invoked eagerly based on intent matching, not only when the user explicitly names the skill.
+
+---
+
+## Skill Trigger Pattern Recommendations
+
+From analysis of superpowers and feature-dev trigger patterns, the most reliable triggers are:
+
+| Trigger Type | Examples | Reliability |
+|--------------|---------|-------------|
+| Explicit intent verb | "synthesize", "capture", "orient", "triage" | HIGH — unambiguous |
+| Topic + action | "start session on X", "review my notes on X" | HIGH — context-rich |
+| Feeling/state | "continue work", "pick up where I left off" | MEDIUM — needs recall |
+| Review request | "what needs attention", "check vault health" | MEDIUM — could route to triage OR health |
+| Creation request | "create a note", "save this" | MEDIUM — should usually route to `ztl:capture` not raw `create_note` |
+| Ambiguous state | "do X" with no established session | LOW — need pre-flight orientation |
+
+**For ambiguous trigger matching:** The skill system prompt should contain a decision matrix mapping user phrases to skill names. When two skills could apply (e.g., "review my vault" → `ztl:review-triage` vs `ztl:garden-health`), the skill should ask: "Do you want to review the work queue (actionable items) or vault health (structural gaps)?"
+
+---
+
+## Skill Catalog Summary
+
+| Skill Name | Category | Trigger | Complexity | Interaction | MCP Calls |
+|------------|----------|---------|------------|-------------|-----------|
+| `ztl:orient` | Table stakes | "orient", "load context", session start | LOW | Autonomous | 3 reads |
+| `ztl:session` | Table stakes | "start session", "close session" | MEDIUM | Checkpoint | 4–6 calls |
+| `ztl:capture` | Table stakes | "capture", "create note", "ingest" | LOW | Autonomous + dup warning | 3–5 calls |
+| `ztl:review-triage` | Table stakes | "triage", "work queue", "what needs attention" | MEDIUM | Checkpoint-batch | 5–15 calls |
+| `ztl:orient-session` | Table stakes | "continue", "resume", "pick up" | MEDIUM | Checkpoint | 4–8 calls |
+| `ztl:align` | Differentiator | "should I", "is this aligned", "check priority" | LOW | Checkpoint | 2–4 calls |
+| `ztl:synthesize` | Differentiator | "synthesize", "consolidate", "connect notes" | MEDIUM | Interactive (draft gate) | 5–8 calls |
+| `ztl:review-contradictions` | Differentiator | "contradictions", "conflicts", "inconsistencies" | MEDIUM | Checkpoint-per-pair | 3–10+ calls |
+| `ztl:garden-health` | Differentiator | "vault health", "maintenance", "garden review" | HIGH | Autonomous + checkpoint | 6–8 reads |
+| `ztl:decision-support` | Differentiator | "help me decide", "decision context", "briefing" | MEDIUM | Autonomous | 5–6 calls |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Diataxis Content Type Audit
-    └──enables──> Consistent progressive disclosure on all pages
-    └──enables──> Correct page structure for five new v3.0 feature pages
-                      └──requires──> Clear taxonomy: what type is each page?
+ztl:orient
+    └──enables──> ztl:session (polaris already loaded, skip re-read)
+    └──enables──> ztl:capture (context already assembled)
+    └──enables──> all other skills (orientation is the universal prerequisite)
 
-Three-Audience Tone Model
-    └──requires──> Tone guidelines written down and agreed on
-    └──enables──> Consistent voice on new v3.0 feature pages
+ztl:session (open)
+    └──requires──> ztl:orient (polaris + context loaded first)
+    └──enables──> ztl:capture (session ID available for note creation)
+    └──enables──> ztl:synthesize (session context loaded)
 
-Five New v3.0 Feature Pages
-    └──requires──> Diataxis structure pattern established (one reference model page first)
-    └──requires──> v3.0 features fully implemented (DONE)
-    └──requires──> Source-verified CLI + MCP examples for each feature
-    └──enhances──> agents.md, agentic-workflows.md, mcp.md (update cross-references)
+ztl:orient-session
+    └──subsumes──> ztl:orient (orientation is part of recall workflow)
+    └──precedes──> ztl:session (recall before starting new session)
 
-Glossary Page
-    └──requires──> Feature pages written (terms accumulate during writing)
-    └──enhances──> concepts.md, paradigms.md, all feature pages
-    └──reduces──> Repetitive inline definitions scattered across pages
+ztl:capture
+    └──composes_with──> active session (session ID passed to create_note)
+    └──feeds──> ztl:review-triage (created content enters work queue)
 
-"What's Next" Navigation
-    └──requires──> Well-defined page ordering (logical learning path established)
-    └──enhances──> quickstart → tutorial → concepts → features learning path
+ztl:align
+    └──composes_with──> ztl:session (alignment checked before session start)
+    └──composes_with──> ztl:synthesize (alignment checked before creating synthesis)
 
-Source-Verified Examples (CI)
-    └──requires──> v3.0 features fully implemented (DONE)
-    └──enhances──> All pages; particularly commands.md and new feature pages
+ztl:review-contradictions
+    └──requires──> semantic search (sqlite-vec; graceful error if not installed)
+    └──produces──> graph edges (contradicts edges in vault)
 
-Documentation-as-Code Enforcement
-    └──requires──> CLAUDE.md rule written
-    └──requires──> GSD phase template updated
-    └──prevents──> Future documentation rot
+ztl:garden-health
+    └──reads from──> outputs of ztl:capture, ztl:session (content those skills created)
+
+ztl:decision-support
+    └──composes_with──> ztl:align (polaris check is one step in decision-support)
+    └──reads from──> ztl:session results (prior session decisions)
 ```
 
-### Dependency Notes
+---
 
-- **Diataxis audit is the structural gate.** Before rewriting pages, classify every existing page by content type. Pages mixing tutorial + reference content need to be split or rewritten with a single purpose. This unlocks all other quality improvements.
-- **One reference model page before writing the other four.** Session recall should be written first (or whichever is structurally simplest), reviewed, then used as the template pattern for contradiction detection, polaris, media ingestion, and methodology guidance.
-- **Source-verification discipline is a gate on accuracy, not structure.** All content changes must verify every example against `src/ztlctl/commands/` and the ActionRegistry before publishing.
-- **Glossary is not a blocker but an amplifier.** Build it during feature page writing, not before — terms emerge from the writing process. Link from concepts.md and feature pages as the glossary grows.
+## MVP Skill Set
+
+The five skills that deliver the most value for the least implementation complexity:
+
+1. `ztl:orient` — Universal prerequisite; zero writes; unlocks all subsequent workflows
+2. `ztl:session` — Encodes the core session discipline; highest usage frequency
+3. `ztl:capture` — Encodes the most common agent operation; directly wraps Recipe 1
+4. `ztl:review-triage` — Encodes the review cycle; directly wraps Recipe 2
+5. `ztl:align` — Unique differentiator; adds polaris to every decision; low complexity
+
+Defer to v4.1+:
+- `ztl:garden-health` — High complexity; requires vault with sufficient content to be meaningful
+- `ztl:orient-session` — Useful after the user has accumulated session history; low value on fresh vaults
+- `ztl:review-contradictions` — Requires `sqlite-vec` (optional dependency); error-prone on unconfigured vaults
 
 ---
 
-## MVP Definition
+## Skill Authoring Constraints
 
-### Launch With (v3.1 documentation overhaul — professional grade)
+From `superpowers/skills/writing-skills/SKILL.md` patterns (direct observation):
 
-Minimum set of changes that justify the "professional-grade" claim.
+1. **Concise is key.** The skill shares the context window with everything else. Skills should be 200–500 tokens of prose, not comprehensive workflow documentation. Reference `agents.md` for schemas rather than inlining them.
 
-- [ ] Diataxis content type audit — classify every existing page, list mixed-purpose pages for remediation — **foundational gate, unblocks all else**
-- [ ] Five new v3.0 feature pages (session recall, polaris, contradiction detection, media ingestion, methodology guidance) — each with: what/why/CLI/MCP/examples structure — **primary coverage gap**
-- [ ] Update `concepts.md`, `agentic-workflows.md`, `agents.md`, `mcp.md`, `commands.md` with v3.0 content — **accuracy**
-- [ ] Consistent CLI syntax conventions across all pages (brackets, `$` prompts, "similar to the following:" prefix) — **professionalism signal; zero complexity**
-- [ ] Callout admonitions applied with a consistent taxonomy (Warning = destructive ops, Note = important context, Tip = best practices) — **scannability**
-- [ ] "What's next" links at the end of each page in the User Guide learning path — **retention**
-- [ ] Progressive disclosure applied to command pages: simplest useful invocation first, then option table, then advanced examples — **UX**
-- [ ] Documentation-as-code CLAUDE.md rule and GSD template update — **prevents future rot**
+2. **Degree of freedom matching.** High freedom (text instructions) for steps where multiple approaches are valid. Pseudocode for steps with a preferred pattern. Exact tool call signatures only for steps where the wrong call causes data corruption.
 
-### Add After Initial Overhaul (v3.1.x)
+3. **SKILL.md format:** Name field maps to trigger matching. Description field is what Claude reads to decide whether to invoke the skill. Iron Laws (gates) go at the top. The main content is step-by-step workflow.
 
-- [ ] Glossary page — add when feature pages expose enough new terms to justify a standalone reference
-- [ ] Methodology guidance deepening — expand `paradigms.md` with specific prose-as-title, garden maturity progression, polaris alignment workflows
-- [ ] CI-enforced example validation — add when resources allow; highest protection against regression
+4. **No duplicating agents.md.** Skills reference `agents.md` by name; they do not inline the full error table, entity schemas, or lifecycle state machines. Those live in `agents.md` — the skill just says "check `.success` before proceeding" not "here is every possible error code."
 
-### Future Consideration (v4+)
-
-- [ ] Asciinema / terminal recordings — meaningful lift, requires recording infra; defer until core content is excellent
-- [ ] Versioned docs — defer until adoption proves version fragmentation is a real support problem
-- [ ] i18n — out of scope until adoption requires it
-
----
-
-## Feature Prioritization Matrix
-
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Five new v3.0 feature pages | HIGH | HIGH | P1 |
-| Diataxis structural audit + fixes to mixed pages | HIGH | MEDIUM | P1 |
-| Update existing pages with v3.0 content | HIGH | MEDIUM | P1 |
-| Consistent CLI syntax conventions | HIGH | LOW | P1 |
-| Progressive disclosure on command pages | HIGH | LOW | P1 |
-| "What's next" page navigation | MEDIUM | LOW | P1 |
-| Callout admonition consistency | MEDIUM | LOW | P1 |
-| Documentation-as-code enforcement | HIGH | LOW | P1 |
-| Per-feature MCP tool surface docs | HIGH | MEDIUM | P2 |
-| Glossary page | MEDIUM | MEDIUM | P2 |
-| Methodology guidance deepening (paradigms.md) | MEDIUM | MEDIUM | P2 |
-| Error messages as teaching moments (troubleshooting.md) | MEDIUM | MEDIUM | P2 |
-| CI-enforced example validation | HIGH | HIGH | P3 |
-| Asciinema / terminal recordings | LOW | HIGH | P3 |
-
-**Priority key:**
-- P1: Required for "professional grade" claim — do in v3.1
-- P2: Meaningful quality lift — do when P1 is complete or in parallel if resources allow
-- P3: Nice to have — defer
-
----
-
-## Documentation Patterns from Stripe, Docker, and Obsidian
-
-### Stripe Documentation Patterns (HIGH confidence)
-
-1. **Documentation is part of the definition of done.** Features aren't shipped until documentation is written, reviewed, and published. Documentation contributions count toward performance reviews. This is a cultural decision encoded as process — for ztlctl, the CLAUDE.md enforcement rule and GSD phase template are the equivalent.
-2. **Personalization removes friction.** Auto-injecting API keys into examples eliminates copy-paste errors. The ztlctl analog: use realistic, consistent example IDs (`ztl_a1b2c3d4`, `LOG-0042`) throughout all docs, not `<YOUR_ID>` placeholders.
-3. **Three-column layout: nav / content / code.** The code column stays visible as users read explanations — they never lose context between prose and example. MkDocs shadcn does not replicate this exactly, but placing code blocks immediately adjacent to their explanatory prose achieves the same effect.
-4. **Fast paths for happy flow.** Common use cases appear before edge cases. Error handling, flags, and advanced options are deeper in the page. Implement this on every command page: show the one-line common invocation before the complete flag table.
-5. **Explanations are "clear, concise — never too little, never too much."** Stripe's docs are notable for not padding or over-explaining. Every sentence earns its place.
-
-### Docker Documentation Patterns (HIGH confidence — primary source from Docker CLI reference)
-
-1. **Every CLI command page follows the same structure:** Brief description → Detailed description → Options table (flag | default | description) → Examples section → Subcommands table. Predictability reduces cognitive load. Readers know where to find what they need without scanning.
-2. **Examples progress from simple to complex.** Don't start with the full flag set — start with the minimal invocation that does the core thing, then build up.
-3. **Contextual warnings as callouts.** "Do not use `-t` and `-a stderr` together" appears as a highlighted callout, not buried in prose. Critical gotchas are visually prominent.
-4. **Cross-linking subcommands bidirectionally.** Command group pages link to each subcommand; subcommand pages link back to the group. Navigation is bidirectional and consistent.
-5. **Environment variables, CLI flags, and config file properties documented in the same section.** All three surfaces (CLI / env / config) for the same setting appear together, grouped by concern. For ztlctl: each configuration option should show the TOML key, the CLI flag equivalent (if any), and the environment variable equivalent.
-
-### Obsidian Help Patterns (MEDIUM confidence — content rendering was limited; patterns inferred from structure)
-
-1. **Concepts are named and defined before they are used.** "Vault," "note," "link" are each defined before being used in how-to pages. For ztlctl: "reweave," "polaris," "WAL," "garden," "session recall," "contradiction score" need the same treatment — define in `concepts.md`, then reference from feature pages.
-2. **The tool's philosophy is documented, not just its features.** Obsidian help explains the "why" behind the link-first approach before showing how to create links. `paradigms.md` is the ztlctl analog — it needs to explain why each knowledge paradigm exists and what kind of thinking it enables.
-3. **Every feature page answers: what is this, why use it, how to enable it, how to use it.** Not a wall of options — a structured narrative.
-
-### CLIG (Command Line Interface Guidelines — clig.dev) (HIGH confidence)
-
-1. **Lead with examples.** Users look at examples before reading prose. The first code block on any command page should be the simplest useful invocation.
-2. **Display frequently-used commands and flags first.** Order by frequency of use, not alphabetically. Git groups "start a working area" before "examine history." In ztlctl: `create note`, `query search`, `session start` are the high-frequency operations and should be prominent.
-3. **Include web documentation links in `--help` output.** Bridges terminal ↔ web docs. Users should not have to search for documentation from the terminal.
-4. **Error messages are teaching moments.** Rewrite raw errors for humans: what went wrong, why, and what to run instead. This applies to `troubleshooting.md` — each entry should follow: symptom → diagnosis → fix → prevention.
-5. **When a command has no required arguments, show concise help automatically.** Don't make users pass `--help` explicitly — running `ztlctl session` with no subcommand should show the session commands, not an error.
-
-### Diataxis Framework (HIGH confidence — canonical source at diataxis.fr)
-
-The single highest-impact structural insight for professional documentation: **four content types serve four different user needs and must be kept separate.**
-
-| Type | User need | Writing approach | ztlctl analog |
-|------|-----------|-----------------|---------------|
-| **Tutorial** | Learning — take me through it | Hand-holding, step-by-step, guarantee success | `tutorial.md` |
-| **How-to guide** | Working — help me accomplish X | Goal-focused, assumes competence, lists steps | New v3.0 feature pages; specific how-to sections |
-| **Reference** | Looking up — what are the exact options | Accurate, complete, neutral — no tutorial content | `commands.md`, `configuration.md`, `api-reference.md` |
-| **Explanation** | Understanding — why does this work this way | Context, background, rationale | `concepts.md`, `paradigms.md` |
-
-**The single most common documentation quality failure:** mixing tutorial content into reference pages (or vice versa). Reference pages become unscannably long; tutorials lose their narrative structure. Every existing page should be audited against this taxonomy. Pages that mix types should either be split or rewritten with a single purpose.
-
-### Google Developer Style Guide (HIGH confidence — official source)
-
-1. **Optional arguments in brackets, required choices in braces:** `ztlctl create note [--subtype <type>] [--tags <tags>]`
-2. **Start multi-line examples with `$` prompt; omit directory paths.** Separate input and output into separate code blocks.
-3. **Use "The output is similar to the following:" before terminal output.** This signals the output is example, not literal — important for commands where output varies.
-4. **Three dots on a separate line for omitted output.** `...` not `…` (the Unicode ellipsis character).
+5. **Always check `.success`.** Every skill that calls a write tool must include an explicit "check `result.success` before proceeding to the next step" instruction. This is the single most important discipline documented in `best-practices.md`.
 
 ---
 
 ## Sources
 
-- [Stripe API Documentation — apidog.com analysis](https://apidog.com/blog/stripe-docs/)
-- [Docker CLI Reference — docs.docker.com](https://docs.docker.com/reference/cli/docker/)
-- [Diataxis Documentation Framework — diataxis.fr](https://diataxis.fr/)
-- [Command Line Interface Guidelines — clig.dev](https://clig.dev/)
-- [Document command-line syntax — Google Developer Style Guide](https://developers.google.com/style/code-syntax)
-- [Documenting Command-Line Interfaces — Progress Telerik Style Guide](https://docs.telerik.com/style-guide/document-command-line-tools)
-- [Documentation Best Practices for Developer Tools — draft.dev](https://draft.dev/learn/documentation-best-practices-for-developer-tools)
-- [12 Documentation Examples Every Dev Tool Can Learn From — draft.dev](https://draft.dev/learn/12-documentation-examples-every-developer-tool-can-learn-from)
-- [Building Documentation That Scales — Nerd Level Tech](https://nerdleveltech.com/building-documentation-that-scales-best-practices-for-2025/)
-- [Documentation Structure Tips — GitBook](https://gitbook.com/docs/guides/docs-best-practices/documentation-structure-tips)
-- [42 Coffee Cups: Technical Documentation Best Practices](https://www.42coffeecups.com/blog/technical-documentation-best-practices)
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/agentic-workflows.md` — primary workflow source; Recipe 1/2/3; agent recipes for polaris, recall, contradiction
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/agents.md` — source-verified schemas, lifecycle state machines, interaction flows, error handling
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/polaris.md` — alignment checking workflow and agent decision pattern
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/session-recall.md` — recall workflow and MCP tool contracts
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/contradiction-detection.md` — agent review loop pattern
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/best-practices.md` — anti-patterns and discipline rules (`.success` check, session wrap, no double-reweave)
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/mcp.md` — tool categories, resource list, MCP surface reference
+- `~/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.5/skills/` — skill structure patterns (SKILL.md format, Iron Law pattern, trigger matching, degree of freedom model)
+- `~/.claude/plugins/cache/claude-plugins-official/feature-dev/61c0597779bd/commands/feature-dev.md` — checkpoint-based workflow pattern (phases, explicit user approval gates)
+- `~/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.5/skills/writing-skills/SKILL.md` — skill authoring best practices (concise, degrees of freedom, token cost reasoning)
 
 ---
 
-*Feature research for: Professional-grade CLI/MCP developer tool documentation (ztlctl v3.1)*
-*Researched: 2026-03-21*
+*Feature research for: ztlctl Claude Code plugin skills (v4.0 Agentic Skills milestone)*
+*Researched: 2026-03-22*

@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** ztlctl v3.1 — Documentation Quality Overhaul and Docs-as-Code Enforcement
-**Domain:** Professional-grade CLI/MCP developer tool documentation
-**Researched:** 2026-03-21
+**Project:** ztlctl Claude Code Plugin — v4.0 Agentic Skills
+**Domain:** Claude Code plugin with deep zettelkasten workflow skills wrapping an existing Python MCP server
+**Researched:** 2026-03-22
 **Confidence:** HIGH
 
 ## Executive Summary
 
-ztlctl v3.1 is a documentation quality milestone, not a feature milestone. The product already ships with a working MkDocs site (mkdocs-shadcn theme, two-track nav, GitHub Pages artifact deploy, API reference via mkdocstrings, llms.txt for agent accessibility). What v3.1 must close: five v3.0 features shipped with no documentation, the existing pages mix content types that Diataxis classifies as incompatible, and nothing enforces docs completeness at merge time. The result is a tool with production-grade infrastructure and amateur-grade content.
+ztlctl v4.0 is a Claude Code plugin upgrade, not a new Python product. The MCP server (73+ tools) already ships in v3.x. The milestone's job is to wrap those tools in production-grade Agent Skills that encode the WHY, WHEN, and SEQUENCE of multi-step zettelkasten workflows — the patterns documented in `agentic-workflows.md`, `agents.md`, `polaris.md`, and `session-recall.md`. Research confirms that skills are workflow orchestrators, not tool wrappers: the value is in encoding correct multi-step sequences, not in creating indirection around atomic MCP calls. The existing `plugin/` directory provides a working v1 skeleton (3 skills, 4 commands, 2 agents, 1 hook) to upgrade from — this is not a greenfield build.
 
-The research converges on a two-track approach: infrastructure first, then content. The infrastructure track adds a `doc_lint` CI job (mkdocs strict build + Vale + pymarkdownlnt), enforces docs-as-code via a CLAUDE.md rule, and establishes the navigation order that reflects user progression rather than feature ship order. The content track then writes the five missing v3.0 feature pages and updates all stale cross-references — with tone, structure, and source-verification discipline established before the first word is written. Prose linting via Vale with the Google style package enforces active voice, second person, and present tense automatically; pymarkdownlnt catches structural issues; lychee runs on a schedule to catch broken external links.
+The recommended build order is: scaffold the plugin structure correctly first (directory layout, plugin.json, hooks.json), then implement skills in MVP-to-full order (orient → session → capture → review-triage → align, then differentiators), then validate distribution end-to-end before declaring readiness. The plugin itself is a pure filesystem artifact — no new Python packages, no build step, no npm. All runtime logic runs through the already-deployed `ztlctl serve` MCP server via stdio subprocess managed by Claude Code.
 
-The primary risks are drift and incompleteness. The historical pattern for ztlctl is that documentation gets written as an afterthought and immediately falls behind: v3.0 shipped five undocumented features, v2.1 found 15+ inaccurate CLI examples during its quality pass. Both risks are structural, not one-time problems. The mitigation is equally structural: CI gates that make broken or missing docs fail the PR, not advisory guidelines that get skipped under time pressure. Every feature phase in every future milestone must embed a mandatory documentation task block — that is the single highest-leverage change this milestone can make.
+The dominant risks are infrastructure-level, not feature-level: wrong directory layout (components inside `.claude-plugin/`), Python stdout pollution breaking the stdio transport, skill description overlap causing silent non-activation, skill content too long persisting in the context window throughout the session, and mismatched MCP tool names between `--plugin-dir` development and installed state. Every one of these failures is silent — the plugin appears correct while delivering nothing. The mitigation is a strict test-under-installed-state gate: no skill is considered complete until it is tested as an installed plugin, not just under `--plugin-dir`.
 
 ---
 
@@ -19,169 +19,144 @@ The primary risks are drift and incompleteness. The historical pattern for ztlct
 
 ### Recommended Stack
 
-The existing docs stack (MkDocs 1.6.1, mkdocs-shadcn 0.10.2, mkdocstrings, mkdocs-redirects, GitHub Pages artifact deploy) is solid and must not be replaced. v3.1 adds only four targeted new tools. Vale 3.14.1 is the definitive prose linter for docs-as-code — a Go binary with first-class pre-commit integration, used by Grafana, GitLab, Red Hat. The Google style package (v0.6.3) fits a CLI developer tool: second person, active voice, present tense, sentence-case headings. pymarkdownlnt 0.9.34 is the Python-native Markdown structure linter (the Node.js alternative, markdownlint-cli2, is incompatible with a pure-Python uv project). mkdocs-git-revision-date-localized 1.5.1 adds git-sourced "last updated" timestamps — always accurate, zero author discipline required. lychee runs in scheduled CI only (not per-PR) to avoid network flakiness.
+The Claude Code plugin is a pure filesystem artifact. No new Python packages, no build step, no npm. Plugin components are Markdown files (skills, commands, agents), JSON config (plugin.json, hooks.json, .mcp.json), and optional bash/Python hook scripts. All domain logic runs through the already-deployed `ztlctl serve` MCP server. The Vercel plugin (60+ skills, 3 agents, 6 commands) is the production-scale reference implementation.
 
-**Core technologies (new additions only):**
-- Vale 3.14.1 + Google style 0.6.3: prose linting — enforces consistent, professional writing voice across all doc pages
-- pymarkdownlnt 0.9.34: Markdown structure linting — heading hierarchy, list formatting, code fence syntax; Python-native, no Node.js
-- mkdocs-git-revision-date-localized 1.5.1: git-sourced "last updated" dates on every page — currency signal for a fast-moving project
-- pymdownx.superfences + pymdownx.tabbed: titled code blocks and tabbed CLI/MCP/agent examples — already transitively installed, just needs enabling
-- lychee (CI scheduled): external broken link checker; Rust-based, async, runs weekly to avoid PR flakiness
+**Core technologies:**
+- **SKILL.md format (markdown frontmatter + body):** skill definition — `description` field is the trigger mechanism; body encodes step-by-step workflow with explicit `mcp__plugin_ztlctl_ztlctl__<action>` tool names; 500-line body limit enforced
+- **hooks.json (plugin wrapper format `{"hooks": {...}}`):** hook event registration — distinct from user settings.json format; PreToolUse vault gate, SessionStart orientation, Stop session-guard
+- **.mcp.json (stdio transport):** connects Claude Code to `ztlctl serve`; CWD-based vault discovery; `PYTHONUNBUFFERED=1` in env to prevent buffering stalls
+- **plugin.json (.claude-plugin/ manifest):** registers name, version; only file inside `.claude-plugin/`; `skills/` auto-discovered from default location
+- **marketplace.json (git-subdir source):** sparse clone of `plugin/` subdirectory for mono-repo distribution; allows PyPI and plugin to share one repo with independent versioning
+- **Vercel plugin (reference template):** advanced `pathPatterns`, `bashPatterns`, `promptSignals`, `chainTo` frontmatter for precision skill triggering; use `description` field as primary trigger for v4.0, advanced fields as progressive enhancement
 
-**Critical version requirement:** Never use `mkdocs build -v --strict` — a confirmed MkDocs bug causes `-v --strict` to suppress strict-mode failures. Always `mkdocs build --strict` without `-v`.
+See `.planning/research/STACK.md` for full field reference, verified formats, hook I/O protocol, and distribution options.
 
 ### Expected Features
 
-The Diataxis framework is the single most important structural insight: four content types (tutorial, how-to, reference, explanation) serve incompatible user needs and must be kept on separate pages. Mixing them is the most common documentation quality failure and the pattern most visible in the current ztlctl docs. Every existing page must be audited against this taxonomy before new pages are written — this audit is the structural gate that unblocks everything else.
+Ten skills researched map directly to documented ztlctl agentic workflows. Five are table stakes (users expect them to exist); five are differentiators (unique to ztlctl's capabilities). Three lower-priority skills should defer to v4.1.
 
-**Must have (table stakes — required for "professional-grade" claim):**
-- Diataxis content type audit — classify all existing pages, identify mixed-purpose pages for remediation; this is the foundational gate
-- Five new v3.0 feature pages: session recall, polaris priorities, contradiction detection, media ingestion, methodology guidance — each with problem framing, CLI usage, MCP tool surface, and agent workflow examples
-- Update `concepts.md`, `agentic-workflows.md`, `agents.md`, `mcp.md`, `commands.md` with v3.0 content — accuracy
-- Consistent CLI syntax conventions across all pages (Google style: `[optional]`, `{required}`, `$` prompts, "similar to the following:")
-- Callout admonitions with consistent taxonomy (Warning = destructive ops, Note = important context, Tip = best practices)
-- "What's next" links at the end of each User Guide page — prevents dead-ends in the learning path
-- Progressive disclosure on command pages: simplest useful invocation first, then option table, then advanced examples
-- Documentation-as-code CLAUDE.md rule and GSD phase template doc task block — prevents future rot
+**Must have (table stakes):**
+- `ztl:orient` — vault orientation before any work; reads identity, polaris, assembles agent context; universal prerequisite — all other skills skip redundant reads when orient has already fired
+- `ztl:session` — full session lifecycle (status check → polaris alignment → start → close with enrichment report); the primary coordination primitive in ztlctl
+- `ztl:capture` — research capture workflow (search existing → ingest source → create synthesis note → auto-link); most frequent agent operation; extends Recipe 1 from agentic-workflows.md with pre-flight orientation
+- `ztl:review-triage` — work queue review (list → inspect → update/archive); extends Recipe 2; checkpoint-batch pattern — generates proposed action set before any writes
+- `ztl:orient-session` — recall-driven session start (load prior sessions → rebuild context → start grounded); prevents repeat work on recurring topics
 
-**Should have (meaningful quality lift — v3.1.x after P1 complete):**
-- Glossary page for domain-specific terms (reweave, polaris, WAL, garden, session recall, contradiction score)
-- Per-feature MCP tool surface documented alongside CLI surface on every feature page
-- Error messages as teaching moments in troubleshooting.md (symptom → diagnosis → fix → prevention)
-- Methodology guidance deepening in paradigms.md (prose-as-title, garden maturity progression, polaris alignment workflows)
+**Should have (differentiators):**
+- `ztl:align` — polaris-first decision gate; unique "is this on-strategy?" check before any significant action; LOW complexity; included in MVP
+- `ztl:synthesize` — knowledge synthesis (search → graph gaps → topic packet → draft → approve → create); extends Recipe 3 with draft-approval interaction gate
+- `ztl:review-contradictions` — contradiction review loop (detect → inspect pairs → confirm genuine conflicts); requires human judgment before every `confirm_contradiction` write; never auto-confirm
+- `ztl:garden-health` — vault maintenance audit (orphans, structural gaps, bridge nodes); fan-out read pattern; autonomous audit then checkpoint before writes
+- `ztl:decision-support` — decision context briefing (decision_support + polaris + check_alignment + topic_packet); autonomous read-only synthesis
 
-**Defer (v4+):**
-- Asciinema / terminal recordings — meaningful lift, requires recording infrastructure
-- Versioned docs — defer until adoption proves version fragmentation is a real support problem
-- i18n — out of scope until adoption requires it
+**Defer to v4.1+:**
+- `ztl:garden-health` — HIGH complexity; low value on fresh or small vaults
+- `ztl:orient-session` — useful only after session history has accumulated; low value on new installations
+- `ztl:review-contradictions` — requires `sqlite-vec` (optional dependency); error-prone on unconfigured vaults
+
+**Anti-features (do not build):**
+- Single-tool wrapper skills (`ztl:search`, `ztl:create-note`, `ztl:get`) — skills encode sequences, not atomic operations; these add friction without value
+- Autonomous contradiction confirming — `confirm_contradiction` inserts permanent bidirectional graph edges; always requires human checkpoint
+- Rigid time-based session templates ("daily review") — user calendar territory, not vault territory; compose existing skills ad hoc instead
+- A single monolithic "do everything" skill — kills composability; degrades every invocation with 800-token overhead
+
+See `.planning/research/FEATURES.md` for full skill specifications, MCP tool composition tables, interaction model tiers, and feature dependency graph.
 
 ### Architecture Approach
 
-The MkDocs system uses artifact-based GitHub Pages deploy (no `gh-pages` branch). All navigation is driven by explicit `nav:` in `mkdocs.yml` — filesystem layout is irrelevant; a file not in `nav:` is unreachable from navigation and excluded from search. The five new v3.0 feature pages go in `docs/` root (consistent with all existing v2.1 pages) and are registered in `mkdocs.yml nav:` under the User Guide section. A new `doc_lint` job runs in `pr-ci.yml` parallel to `validate_pr` — `mkdocs build --strict` plus optional pymarkdownlnt scan — blocking merges with broken or unreachable docs. The deploy workflow (`docs.yml`) is unchanged. `llms.txt` and `llms-full.txt` are hand-maintained and must be updated in the same PR as any new page addition. The CLAUDE.md docs-as-code rule encodes a per-change checklist: feature page, nav registration, llms.txt entry, llms-full.txt append, cross-reference updates, strict build verification.
+The plugin architecture is a thin orchestration layer over a fully-featured MCP server. Claude Code manages the subprocess lifecycle; the plugin provides model-invoked skills, user-invoked commands, autonomous agents, and hook scripts. All domain logic lives in `ztlctl serve` — the plugin only encodes workflow sequencing and interaction discipline. Three composition patterns cover all ten skills.
 
 **Major components:**
-1. `mkdocs.yml nav:` — authoritative navigation registry; every new page requires an explicit entry; `mkdocs build --strict` detects missing entries
-2. `pr-ci.yml doc_lint job` — new parallel CI job; gates merges; runs `mkdocs build --strict` plus optional link check; must pin identical MkDocs versions to `docs.yml`
-3. `.vale.ini` + `.pymarkdown.json` — prose and structure linting config at repo root; `vale sync` downloads Google style on checkout; `.vale/styles/` gitignored
-4. `docs/llms.txt` + `docs/llms-full.txt` — hand-maintained agent accessibility files; updated in every docs PR; CI count-check recommended at 30+ pages
-5. `CLAUDE.md Documentation Rule` — standing enforcement instruction; defines per-change checklist; makes docs-as-code structural, not advisory
+1. **`plugin/.claude-plugin/plugin.json`** — manifest; only file inside `.claude-plugin/`; registers name, version, MCP config pointer
+2. **`plugin/.mcp.json`** — stdio subprocess config; CWD-based vault discovery; `PYTHONUNBUFFERED=1` in env
+3. **`plugin/skills/<name>/SKILL.md`** — skill workflows; three-level progressive disclosure (frontmatter triggers → body workflow → reference files loaded on demand); 500-line body limit; `disable-model-invocation: true` on all write-operation skills
+4. **`plugin/commands/*.md`** — user-invoked slash commands; thin entry points that activate skill context; do not duplicate skill content
+5. **`plugin/agents/*.md`** — autonomous subagents with explicit `tools` allowlist and `maxTurns` constraint; no `hooks`, `mcpServers`, or `permissionMode` fields (unsupported in plugin agents)
+6. **`plugin/hooks/hooks.json`** — hook event handlers in `{"hooks": {...}}` plugin wrapper format; PreToolUse vault existence gate, SessionStart polaris orientation
+7. **`plugin/hooks/scripts/`** — bash/Python hook scripts; all paths via `${CLAUDE_PLUGIN_ROOT}`; execute bit must be committed
+
+**Three composition patterns (cover all 10 skills):**
+- **Sequential (read-decide-write):** `ztl:capture`, `ztl:align`, `ztl:session` — strict step order, decision gate before any write, `result.success` check between every step
+- **Fan-out (parallel reads, synthesized report):** `ztl:garden-health`, `ztl:decision-support`, `ztl:orient` — all reads in one round before synthesizing; optional conditional writes only after user confirmation
+- **Loop (enumerate-inspect-act):** `ztl:review-triage`, `ztl:review-contradictions` — list → inspect → pre-loop checkpoint → bulk execute after approval; never write inside the loop without prior batch approval
+
+See `.planning/research/ARCHITECTURE.md` for full directory layout, plugin.json schema, hook I/O protocol, anti-patterns, vault discovery contract, and the component interaction diagram.
 
 ### Critical Pitfalls
 
-1. **Documenting what the tool does instead of what the user needs to accomplish** — Structure pages around user goals, not CLI commands. Every new v3.0 feature page opens with the problem it solves, then shows the solution, then provides the reference table. The existing `agents.md` is the model to follow.
+1. **Components inside `.claude-plugin/`** — all skills, agents, commands, hooks must be at plugin root; only `plugin.json` belongs in `.claude-plugin/`; failure is silent (plugin loads, all components absent). Prevention: enforce structure from first commit; run `claude plugin validate` before any skill testing.
 
-2. **CLI examples that drift from source on the first feature change** — Every CLI example must be verified against `uv run ztlctl <command> --help` at time of writing, flag names copied verbatim. Add CLAUDE.md rule: when writing or updating any CLI example, run the command against source and confirm output matches. CI smoke tests on critical examples (quickstart, agentic-workflows) provide structural protection.
+2. **Python stdout pollution breaking stdio transport** — any `print()`, startup banner, or library that writes to stdout corrupts JSON-RPC; server disconnects with a timeout that looks like a config problem, not a logging problem. Prevention: all output to stderr; `PYTHONUNBUFFERED=1` in `.mcp.json` env; verify with `echo '{"jsonrpc":"2.0",...}' | ztlctl serve` before skill testing begins.
 
-3. **Missing beginner-to-advanced progression** — Map the user journey before adding any new pages: install → daily capture → search/graph → sessions → strategic alignment → ingestion at scale → extensibility. New v3.0 pages must be placed at the correct position in this progression in `mkdocs.yml nav:`, not appended to the bottom.
+3. **Plugin version not bumped = stale cache** — users never see skill fixes or improvements because Claude Code caches by version string; `claude plugin update` reports "already at latest." Prevention: treat `plugin.json` version increment as a mandatory PR gate enforced by CI from day one.
 
-4. **v3.0 feature pages that don't update existing cross-references** — Every new page PR must touch `concepts.md`, `agentic-workflows.md`, `agents.md`, `mcp.md`, `llms.txt`, and `llms-full.txt`. This is a PR gate, not a follow-up task. Cross-reference updates deferred to a "cleanup pass" reliably never happen.
+4. **MCP tool names differ between `--plugin-dir` and installed state** — known Claude Code bug (#29360); `allowed-tools` wildcards are not transformed under `--plugin-dir`, causing skills to require per-use approval in production that never appeared in development. Prevention: test every skill under installed state before declaring it ready; `--plugin-dir` testing is necessary but not sufficient.
 
-5. **llms.txt and llms-full.txt going stale** — Five new pages added without updating these files means agents using llms.txt for capability discovery never discover session recall, polaris, contradiction detection, or media ingestion. Update in the same commit as the new page. At 30+ pages, add a generator script and a CI count-check.
+5. **Stop hook infinite loop** — a `Stop` hook using `exit 2` causes Claude to retry the stop indefinitely; session hangs and must be force-quit. Prevention: every `Stop` hook must check `stop_hook_active` field in hook input; if `true`, exit 0 unconditionally.
+
+6. **Skill description overlap causing silent non-activation** — two skills with overlapping descriptions cause incorrect selection or no activation; the skill is installed but never fires for its intended scenarios. Prevention: review all descriptions as a set; write 5 trigger prompts and 3 non-trigger prompts per skill; unique action verbs and context markers per description.
+
+7. **Skill content bloating context window** — every activated SKILL.md body persists in context for the entire session; multiple heavy skills accumulate and crowd out conversation history. Prevention: 500-line body limit; move reference docs to `references/` subdirectory; use `context: fork` for heavy multi-step workflows like session management.
+
+8. **Side-effect skills auto-invoking without user intent** — write-operation skills (capture, session-start, close) can fire from ambient context matching. Prevention: `disable-model-invocation: true` in frontmatter on all skills that perform writes.
+
+See `.planning/research/PITFALLS.md` for 20 documented pitfalls with detection/prevention, a Python/plugin boundary failure mode table, a testing strategy (development loop → installed-state gate), and a distribution checklist.
 
 ---
 
 ## Implications for Roadmap
 
-Based on combined research, the build order has a clear dependency chain. Infrastructure must land before content, and a user journey map must be established before the first new feature page is written. All content work can then proceed in parallel across phases.
+### Phase 1: Plugin Foundation
+**Rationale:** The existing `plugin/` skeleton must be upgraded to the correct v4.0 structure before any skill work begins. Wrong directory layout (Pitfall 1) is the most common plugin failure and is undetectable from the skill authoring side — all subsequent work builds on a broken scaffold. This phase also establishes the MCP integration test baseline (Pitfall 2) — no skill work should proceed until `ztlctl serve` stdio is verified to produce clean JSON-RPC.
+**Delivers:** Updated `plugin.json` (version 4.0.0 with explicit `mcpServers` pointer), validated `.mcp.json` with `PYTHONUNBUFFERED=1`, `hooks.json` in plugin wrapper format with PreToolUse vault gate (`mcp-gate.sh`) and enhanced SessionStart hook (polaris output added), updated `marketplace.json` with `git-subdir` source. All passing `claude plugin validate`. MCP stdio verified clean.
+**Addresses:** Pitfall 1 (directory structure), Pitfall 2 (stdout pollution), Pitfall 3 (version bump CI gate), Pitfall 8 (hook script execute bit), Pitfall 11 (env variable expansion in hooks)
+**Research flag:** Standard patterns — official docs are definitive; no additional research needed
 
-### Phase 1: Docs-as-Code Infrastructure
+### Phase 2: MVP Skills (Table Stakes + Align)
+**Rationale:** Five highest-value, lowest-complexity skills form the MVP. `ztl:orient` is the universal prerequisite and must be implemented first within this phase — it has zero writes and its polaris + context output is explicitly referenced by `ztl:session` and `ztl:capture` as skippable when already fired. `ztl:align` is included in MVP despite being classified as a differentiator because it is LOW complexity and the polaris integration is a core ztlctl identity marker that should be visible from v4.0 day one.
+**Delivers:** 5 skills: `ztl:orient`, `ztl:session`, `ztl:capture`, `ztl:review-triage`, `ztl:align`. All with correct frontmatter (`disable-model-invocation: true` on write skills), 500-line body limit enforced, supporting `references/` files for complex workflows, activation tested under installed state (5 trigger prompts + 3 non-trigger prompts per skill).
+**Implements:** Sequential and loop composition patterns; checkpoint-based interaction model for all write operations; `result.success` check discipline before every write step
+**Avoids:** Pitfall 4 (test under installed state), Pitfall 6 (description overlap — review all 5 descriptions as a set before implementation), Pitfall 7 (context window persistence — session skill uses `context: fork`), Pitfall 16 (reimplementing server logic in skill body), Pitfall 20 (auto-invocation of write skills)
+**Research flag:** Standard patterns — FEATURES.md provides complete skill specifications; no additional research needed
 
-**Rationale:** This phase has no content dependencies and enables all subsequent phases. A doc_lint CI gate that doesn't exist means every subsequent docs PR merges without structural validation. The CLAUDE.md rule and GSD phase template update prevent future rot from this milestone forward. These changes take one to two PRs and unblock everything else.
+### Phase 3: Differentiator Skills
+**Rationale:** The five differentiator skills involve greater tool composition complexity and in two cases have conditional dependencies (sqlite-vec for contradictions, accumulated session history for orient-session). Build order within this phase: `ztl:synthesize` first (extends Recipe 3, medium complexity, no optional dependencies), `ztl:decision-support` second (autonomous read-only, fan-out pattern, medium complexity), `ztl:orient-session` third (recall workflow, medium complexity), `ztl:garden-health` fourth (fan-out pattern with most tool calls, HIGH complexity), `ztl:review-contradictions` last (sqlite-vec dependency, per-pair checkpoint loop, most complex interaction model).
+**Delivers:** 5 differentiator skills with full activation testing. `ztl:garden-health` uses `context: fork` to prevent context bloat. `ztl:review-contradictions` includes graceful degradation when sqlite-vec is absent. All 10 skill descriptions reviewed as a set for overlap after this phase completes.
+**Implements:** Fan-out composition pattern; loop with pre-loop batch checkpoint; draft-approval interactive model for synthesize
+**Avoids:** Pitfall 6 (description overlap — review all 10 descriptions together after this phase), Pitfall 7 (garden-health is highest-risk for context bloat; `context: fork` mandatory), Pitfall 9 (wrong exit code — confirm-contradiction must never auto-fire)
+**Research flag:** Standard patterns — FEATURES.md specifications are complete; sqlite-vec graceful degradation follows existing ztlctl service patterns
 
-**Delivers:**
-- `doc_lint` job in `pr-ci.yml` (`mkdocs build --strict` + pymarkdownlnt scan)
-- `.vale.ini` + `.pymarkdown.json` config at repo root with Vale Google style
-- CLAUDE.md Documentation Rule section with per-change checklist
-- GSD phase template: mandatory Documentation Tasks block in every future feature phase
+### Phase 4: Commands, Agents, and Distribution
+**Rationale:** Commands and agents build on top of working skills. Commands are thin user-invoked entry points that activate skill context — they do not duplicate skill content. Agents are autonomous subagents with constrained tool allowlists. Distribution validation (Pitfalls 3, 12, 13, 15) must occur before any public release claim. End-to-end install test on a clean machine is the gate.
+**Delivers:** Updated slash commands (`/ztlctl:session`, `/ztlctl:capture`, `/ztlctl:review`, `/ztlctl:seed`, `/ztlctl:research`); new agents (`contradiction-resolver.md`, `session-orchestrator.md`; updated `knowledge-synthesizer.md`, `vault-analyst.md`); end-to-end install test on clean machine; `claude mcp list` verification post-install; Windows compatibility documented in README; plugin README updated with prerequisites (`ztlctl[mcp]`), installation steps, post-install verification.
+**Implements:** Command-as-entry-point pattern; agent `tools` allowlist + `maxTurns` constraint
+**Avoids:** Pitfall 12 (no path traversal outside plugin root), Pitfall 13 (plugin-MCP sync mismatch — `claude mcp list` post-install check), Pitfall 15 (Windows uvx PATH — document prerequisite), Pitfall 17 (plugin name kebab-case), Pitfall 19 (unsupported agent frontmatter fields — no `hooks`, `mcpServers`, or `permissionMode` in plugin agents)
+**Research flag:** Agent frontmatter supported field list (Pitfall 19) should be verified against current Claude Code docs at implementation time — supported fields list may change across Claude Code releases
 
-**Addresses:** Documentation-as-code enforcement (P1), docs CI gate (table stakes)
-**Avoids:** Doc PRs separate from feature PRs anti-pattern; `mkdocs build` without `--strict` in CI
-
-### Phase 2: Navigation and Information Architecture
-
-**Rationale:** The user journey map and Diataxis content type audit must be established before new pages are written. Writing five new pages into a navigation that reflects feature ship order (not user progression) amplifies the existing structural problem rather than fixing it. This phase is a short audit PR — classifying pages, not rewriting them.
-
-**Delivers:**
-- Diataxis audit: every existing page classified by content type; mixed-purpose pages listed for remediation
-- User Guide `nav:` reordered in `mkdocs.yml` to reflect beginner-to-advanced progression
-- Confirmed placement for all five v3.0 feature pages in the navigation order
-- "What's next" links structure determined for the User Guide learning path
-
-**Addresses:** Diataxis structural audit (P1 gate), progressive disclosure, "What's next" navigation
-**Avoids:** Beginner-to-advanced progression pitfall; nav order reflecting feature ship date rather than skill progression
-
-### Phase 3: Five v3.0 Feature Pages
-
-**Rationale:** With CI gating live and nav order established, the five undocumented v3.0 features can be written correctly on the first attempt. Session recall should be written and reviewed first — it is the most structurally straightforward — then used as the template pattern for the remaining four. Each page is delivered as an individual PR to keep review scope manageable.
-
-**Delivers:**
-- `docs/session-recall.md` — temporal/topic/topology querying, MCP resource reference, recall vs. session context comparison
-- `docs/polaris.md` — init scaffold, MCP resource, check_alignment action, agent alignment workflow; framed as "strategic layer of your vault" not "optional configuration"
-- `docs/contradiction-detection.md` — heuristic scoring explanation, CAT_SEMANTIC check, resolution workflow (update / link / mark intentional)
-- `docs/media-ingestion.md` — faster-whisper setup with prominent optional dependency callout, VTT/SRT, two-phase workflow
-- `docs/methodology-guidance.md` — prose-as-title template, title quality check severity, garden backlog candidates
-- For each page: `mkdocs.yml nav:` entry, `llms.txt` entry, `llms-full.txt` append, cross-references in `concepts.md` / `agentic-workflows.md` / `agents.md` / `mcp.md`
-
-**Uses:** Vale + Google style (tone enforcement), pymarkdownlnt (structure), pymdownx.superfences + tabbed (titled code blocks, CLI/MCP/agent tab examples)
-**Avoids:** Reference dump anti-pattern; internal architecture leaking into user-facing pages; stale llms.txt; missing cross-references
-
-### Phase 4: Existing Page Updates and Quality Pass
-
-**Rationale:** New pages exist but the existing pages need parallel updates to reflect v3.0 reality and apply quality patterns (progressive disclosure, consistent admonition taxonomy, consistent CLI syntax conventions, "What's next" links). These can proceed in parallel with Phase 3 — there is no blocking dependency between writing new pages and updating existing ones.
-
-**Delivers:**
-- `docs/concepts.md`: v3.0 content types added (sessions, contradictions, media)
-- `docs/commands.md`: v3.0 commands added; progressive disclosure applied (simplest invocation first)
-- `docs/agentic-workflows.md`: v3.0 recipes added (polaris-aligned session, recall-driven context, contradiction review)
-- `docs/agents.md`: v3.0 tool inventory rows added; failure mode documentation added for agent error recovery
-- `docs/mcp.md`: tool count updated (73+), new resources documented
-- `docs/troubleshooting.md`: verified v3.0 completeness; error entries upgraded to symptom → diagnosis → fix → prevention format
-- Global: consistent CLI syntax conventions, callout admonition taxonomy, "What's next" links applied across all User Guide pages
-
-**Addresses:** Consistent CLI syntax (P1), progressive disclosure (P1), callout admonitions (P1), cross-reference updates
-**Avoids:** Tone inconsistency; mixed tutorial/reference content on same page; examples without workflow narrative
-
-### Phase 5: Internal Documentation Refresh
-
-**Rationale:** CLAUDE.md, DESIGN.md, and README.md reflect pre-v3.0 reality. These are developer-facing documents that do not block user-facing docs from going live. They can run in parallel with Phases 3 and 4 or follow them.
-
-**Delivers:**
-- `CLAUDE.md` architecture section: reflects v3.0 6-layer structure, ActionRegistry, plugin API, MCP adapter
-- `DESIGN.md`: post-v3.0 architecture decisions captured
-- `README.md`: 73+ actions, new v3.0 features, updated command examples
-
-**Addresses:** Internal documentation accuracy
-**Avoids:** Developer-voice content leaking into user-facing docs (separate concerns)
-
-### Phase 6: P2 Quality Additions (Glossary, MCP Surface, Methodology Deepening)
-
-**Rationale:** These are meaningful quality lifts but not required for the "professional-grade" claim. The glossary page is written after feature pages because terms emerge during the writing process. Per-feature MCP tool surface documentation and methodology guidance deepening expand on content that Phase 3 establishes.
-
-**Delivers:**
-- `docs/glossary.md`: domain-specific terms (reweave, polaris, WAL, garden, session recall, contradiction score) with links from concepts.md and feature pages
-- Per-feature MCP tool surface: CLI commands and equivalent MCP tool calls documented side-by-side on every feature page
-- `docs/paradigms.md`: methodology guidance deepening — prose-as-title template, garden maturity progression, polaris alignment workflows
-
-**Addresses:** Glossary (P2), per-feature MCP docs (P2), methodology guidance (P2)
+### Phase 5: Validation and Hardening
+**Rationale:** All prior phases produce artifacts that can fail silently under installed state. A dedicated hardening phase running the full distribution checklist from PITFALLS.md is non-negotiable before marketplace submission. This phase also locks in the version bump CI gate established in Phase 1 and validates the complete skill activation test suite across all 10 skills.
+**Delivers:** Full distribution checklist pass (all 20+ checklist items in PITFALLS.md); CI enforcement of `plugin.json` version increment on plugin-modifying PRs; complete skill activation test suite (5 trigger + 3 non-trigger prompts per skill, 10 skills total); context window budget validation (`/context` check with all skills loaded); `CHANGELOG.md` in plugin directory; `claude plugin validate` with zero warnings.
+**Addresses:** All 20 pitfalls systematically; marketplace submission readiness
+**Research flag:** No additional research needed — PITFALLS.md distribution checklist is comprehensive
 
 ### Phase Ordering Rationale
 
-- Phase 1 (infrastructure) has no content dependencies and must land first so subsequent PRs are gated
-- Phase 2 (nav/IA) must precede Phase 3 (new pages) to avoid writing content into the wrong structural context
-- Phases 3, 4, and 5 are independent and can be parallelized if resources allow; Phase 3 is higher priority because it closes the five-undocumented-features gap
-- Phase 6 is deferred until Phase 3 is complete because glossary terms emerge during feature page writing
-- The five new feature pages in Phase 3 should be delivered as individual PRs (one per feature), each passing the doc_lint gate before merge, rather than as a single large PR
+- Foundation before skills: a single directory layout mistake makes all skills invisible and is undetectable from the skill authoring side; fixing it after 10 skills are written risks cascading rework
+- MVP skills before differentiators: `ztl:orient` is an explicit prerequisite that later skills reference by name ("if orient has already fired, skip polaris read"); shipping it first enables correct composition logic in all subsequent skills
+- Skills before commands and agents: commands are entry points to skills; agents compose skills in autonomous loops; building on unvalidated skills produces compounded failures
+- Distribution validation before hardening: distribution test reveals environment-specific failures (Windows PATH, plugin-MCP sync) that must be documented before the checklist pass
+- Hardening last: the distribution checklist and CI gates are meaningless until there is a complete set of artifacts to check against
 
 ### Research Flags
 
-Phases with well-documented patterns (skip research-phase):
-- **Phase 1:** CI job structure and Vale/pymarkdownlnt configuration are fully specified in STACK.md and ARCHITECTURE.md; implementation is mechanical
-- **Phase 2:** Diataxis audit methodology is well-documented at diataxis.fr; nav reordering is a `mkdocs.yml` edit; no external research needed
-- **Phase 5:** Internal docs are factual updates derived from codebase reading; no pattern research needed
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (Foundation):** official Claude Code plugin docs are definitive; existing `plugin/` skeleton provides concrete upgrade baseline; no unknowns
+- **Phase 2 (MVP Skills):** FEATURES.md skill specifications are production-ready; hook and SKILL.md formats are fully verified from first-party sources
+- **Phase 3 (Differentiator Skills):** specifications complete in FEATURES.md; sqlite-vec graceful degradation is established ztlctl pattern
+- **Phase 5 (Hardening):** PITFALLS.md checklist is comprehensive; no unknowns
 
-Phases requiring source verification (codebase reading, not external research):
-- **Phase 3:** Each feature page must be verified against the ActionRegistry (`src/ztlctl/actions/`) and the actual CLI (`uv run ztlctl <command> --help`) before the page is considered complete; flag names and MCP tool signatures must come from source, not memory
-- **Phase 4:** `agents.md` capability table must be diffed against the ActionRegistry; `mcp.md` tool count must be verified against the auto-generated MCP tool list
+Phases needing targeted verification at implementation time:
+- **Phase 4 (Agents):** Agent frontmatter supported field list (Pitfall 19) should be spot-checked against current Claude Code docs before agent files are written — the documented unsupported fields reflect current behavior but could change across releases
 
 ---
 
@@ -189,46 +164,58 @@ Phases requiring source verification (codebase reading, not external research):
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All recommendations sourced from official docs, GitHub releases, and direct codebase inspection. Vale, pymarkdownlnt, lychee, and mkdocs-git-revision-date-localized are current and version-confirmed |
-| Features | HIGH | Diataxis, CLIG, Google style guide, and Stripe/Docker patterns are primary sources; Obsidian patterns are MEDIUM (content rendering limited during research; patterns inferred from structure) |
-| Architecture | HIGH | Derived from direct codebase reading (`mkdocs.yml`, `pr-ci.yml`, `docs.yml`, all `docs/` pages). No assumptions — live system confirmed |
-| Pitfalls | HIGH | Infrastructure and drift pitfalls confirmed against ztlctl source history (v3.0 shipped undocumented features; v2.1 found 15+ inaccurate examples). Agent-specific patterns from blog sources are MEDIUM |
+| Stack | HIGH | All findings from first-party sources: live installed plugin source code (example-plugin, hookify, plugin-dev, skill-creator, Vercel), official Claude Code docs, existing `plugin/` directory in this repo |
+| Features | HIGH | Primary sources: ztlctl docs (agentic-workflows.md, agents.md, polaris.md, session-recall.md, contradiction-detection.md, best-practices.md), direct superpowers/feature-dev plugin inspection. Skill specifications derived directly from documented workflows |
+| Architecture | HIGH | Official Claude Code docs verified; existing plugin/ directory as ground truth; MCP server source code inspected (serve.py, server.py). Component interaction diagram verified against live plugin loading behavior |
+| Pitfalls | HIGH (official-sourced) / MEDIUM (community-sourced) | Critical pitfalls 1-8 sourced from official docs and GitHub issues with official confirmation. Community-sourced pitfalls cross-referenced; key findings confirmed by official docs even where article URLs returned 403 |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **llms-full.txt generator script existence:** PITFALLS.md references `scripts/gen_llms_txt.py` as existing per v2.1 architecture, but ARCHITECTURE.md notes the v2.1 implementation committed hand-maintained files. Confirm whether the generator script exists in the codebase before Phase 1 begins; if it does not, hand-maintenance is the correct approach until 30+ pages.
-- **Vale local development installation path:** Vale is a Go binary and cannot be `uv add`'d. The CI path (errata-ai/vale-action@v2) is clear. The local development path (brew install vale vs. pre-commit hook auto-download) should be decided during Phase 1 implementation and documented in CONTRIBUTING.md.
-- **pymarkdownlnt rule overrides for ztlctl docs:** The `.pymarkdown.json` config disables MD033 (inline HTML) because MkDocs admonitions trigger it. Additional rule overrides may be discovered during the first scan of existing docs; expect one tuning iteration before the rules are stable.
-- **CI smoke testing of examples (P3):** The highest-protection mechanism against example drift but also the highest implementation cost. If in scope for v3.1, it requires a test vault fixture and should be scoped as a separate sub-phase with its own research.
+- **Advanced SKILL.md frontmatter fields** (`pathPatterns`, `bashPatterns`, `promptSignals`, `chainTo`, `validate`, `retrieval`): verified from Vercel plugin source code but undocumented in official Anthropic reference. Treat as progressive enhancement — use `description` field as primary trigger, add advanced fields only if activation rate testing in Phase 2 reveals inadequate triggering.
+
+- **Plugin-dir vs installed-state tool naming** (Pitfall 4 / GitHub issue #29360): open Claude Code bug. The workaround (test under installed state) is documented and enforced. Monitor the issue during Phase 2 skill testing — if fixed, the installed-state testing requirement becomes less critical but remains best practice.
+
+- **Skill context budget with 10 skills loaded**: the 2% context window budget for skill descriptions is approximately 16,000 characters. Ten skills at 150 characters each is well within budget. If description field needs longer trigger specifications for reliable activation, add a context budget check to Phase 5 validation. Currently not a risk.
+
+- **Skill activation rates under real usage**: the FEATURES.md trigger pattern recommendations are derived from analyzed plugin patterns, not ztlctl production data. Phase 2 activation testing (5 trigger prompts per skill) will either confirm them or reveal gaps. If activation rates are low, apply advanced frontmatter fields as progressive enhancement.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Vale GitHub (github.com/vale-cli/vale) — v3.14.1 release confirmed
-- Vale Google style GitHub (github.com/errata-ai/Google) — v0.6.3, CC BY 4.0
-- pymarkdownlnt PyPI — v0.9.34, Python 3.13 compatible confirmed
-- mkdocs-git-revision-date-localized PyPI — v1.5.1, January 2026
-- mkdocs-shadcn GitHub — v0.10.2 (2026-03-19), pymdownx confirmed compatible
-- Diataxis Documentation Framework (diataxis.fr) — four content type taxonomy
-- Command Line Interface Guidelines (clig.dev) — lead with examples, error messages as teaching moments
-- Google Developer Documentation Style Guide (developers.google.com/style) — tone, syntax conventions
-- Docker CLI Reference (docs.docker.com/reference/cli/docker/) — command page structure pattern
-- ztlctl codebase (direct inspection, 2026-03-21) — `mkdocs.yml`, `pr-ci.yml`, `docs.yml`, all `docs/` pages, `.planning/PROJECT.md`
+- `/Users/shparki/.claude/plugins/cache/claude-plugins-official/` — live installed plugin source: example-plugin, hookify, plugin-dev, skill-creator, Vercel (3fe23669ec5a); plugin.json schemas, SKILL.md format, hooks.json format, agent format, marketplace structure
+- `https://code.claude.com/docs/en/plugins-reference` — plugin manifest schema, directory structure, `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PLUGIN_DATA`
+- `https://code.claude.com/docs/en/plugins` — plugin creation guide, skill structure, `--plugin-dir` testing, `/reload-plugins`
+- `https://code.claude.com/docs/en/plugin-marketplaces` — marketplace.json schema, git-subdir source type
+- `https://code.claude.com/docs/en/hooks` — hook events, exit codes, `stop_hook_active`, MCP tool matching
+- `https://code.claude.com/docs/en/mcp` — `.mcp.json` format, stdio transport
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/plugin/` — existing v1 plugin skeleton (ground truth for upgrade)
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/src/ztlctl/mcp/server.py` — vault discovery via CWD, `create_server()` signature
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/src/ztlctl/commands/serve.py` — transport options, `vault.close()` lifecycle
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/agentic-workflows.md` — Recipe 1/2/3, session lifecycle, polaris workflow, recall workflow, contradiction review
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/agents.md` — schemas, lifecycle state machines, interaction flows, error handling
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/polaris.md` — alignment checking workflow, agent decision pattern
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/session-recall.md` — recall workflow and MCP tool contracts
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/contradiction-detection.md` — agent review loop pattern
+- `/Users/shparki/Documents/Workspace/thatdev/ztlctl/docs/best-practices.md` — anti-patterns and discipline rules (.success check, session wrap, no double-reweave)
 
 ### Secondary (MEDIUM confidence)
-- Stripe API Documentation via APIDog analysis (apidog.com/blog/stripe-docs/) — docs as definition of done, fast paths for happy flow
-- Obsidian Help — concept definition before use, philosophy before features (content rendering limited)
-- Biel.ai — optimizing technical documentation for LLMs and AI agents
-- Document360 — common developer documentation mistakes
+- `https://gofastmcp.com/integrations/claude-code` — Python MCP stdio stdout pollution; confirmed by official MCP docs
+- `https://dev.to/yurukusa/5-claude-code-hook-mistakes-that-silently-break-your-safety-net-58l3` — exit code mistakes, $HOME expansion, slow hooks; verified against official docs
+- GitHub issue #29360 (anthropics/claude-code) — plugin-dir namespacing breaks allowed-tools; open issue
+- GitHub issue #18762 (anthropics/claude-code) — plugin-MCP config mismatch causing timeout errors
+- GitHub issue #15145 (anthropics/claude-code) — incorrect plugin namespacing for MCP servers
+- `https://claudefa.st/blog/guide/mechanics/context-buffer-management` — skill context window persistence; verified against official docs behavior
 
 ### Tertiary (LOW confidence)
-- WriteAtlas — tone and voice consistency in technical documentation
-- 42 Coffee Cups — technical documentation best practices
+- `https://medium.com/@taki4416/...` — skill description overlap anti-pattern; 403 on verification; key findings confirmed by independent sources
+- `https://medium.com/@cheparsky/...` — context accumulation, skill budget overflow; 403 on verification; consistent with official docs
+- `https://pierce-lamb.medium.com/...` — directory structure mistakes, context limits; 403 on verification; key findings confirmed by official docs
 
 ---
-*Research completed: 2026-03-21*
+
+*Research completed: 2026-03-22*
 *Ready for roadmap: yes*
