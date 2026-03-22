@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Agentic Skills
 status: unknown
-stopped_at: Completed 30-differentiator-skills/30-01-PLAN.md
-last_updated: "2026-03-22T04:37:02.619Z"
+stopped_at: Completed 30-differentiator-skills/30-02-PLAN.md
+last_updated: "2026-03-22T04:37:11.063Z"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -58,6 +58,9 @@ Key constraints for v4.0:
 - [Phase 30]: All 3 differentiator skills have disable-model-invocation: true (all have write side-effects or session starts)
 - [Phase 30]: synthesize: mandatory draft approval checkpoint before create_note (user must approve draft)
 - [Phase 30]: orient-session: uses ' — continued' topic suffix convention for session lineage tracing via recall_topic
+- [Phase 30-02]: garden-health Fan-Out pattern: all reads complete before synthesis to prevent intermediate state leaking into health report
+- [Phase 30-02]: review-contradictions never-auto-confirm is Iron Law: confirm_contradiction inserts permanent bidirectional graph edges that corrupt future queries if false positive
+- [Phase 30-02]: sqlite-vec graceful degradation documented in both SKILL.md and reference file — two discovery surfaces for agents encountering the error
 
 ### Pending Todos
 
@@ -69,7 +72,7 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-22T04:36:54.167Z
-Stopped at: Completed 30-differentiator-skills/30-01-PLAN.md
+Last session: 2026-03-22T04:37:11.061Z
+Stopped at: Completed 30-differentiator-skills/30-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 28`
