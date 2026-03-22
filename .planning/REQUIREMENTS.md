@@ -32,9 +32,9 @@ Requirements for v4.0 release. Each maps to roadmap phases.
 
 ### Commands and Agents
 
-- [ ] **CMDA-01**: Slash commands provide thin entry points for common skills — `/ztlctl:session`, `/ztlctl:capture`, `/ztlctl:review` map to corresponding skills with argument passthrough
-- [ ] **CMDA-02**: Research agent operates autonomously for deep vault exploration — searches, follows graph connections, assembles findings — constrained by configurable depth limit and token budget
-- [ ] **CMDA-03**: Maintenance agent runs scheduled vault health operations — integrity check, contradiction scan, garden cleanup — constrained to read-heavy operations with confirmation gates for mutations
+- [x] **CMDA-01**: Slash commands provide thin entry points for common skills — `/ztlctl:session`, `/ztlctl:capture`, `/ztlctl:review` map to corresponding skills with argument passthrough
+- [x] **CMDA-02**: Research agent operates autonomously for deep vault exploration — searches, follows graph connections, assembles findings — constrained by configurable depth limit and token budget
+- [x] **CMDA-03**: Maintenance agent runs scheduled vault health operations — integrity check, contradiction scan, garden cleanup — constrained to read-heavy operations with confirmation gates for mutations
 
 ### Distribution
 
@@ -91,9 +91,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SKIL-08 | Phase 30 | Complete |
 | SKIL-09 | Phase 30 | Complete |
 | SKIL-10 | Phase 30 | Complete |
-| CMDA-01 | Phase 31 | Pending |
-| CMDA-02 | Phase 31 | Pending |
-| CMDA-03 | Phase 31 | Pending |
+| CMDA-01 | Phase 31 | Complete |
+| CMDA-02 | Phase 31 | Complete |
+| CMDA-03 | Phase 31 | Complete |
 | DIST-01 | Phase 31 | Complete |
 | DIST-02 | Phase 31 | Complete |
 | DIST-03 | Phase 31 | Complete |
