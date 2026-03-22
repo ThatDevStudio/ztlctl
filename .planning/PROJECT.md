@@ -57,11 +57,13 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - ✓ Internal docs current (CLAUDE.md 16 services/73 actions, DESIGN.md 9 new decisions, README.md v3.0 features) — v3.1
 - ✓ Tech debt cleared: IngestService post_action dispatch, stale docstrings — v3.1
 
+- ✓ Claude Code plugin with 10 workflow skills, 5 slash commands, 2 autonomous agents — v4.0
+- ✓ Marketplace distribution: marketplace.json, version sync, comprehensive README — v4.0
+- ✓ Plugin validation: 58-test suite, CI plugin_validate job, vault gate hook — v4.0
+
 ### Active
 
-<!-- No active milestone — planning next -->
-
-No active requirements. Next milestone to be defined.
+<!-- Next milestone TBD -->
 
 ### Out of Scope
 
@@ -74,14 +76,11 @@ No active requirements. Next milestone to be defined.
 
 ## Context
 
-**Current state (v3.1 shipped):** 126 source files (28,275 LOC Python), 141 test files (29,329 LOC), 2055 tests passing, mypy strict, ruff clean. 16 services, 17 controllers, 73 registered actions, auto-generated MCP adapter (73+ tools from ActionRegistry), semantic search, session recall, contradiction detection, media ingestion. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern, 4-layer action model (Data/Service/Controller/Registry), feature-local action registration (9 modules), centralized PluginManager factory, reliable event delivery with WAL drain. Documentation: CI-gated (MkDocs strict + Vale + pymarkdownlnt), 5 v3.0 feature pages, Diataxis-classified nav, llms.txt/llms-full.txt agent discovery indexes current.
+**Current state (v4.0 shipped):** 126 source files (28,275 LOC Python), 141+ test files (29,329+ LOC), 2055+ tests passing, mypy strict, ruff clean. 16 services, 17 controllers, 73 registered actions, auto-generated MCP adapter (73+ tools from ActionRegistry). Claude Code plugin: 44 files (2,499 LOC), 10 workflow skills (orient, session, capture, review-triage, align, synthesize, decision-support, orient-session, garden-health, review-contradictions), 5 slash commands, 2 autonomous agents (research + maintenance), vault gate hook, 58-test validation suite, marketplace distribution with version sync.
 
 **Key architectural insight (realized):** CLI and MCP are auto-generated presentation layers over a unified ActionRegistry — define once, generate both surfaces. This is the foundation all future work builds on.
 
-**Known technical debt (from v3.0 audit):**
-- IngestService._ingest_normalized missing _dispatch_post_action_event (post_action plugin hooks for ingest_* actions don't fire)
-- Cosmetic: stale docstrings/comments in ContradictionController, commands/generator.py
-- Documentation: v3.0 features (recall, polaris, contradiction, ingestion, methodology) not yet documented in docs site
+**Known technical debt:** None blocking — v3.1 cleared IngestService dispatch, stale docstrings, and docs gaps. Minor: agents.md missing hyperlinks to 5 feature pages, DESIGN.md service diagram enumerates 11/16 services.
 
 **Target audience:** Small group of users, building toward broader adoption. Tool must work fully without agentic systems.
 
@@ -127,4 +126,4 @@ No active requirements. Next milestone to be defined.
 | Documentation Conventions in CLAUDE.md | Google CLI style, 3-type admonitions, "What's next" links | ✓ Good — enforced by CI + CLAUDE.md |
 
 ---
-*Last updated: 2026-03-22 after v3.1 milestone complete*
+*Last updated: 2026-03-22 after v4.0 Agentic Skills milestone complete*

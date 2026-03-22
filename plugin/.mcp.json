@@ -3,7 +3,9 @@
     "ztlctl": {
       "command": "ztlctl",
       "args": ["serve"],
-      "env": {}
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
     }
   }
 }

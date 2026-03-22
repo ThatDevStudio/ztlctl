@@ -178,6 +178,22 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "release_tag=v$version" >> "$GITHUB_OUTPUT"
 
+      - name: Sync plugin version
+        id: sync_plugin_version
+        if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}
+        shell: bash
+        run: |
+          python3 -c "
+          import json
+          from pathlib import Path
+          p = Path('plugin/.claude-plugin/plugin.json')
+          data = json.loads(p.read_text())
+          data['version'] = '${{ steps.bump.outputs.version }}'
+          p.write_text(json.dumps(data, indent=2) + '\n')
+          "
+          git add plugin/.claude-plugin/plugin.json
+          git commit --amend --no-edit
+
       - name: Release candidate sync dev dependencies
         id: rc_sync_dev
         if: ${{ steps.mode.outputs.recovery != 'true' && steps.bump.outputs.released == 'true' }}

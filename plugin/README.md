@@ -1,76 +1,91 @@
-# ztlctl — Claude Code Reference Bundle
+# ztlctl Plugin for Claude Code
 
-Reference assets for Claude Code integration with [ztlctl](https://github.com/ThatDevStudio/ztlctl) knowledge vaults.
-
-The supported path is to generate project-local assets from the packaged workflow source:
-
-```bash
-ztlctl workflow export --client claude
-```
-
-This directory remains as a checked-in reference bundle, but the package source of truth now lives under `src/ztlctl/templates/agent_workflow`.
-
-## What This Plugin Provides
-
-| Component | Purpose |
-|---|---|
-| **3 Skills** | Zettelkasten methodology, session workflows, graph intelligence |
-| **4 Commands** | `/ztlctl:session`, `/ztlctl:capture`, `/ztlctl:review`, `/ztlctl:seed` |
-| **2 Agents** | Knowledge synthesizer, vault analyst |
-| **1 Hook** | SessionStart context injection |
-| **MCP Server** | 25 tools via `ztlctl serve` |
+Agentic research assistant for ztlctl knowledge vaults. Wraps the ztlctl MCP server with 13 deep skills, 5 slash commands, and 2 autonomous agents.
 
 ## Prerequisites
 
-1. **Install ztlctl**:
+1. **Python 3.13+** with uv or pipx:
    ```bash
-   pipx install ztlctl
-   # or
+   # Option A: uv (recommended)
    uv tool install ztlctl
+   # Option B: pipx
+   pipx install ztlctl
    ```
 
-2. **Initialize a vault**:
+2. **Initialize a vault:**
    ```bash
    mkdir my-vault && cd my-vault
    ztlctl init
    ```
 
-3. **Export the Claude bundle** with `ztlctl workflow export --client claude`.
+3. **Verify the MCP server works:**
+   ```bash
+   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}' | uvx ztlctl serve
+   ```
+   You should see a JSON response with no errors.
 
-## How It Works
+## Installation
 
-The Claude bundle connects two layers:
+```bash
+claude plugin install ztlctl
+```
 
-- **MCP Server** (`ztlctl serve`) — provides 25 tools for vault operations and workflow state
-- **Project Assets** — skills teach Claude *how* to think about knowledge management; commands provide structured entry points; agents handle complex autonomous tasks; hooks inject context automatically
+### Post-install verification
 
-The MCP server auto-discovers the vault from `ztlctl.toml` in the working directory or `$ZTLCTL_VAULT` environment variable.
+```bash
+claude mcp list
+```
 
-## Quick Start
+Confirm `ztlctl` appears in the server list. If it does not, see Troubleshooting below.
 
-After installation, start a Claude Code session in your vault directory:
+## What you get
+
+| Component | Count | Purpose |
+|-----------|-------|---------|
+| Skills | 13 | Multi-step workflow guides (orient, session, capture, synthesize, graph-intelligence, garden-health, decision-support, review-triage, review-contradictions, orient-session, session-workflow, align, vault-methodology) |
+| Commands | 5 | `/ztlctl:session`, `/ztlctl:capture`, `/ztlctl:review`, `/ztlctl:seed`, `/ztlctl:align` |
+| Agents | 2 | Autonomous research and maintenance |
+| Hooks | 1 | Vault gate (blocks tools when no vault found) |
+
+## Quick start
+
+Start Claude Code in your vault directory:
 
 ```bash
 cd my-vault
 claude
 ```
 
-The SessionStart hook automatically injects compact vault context. Then:
+Then use slash commands:
+- `/ztlctl:session "Topic"` -- start a structured research session
+- `/ztlctl:capture` -- guided knowledge capture
+- `/ztlctl:review` -- vault health review and triage
+- `/ztlctl:seed "Quick idea"` -- zero-friction seed capture
+- `/ztlctl:align "Should I use X?"` -- check decision against priorities
 
-- `/ztlctl:session "Topic"` — start a structured research session
-- `/ztlctl:capture` — guided knowledge capture with duplicate checking
-- `/ztlctl:review` — review vault state, connections, and gaps
-- `/ztlctl:seed "Quick idea"` — capture a seed note instantly
+Or ask naturally: "research what I know about X" or "run vault maintenance" to trigger agents.
 
-Ask Claude to "analyze knowledge gaps" or "synthesize connections about X" to trigger the autonomous agents.
+## Updating
 
-## Bundle Structure
-
+```bash
+claude plugin update ztlctl
 ```
-.claude/
-├── settings.json                 # Claude hooks config
-├── commands/                     # Slash commands
-├── skills/                       # Domain knowledge
-└── agents/                       # Autonomous subagents
-.mcp.json                         # MCP server config
+
+Plugin versions are synchronized with ztlctl releases. Update both:
+```bash
+uv tool upgrade ztlctl && claude plugin update ztlctl
 ```
+
+## Troubleshooting
+
+**MCP server not showing in `claude mcp list`:**
+This is a known issue. Restart Claude Code. If still missing, verify ztlctl is on PATH: `which ztlctl` or `uvx ztlctl --version`.
+
+**Tools require approval on every call:**
+Run from your vault directory (where `ztlctl.toml` exists). The vault gate hook checks for vault presence.
+
+**Windows users:**
+Ensure `uv` is on PATH (`winget install astral-sh.uv`). If `uvx` is not found by Claude Code, use the full path to uvx in your MCP config.
+
+**Plugin loads but skills don't fire:**
+Run `/reload-plugins` to refresh. For MCP config changes, restart Claude Code.

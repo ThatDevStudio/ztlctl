@@ -1,5 +1,21 @@
 # Milestones
 
+## v4.0 Agentic Skills (Shipped: 2026-03-22)
+
+**Phases completed:** 5 phases, 10 plans, 13 tasks
+
+**Key accomplishments:**
+
+- Plugin manifest, MCP stdio config (PYTHONUNBUFFERED=1), and vault-gate.sh PreToolUse hook hardened; 11 automated tests validate structure, behavior, and exit codes
+- plugin_validate CI job added to pr-ci.yml — 8 validation gates run in parallel on every PR, blocking merges on manifest errors, missing files, broken hooks, and permission issues
+- ztl:session and ztl:review-triage skills created: dual-path session lifecycle with polaris alignment, and batch-confirmation triage loop for work queue review
+- ztl:garden-health (Fan-Out health audit) and ztl:review-contradictions (per-pair loop with never-auto-confirm) completing the 5-skill differentiator set
+- marketplace.json (git-subdir format) + atomic plugin.json version sync in CI + comprehensive install/troubleshoot README
+- CHANGELOG.md created
+- Status:
+
+---
+
 ## v3.1 Documentation & Hardening (Shipped: 2026-03-22)
 
 **Phases completed:** 2 phases, 3 plans, 4 tasks
