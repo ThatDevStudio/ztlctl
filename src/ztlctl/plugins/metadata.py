@@ -43,7 +43,7 @@ def read_plugin_metadata(pyproject_path: Path) -> PluginMetadata | None:
     try:
         import tomllib
     except ImportError:
-        import tomli as tomllib  # type: ignore[import-not-found,no-redef]
+        import tomli as tomllib  # type: ignore[no-redef]
 
     try:
         with open(pyproject_path, "rb") as f:
