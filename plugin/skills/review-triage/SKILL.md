@@ -20,30 +20,32 @@ Review the vault's work queue, evaluate each item, and batch-process approved ac
 
 ## Workflow
 
-1. **Load queue** — `work_queue()`: load the prioritized work queue. All actionable items are returned with composite scores. If the queue is empty, report "Work queue is empty. Vault is clear." and stop.
+1. **Check vault integrity** — `check_integrity()`: run the 4-category integrity scanner (orphan edges, broken links, missing files, schema issues). Surface any critical issues before reviewing the work queue. If integrity issues are found, report them first — they may explain items in the queue.
 
-2. **Inspect top items** — For each of the top items (up to 10): `get_document(content_id="<id>")` — fetch full content to evaluate. Parallel fetches are acceptable.
+2. **Load queue** — `work_queue()`: load the prioritized work queue. All actionable items are returned with composite scores. If the queue is empty and no integrity issues, report "Work queue is empty. Vault is clear." and stop.
 
-3. **Evaluate each item** — Classify and propose an action:
+3. **Inspect top items** — For each of the top items (up to 10): `get_document(content_id="<id>")` — fetch full content to evaluate. Parallel fetches are acceptable.
+
+4. **Evaluate each item** — Classify and propose an action:
    - **Stale seed**: maturity=seed, age > 7 days, no body updates → suggest: promote to budding or archive
    - **Actionable task**: has a clear next step, not yet done → suggest: keep as-is or mark complete
    - **Orphan note**: 0 outgoing links, status=draft → suggest: add links via reweave, or archive
    - **Draft needing attention**: draft status, has content but no connections → suggest: add tags/links to promote
 
-4. **Present summary table** — Show proposed actions before any writes:
+5. **Present summary table** — Show proposed actions before any writes:
    ```
    | # | ID | Title | Type | Suggestion | Priority |
    ```
    Ask: "Process all / only high-priority (score > X) / pick specific items?"
 
-5. **Batch execute** — For each approved item, execute the proposed action:
+6. **Batch execute** — For each approved item, execute the proposed action:
    - Promote maturity: `update_content(content_id="<id>", changes={"maturity": "budding"})`
    - Mark complete: `update_content(content_id="<id>", changes={"status": "complete"})`
    - Archive: `close_content(content_id="<id>")`
    - Reweave orphan: `reweave(content_id="<id>")`
    Check `result.success` after each call. Stop the batch on failure, report progress.
 
-6. **Report results** — Summarize: items reviewed, items updated, items archived, items remaining in queue.
+7. **Report results** — Summarize: integrity issues found, items reviewed, items updated, items archived, items remaining in queue.
 
 ## Batch Confirmation Pattern
 

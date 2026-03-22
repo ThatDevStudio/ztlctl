@@ -22,12 +22,18 @@ payload: identity, polaris priorities, and topic-relevant content.
    priorities, and decision principles). Polaris is Layer 1 of every context
    payload — always load it.
 
-3. **Call `agent_context(topic="<user-topic>", budget=8000)`** — assemble the
+3. **Call `session_status()`** — check if a session is currently open. Surface
+   the active session ID, topic, and duration if one exists.
+
+4. **Call `work_queue()`** — get a summary count of actionable items (tasks,
+   stale seeds, orphans). Report the total count and top 3 highest-scored items.
+
+5. **Call `agent_context(topic="<user-topic>", budget=8000)`** — assemble the
    5-layer context payload (polaris, related notes, graph neighbors, session
    history, methodology). If no specific topic was requested, omit the topic
    parameter for general vault orientation.
 
-4. **Report structured summary** to the user before proceeding with any work.
+6. **Report structured summary** to the user before proceeding with any work.
 
 ## What to report
 
@@ -37,7 +43,8 @@ After completing the workflow, surface:
 - **Top 3 polaris priorities** — the strategic priorities most relevant to the
   current topic
 - **Related content count** — number of related notes found for the topic
-- **Session status** — whether a session is currently open (name and ID if so)
+- **Session status** — whether a session is currently open (ID, topic, duration)
+- **Work queue summary** — total actionable items count and top 3 by score
 - **Methodology summary** — one-liner from the vault identity describing the
   owner's working style
 
