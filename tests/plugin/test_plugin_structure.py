@@ -9,8 +9,10 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
+from typing import Any
 
 import pytest
+from ruamel.yaml import YAML
 
 # Resolve project root from this file's location:
 # tests/plugin/test_plugin_structure.py -> tests/plugin -> tests -> project root
@@ -262,4 +264,353 @@ def test_stdio_no_stdout_pollution(tmp_path: Path) -> None:
         "MCP stdio server emitted non-JSON bytes on stdout (corrupts JSON-RPC transport):\n"
         + textwrap.indent("\n".join(non_json_lines), "  ")
         + f"\nFull stdout: {stdout!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helpers for SKILL.md parsing
+# ---------------------------------------------------------------------------
+
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "when",
+        "use",
+        "for",
+        "to",
+        "or",
+        "and",
+        "in",
+        "is",
+        "of",
+        "with",
+        "that",
+        "on",
+        "be",
+        "as",
+        "are",
+        "by",
+        "at",
+        "from",
+        "it",
+        "its",
+        "this",
+        "any",
+        "all",
+        "if",
+        "their",
+        "your",
+        "my",
+        "not",
+        "no",
+        "do",
+        "will",
+        "can",
+        "has",
+        "have",
+        "been",
+        "was",
+        "were",
+        "but",
+        "so",
+        "up",
+        "out",
+        "into",
+        "about",
+        "before",
+        "after",
+        "than",
+        "more",
+        "such",
+        "each",
+        "they",
+        "them",
+        "then",
+        "which",
+        "who",
+    }
+)
+
+_WRITE_TOOL_NAMES = frozenset(
+    {
+        "create_note",
+        "create_reference",
+        "create_task",
+        "session_start",
+        "session_close",
+        "confirm_contradiction",
+        "reweave",
+    }
+)
+
+# Match tool names only when used as actual function call templates (tool_name(...)).
+# This avoids false positives from prose mentions like "`create_note`" or
+# "the session_close MCP tool" which are documentation references, not invocations.
+# Pattern: tool_name followed by '(' (with optional whitespace) — indicates a call template.
+_WRITE_TOOL_CALL_PATTERN = re.compile(
+    r"(?:" + "|".join(re.escape(t) for t in sorted(_WRITE_TOOL_NAMES)) + r")\s*\("
+)
+
+_AGENT_ALLOWED_FIELDS = frozenset(
+    {
+        "name",
+        "description",
+        "model",
+        "effort",
+        "maxTurns",
+        "tools",
+        "disallowedTools",
+        "skills",
+        "memory",
+        "background",
+        "isolation",
+    }
+)
+
+
+def _parse_skill_frontmatter(path: Path) -> dict[str, Any]:
+    """Return frontmatter dict for a SKILL.md using ruamel.yaml."""
+    text = path.read_text(encoding="utf-8")
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    data = yaml.load(parts[1])
+    return dict(data) if data else {}
+
+
+def _parse_skill_frontmatter_and_body(path: Path) -> tuple[dict[str, Any], str]:
+    """Return (frontmatter dict, body text) for a SKILL.md."""
+    text = path.read_text(encoding="utf-8")
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}, text
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    data = yaml.load(parts[1])
+    return dict(data) if data else {}, parts[2]
+
+
+def _parse_agent_frontmatter(path: Path) -> dict[str, Any]:
+    """Return frontmatter dict for an agent .md file using ruamel.yaml."""
+    text = path.read_text(encoding="utf-8")
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return {}
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    data = yaml.load(parts[1])
+    return dict(data) if data else {}
+
+
+def _significant_words(text: str) -> set[str]:
+    """Return lowercase alpha words from text, excluding stop words."""
+    words = re.findall(r"[a-zA-Z]+", text.lower())
+    return {w for w in words if w not in _STOP_WORDS and len(w) > 2}
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    """Return Jaccard coefficient between two sets."""
+    if not a and not b:
+        return 0.0
+    union = a | b
+    if not union:
+        return 0.0
+    return len(a & b) / len(union)
+
+
+# ---------------------------------------------------------------------------
+# Distribution checklist tests (Pitfall coverage)
+# ---------------------------------------------------------------------------
+
+
+def test_plugin_json_version_semver() -> None:
+    """plugin.json version matches semver and is >= 1.0.0 (Pitfall #3)."""
+    manifest_path = PLUGIN_DIR / ".claude-plugin" / "plugin.json"
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    version = data.get("version", "")
+
+    assert re.fullmatch(r"\d+\.\d+\.\d+", version), (
+        f"plugin.json version {version!r} does not match semver (\\d+.\\d+.\\d+)"
+    )
+
+    major, minor, patch = (int(x) for x in version.split("."))
+    assert (major, minor, patch) >= (1, 0, 0), f"plugin.json version {version!r} must be >= 1.0.0"
+
+
+def test_plugin_changelog_exists() -> None:
+    """plugin/CHANGELOG.md exists and contains the version from plugin.json (Pitfall #3)."""
+    changelog_path = PLUGIN_DIR / "CHANGELOG.md"
+    assert changelog_path.is_file(), (
+        "plugin/CHANGELOG.md is missing — required by distribution checklist"
+    )
+
+    manifest_path = PLUGIN_DIR / ".claude-plugin" / "plugin.json"
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    version = data.get("version", "")
+
+    content = changelog_path.read_text(encoding="utf-8")
+    assert version in content, (
+        f"plugin/CHANGELOG.md does not contain the current plugin version {version!r}"
+    )
+
+
+@pytest.mark.parametrize(
+    "skill_name",
+    [d.name for d in (PLUGIN_DIR / "skills").iterdir() if d.is_dir()],
+)
+def test_skill_line_counts_under_limit(skill_name: str) -> None:
+    """Each SKILL.md must be under 500 lines to avoid context window bloat (Pitfall #7)."""
+    skill_path = PLUGIN_DIR / "skills" / skill_name / "SKILL.md"
+    assert skill_path.is_file(), f"SKILL.md missing for skill: {skill_name}"
+    line_count = len(skill_path.read_text(encoding="utf-8").splitlines())
+    assert line_count < 500, (
+        f"plugin/skills/{skill_name}/SKILL.md has {line_count} lines — must be under 500"
+    )
+
+
+@pytest.mark.parametrize(
+    "skill_name",
+    [d.name for d in (PLUGIN_DIR / "skills").iterdir() if d.is_dir()],
+)
+def test_all_skills_have_name_field(skill_name: str) -> None:
+    """Every SKILL.md must have a name: field in frontmatter."""
+    skill_path = PLUGIN_DIR / "skills" / skill_name / "SKILL.md"
+    assert skill_path.is_file(), f"SKILL.md missing for skill: {skill_name}"
+    fm = _parse_skill_frontmatter(skill_path)
+    assert "name" in fm, (
+        f"plugin/skills/{skill_name}/SKILL.md frontmatter missing required 'name:' field"
+    )
+    assert fm["name"], f"plugin/skills/{skill_name}/SKILL.md frontmatter 'name:' field is empty"
+
+
+def test_skill_descriptions_no_overlap() -> None:
+    """No two skill descriptions share more than 50% of significant words (Pitfall #6)."""
+    skills_dir = PLUGIN_DIR / "skills"
+    skill_descriptions: dict[str, set[str]] = {}
+
+    for skill_dir in sorted(skills_dir.iterdir()):
+        if not skill_dir.is_dir():
+            continue
+        skill_path = skill_dir / "SKILL.md"
+        if not skill_path.is_file():
+            continue
+        fm = _parse_skill_frontmatter(skill_path)
+        desc = fm.get("description", "")
+        if isinstance(desc, str):
+            skill_descriptions[skill_dir.name] = _significant_words(desc)
+
+    overlapping_pairs: list[str] = []
+    skill_names = sorted(skill_descriptions)
+    for i, name_a in enumerate(skill_names):
+        for name_b in skill_names[i + 1 :]:
+            coeff = _jaccard(skill_descriptions[name_a], skill_descriptions[name_b])
+            if coeff > 0.5:
+                overlapping_pairs.append(f"  {name_a} <-> {name_b}: Jaccard={coeff:.2f}")
+
+    assert not overlapping_pairs, (
+        "Skill description pairs with >50% word overlap (activation confusion risk):\n"
+        + "\n".join(overlapping_pairs)
+    )
+
+
+@pytest.mark.parametrize(
+    "skill_name",
+    [d.name for d in (PLUGIN_DIR / "skills").iterdir() if d.is_dir()],
+)
+def test_side_effect_skills_have_disable_model_invocation(skill_name: str) -> None:
+    """Skills with write-op tool calls must have disable-model-invocation: true (Pitfall #20)."""
+    skill_path = PLUGIN_DIR / "skills" / skill_name / "SKILL.md"
+    assert skill_path.is_file(), f"SKILL.md missing for skill: {skill_name}"
+    fm, body = _parse_skill_frontmatter_and_body(skill_path)
+
+    # Detect write-tool calls via function-call syntax (tool_name( or `tool_name`)
+    # Prose mentions of tool names (e.g., "the reweave system") are not flagged.
+    found_tools = sorted(
+        {m.group(0).strip("`").rstrip("(").strip() for m in _WRITE_TOOL_CALL_PATTERN.finditer(body)}
+    )
+    if not found_tools:
+        return  # read-only skill — no requirement
+
+    disable_flag = fm.get("disable-model-invocation", False)
+    assert disable_flag is True, (
+        f"plugin/skills/{skill_name}/SKILL.md references write-operation MCP tools "
+        f"({found_tools}) "
+        f"but lacks 'disable-model-invocation: true' in frontmatter (Pitfall #20)"
+    )
+
+
+@pytest.mark.parametrize(
+    "agent_name",
+    [p.stem for p in (PLUGIN_DIR / "agents").glob("*.md")],
+)
+def test_agent_frontmatter_no_unsupported_fields(agent_name: str) -> None:
+    """Plugin agents must not use unsupported frontmatter fields (Pitfall #19)."""
+    agent_path = PLUGIN_DIR / "agents" / f"{agent_name}.md"
+    fm = _parse_agent_frontmatter(agent_path)
+
+    unsupported = {"hooks", "mcpServers", "permissionMode"}
+    violations = sorted(set(fm.keys()) & unsupported)
+    assert not violations, (
+        f"plugin/agents/{agent_name}.md uses unsupported frontmatter fields: "
+        f"{violations!r}. Plugin agents only support: {sorted(_AGENT_ALLOWED_FIELDS)!r}"
+    )
+
+
+def test_mcp_json_no_path_traversals() -> None:
+    """plugin/.mcp.json does not contain '../' path traversals (Pitfall #12)."""
+    mcp_path = PLUGIN_DIR / ".mcp.json"
+    content = mcp_path.read_text(encoding="utf-8")
+    assert "../" not in content, (
+        "plugin/.mcp.json contains '../' path traversal — all paths must be self-contained"
+    )
+
+
+def test_readme_component_counts_accurate() -> None:
+    """README.md component counts match actual directory contents (Skills, Commands, Agents)."""
+    readme_path = PLUGIN_DIR / "README.md"
+    content = readme_path.read_text(encoding="utf-8")
+
+    actual_skills = sum(1 for d in (PLUGIN_DIR / "skills").iterdir() if d.is_dir())
+    actual_commands = sum(1 for f in (PLUGIN_DIR / "commands").glob("*.md"))
+    actual_agents = sum(1 for f in (PLUGIN_DIR / "agents").glob("*.md"))
+
+    # Find the component count table — look for | Skills | N | pattern
+    skills_match = re.search(r"\|\s*Skills\s*\|\s*(\d+)\s*\|", content)
+    commands_match = re.search(r"\|\s*Commands\s*\|\s*(\d+)\s*\|", content)
+    agents_match = re.search(r"\|\s*Agents\s*\|\s*(\d+)\s*\|", content)
+
+    assert skills_match, "README.md missing 'Skills' row in component count table"
+    assert commands_match, "README.md missing 'Commands' row in component count table"
+    assert agents_match, "README.md missing 'Agents' row in component count table"
+
+    readme_skills = int(skills_match.group(1))
+    readme_commands = int(commands_match.group(1))
+    readme_agents = int(agents_match.group(1))
+
+    assert readme_skills == actual_skills, (
+        f"README.md says {readme_skills} skills but plugin/skills/ has {actual_skills} directories"
+    )
+    assert readme_commands == actual_commands, (
+        f"README.md says {readme_commands} commands but plugin/commands/ has "
+        f"{actual_commands} .md files"
+    )
+    assert readme_agents == actual_agents, (
+        f"README.md says {readme_agents} agents but plugin/agents/ has {actual_agents} .md files"
+    )
+
+
+def test_hook_exit_codes_documented() -> None:
+    """vault-gate.sh uses both exit 0 (pass) and exit 2 (block) — correct codes (Pitfall #9)."""
+    vault_gate = PLUGIN_DIR / "hooks" / "scripts" / "vault-gate.sh"
+    assert vault_gate.is_file(), f"vault-gate.sh missing at {vault_gate}"
+    content = vault_gate.read_text(encoding="utf-8")
+    assert "exit 0" in content, (
+        "vault-gate.sh missing 'exit 0' — should exit 0 when vault is present (allow)"
+    )
+    assert "exit 2" in content, (
+        "vault-gate.sh missing 'exit 2' — should exit 2 when vault is absent (block)"
     )

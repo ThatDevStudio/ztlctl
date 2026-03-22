@@ -32,9 +32,9 @@ not an afterthought.
      intentional scope expansion or a distraction."
 
 4. **Optional decision note** (only if the user explicitly asks): Suggest
-   creating an audit trail note —
-   `create_note(title="Decision: <title>", subtype="decision", body="Alignment checked: ...")`.
-   Do NOT auto-create the note. Suggest it and wait for the user to confirm.
+   creating an audit trail note with `subtype="decision"` to record the
+   alignment result. Do NOT auto-create the note. Suggest it and wait for
+   the user to confirm before using any create tool.
 
 ## When to activate
 
