@@ -133,3 +133,127 @@ jobs:
           | Vale prose lint | ${{ steps.vale.outcome }} |
           | pymarkdownlnt | ${{ steps.pymarkdown.outcome }} |
           EOF
+
+  plugin_validate:
+    name: Plugin Validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate plugin.json is valid JSON
+        id: plugin_json_valid
+        run: python -c "import json; json.load(open('plugin/.claude-plugin/plugin.json'))"
+
+      - name: Validate plugin.json required fields
+        id: plugin_json_fields
+        run: |
+          python -c "
+          import json, sys
+          d = json.load(open('plugin/.claude-plugin/plugin.json'))
+          required = ['name', 'version', 'description', 'author', 'repository', 'license', 'commands', 'hooks']
+          missing = [f for f in required if f not in d]
+          if missing:
+              print(f'Missing required fields: {missing}', file=sys.stderr)
+              sys.exit(1)
+          print('All required fields present')
+          "
+
+      - name: Validate hooks.json is valid JSON
+        id: hooks_json_valid
+        run: python -c "import json; json.load(open('plugin/hooks/hooks.json'))"
+
+      - name: Validate .mcp.json is valid JSON
+        id: mcp_json_valid
+        run: python -c "import json; json.load(open('plugin/.mcp.json'))"
+
+      - name: Validate hook scripts have execute permission
+        id: hook_permissions
+        run: |
+          failed=0
+          for script in plugin/hooks/scripts/*.sh; do
+            if [ ! -x "$script" ]; then
+              echo "ERROR: $script is not executable" >&2
+              failed=1
+            fi
+          done
+          if [ "$failed" -eq 1 ]; then
+            echo "Fix with: chmod +x plugin/hooks/scripts/*.sh" >&2
+            exit 1
+          fi
+          echo "All hook scripts are executable"
+
+      - name: Validate plugin directory structure
+        id: plugin_structure
+        run: |
+          python -c "
+          from pathlib import Path
+          import sys
+          errors = []
+          # Components must be at plugin root, NOT inside .claude-plugin/
+          for component in ['skills', 'agents', 'hooks', 'commands']:
+              if not (Path('plugin') / component).is_dir():
+                  errors.append(f'Missing plugin/{component}/ directory')
+              if (Path('plugin/.claude-plugin') / component).exists():
+                  errors.append(f'plugin/.claude-plugin/{component}/ must NOT exist — components belong at plugin root')
+          if not Path('plugin/.mcp.json').is_file():
+              errors.append('Missing plugin/.mcp.json')
+          if errors:
+              for e in errors:
+                  print(f'ERROR: {e}', file=sys.stderr)
+              sys.exit(1)
+          print('Plugin directory structure is correct')
+          "
+
+      - name: Validate no path traversals in plugin files
+        id: no_traversals
+        run: |
+          python -c "
+          from pathlib import Path
+          import sys
+          errors = []
+          for p in Path('plugin').rglob('*'):
+              if p.is_file():
+                  try:
+                      content = p.read_text(encoding='utf-8')
+                      if '../' in content:
+                          errors.append(str(p))
+                  except UnicodeDecodeError:
+                      pass
+          if errors:
+              print(f'Files with path traversals (../): {errors}', file=sys.stderr)
+              sys.exit(1)
+          print('No path traversals found')
+          "
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+
+      - name: Run plugin test suite
+        id: plugin_tests
+        run: uv run pytest tests/plugin/ -v
+
+      - name: Plugin validate summary
+        if: ${{ always() }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Plugin Validate summary
+
+          | Gate | Result |
+          | --- | --- |
+          | plugin.json valid JSON | ${{ steps.plugin_json_valid.outcome }} |
+          | plugin.json required fields | ${{ steps.plugin_json_fields.outcome }} |
+          | hooks.json valid JSON | ${{ steps.hooks_json_valid.outcome }} |
+          | .mcp.json valid JSON | ${{ steps.mcp_json_valid.outcome }} |
+          | Hook script permissions | ${{ steps.hook_permissions.outcome }} |
+          | Plugin directory structure | ${{ steps.plugin_structure.outcome }} |
+          | No path traversals | ${{ steps.no_traversals.outcome }} |
+          | Plugin test suite | ${{ steps.plugin_tests.outcome }} |
+          EOF
