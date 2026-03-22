@@ -49,6 +49,25 @@ ztlctl ingest providers --json
 
 URL ingestion is provider-backed by design. The core tool does not ship a built-in remote fetcher in the base install.
 
+## Media ingestion
+
+Audio, video, and transcript files are ingested via `ztlctl ingest media`. ztlctl transcribes audio and video locally using faster-whisper (no data leaves your machine) and parses pre-existing transcript files without any external dependency:
+
+```bash
+$ ztlctl ingest media recordings/interview.mp3 \
+    --title "Interview: distributed systems patterns" \
+    --topic research --tags podcast
+$ ztlctl ingest media captions.vtt --title "Conference talk: CRDT internals"
+$ ztlctl ingest media lecture.mp4 --dry-run
+```
+
+Every ingest call creates a `captured` reference — raw material for human or agent review. Use `ztlctl query work-queue` to surface newly captured media references waiting for annotation.
+
+!!! note
+    Audio and video transcription requires the optional `faster-whisper` package (`uv add --group media faster-whisper`). Transcript files (`.txt`, `.vtt`, `.srt`) work without it.
+
+For the full CLI reference, supported formats, and configuration options, see [Media ingestion](media-ingestion.md).
+
 For agent-fetched web and multimodal workflows, use a bundle-first handoff:
 
 1. Fetch or extract the source outside ztlctl.
@@ -156,10 +175,78 @@ For enrichment-focused agents, the most useful read resources are:
 - `ztlctl://garden/backlog`
 - `ztlctl://decision-queue`
 - `ztlctl://capture/spec`
+- `ztlctl://polaris` — vault strategic priorities (see [Polaris priorities](polaris.md))
+- `ztlctl://sessions/recent` — recent session summaries for recall (see [Session recall](session-recall.md))
+- `ztlctl://review/contradictions` — contradiction candidate pairs for agent review (see [Contradiction detection](contradiction-detection.md))
 
 The MCP prompt layer includes `topic_learn`, `topic_review`, `topic_decision`, `capture_web_source`, and `capture_multimodal_source`.
 
 See the [MCP Server](mcp.md) page for tool categories, resources, prompts, and exported client assets.
+
+## v3.0 agent recipes
+
+These recipes use v3.0 capabilities — polaris alignment, session recall, and contradiction review. They complement the existing walkthroughs below.
+
+### Polaris-aligned session startup
+
+An agent reads the vault's polaris priorities before opening a session, then checks alignment before creating any significant content. This keeps all creation anchored to the vault's current strategic focus.
+
+```
+1. Read ztlctl://polaris
+   → Understand the vault's mission, priorities, and decision principles.
+
+2. check_alignment(decision="Open research session on {topic}")
+   → Verify the session topic is on-strategy before proceeding.
+
+3. start(topic="{topic}")
+   → Open the session, now grounded in polaris context.
+```
+
+See [Polaris priorities](polaris.md) for the alignment check workflow and context assembly integration.
+
+### Recall-driven context loading
+
+Before starting a new session on a recurring topic, an agent loads prior session context to avoid re-doing work and to pick up where it left off.
+
+```
+1. Read ztlctl://sessions/recent
+   → Identify relevant past sessions from the last 5 entries.
+
+2. recall_temporal(from_date="YYYY-MM-DD")
+   → Expand the date range to surface older sessions if needed.
+
+3. recall_topic(query="{topic keywords}")
+   → Find sessions whose log entries mention the current topic.
+
+4. get_document(content_id="{note_id}")  # repeat per note_id from recalled sessions
+   → Fetch the actual notes created during past sessions to rebuild context.
+
+5. start(topic="{topic} — continued")
+   → Open the new session with full historical context loaded.
+```
+
+See [Session recall](session-recall.md) for the complete recall workflow and MCP tool reference.
+
+### Contradiction review workflow
+
+An agent reviews the vault for conflicting claims and confirms genuine contradictions as permanent graph edges.
+
+```
+1. Read ztlctl://review/contradictions
+   → Fetch all scored contradiction candidate pairs.
+
+2. get_document(content_id="{note_a}")
+   get_document(content_id="{note_b}")
+   → Read both notes' full content and key_points for each candidate pair.
+
+3. Evaluate: do the notes genuinely contradict each other?
+   → Check the signals field (cosine_similarity, negation_density, key_points_divergence).
+
+4. confirm_contradiction(note_a="{note_a}", note_b="{note_b}")  # only for genuine contradictions
+   → Insert bidirectional contradicts edges into the knowledge graph.
+```
+
+See [Contradiction detection](contradiction-detection.md) for scoring details and the full MCP tool reference.
 
 ## Recipe Walkthroughs
 

@@ -27,13 +27,18 @@ nav:
     - Tutorial: tutorial.md
     - Core Concepts: concepts.md
     - Knowledge Paradigms: paradigms.md
-    - Obsidian Starter Kit: obsidian.md
-    - Built-in Plugins: plugins.md
-    - Agentic Workflows: agentic-workflows.md
     - Command Reference: commands.md
     - Configuration: configuration.md
-    - Troubleshooting: troubleshooting.md
+    - Session Recall: session-recall.md
+    - Polaris Priorities: polaris.md
+    - Contradiction Detection: contradiction-detection.md
+    - Media Ingestion: media-ingestion.md
+    - Methodology Guidance: methodology.md
+    - Built-in Plugins: plugins.md
+    - Obsidian Starter Kit: obsidian.md
+    - Agentic Workflows: agentic-workflows.md
     - Best Practices: best-practices.md
+    - Troubleshooting: troubleshooting.md
   - Developer Guide:
     - dev/index.md
     - Contributing: development.md
@@ -44,6 +49,10 @@ nav:
 
 plugins:
   - search
+  - git-revision-date-localized:
+      type: date
+      enable_creation_date: false
+      fallback_to_build_date: false
   - redirects:
       redirect_maps: {}
   - mkdocstrings:

@@ -68,6 +68,12 @@ ztlctl query draft --topic architecture --target note
 
 # 10. Close the session when done
 ztlctl agent session close --summary "Mapped async patterns, identified refactoring task"
+
+# Recall past sessions by topic (v3.0)
+ztlctl agent session recall-topic "async patterns"
+
+# Check for contradictions across the vault (v3.0)
+ztlctl check contradictions
 ```
 
 ## Features
@@ -76,13 +82,20 @@ ztlctl agent session close --summary "Mapped async patterns, identified refactor
 - **File-first durable artifacts** for notes, references, and tasks, with rebuildable indexes and operational state ([Core Concepts](docs/concepts.md))
 - **Knowledge graph** with 4-signal reweave scoring (BM25, tag overlap, graph proximity, topic match) for automated link discovery ([Tutorial](docs/tutorial.md))
 - **Session-based agentic workflows** with token-budgeted 5-layer context assembly ([Agentic Workflows](docs/agentic-workflows.md))
+- **Session recall** — temporal, topic, and topology queries across session history; `ztlctl://sessions/recent` MCP resource ([Session Recall](docs/session-recall.md))
 - **Digital garden maturity** tracking — seed, budding, and evergreen stages ([Knowledge Paradigms](docs/paradigms.md))
-- **Text-first ingestion** for raw text, markdown files, and provider-backed URL capture ([Command Reference](docs/commands.md))
+- **Polaris priorities** — persistent strategic alignment layer with MCP resource, context assembly, and `check alignment` action ([Polaris](docs/polaris.md))
+- **Contradiction detection** — heuristic semantic integrity checking, bidirectional graph edges, and MCP review resource ([Contradiction Detection](docs/contradiction-detection.md))
+- **Media ingestion** — faster-whisper transcription, 11 audio/video format support, captured-to-annotated two-phase workflow ([Media Ingestion](docs/media-ingestion.md))
+- **Text-first ingestion** for raw text, markdown files, and provider-backed URL capture; extends to media via `ztlctl[community]` ([Command Reference](docs/commands.md))
 - **Durable source bundles** for agent-fetched web and multimodal captures, persisted beside ingested references for later packet/export reuse ([Agentic Workflows](docs/agentic-workflows.md))
 - **Full-text + semantic search** with BM25/vector hybrid ranking, explainable review/garden modes, and topic packets ([Command Reference](docs/commands.md))
+- **Methodology guidance** — prose-as-title convention, title quality checks at info severity, garden backlog candidates ([Methodology](docs/methodology.md))
 - **Conversational enrichment workflows** with packet-to-draft note/task/decision generation ([Agentic Workflows](docs/agentic-workflows.md))
 - **Dashboard and dossier export** for review queues, garden backlog, and topic workbenches ([Tutorial](docs/tutorial.md#step-8-export-and-share))
-- **MCP server** with discovery-first tooling, portable prompts, capture-spec resources, and exported client assets for AI integration ([MCP Server](docs/mcp.md))
+- **Action registry** — 73+ ActionDefinitions in 9 feature-local modules; CLI and MCP surfaces auto-generated from a single source of truth
+- **MCP server** with 73+ auto-generated tools, 20 resources, and 9 prompts for AI integration ([MCP Server](docs/mcp.md))
+- **Reliable event delivery** — WAL-backed async dispatch with bounded shutdown drain and service-only `post_action` hooks
 - **Generated Claude and Codex workflow assets** via `ztlctl workflow export` for portable agent setup
 - **Export** to markdown, indexes, graph formats, and dashboard artifacts ([Tutorial](docs/tutorial.md#step-8-export-and-share))
 - **Plugin system** via pluggy event bus with built-in git integration ([Development](docs/development.md))
@@ -126,6 +139,11 @@ Use `--log-json` on the root command to emit structured JSON logs to stderr (e.g
 | [Command Reference](docs/commands.md) | All CLI commands, options, and filters |
 | [Configuration](docs/configuration.md) | `ztlctl.toml` settings and environment variables |
 | [Agentic Workflows](docs/agentic-workflows.md) | Sessions, context assembly, batch, scripting |
+| [Session Recall](docs/session-recall.md) | Temporal, topic, and topology queries across session history |
+| [Polaris](docs/polaris.md) | Persistent strategic priorities layer and alignment checking |
+| [Contradiction Detection](docs/contradiction-detection.md) | Heuristic semantic integrity checking across vault notes |
+| [Media Ingestion](docs/media-ingestion.md) | Audio/video transcription and captured-to-annotated workflow |
+| [Methodology](docs/methodology.md) | Prose-as-title convention and title quality guidance |
 | [Knowledge Paradigms](docs/paradigms.md) | Capture/synthesis and enrichment, mapped to note-taking paradigms |
 | [MCP Server](docs/mcp.md) | Model Context Protocol integration |
 | [Development](docs/development.md) | Contributing, architecture, local setup |
@@ -142,13 +160,17 @@ src/ztlctl/
 ├── domain/          # Types, enums, lifecycle rules, ID patterns
 ├── infrastructure/  # SQLite/SQLAlchemy, NetworkX graph, filesystem
 ├── config/          # Pydantic config models, TOML discovery
-├── services/        # Business logic (create, query, graph, reweave, ...)
+├── services/        # Business logic — 16 services (create, query, graph, reweave, ...)
 ├── output/          # Rich/JSON formatters
-├── commands/        # Click CLI commands
-├── plugins/         # Pluggy hook specs and built-in plugins
-├── mcp/             # MCP server adapter
+├── controllers/     # Delegation layer between ActionRegistry and services (v3.0)
+├── actions/         # 73 ActionDefinitions in 9 feature-local modules (v3.0)
+├── commands/        # Click CLI — auto-generated from ActionRegistry
+├── plugins/         # Pluggy hook specs, built-in plugins, centralized PM factory
+├── mcp/             # MCP server adapter — auto-generated from ActionRegistry
 └── templates/       # Jinja2 templates for content creation
 ```
+
+CLI and MCP surfaces are both auto-generated from the `ActionRegistry` — define an action once in `actions/`, and both surfaces get it automatically.
 
 See [Development](docs/development.md) for details and [DESIGN.md](DESIGN.md) for the complete internal design specification.
 

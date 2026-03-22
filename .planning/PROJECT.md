@@ -50,10 +50,18 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 - ✓ Session recall (temporal, topic, topology querying + ztlctl://sessions/recent MCP resource) — v3.0
 - ✓ Contradiction detection (heuristic scoring, CAT_SEMANTIC check, contradicts graph edges, MCP review resource) — v3.0
 - ✓ Media ingestion pipeline (faster-whisper transcription, VTT/SRT parsing, two-phase captured→annotated workflow) — v3.0
+- ✓ CI doc lint gate (MkDocs strict + Vale prose lint + pymarkdownlnt) — v3.1
+- ✓ Documentation conventions (Diataxis audit, beginner-to-advanced nav, Google CLI style, admonition taxonomy) — v3.1
+- ✓ 5 new v3.0 feature doc pages (session-recall, polaris, contradiction-detection, media-ingestion, methodology) — v3.1
+- ✓ Existing docs refreshed with v3.0 content (concepts, agentic-workflows, agents, mcp, llms indexes) — v3.1
+- ✓ Internal docs current (CLAUDE.md 16 services/73 actions, DESIGN.md 9 new decisions, README.md v3.0 features) — v3.1
+- ✓ Tech debt cleared: IngestService post_action dispatch, stale docstrings — v3.1
 
 ### Active
 
-<!-- No active milestone — next milestone TBD -->
+<!-- No active milestone — planning next -->
+
+No active requirements. Next milestone to be defined.
 
 ### Out of Scope
 
@@ -66,14 +74,14 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ## Context
 
-**Current state (v3.0 shipped):** 126 source files (28,261 LOC Python), 141 test files (29,323 LOC), 2054 tests passing, mypy strict, ruff clean. 15 services, 17 controllers, 73+ registered actions, auto-generated MCP adapter (73+ tools from ActionRegistry), semantic search, session recall, contradiction detection, media ingestion. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern, 4-layer action model (Data/Service/Controller/Registry), feature-local action registration (9 modules), centralized PluginManager factory, reliable event delivery with WAL drain.
+**Current state (v3.1 shipped):** 126 source files (28,275 LOC Python), 141 test files (29,329 LOC), 2055 tests passing, mypy strict, ruff clean. 16 services, 17 controllers, 73 registered actions, auto-generated MCP adapter (73+ tools from ActionRegistry), semantic search, session recall, contradiction detection, media ingestion. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern, 4-layer action model (Data/Service/Controller/Registry), feature-local action registration (9 modules), centralized PluginManager factory, reliable event delivery with WAL drain. Documentation: CI-gated (MkDocs strict + Vale + pymarkdownlnt), 5 v3.0 feature pages, Diataxis-classified nav, llms.txt/llms-full.txt agent discovery indexes current.
 
 **Key architectural insight (realized):** CLI and MCP are auto-generated presentation layers over a unified ActionRegistry — define once, generate both surfaces. This is the foundation all future work builds on.
 
 **Known technical debt (from v3.0 audit):**
 - IngestService._ingest_normalized missing _dispatch_post_action_event (post_action plugin hooks for ingest_* actions don't fire)
-- Pre-existing verbose telemetry test failure (git subprocess error in temp vault)
 - Cosmetic: stale docstrings/comments in ContradictionController, commands/generator.py
+- Documentation: v3.0 features (recall, polaris, contradiction, ingestion, methodology) not yet documented in docs site
 
 **Target audience:** Small group of users, building toward broader adoption. Tool must work fully without agentic systems.
 
@@ -114,6 +122,9 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | Polaris as persistent priorities layer | Agents and users need a stable reference for decision alignment | ✓ Good — init scaffold, MCP resource, context assembly, check_alignment |
 | Contradiction detection via heuristic scoring | LLM-free approach using cosine similarity + negation patterns + key_points divergence | ✓ Good — CAT_SEMANTIC check, bidirectional graph edges, MCP review resource |
 | faster-whisper as optional dependency | Local transcription, no data leaves machine, guarded import | ✓ Good — graceful DEPENDENCY_MISSING error with install hint |
+| CI doc_lint gate (Vale + pymarkdownlnt + MkDocs strict) | Broken docs cannot merge; structural enforcement | ✓ Good — parallel CI job, 3 lint tools |
+| Diataxis classification + beginner-to-advanced nav | Users find what they need, consistent content types | ✓ Good — 20 pages classified, nav reordered |
+| Documentation Conventions in CLAUDE.md | Google CLI style, 3-type admonitions, "What's next" links | ✓ Good — enforced by CI + CLAUDE.md |
 
 ---
-*Last updated: 2026-03-21 after v3.0 milestone completion*
+*Last updated: 2026-03-22 after v3.1 milestone complete*

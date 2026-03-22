@@ -5,7 +5,7 @@
   "commit_docs": true,
   "parallelization": true,
   "search_gitignored": false,
-  "branching_strategy": "phase",
+  "branching_strategy": "milestone",
   "phase_branch_template": "gsd/phase-{phase}-{slug}",
   "milestone_branch_template": "gsd/{milestone}-{slug}",
   "workflow": {
@@ -19,10 +19,11 @@
     "_auto_chain_active": false
   },
   "git": {
-    "branching_strategy": "phase"
+    "branching_strategy": "milestone"
   },
   "hooks": {
-    "context_warnings": true
+    "context_warnings": true,
+    "research_questions": true
   },
   "brave_search": false
 }

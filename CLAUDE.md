@@ -144,6 +144,62 @@ All commit messages AND PR titles MUST follow the conventional commits format:
 | `pr-ci.yml` | PR to `develop` | Lint, test, typecheck, security audit, commit lint |
 | `release-pipeline.yml` | Push to `develop` | Validate → version bump → changelog → tag → GitHub Release → PyPI publish (manual approval) → Homebrew tap sync |
 
+## Documentation Rules
+
+**Rule:** If a PR adds or modifies actions, commands, config options, or MCP resources, the same PR MUST update the relevant docs.
+
+### Docs Update Checklist
+
+Before marking a PR ready for review, verify all that apply:
+
+- [ ] Relevant docs page updated (new feature, changed behavior, new config option)
+- [ ] `docs/llms.txt` entry current (new page added, stale description corrected)
+- [ ] CLI examples verified against `uv run ztlctl <command> --help` (flag names from source)
+- [ ] MCP tool count accurate in `docs/mcp.md` if tools were added or removed
+
+**Where to find things:**
+- User-facing docs: `docs/` directory, registered in `mkdocs.yml` nav
+- LLM index: `docs/llms.txt` and `docs/llms-full.txt` (hand-maintained)
+- Command reference: `docs/commands.md`
+- MCP reference: `docs/mcp.md`
+
+### GSD Phase Documentation Convention (DINF-03)
+
+Every GSD feature phase plan MUST include a Documentation Tasks block. When planning a phase that adds or changes user-facing behavior, include at least one task that updates the relevant docs page, llms.txt entry, and command examples. This is structural — not optional.
+
+### Documentation Conventions
+
+Quality standards for all docs pages. Enforced by review — Vale and pymarkdownlnt catch structural violations.
+
+**CLI syntax (Google developer style):**
+- Optional arguments: `[--flag VALUE]`
+- Required arguments: `REQUIRED`
+- Shell prompts: use bare `ztlctl` in inline references, `$ ztlctl` only in standalone code blocks
+- Flag names must match `uv run ztlctl <command> --help` output exactly — never from memory
+
+**Admonition taxonomy (3 types only):**
+- `!!! warning` — danger, breaking changes, data loss risks
+- `!!! note` — context, background information, important caveats
+- `!!! tip` — recommendations, best practices, efficiency suggestions
+
+Do not use `info`, `danger`, `example`, `abstract`, or other admonition types. Three types keep the signal clear.
+
+**Cross-referencing:**
+- Every page ends with a "What's next" section containing 2-3 links to related pages
+- Use relative Markdown links: `[Page title](page.md)` (not absolute URLs)
+- Link text should be the target page's title, not "click here" or "see this"
+
+**Headings:**
+- Sentence case (e.g., "Getting started" not "Getting Started") — consistent with Vale Google style
+- H1 is the page title (one per page), H2 for major sections, H3 for subsections
+
+**Diataxis content types:**
+- Tutorial: learning-oriented, guided experience ("Follow along to...")
+- How-to: task-oriented, goal-driven ("How to configure...")
+- Reference: information-oriented, complete catalog ("All available commands...")
+- Explanation: understanding-oriented, conceptual ("Why ztlctl uses...")
+- Do not mix types in a single page — if a page serves two purposes, split or pick the primary purpose
+
 ## Architecture
 
 - **Entry point**: `ztlctl` (Click CLI)
@@ -153,7 +209,48 @@ All commit messages AND PR titles MUST follow the conventional commits format:
   - `config/` — Pydantic config models, TOML discovery/loading
   - `services/` — business logic (imports domain, infrastructure, config)
   - `output/` — Rich/JSON formatters (imports services)
-  - `commands/` — Click command groups/commands (imports services, output, config)
-  - `plugins/` — pluggy hook specs and built-in plugins
-  - `mcp/` — optional MCP adapter (guarded imports)
+  - `commands/` — Click CLI commands (auto-generated from ActionRegistry via `commands/generator.py`)
+  - `controllers/` — thin delegation layer between ActionRegistry and services (v3.0)
+  - `actions/` — feature-local ActionDefinition modules; registry aggregates them (v3.0)
+  - `plugins/` — pluggy hook specs, built-in plugins, centralized PluginManager factory
+  - `mcp/` — optional MCP adapter (guarded imports, auto-generated from ActionRegistry)
   - `templates/` — Jinja2 templates for content creation
+
+### v3.0 service inventory (16 services, excluding BaseService)
+
+CreateService, QueryService, GraphService, SessionService, ReweaveService, CheckService,
+UpdateService, ExportService, InitService, VectorService, WorkflowService,
+ContradictionService, RecallService, IngestService, TranscriptionService, UpgradeService
+
+### v3.0 controller inventory (17 controllers, excluding BaseController)
+
+CreateController, QueryController, GraphController, SessionController, ReweaveController,
+CheckController, UpdateController, ExportController, InitController, VectorController,
+WorkflowController, ContradictionController, RecallController, IngestController,
+DiscoveryController, DocsController, UpgradeController
+
+### v3.0 action inventory (73 registered ActionDefinitions)
+
+ActionDefinitions live in 9 feature-local modules under `src/ztlctl/actions/`:
+
+| Module | Count | Feature area |
+|---|---|---|
+| `_admin.py` | 15 | Admin, upgrade, docs, discovery |
+| `_session.py` | 12 | Session lifecycle and recall |
+| `_query.py` | 10 | Search, list, packets, drafts |
+| `_check.py` | 8 | Integrity, contradictions, polaris |
+| `_graph.py` | 8 | Graph traversal and analysis |
+| `_lifecycle.py` | 6 | Note status transitions |
+| `_ingest.py` | 5 | Text and media ingestion |
+| `_creation.py` | 5 | Note, reference, task creation |
+| `_export.py` | 4 | Export formats |
+
+`actions/registry.py` imports from all 9 modules and builds the unified `ActionRegistry`. This is the single source of truth — CLI and MCP surfaces are auto-generated from it.
+
+### Feature-local action registration
+
+ActionDefinitions are colocated by feature area rather than declared in a single monolithic file. Each `_<feature>.py` module exports a list of `ActionDefinition` instances; `registry.py` imports and aggregates them all. Adding a new action requires only: (1) add an `ActionDefinition` to the appropriate feature module, (2) wire a handler in the corresponding controller. The generator and MCP adapter pick it up automatically.
+
+### Centralized PluginManager factory
+
+`src/ztlctl/plugins/runtime.py` exports `get_plugin_manager()` — the single construction point for all `PluginManager` instances. It provides scope-aware caching (keyed on `local_dir` + `include_entrypoints`), optional config injection via `inject_configs(settings)`, and a `cache=False` escape hatch for callers that register vault-specific built-in plugins. All code that needs a `PluginManager` calls `get_plugin_manager()` — there are no independent `PluginManager()` instantiations outside this factory.

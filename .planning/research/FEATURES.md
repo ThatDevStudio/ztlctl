@@ -1,268 +1,152 @@
 # Feature Research
 
-**Domain:** Documentation and agent accessibility for CLI/MCP developer tools
-**Researched:** 2026-03-20
-**Confidence:** HIGH (llms.txt spec verified against llmstxt.org; MCP doc patterns verified against official MCP spec and real implementations)
+**Domain:** Professional-grade CLI/MCP developer tool documentation quality
+**Researched:** 2026-03-21
+**Confidence:** HIGH (Stripe/Docker patterns from primary sources; Diataxis from official site; CLI conventions from CLIG and Google style guide)
 
 ---
 
 ## Context
 
-This research covers the v2.1 milestone: adding two-track documentation (user guide + developer guide) with agent accessibility to an existing Python CLI/MCP tool. The tool already has a GitHub Pages / Just-the-Docs site with 16 existing markdown docs, an MCP server with 59 tools and existing resources, and a plugin system.
+This research covers the v3.1 milestone: raising documentation to professional-grade quality (Stripe/Docker/Obsidian-caliber). The docs infrastructure already exists: MkDocs with mkdocs-shadcn theme, two-track navigation (User Guide + Developer Guide), llms.txt, agents.md, API reference. The gap is quality of execution, not presence of structure.
 
-Four specific questions are answered below:
-1. llms.txt and llms-full.txt conventions — format, content, consumers
-2. Multi-audience documentation — user guide vs developer guide patterns
-3. In-tool documentation search — what CLI tools do beyond --help
-4. MCP-served documentation — how MCP servers expose queryable docs as resources
+**Existing docs inventory (v2.1 era):**
+- User Guide: tutorial, concepts, paradigms, obsidian, plugins, agentic-workflows, commands, configuration, troubleshooting, best-practices
+- Developer Guide: contributing, plugin-guide, api-reference, mcp, agents
+- Agent accessibility: llms.txt, llms-full.txt, `ztlctl docs` CLI, MCP doc search
 
----
-
-## Question 1: llms.txt and llms-full.txt Conventions
-
-### Specification (HIGH confidence — verified against llmstxt.org)
-
-**llms.txt** is placed at `/llms.txt` at the site root. It is a Markdown file with:
-
-1. **H1 heading** (required): Project or site name only
-2. **Blockquote** (optional): Short summary with key context for understanding the project
-3. **Content paragraphs** (optional): Additional detail, no headings
-4. **H2-delimited sections** (optional): Lists of file URLs with descriptions, each entry as `[name](url): description`
-5. **"Optional" section** (optional): Secondary URLs agents can skip if context window is short
-
-The file should be under ~10KB. It functions as a navigation index, not content delivery.
-
-**llms-full.txt** is a companion at `/llms-full.txt`. It is NOT part of the official llmstxt.org spec — it is a community convention where the complete content of all documentation pages is concatenated into a single flat markdown file. Typically 50KB–2MB depending on docs volume.
-
-**Difference:**
-- `llms.txt` — lightweight index (links + one-line summaries), consumed when the agent needs to navigate or discover what exists
-- `llms-full.txt` — all documentation content concatenated, consumed when the agent needs complete knowledge in a single context load
-
-**Who consumes them:**
-- MCP clients (Claude Desktop, Cursor, Windsurf) discovering what docs exist before tool use
-- AI assistants fetching documentation for a project when answering user questions
-- Coding agents that need to orient to a codebase before taking action
-- LLM inference pipelines that process documentation at query time
-
-**Current adoption (2025–2026):** 844K+ sites per BuiltWith tracking. Standard for AI-native and open-source companies. Anthropic, Vercel, Cloudflare, and Stripe all implement it.
-
-**Jekyll/GitHub Pages generation:** Straightforward via Liquid templating. A `llms.txt` file in the Jekyll root with `---` frontmatter and Liquid loops over `site.pages` generates the index automatically. Keep it out of Jekyll's page build with proper frontmatter configuration.
-
-### Infrastructure dependency for ztlctl
-- Existing: Just-the-Docs on GitHub Pages (Jekyll-based), 16 MDX doc files with YAML frontmatter
-- Generation path: Liquid template at `docs/llms.txt` and `docs/llms-full.txt` with Jekyll loops
-- No external dependencies beyond existing Jekyll build pipeline
+**v3.0 features with no documentation yet:** session recall, polaris priorities, contradiction detection, media ingestion, methodology guidance.
 
 ---
 
-## Question 2: Multi-Audience Documentation Patterns
+## Feature Landscape
 
-### Established patterns (HIGH confidence — verified against Stripe, Twilio, AWS, Mintlify implementations)
+### Table Stakes (Users Expect These)
 
-**The two-track pattern** is the dominant approach for tools with both knowledge-worker users and developer/plugin-author audiences:
-
-**Track 1: User Guide** (knowledge worker audience)
-- Goal-oriented structure: what can I do? how do I do X?
-- Conceptual guides, tutorials, scenario walkthroughs
-- Minimal jargon; business/workflow language
-- Navigation labels are nouns or outcome phrases: "Research Workflows", "Session Management", "Getting Started"
-- Content: quickstart, tutorial, concepts, paradigms, workflow recipes, session guides, Obsidian integration
-
-**Track 2: Developer Reference** (plugin author / integrator audience)
-- Task-oriented structure: how do I build X?
-- API-first: hook signatures, event types, contracts, examples
-- Technical vocabulary expected
-- Navigation labels can be API nouns: "Plugin API", "Hookspecs", "ActionRegistry"
-- Content: plugin authoring guide, hook reference, event catalog, contributing guide
-
-**Navigation implementation:**
-- Top-level sections in the sidebar signal audience. Example: "User Guide" section and "Developer Reference" section as collapsible groups
-- Just-the-Docs supports `nav_order`, `parent`, and `has_children` frontmatter — no plugin needed, just frontmatter organization
-- An audience landing page (index.md per section) with brief "if you are a knowledge worker..." / "if you are a plugin author..." routing copy is standard practice
-
-**What does NOT work:**
-- Flat docs serving both audiences equally — knowledge workers drown in API detail; developers hunt through tutorial prose
-- Single long-form "guide" that blends conceptual and reference — hard to navigate, hard to maintain
-
-### Existing ztlctl gap
-The 16 current docs are flat. No audience signal. `development.md`, `mcp.md`, and `commands.md` are developer-flavored; `tutorial.md`, `paradigms.md`, `agentic-workflows.md` are user-flavored. They coexist without separation, making navigation ambiguous for either audience.
-
----
-
-## Question 3: In-Tool Documentation Search — Beyond --help
-
-### What CLI tools actually do (MEDIUM confidence — pattern survey, not single authoritative source)
-
-Most mature CLI tools use one of three approaches beyond `--help`:
-
-**Approach A: External docs only**
-- ripgrep, fd — comprehensive `--help` and man pages, but no in-tool doc search
-- Users are expected to use the web docs or `man rg`
-- Acceptable for tools with simple, stable surfaces; insufficient for tools with 59+ operations
-
-**Approach B: Rich help text with examples**
-- kubectl: `kubectl explain <resource>` exposes structured reference per resource type
-- git: `git help <command>` opens the man page in the pager (delegates to system)
-- Both extend --help with depth but require knowing what to query
-
-**Approach C: In-tool doc/search subcommand** (rare, but emerging for complex tools)
-- Tools with large surfaces or AI-centric use cases are adding `docs` subcommands
-- The `ztlctl docs <query>` pattern has no dominant CLI precedent — it's a novel but logical pattern
-- Typically implemented as: (1) embed markdown files as package data, (2) implement keyword/BM25 search over the embedded docs, (3) render matched content via Rich pager or stdout
-
-**What makes `ztlctl docs <query>` viable:**
-- ztlctl already has BM25 search infrastructure (FTS5 in SQLite)
-- Docs are already markdown files that could be embedded as package data resources
-- Rich output infrastructure already exists for rendering
-- The ActionRegistry already knows all command names — autocomplete integration is achievable
-
-**Complexity:** MEDIUM. The hard part is not the search — it's the ingestion pipeline (embed docs at package build time, keep them current with releases). The simplest viable form: ship docs as package_data in `src/ztlctl/docs/`, search with in-memory string matching or SQLite FTS5 over a bundled docs DB.
-
----
-
-## Question 4: MCP-Served Documentation as Resources
-
-### Established patterns (HIGH confidence — verified against MCP spec, AWS docs MCP, OpenAI docs MCP, Fern docs)
-
-**The standard MCP documentation pattern has two layers:**
-
-**Layer 1: Resource-based doc delivery**
-- Each documentation section is a URI-addressable resource
-- Pattern: `ztlctl://docs/<section>` returns the section content as markdown text
-- Resources are read-only, static or dynamically generated from the doc files
-- MCP clients can `read_resource` on demand without burning tool calls
-
-**Layer 2: Tool-based doc search**
-- A `search_docs` or `query_docs` tool accepts a query string and returns matching sections
-- AWS, OpenAI, and Context7 all implement this pattern
-- The tool returns structured results: list of `{section, url, excerpt, relevance}` objects
-- This is the primary entry point for agents that don't know what documentation exists
-
-**Real implementations:**
-- AWS Documentation MCP Server: `search_documentation(query)` + `read_documentation(url)` tools
-- OpenAI Docs MCP: Read-only search over developers.openai.com and platform.openai.com
-- Context7: `resolve-library-id` + `query-docs` — resolves library first, then queries into it
-- Mintlify's auto-generated servers: search and page-content tools generated from existing docs
-
-**ztlctl existing MCP infrastructure:**
-- 6 existing resources including `ztlctl://agent-reference` (onboarding payload)
-- 59 tools via ActionRegistry with `discover_tools` / `describe_tool` pattern
-- No documentation-specific resources or search tool yet
-
-**What the v2.1 milestone needs:**
-- `ztlctl://docs/index` resource — lists all doc sections with summaries (mirrors llms.txt)
-- `search_docs` tool — queries documentation by keyword/topic, returns matching sections
-- Individual section resources optionally: `ztlctl://docs/<slug>` for direct section access
-- These compose with `discover_tools` for the full agent onboarding sequence: docs overview → relevant section → tool discovery → tool use
-
----
-
-## Table Stakes (Users Expect These)
-
-Features a documentation site for a CLI/MCP developer tool must have. Missing any = feels incomplete.
+Features a professional-grade docs site for a CLI developer tool must have. Missing any = docs feel incomplete or amateur.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| llms.txt at site root | Standard for AI-native tools (Anthropic, Vercel, Stripe all have it); agents and MCP clients expect it | LOW | Jekyll Liquid template; no external dependencies; auto-generates from existing doc pages |
-| Two-track navigation (user vs developer) | Flat docs fail both audiences; every serious developer tool (kubectl, Stripe, Twilio) separates concerns | LOW | Just-the-Docs frontmatter reorganization; no new tooling; reuse existing 16 docs |
-| User guide section with goal-oriented content | Knowledge workers need guides, not API refs; tutorial and walkthrough content they can follow | MEDIUM | Requires writing new content: session lifecycle guides, workflow recipe walkthroughs, plugin usage guides |
-| Developer reference section | Plugin authors need hookspec reference, event catalog, and contributing guide; currently missing | MEDIUM | Requires authoring: plugin authoring guide, API reference, contributing architecture walkthrough |
-| `--help` depth on all commands | Users assume every command has comprehensive --help with examples; Click docstrings provide this | LOW | Already largely implemented via Click; verify coverage across all 59 actions |
-| Clean public docs (no internal artifacts) | `backlog.md`, `roadmap.md`, `research-mapping.md` are internal planning docs exposed publicly; breaks trust | LOW | Exclude from Jekyll build via `_config.yml` exclude list |
-| Audience-segmented landing page | Users need routing copy: "if you're a knowledge worker, start here / if you're a developer, start here" | LOW | Single index.md rewrite; no tooling change |
+| Diataxis-aligned page structure (tutorial / how-to / reference / explanation as distinct types) | Every high-quality developer tool docs site separates learning from reference; mixing them makes both worse | HIGH | Structural audit required; most existing pages mix types; Diataxis is the canonical framework (diataxis.fr, adopted by Ubuntu/Canonical, Django, Kubernetes) |
+| Quick Start producing a working result in < 5 minutes | Table stakes for every modern dev tool; absence signals the tool is hard to set up | LOW | `quickstart.md` exists but predates v3.0; needs updating |
+| Concept page with tool-specific terminology defined before use | "Reweave," "polaris," "WAL," "garden maturity," "session" — users from outside the PKM world need grounding | MEDIUM | `concepts.md` exists; needs v3.0 additions (recall, polaris, contradiction, ingestion) |
+| Command reference: option table (flag / default / description) + examples per command | Docker's three-column pattern is the gold standard; users scan this constantly; examples are more important than the table | MEDIUM | `commands.md` exists, source-verified; needs v3.0 command additions |
+| Consistent CLI syntax conventions throughout | Google dev style + CLIG + Telerik style guide all converge: `[optional]`, `{required}`, `$` prompts, "The output is similar to the following:" before terminal output | LOW | Convention-only; apply globally across all pages |
+| Examples before option tables on every command page | CLIG: "Lead with examples — users gravitate toward them over other documentation forms" | LOW | Commands page starts with glance table; invert: most common invocation first |
+| Working copy-pasteable examples | Every example must work against source; not pseudocode; verified against ActionRegistry | LOW | Source-verification discipline established in v2.1; maintain for v3.0 additions |
+| Callout admonitions used consistently (Warning / Note / Tip / Danger) | Docker, Stripe, and Obsidian all use visual callouts for critical information; MkDocs admonition extension already enabled | LOW | Extension is enabled; usage is inconsistent; needs standardized taxonomy |
+| Cross-linking between related pages | Users land anywhere; they need to find adjacent concepts; Stripe's "fast paths for happy flow" pattern | LOW | Some cross-linking exists; needs systematic coverage |
+| "What's next" navigation at end of each page | Guides users through a logical progression; prevents dead-ends | LOW | Currently absent on most pages |
+| Troubleshooting that maps errors to diagnosis to fix | Every real tool breaks; users who can't self-diagnose churn | MEDIUM | `troubleshooting.md` exists; verify v3.0 completeness |
+| Progressive disclosure: simple usage first, advanced options after | CLIG and Stripe both prioritize happy path before edge cases; don't front-load complexity | MEDIUM | Currently most pages lead with comprehensive tables; restructure to simple → complete |
 
-## Differentiators (Competitive Advantage)
+---
 
-Features that distinguish ztlctl's documentation approach. Not universally expected, but create meaningful value.
+### Differentiators (Competitive Advantage)
+
+Features that set documentation apart from adequate to excellent. These create real quality separation.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| `ztlctl docs <query>` in-tool search | Agents and power users can query docs without leaving the tool or opening a browser; novel for Python CLIs | MEDIUM | Requires: embed docs as package data, BM25 or substring search over embedded files, Rich pager output; existing FTS5 and Rich infrastructure reduces cost |
-| llms-full.txt (complete docs in one file) | Agents loading the full ztlctl knowledge base in a single context window; especially useful for agents that are bootstrapping a new vault setup | LOW | Liquid template concatenating all doc pages; trivial to add once llms.txt exists |
-| MCP `search_docs` tool + doc resources | Agents can query docs through the same MCP connection they use to operate the vault; eliminates the need to open a browser or separate tool call; completes the onboarding loop (docs → tools → use) | MEDIUM | Requires: `search_docs` tool in ActionRegistry (with custom_presentation=True), `ztlctl://docs/index` resource, doc content embedded or read from filesystem; aligns with existing ActionRegistry pattern |
-| Agentic workflow recipes as step-by-step walkthroughs | Agents using ztlctl as their note-taking substrate need executable recipes, not just reference; research-capture, review-triage, knowledge-synthesis already have orchestration resource backing | MEDIUM | Requires authoring walkthrough content linking to MCP tool sequences; docs reference the existing orchestration recipe resources |
-| Second-brain vs knowledge garden paradigm walkthroughs | Zettelkasten paradigm is non-obvious; helping users understand which paradigm they're operating in reduces support burden and increases tool adoption | LOW | Primarily content work; `paradigms.md` exists but needs deepening with concrete examples |
-| Bidirectional doc-tool linking | Each command reference doc links to the MCP tool equivalent; each MCP tool description links to the doc section — agents and humans can navigate between surfaces | LOW | Frontmatter convention + templates; defines where to look for each surface |
+| Five dedicated v3.0 feature pages (session recall, polaris, contradiction detection, media ingestion, methodology guidance) | Without conceptual grounding, users can't compose these features; they are non-obvious in paradigm and require motivation before mechanics | HIGH | Each page needs: what it is → why it exists → CLI usage → MCP tool surface → agent workflows → examples |
+| Three-audience tone model executed consistently | Stripe separates quickstarts (new users) from API ref (experts); ztlctl has user/developer/agent tracks — each track needs a distinct, sustained voice | MEDIUM | Decision already recorded in PROJECT.md; v3.1 applies it consistently: mentor tone for User Guide, peer tone for Developer Guide, structured schema for agents |
+| Per-feature MCP tool surface documented alongside CLI surface | ztlctl's MCP tools are the primary interface for agents; every feature page should document both the CLI command and the equivalent MCP tool call | MEDIUM | `agents.md` covers this globally but per-feature MCP coverage is missing in all v3.0 feature pages |
+| Glossary page for domain-specific terms | Zettelkasten, polaris, reweave, garden, WAL, session recall, contradiction score — users from outside the PKM world need a reference point | MEDIUM | No glossary exists; build it during feature page writing; each new term links here |
+| Error messages as teaching moments in troubleshooting | CLIG: "rewrite expected failures for humans with actionable guidance" — not just what went wrong, but why and what to run instead | MEDIUM | Upgrade troubleshooting.md from symptom lists to diagnostic narratives |
+| Methodology guidance section with concrete advice | ztlctl is an opinionated knowledge tool; the "right way to think about notes" is as valuable as command syntax; Obsidian help documents its philosophy | HIGH | `paradigms.md` exists but v3.0 adds prose-as-title convention, garden backlog candidates, title quality checks, polaris alignment — needs dedicated methodology content |
+| Documentation-as-code enforcement (CLAUDE.md rule + GSD phase enforcement) | Professional orgs (Stripe) treat docs as part of definition of done; ad-hoc changes accumulate rot; structural enforcement prevents drift | MEDIUM | CLAUDE.md rule needed: no feature phase completes without docs task; GSD phase template to include docs tasks |
+| Source-verified examples in CI | Draft.dev: "automate the testing of code examples within your CI/CD pipeline to guarantee they are always up-to-date" | HIGH | v2.1 established manual source-verification; CI automation prevents regression; high value but high cost |
 
-## Anti-Features (Commonly Requested, Often Problematic)
+---
+
+### Anti-Features (Commonly Requested, Often Problematic)
+
+Features that seem like improvements but create maintenance debt or harm the reading experience.
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Separate docs site (Mintlify, GitBook, Docusaurus) | Modern docs tooling with versioning, search, AI chat built-in | Adds infrastructure dependency, breaks existing GitHub Pages workflow, requires content migration, ongoing hosting cost; ztlctl's docs are simple markdown — the overhead is not justified at current scale | Jekyll/Just-the-Docs with llms.txt achieves agent accessibility without platform change |
-| Auto-generated CLI reference from Click introspection | Seems like single-source-of-truth for commands | Auto-generated reference is brittle: generated text lacks examples, rationale, and usage context; maintaining generated+human content creates two-phase authoring confusion | Hand-authored command reference with examples; mkdocs-click can generate stubs for completion but should not replace authored content |
-| Full docs-as-MCP-resources (every page as a resource) | Agents could read any doc page directly | 16+ static resources pollute the MCP tool catalog, slow initialization, and create maintenance burden; agents don't need to read every page — they need to search and get relevant sections | `search_docs` tool + `ztlctl://docs/index` resource covers the use case with one tool and one resource |
-| Versioned documentation | Multiple doc versions for different ztlctl releases | Adds significant maintenance burden; ztlctl is pre-1.0 from a public adoption standpoint; multiple versions confuse small audiences; breaking changes tracked in CHANGELOG.md is sufficient | Single docs site tracking latest; note breaking changes clearly in docs with "Changed in v2.x" callouts |
-| AI chat widget embedded in docs site | Interactive docs with LLM answering questions | Requires external AI API key, ongoing cost, and the docs site is static Jekyll on GitHub Pages — no server side; adds complexity without meaningful gain given llms.txt + MCP already provide agent accessibility | llms.txt + llms-full.txt + MCP `search_docs` covers the AI accessibility use case without a chat widget |
+| Auto-generated command reference as primary docs | "Always up to date!" | Auto-generated docs have no examples, no rationale, no curation; they become search engine penalties; Draft.dev names this explicitly as an anti-pattern | Use mkdocstrings for API reference only; hand-curate all user-facing command and concept docs |
+| Interleaving tutorial content with reference content on the same page | "Less to maintain" | Users in "learning mode" and "looking up a flag" have incompatible reading patterns; mixing both serves neither — Diataxis is definitive; this is the single most common documentation quality failure | Keep tutorial, how-to, reference, and explanation as distinct page types; cross-link between them |
+| Fully versioned docs (separate site per release) | "Users on different versions need version-specific docs" | Extreme maintenance burden for a small team; most CLI users upgrade quickly; version sprawl fragments the audience | Version note blocks on changed behavior (e.g., "Added in v3.0"); clear changelog; point to latest |
+| Long single-page "everything on one page" design | "Power users want ctrl+F" | Breaks TOC, pagination, and load time; hostile for scan-read patterns | llms-full.txt already serves the "everything on one page" use case for machines; multi-page structure for humans |
+| Padded "this page covers…" meta-commentary | "Sets expectations for the reader" | Wastes the user's first sentence; the heading already sets expectations | Start with the answer; context after, not before |
+| Exhaustive option tables without examples | "Complete coverage!" | Tables without examples teach what flags exist, not how to use them; users remain confused about actual usage | Every option table must link to or include an example; use progressive disclosure |
+| Embedded AI chat widget in the docs site | "Interactive docs!" | Requires external API key, ongoing cost, and MkDocs is a static site — no server side; also redundant with MCP doc search already built | llms.txt + llms-full.txt + MCP `search_docs` covers the AI accessibility use case without a chat widget |
 
 ---
 
 ## Feature Dependencies
 
 ```
-[llms.txt] ──requires──> [Doc frontmatter cleanup]
-                             └── (title, description in all pages)
+Diataxis Content Type Audit
+    └──enables──> Consistent progressive disclosure on all pages
+    └──enables──> Correct page structure for five new v3.0 feature pages
+                      └──requires──> Clear taxonomy: what type is each page?
 
-[llms-full.txt] ──requires──> [llms.txt]
-                    └── (shares the same generation pipeline)
+Three-Audience Tone Model
+    └──requires──> Tone guidelines written down and agreed on
+    └──enables──> Consistent voice on new v3.0 feature pages
 
-[ztlctl docs <query>] ──requires──> [Docs embedded as package data]
-                            └── (docs/ content bundled into installed package)
+Five New v3.0 Feature Pages
+    └──requires──> Diataxis structure pattern established (one reference model page first)
+    └──requires──> v3.0 features fully implemented (DONE)
+    └──requires──> Source-verified CLI + MCP examples for each feature
+    └──enhances──> agents.md, agentic-workflows.md, mcp.md (update cross-references)
 
-[MCP search_docs tool] ──requires──> [ActionRegistry doc action definition]
-                              └── (custom_presentation=True, standard registration)
+Glossary Page
+    └──requires──> Feature pages written (terms accumulate during writing)
+    └──enhances──> concepts.md, paradigms.md, all feature pages
+    └──reduces──> Repetitive inline definitions scattered across pages
 
-[MCP search_docs tool] ──enhances──> [ztlctl://docs/index resource]
-                              └── (index gives overview; search_docs gives lookup)
+"What's Next" Navigation
+    └──requires──> Well-defined page ordering (logical learning path established)
+    └──enhances──> quickstart → tutorial → concepts → features learning path
 
-[Two-track navigation] ──requires──> [Doc frontmatter reorganization]
-                              └── (parent/nav_order frontmatter for section grouping)
+Source-Verified Examples (CI)
+    └──requires──> v3.0 features fully implemented (DONE)
+    └──enhances──> All pages; particularly commands.md and new feature pages
 
-[Two-track navigation] ──enables──> [User guide content]
-                              └── (section structure must exist before content is added)
-
-[Two-track navigation] ──enables──> [Developer reference content]
-
-[Developer reference] ──requires──> [Plugin API already stable]
-                            └── (documenting an unstable API is waste; v2.0 stabilized it)
-
-[Agentic recipe walkthroughs] ──requires──> [Orchestration recipe resources (already exist)]
-                                  └── (doc references ztlctl://recipes/research-capture etc.)
-
-[Internal artifact removal] ──no dependencies──> [Can be done independently first]
+Documentation-as-Code Enforcement
+    └──requires──> CLAUDE.md rule written
+    └──requires──> GSD phase template updated
+    └──prevents──> Future documentation rot
 ```
 
 ### Dependency Notes
 
-- **llms.txt requires doc frontmatter cleanup:** Every page needs `title` and `description` in frontmatter for the Liquid template to generate meaningful index entries. Several existing pages may be missing `description`.
-- **MCP search_docs requires ActionRegistry:** ztlctl's architecture mandates all tools go through ActionRegistry — this is a constraint, not a choice. The doc search action needs a definition with `custom_presentation=True` since its output is unstructured search results.
-- **Two-track navigation enables content work:** Content authoring for user guides and developer reference should not start until the navigation structure is in place — otherwise content lands in the wrong place.
-- **Developer reference requires stable plugin API:** The plugin API was stabilized in v2.0. This is the correct moment to document it. Documenting before stability = documentation rot.
+- **Diataxis audit is the structural gate.** Before rewriting pages, classify every existing page by content type. Pages mixing tutorial + reference content need to be split or rewritten with a single purpose. This unlocks all other quality improvements.
+- **One reference model page before writing the other four.** Session recall should be written first (or whichever is structurally simplest), reviewed, then used as the template pattern for contradiction detection, polaris, media ingestion, and methodology guidance.
+- **Source-verification discipline is a gate on accuracy, not structure.** All content changes must verify every example against `src/ztlctl/commands/` and the ActionRegistry before publishing.
+- **Glossary is not a blocker but an amplifier.** Build it during feature page writing, not before — terms emerge from the writing process. Link from concepts.md and feature pages as the glossary grows.
 
 ---
 
 ## MVP Definition
 
-This is a subsequent milestone (v2.1), not a greenfield MVP. "Launch with" means what the milestone ships.
+### Launch With (v3.1 documentation overhaul — professional grade)
 
-### Launch With (v2.1 core)
+Minimum set of changes that justify the "professional-grade" claim.
 
-- [ ] Internal artifacts removed from public docs (backlog.md, research-mapping.md, roadmap.md excluded from Jekyll build) — unblocks everything; zero risk
-- [ ] Two-track navigation structure (user guide section + developer reference section) via frontmatter reorganization — structural prerequisite for all content work
-- [ ] llms.txt at docs root (Liquid template, auto-generated from existing pages) — standard compliance, LOW complexity, HIGH agent value
-- [ ] llms-full.txt at docs root (Liquid template, concatenates all pages) — trivial once llms.txt pipeline exists
-- [ ] User guide section content: session lifecycle guides, workflow recipe walkthroughs, plugin usage guides (Obsidian, Git, Reweave) — primary value for knowledge-worker audience
-- [ ] Developer reference section content: plugin authoring guide, hookspec/event reference, contributing guide — primary value for plugin author audience
-- [ ] MCP `ztlctl://docs/index` resource — list of doc sections with summaries; bridges llms.txt and MCP surfaces; LOW complexity given existing resource infrastructure
+- [ ] Diataxis content type audit — classify every existing page, list mixed-purpose pages for remediation — **foundational gate, unblocks all else**
+- [ ] Five new v3.0 feature pages (session recall, polaris, contradiction detection, media ingestion, methodology guidance) — each with: what/why/CLI/MCP/examples structure — **primary coverage gap**
+- [ ] Update `concepts.md`, `agentic-workflows.md`, `agents.md`, `mcp.md`, `commands.md` with v3.0 content — **accuracy**
+- [ ] Consistent CLI syntax conventions across all pages (brackets, `$` prompts, "similar to the following:" prefix) — **professionalism signal; zero complexity**
+- [ ] Callout admonitions applied with a consistent taxonomy (Warning = destructive ops, Note = important context, Tip = best practices) — **scannability**
+- [ ] "What's next" links at the end of each page in the User Guide learning path — **retention**
+- [ ] Progressive disclosure applied to command pages: simplest useful invocation first, then option table, then advanced examples — **UX**
+- [ ] Documentation-as-code CLAUDE.md rule and GSD template update — **prevents future rot**
 
-### Add After Validation (v2.1.x)
+### Add After Initial Overhaul (v3.1.x)
 
-- [ ] `ztlctl docs <query>` in-tool CLI search — when user feedback confirms agents/power users want offline doc search; MEDIUM complexity; depends on docs-as-package-data infrastructure
-- [ ] MCP `search_docs` tool — when evidence shows agents are loading llms-full.txt and struggling with context size; search tool solves context window pressure; MEDIUM complexity
+- [ ] Glossary page — add when feature pages expose enough new terms to justify a standalone reference
+- [ ] Methodology guidance deepening — expand `paradigms.md` with specific prose-as-title, garden maturity progression, polaris alignment workflows
+- [ ] CI-enforced example validation — add when resources allow; highest protection against regression
 
-### Future Consideration (v2.2+)
+### Future Consideration (v4+)
 
-- [ ] `search_docs` full-text search with BM25 ranking — when `ztlctl docs <query>` is validated and demand exists for MCP-native doc search with ranking
-- [ ] Per-page `.md` extension serving (raw markdown at `page.md`) — low value for GitHub Pages static site; llms-full.txt covers the primary use case
+- [ ] Asciinema / terminal recordings — meaningful lift, requires recording infra; defer until core content is excellent
+- [ ] Versioned docs — defer until adoption proves version fragmentation is a real support problem
+- [ ] i18n — out of scope until adoption requires it
 
 ---
 
@@ -270,35 +154,97 @@ This is a subsequent milestone (v2.1), not a greenfield MVP. "Launch with" means
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Remove internal artifacts | HIGH (trust/professionalism) | LOW | P1 |
-| Two-track navigation reorganization | HIGH (both audiences) | LOW | P1 |
-| llms.txt | HIGH (agent/MCP clients) | LOW | P1 |
-| llms-full.txt | HIGH (full-context agents) | LOW | P1 |
-| User guide content (sessions, recipes, plugins) | HIGH (knowledge workers) | MEDIUM | P1 |
-| Developer reference content (plugin API, events, contributing) | HIGH (plugin authors) | MEDIUM | P1 |
-| MCP `ztlctl://docs/index` resource | MEDIUM (agent onboarding) | LOW | P2 |
-| `ztlctl docs <query>` CLI command | MEDIUM (power users / agents) | MEDIUM | P2 |
-| MCP `search_docs` tool | MEDIUM (agents with large vaults) | MEDIUM | P2 |
-| Agentic recipe walkthroughs (deepened) | MEDIUM (agents) | LOW | P2 |
-| Paradigm walkthroughs (deepened) | LOW (casual users) | LOW | P3 |
+| Five new v3.0 feature pages | HIGH | HIGH | P1 |
+| Diataxis structural audit + fixes to mixed pages | HIGH | MEDIUM | P1 |
+| Update existing pages with v3.0 content | HIGH | MEDIUM | P1 |
+| Consistent CLI syntax conventions | HIGH | LOW | P1 |
+| Progressive disclosure on command pages | HIGH | LOW | P1 |
+| "What's next" page navigation | MEDIUM | LOW | P1 |
+| Callout admonition consistency | MEDIUM | LOW | P1 |
+| Documentation-as-code enforcement | HIGH | LOW | P1 |
+| Per-feature MCP tool surface docs | HIGH | MEDIUM | P2 |
+| Glossary page | MEDIUM | MEDIUM | P2 |
+| Methodology guidance deepening (paradigms.md) | MEDIUM | MEDIUM | P2 |
+| Error messages as teaching moments (troubleshooting.md) | MEDIUM | MEDIUM | P2 |
+| CI-enforced example validation | HIGH | HIGH | P3 |
+| Asciinema / terminal recordings | LOW | HIGH | P3 |
 
 **Priority key:**
-- P1: Must ship in v2.1 milestone
-- P2: Ship in v2.1 if scope permits; defer to v2.1.x otherwise
-- P3: Nice to have; future milestone
+- P1: Required for "professional grade" claim — do in v3.1
+- P2: Meaningful quality lift — do when P1 is complete or in parallel if resources allow
+- P3: Nice to have — defer
+
+---
+
+## Documentation Patterns from Stripe, Docker, and Obsidian
+
+### Stripe Documentation Patterns (HIGH confidence)
+
+1. **Documentation is part of the definition of done.** Features aren't shipped until documentation is written, reviewed, and published. Documentation contributions count toward performance reviews. This is a cultural decision encoded as process — for ztlctl, the CLAUDE.md enforcement rule and GSD phase template are the equivalent.
+2. **Personalization removes friction.** Auto-injecting API keys into examples eliminates copy-paste errors. The ztlctl analog: use realistic, consistent example IDs (`ztl_a1b2c3d4`, `LOG-0042`) throughout all docs, not `<YOUR_ID>` placeholders.
+3. **Three-column layout: nav / content / code.** The code column stays visible as users read explanations — they never lose context between prose and example. MkDocs shadcn does not replicate this exactly, but placing code blocks immediately adjacent to their explanatory prose achieves the same effect.
+4. **Fast paths for happy flow.** Common use cases appear before edge cases. Error handling, flags, and advanced options are deeper in the page. Implement this on every command page: show the one-line common invocation before the complete flag table.
+5. **Explanations are "clear, concise — never too little, never too much."** Stripe's docs are notable for not padding or over-explaining. Every sentence earns its place.
+
+### Docker Documentation Patterns (HIGH confidence — primary source from Docker CLI reference)
+
+1. **Every CLI command page follows the same structure:** Brief description → Detailed description → Options table (flag | default | description) → Examples section → Subcommands table. Predictability reduces cognitive load. Readers know where to find what they need without scanning.
+2. **Examples progress from simple to complex.** Don't start with the full flag set — start with the minimal invocation that does the core thing, then build up.
+3. **Contextual warnings as callouts.** "Do not use `-t` and `-a stderr` together" appears as a highlighted callout, not buried in prose. Critical gotchas are visually prominent.
+4. **Cross-linking subcommands bidirectionally.** Command group pages link to each subcommand; subcommand pages link back to the group. Navigation is bidirectional and consistent.
+5. **Environment variables, CLI flags, and config file properties documented in the same section.** All three surfaces (CLI / env / config) for the same setting appear together, grouped by concern. For ztlctl: each configuration option should show the TOML key, the CLI flag equivalent (if any), and the environment variable equivalent.
+
+### Obsidian Help Patterns (MEDIUM confidence — content rendering was limited; patterns inferred from structure)
+
+1. **Concepts are named and defined before they are used.** "Vault," "note," "link" are each defined before being used in how-to pages. For ztlctl: "reweave," "polaris," "WAL," "garden," "session recall," "contradiction score" need the same treatment — define in `concepts.md`, then reference from feature pages.
+2. **The tool's philosophy is documented, not just its features.** Obsidian help explains the "why" behind the link-first approach before showing how to create links. `paradigms.md` is the ztlctl analog — it needs to explain why each knowledge paradigm exists and what kind of thinking it enables.
+3. **Every feature page answers: what is this, why use it, how to enable it, how to use it.** Not a wall of options — a structured narrative.
+
+### CLIG (Command Line Interface Guidelines — clig.dev) (HIGH confidence)
+
+1. **Lead with examples.** Users look at examples before reading prose. The first code block on any command page should be the simplest useful invocation.
+2. **Display frequently-used commands and flags first.** Order by frequency of use, not alphabetically. Git groups "start a working area" before "examine history." In ztlctl: `create note`, `query search`, `session start` are the high-frequency operations and should be prominent.
+3. **Include web documentation links in `--help` output.** Bridges terminal ↔ web docs. Users should not have to search for documentation from the terminal.
+4. **Error messages are teaching moments.** Rewrite raw errors for humans: what went wrong, why, and what to run instead. This applies to `troubleshooting.md` — each entry should follow: symptom → diagnosis → fix → prevention.
+5. **When a command has no required arguments, show concise help automatically.** Don't make users pass `--help` explicitly — running `ztlctl session` with no subcommand should show the session commands, not an error.
+
+### Diataxis Framework (HIGH confidence — canonical source at diataxis.fr)
+
+The single highest-impact structural insight for professional documentation: **four content types serve four different user needs and must be kept separate.**
+
+| Type | User need | Writing approach | ztlctl analog |
+|------|-----------|-----------------|---------------|
+| **Tutorial** | Learning — take me through it | Hand-holding, step-by-step, guarantee success | `tutorial.md` |
+| **How-to guide** | Working — help me accomplish X | Goal-focused, assumes competence, lists steps | New v3.0 feature pages; specific how-to sections |
+| **Reference** | Looking up — what are the exact options | Accurate, complete, neutral — no tutorial content | `commands.md`, `configuration.md`, `api-reference.md` |
+| **Explanation** | Understanding — why does this work this way | Context, background, rationale | `concepts.md`, `paradigms.md` |
+
+**The single most common documentation quality failure:** mixing tutorial content into reference pages (or vice versa). Reference pages become unscannably long; tutorials lose their narrative structure. Every existing page should be audited against this taxonomy. Pages that mix types should either be split or rewritten with a single purpose.
+
+### Google Developer Style Guide (HIGH confidence — official source)
+
+1. **Optional arguments in brackets, required choices in braces:** `ztlctl create note [--subtype <type>] [--tags <tags>]`
+2. **Start multi-line examples with `$` prompt; omit directory paths.** Separate input and output into separate code blocks.
+3. **Use "The output is similar to the following:" before terminal output.** This signals the output is example, not literal — important for commands where output varies.
+4. **Three dots on a separate line for omitted output.** `...` not `…` (the Unicode ellipsis character).
 
 ---
 
 ## Sources
 
-- [llmstxt.org specification](https://llmstxt.org/) — authoritative llms.txt format (HIGH confidence)
-- [Do You Need Both llms.txt and llms-full.txt?](https://llms-txt.io/blog/llms-txt-and-llms-full-txt) — llms-full.txt convention detail (MEDIUM confidence — community, not spec)
-- [MCP Servers for Documentation Sites — Fern](https://buildwithfern.com/post/mcp-servers-documentation-sites) — MCP documentation patterns (MEDIUM confidence)
-- [AWS Documentation MCP Server](https://awslabs.github.io/mcp/servers/aws-documentation-mcp-server) — real-world MCP docs implementation (HIGH confidence)
-- [How to create an llms.txt in Jekyll and GitHub Pages](https://jtemporal.com/how-to-create-llms-txt-in-jekyll/) — Jekyll generation pattern (MEDIUM confidence)
-- [8 Best API Documentation Examples — DreamFactory](https://blog.dreamfactory.com/8-api-documentation-examples) — multi-audience navigation patterns (MEDIUM confidence)
-- [MCP Resources specification](https://modelcontextprotocol.io/specification/2025-06-18/server/resources) — official MCP resource spec (HIGH confidence)
+- [Stripe API Documentation — apidog.com analysis](https://apidog.com/blog/stripe-docs/)
+- [Docker CLI Reference — docs.docker.com](https://docs.docker.com/reference/cli/docker/)
+- [Diataxis Documentation Framework — diataxis.fr](https://diataxis.fr/)
+- [Command Line Interface Guidelines — clig.dev](https://clig.dev/)
+- [Document command-line syntax — Google Developer Style Guide](https://developers.google.com/style/code-syntax)
+- [Documenting Command-Line Interfaces — Progress Telerik Style Guide](https://docs.telerik.com/style-guide/document-command-line-tools)
+- [Documentation Best Practices for Developer Tools — draft.dev](https://draft.dev/learn/documentation-best-practices-for-developer-tools)
+- [12 Documentation Examples Every Dev Tool Can Learn From — draft.dev](https://draft.dev/learn/12-documentation-examples-every-developer-tool-can-learn-from)
+- [Building Documentation That Scales — Nerd Level Tech](https://nerdleveltech.com/building-documentation-that-scales-best-practices-for-2025/)
+- [Documentation Structure Tips — GitBook](https://gitbook.com/docs/guides/docs-best-practices/documentation-structure-tips)
+- [42 Coffee Cups: Technical Documentation Best Practices](https://www.42coffeecups.com/blog/technical-documentation-best-practices)
 
 ---
-*Feature research for: ztlctl v2.1 Documentation milestone*
-*Researched: 2026-03-20*
+
+*Feature research for: Professional-grade CLI/MCP developer tool documentation (ztlctl v3.1)*
+*Researched: 2026-03-21*

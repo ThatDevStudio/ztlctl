@@ -19,6 +19,12 @@ Notes, references, and tasks are the file-first durability contract. Sessions, s
 
 Ingested references may also carry a durable source bundle under `sources/<reference-id>/`. That bundle is an attached source artifact for the reference, not a separate top-level knowledge item.
 
+v3.0 extends the content model with three new capabilities:
+
+- **Session recall** — Sessions now support temporal, topic, and topology querying via `ztlctl session recall-temporal`, `recall-topic`, and `recall-topology`. Use recall to reload context from past work before starting a new session. See [Session recall](session-recall.md).
+- **Contradiction detection** — The integrity scanner surfaces pairs of notes that may contain conflicting claims via semantic analysis. Confirmed contradictions are stored as `contradicts` edges in the knowledge graph. See [Contradiction detection](contradiction-detection.md).
+- **Media ingestion** — Audio, video, and transcript files can be ingested directly via `ztlctl ingest media`. ztlctl transcribes the content locally (using faster-whisper for audio/video) and creates a `captured` reference ready for annotation. See [Media ingestion](media-ingestion.md).
+
 ### A Concrete Example
 
 A note capturing Python decorator patterns:
@@ -53,6 +59,8 @@ Notes and references can be further classified:
 - **Garden maturity**: `seed` (raw capture) → `budding` (developing) → `evergreen` (polished)
 
 Custom subtypes are supported via the plugin system — see [Plugin Authoring](plugin-guide.md) for details.
+
+For the prose-as-title convention and title quality standards that apply to all note and reference subtypes, see [Methodology guidance](methodology.md).
 
 ## ID Patterns
 
@@ -178,6 +186,8 @@ Every content item is a node. Edges are created through:
 - **Wikilinks**: `[[Note Title]]` references in body text
 - **Reweave**: Automated link discovery using 4-signal scoring — BM25 lexical similarity, Jaccard tag overlap, graph proximity, and topic match
 
+Contradiction edges (`contradicts`) record confirmed conflicts between notes — see [Contradiction detection](contradiction-detection.md) for the scoring and confirmation workflow.
+
 ### Graph Commands
 
 ```bash
@@ -198,5 +208,6 @@ The content type, lifecycle, and graph systems work together:
 2. Reweave scores the note against existing content and adds graph edges
 3. As edges accumulate, note status advances: `draft` → `linked` → `connected`
 4. Sessions group work into coordination logs and trigger enrichment on close
+5. Polaris priorities guide agent decisions — `ztlctl://polaris` provides strategic alignment context (see [Polaris priorities](polaris.md))
 
 For the workflow patterns that build on these primitives, see [Knowledge Paradigms](paradigms.md).

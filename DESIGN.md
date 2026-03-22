@@ -1,6 +1,6 @@
 # ztlctl — Complete Design Specification v1
 
-> **For Claude:** This document is the authoritative design reference for ztlctl. When implementing any feature, read the relevant section here first. Sections are numbered by feature and cross-referenced — follow `→ Section N` markers to find related constraints. Key invariants are marked with `INVARIANT:` and must never be violated. Implementation order is in Section 20.
+> **For Claude:** This document is the authoritative design reference for ztlctl. When implementing any feature, read the relevant section here first. Sections are numbered by feature and cross-referenced — follow `→ Section N` markers to find related constraints. Key invariants are marked with `INVARIANT:` and must never be violated. Implementation order is in Section 24.
 
 ## Quick Reference — Invariants
 
@@ -31,44 +31,58 @@ These rules apply across the entire codebase. Violating any of them is a bug.
 ├─────────────────────────────────────────────────────┤
 │              Extension Layer (Feature 14)             │
 │   Pluggy event bus · Plugin system · Git plugin      │
+│   ActionRegistry · centralized PluginManager factory │
 ├─────────────────────────────────────────────────────┤
-│                MCP Layer (Feature 15)                 │
-│   Discovery-first tools · Resources · Prompts        │
+│          MCP Layer (Feature 15) — auto-generated     │
+│   73+ tools from ActionRegistry · Resources · Prompts│
 ├─────────────────────────────────────────────────────┤
-│               Presentation Layer                      │
+│     Presentation Layer — auto-generated from Registry│
 │   Click CLI · --json · --no-interact · Rich output   │
-│   vector (status, reindex)                            │
+│   vector (status, reindex) · commands/generator.py  │
 ├─────────────────────────────────────────────────────┤
-│                Service Layer                          │
+│           Controller Layer (v3.0, Section 10)        │
+│   17 controllers · _run_action executor pattern      │
+│   pre/post-action hook dispatch · ActionRegistry     │
+├─────────────────────────────────────────────────────┤
+│         Service Layer (16 services, Section 10)      │
 │   CreateService · QueryService · GraphService        │
 │   SessionService · ReweaveService · CheckService     │
-│   VectorService · EmbeddingProvider                  │
+│   VectorService · RecallService · IngestService      │
+│   ContradictionService · TranscriptionService        │
+│   ContextAssembler · EmbeddingProvider               │
 ├─────────────────────────────────────────────────────┤
 │                 Domain Layer                          │
 │   Content models · ID generation · Frontmatter       │
 │   Validation · Content registry · Lifecycle          │
+│   ActionEvent · feature-local action modules         │
 ├─────────────────────────────────────────────────────┤
 │              Infrastructure Layer                     │
 │   SQLite + FTS5 · NetworkX · Alembic · Filesystem    │
-│   sqlite-vec · sentence-transformers                 │
+│   sqlite-vec · sentence-transformers · WAL event bus │
 └─────────────────────────────────────────────────────┘
 ```
 
-Each layer is independently usable. `pip install ztlctl` provides everything through the service layer. The CLI, MCP adapter, and workflow layer are consumption interfaces over the same services.
+Each layer is independently usable. `pip install ztlctl` provides everything through the service layer. The CLI and MCP adapter are auto-generated presentation layers driven by `ActionRegistry` — define once, generate both surfaces (→ Section 10 for controller/registry detail).
 
 ### Package Structure
 
 ```
 src/ztlctl/
 ├── cli.py                   # Root Click group + global flags
-├── commands/                # Presentation: AppContext, 7 groups + 6 standalone commands
+├── actions/                 # Feature-local ActionDefinition modules (9 files)
+├── commands/                # Presentation: AppContext, auto-generated + special-case commands
+│   └── generator.py         # Auto-generates Click commands from ActionRegistry
 ├── config/                  # Configuration: Pydantic models + TOML discovery
+├── controllers/             # Controller layer: 17 controllers with _run_action executor
+│   └── base.py              # BaseController with _run_action, _dispatch_pre_action
 ├── domain/                  # Domain: types, lifecycle, IDs, content models, frontmatter
+│   └── events.py            # ActionEvent model (action_name, side_effect, payload, warnings)
 ├── infrastructure/          # Infrastructure: database/, graph/, filesystem
-├── mcp/                     # MCP adapter (optional extra, import-guarded)
+├── mcp/                     # MCP adapter (optional extra, import-guarded) — auto-generated
 ├── output/                  # Presentation: Rich/JSON formatters
-├── plugins/                 # Extension: hookspecs, manager, builtins/
-├── services/                # Service: result contract + 6 service classes
+├── plugins/                 # Extension: hookspecs, manager, builtins/, event_bus
+│   └── manager.py           # Centralized PluginManager with get_plugin_manager() factory
+├── services/                # Service: result contract + 15 service classes
 └── templates/               # Bundled Jinja2 templates (content/ + self/ + agent_workflow/ + workflow/)
 ```
 
@@ -960,15 +974,15 @@ class BaseService:
 
 ### Command Registration
 
-Commands are registered via deferred imports in `register_commands()` to keep `ztlctl --help` fast as the codebase grows:
+**v3.0: CLI commands are auto-generated from ActionRegistry via `commands/generator.py`.** Controllers handle pre/post hooks via `_run_action`. Hand-written command files are retained only for special cases: `init`, `serve`, `workflow`, `docs`, `create`, `update`.
 
-| Groups (7) | Standalone (8) |
-|-----------|---------------|
-| `create`, `query`, `graph`, `agent`, `garden`, `export`, `workflow` | `check`, `init`, `upgrade`, `reweave`, `archive`, `extract`, `update`, `supersede` |
+Commands are registered via deferred imports in `register_commands()` to keep `ztlctl --help` fast as the codebase grows.
 
 > **Note:** The `init` command lives in `init_cmd.py` to avoid shadowing the Python builtin. It registers as `@click.command("init")`.
 
 > **Implementation note (Phase 4):** All commands and groups use custom base classes `ZtlCommand` and `ZtlGroup` (in `commands/_base.py`). These support an `examples` kwarg that auto-registers an eager `--examples` flag — processed before argument validation, same pattern as Click's `--version`. `ZtlGroup` sets `command_class = ZtlCommand` so subcommands inherit the base class automatically. All service-layer errors in command handlers route through `app.emit(ServiceResult)` for consistent structured output in `--json` mode.
+
+> **Implementation note (v3.0 — Phase 16):** `commands/generator.py` inspects each `ActionDefinition` to produce a `@click.command` with typed arguments and flag sets derived from the definition's parameter schema. Actions with `custom_presentation=True` are excluded from auto-generation and retain hand-written handlers. Controllers mediate all generated commands: the generated Click handler calls `controller.method(**kwargs)`, which calls `self._run_action(action_name, kwargs, invoke)` to run the pre-action hook pipeline before delegating to the service.
 
 ### Config Discovery
 
@@ -1101,22 +1115,48 @@ ztlctl check --rollback                   # Restore from latest backup
 
 ## 15. Event System and Plugins
 
-### Event Bus (pluggy)
+### Event Bus — Reliable Model (v3.0)
 
-Eight lifecycle events dispatched asynchronously via `ThreadPoolExecutor`:
+**v3.0 reliable event model:** Events are dispatched only by the **service layer** via `BaseService._dispatch_post_action_event()`. Controllers never emit events directly. This is the "service-only post_action" invariant — 64 controller-side dispatch call sites were removed in v3.0.
 
-| Event | Payload | When |
-|-------|---------|------|
-| `post_create` | type, id, title, path, tags | After content creation |
-| `post_update` | type, id, fields_changed, path | After content update |
-| `post_close` | type, id, path, summary | After close/archive |
-| `post_reweave` | source_id, affected_ids, links_added | After reweave |
-| `post_session_start` | session_id | After session begins |
-| `post_session_close` | session_id, stats | After session closes |
-| `post_check` | issues_found, issues_fixed | After integrity check |
-| `post_init` | vault_name, client, tone | After vault init |
+The canonical post_action event carries an `ActionEvent` (→ `domain/events.py`):
 
-**Write-ahead log (WAL)** for reliability: events persist before dispatch, retry on failure, dead-letter after max retries. Session close drains the WAL as a sync barrier.
+```python
+class ActionEvent(BaseModel):
+    model_config = {"frozen": True}
+
+    action_name: str                         # e.g. "create_note"
+    side_effect: Literal["write", "read"]    # "write" for mutating ops
+    payload: dict[str, Any]                  # committed state snapshot
+    warnings: list[str]                      # non-fatal warnings
+    result: Any                              # full ServiceResult (optional)
+```
+
+**Write-ahead log (WAL)** for reliability: events persist to the `event_wal` table **before** dispatch. On failure, the event retries up to `max_retries` times. After exhausting retries the row transitions to `dead_letter`. Session close drains the WAL synchronously as a barrier before returning to the caller.
+
+**EventBusConfig** (TOML section `[eventbus]`):
+
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `shutdown_timeout_seconds` | 5.0 | Max wait for executor shutdown |
+| `per_future_timeout_seconds` | 30.0 | Per-event future timeout |
+| `max_retries` | 3 | Attempts before dead_letter |
+| `dead_letter_retention_days` | 30 | How long to keep dead_letter rows |
+
+**Bridge reversal (v3.0):** The stable `post_action` event (one event per action) drives the legacy per-event hooks (`post_create`, `post_update`, etc.) via an adapter layer. The adapter translates the `ActionEvent` payload into the appropriate legacy hook call. This is the **reverse** of the pre-v3.0 direction, where controllers called legacy hooks and `post_action` was unreliable.
+
+Eight legacy lifecycle hook names are still dispatched via the adapter for backward plugin compatibility:
+
+| Hook | When |
+|------|------|
+| `post_create` | After content creation |
+| `post_update` | After content update |
+| `post_close` | After close/archive |
+| `post_reweave` | After reweave |
+| `post_session_start` | After session begins |
+| `post_session_close` | After session closes |
+| `post_check` | After integrity check |
+| `post_init` | After vault init |
 
 ### Plugin System
 
@@ -1125,6 +1165,8 @@ Eight lifecycle events dispatched asynchronously via `ThreadPoolExecutor`:
 **Capabilities:** Lifecycle hooks (`@hookimpl`), CLI commands, MCP tools, MCP resources, MCP prompts, workflow modules, and source providers.
 
 Plugin failures are always warnings, never errors. A broken plugin degrades the workflow; it never degrades the core tool.
+
+**Centralized PluginManager (v3.0):** `plugins/manager.py` exposes `get_plugin_manager(vault_root, local_dir, scope)` as a single factory with scope-aware caching. All five formerly independent plugin manager constructions now route through this factory. This eliminates DEBT-07 (load_plugin_commands config injection gap).
 
 **Built-in plugin entry point:**
 
@@ -1181,21 +1223,23 @@ Claude Code plugin assets are generated from `src/ztlctl/templates/agent_workflo
 
 Optional extra (`pip install ztlctl[mcp]`). Thin adapter over the service layer.
 
+**v3.0: MCP tools are auto-generated from `ActionRegistry`, not hand-written.** Each `ActionDefinition` in the registry generates an MCP tool with parameter schema derived from the definition metadata. As of v3.0, 73+ tools are registered automatically. Only tools with `custom_presentation=True` have hand-written MCP wrappers.
+
 The MCP module uses `try/except ImportError` with a module-level `mcp_available` flag. When the `mcp` extra is not installed, the module loads without error but `create_server()` raises `RuntimeError` with install instructions.
 
-### Tools
+### Tools (73+, auto-generated from ActionRegistry)
 
-| Category | Tools |
-|----------|-------|
+| Category | Representative tools |
+|----------|---------------------|
 | Discovery | `discover_tools`, `describe_tool`, `list_tags`, `list_source_providers` |
-| Creation | `create_note`, `create_reference`, `create_log`, `create_task`, `garden_seed`, `ingest_source` |
+| Creation | `create_note`, `create_reference`, `create_log`, `create_task`, `garden_seed`, `ingest_source`, `ingest_media` |
 | Lifecycle | `update_content`, `close_content`, `reweave` |
 | Query | `search`, `get_document`, `get_related`, `agent_context`, `list_items`, `work_queue`, `topic_packet`, `draft_from_topic` |
 | Graph | `graph_themes`, `graph_rank`, `graph_path`, `graph_gaps`, `graph_bridges` |
-| Session | `session_close`, `session_status` |
-| Analysis | `decision_support`, `vault_review` |
+| Session | `session_close`, `session_status`, `recall_temporal`, `recall_topic`, `recall_topology` |
+| Analysis | `decision_support`, `vault_review`, `check_contradictions`, `confirm_contradiction` |
 
-### Resources (11)
+### Resources (20+)
 
 | URI | Content |
 |-----|---------|
@@ -1210,6 +1254,9 @@ The MCP module uses `try/except ImportError` with a module-level `mcp_available`
 | `ztlctl://capture/spec` | Source-bundle contract for agent capture and ingest handoff |
 | `ztlctl://topics` | Topic listing |
 | `ztlctl://agent-reference` | One-shot onboarding guide with workflows and recovery guidance |
+| `ztlctl://sessions/recent` | Recent session history for agent context loading (→ Section 19) |
+| `ztlctl://review/contradictions` | Candidate contradiction pairs pending human review (→ Section 20) |
+| `ztlctl://polaris` | Persistent polaris priorities document (→ Section 22) |
 
 ### Prompts (9)
 
@@ -1382,7 +1429,173 @@ semantic = ["sqlite-vec>=0.1", "sentence-transformers>=2.2"]
 
 ---
 
-## 19. Decision Log
+## 19. Session Recall
+
+### Overview
+
+`RecallService` provides three query modes for retrieving session history. Recall queries **session metadata and log entries** — not note content directly. This preserves the invariant that session coordination state and knowledge artifacts are separate concerns.
+
+```python
+class RecallService(BaseService):
+    def recall_temporal(self, *, from_date, to_date) -> ServiceResult: ...
+    def recall_topic(self, query: str) -> ServiceResult: ...
+    def recall_topology(self, *, limit: int = 10) -> ServiceResult: ...
+```
+
+### Query Modes
+
+| Mode | Method | How |
+|------|--------|-----|
+| Temporal | `recall_temporal(from_date, to_date)` | Returns sessions filtered by creation date range, with per-session topic, status, entry count, and note IDs created in each session |
+| Topic | `recall_topic(query)` | Full-text LIKE search across `session_logs.summary`; returns sessions grouped with their matching log entries |
+| Topology | `recall_topology(limit)` | Pairs sessions that share note references or tags in their log entries; sorted by total shared items (shared_notes + shared_tags) descending |
+
+### MCP Surface
+
+MCP resource `ztlctl://sessions/recent` provides a pre-formatted recent session payload for agents loading context at the start of a new window. Agents read this resource to understand what was worked on in recent sessions before deciding what to continue.
+
+### Design Choice
+
+Recall queries session logs and metadata — not live note content. Notes are queried through QueryService (search, get) which provides fresher, indexed content. Separation keeps the data access paths clean: session history is temporal, note content is semantic.
+
+Cross-references: → Section 2 (Sessions), → Section 7 (Query Surface), → Section 16 (MCP resources)
+
+---
+
+## 20. Contradiction Detection
+
+### Overview
+
+`ContradictionService` surfaces note pairs that may contain contradictory claims using a three-signal heuristic score. The system is **advisory** — it never auto-resolves contradictions. Candidates are presented for human confirmation; the `contradicts` graph edge is recorded only after explicit confirmation.
+
+```python
+class ContradictionService(BaseService):
+    def find_candidates(self, *, similarity_threshold=0.85, max_pairs=20) -> ServiceResult: ...
+    def confirm_contradiction(self, note_a_id: str, note_b_id: str) -> ServiceResult: ...
+```
+
+### Candidate Discovery
+
+Candidate pair discovery applies three filters in sequence:
+
+1. Only non-archived notes are considered.
+2. Cosine similarity must meet `similarity_threshold` (default 0.85) — requires semantic search to be enabled.
+3. The pair must share at least one tag (topic overlap signal).
+
+Each qualifying pair is scored by a three-component heuristic:
+
+| Signal | Weight | Measure |
+|--------|--------|---------|
+| Cosine similarity | 40% | Vector distance from VectorService |
+| Negation density | 30% | Count of negation patterns (not, however, instead, disagree, etc.) in combined body text, capped at 5 hits |
+| Key points divergence | 30% | Jaccard distance between `key_points` frontmatter lists (stop-word filtered) |
+
+### Confirmation Flow
+
+When a user or agent confirms a contradiction pair:
+
+1. `confirm_contradiction(note_a_id, note_b_id)` is called.
+2. A bidirectional `contradicts` graph edge is written to the `edges` table.
+3. The pair is removed from candidate reporting.
+
+The `contradicts` edge type is queryable via `graph related` and visible in `export graph`.
+
+### MCP Surface
+
+MCP resource `ztlctl://review/contradictions` provides the current candidate list for agent review workflows. Agents use this resource to surface contradiction candidates during vault maintenance sessions.
+
+### Design Choice
+
+Contradiction detection is LLM-free: cosine similarity + negation patterns + key_points divergence provides a fast, local heuristic that works without an API call. False positives are expected — the advisory flow means false positives cost only a dismiss action, not a data corruption.
+
+Cross-references: → Section 3 (Graph Architecture — edge types), → Section 7 (Query Surface — `CAT_SEMANTIC` check category), → Section 16 (MCP resources)
+
+---
+
+## 21. Ingestion Pipeline
+
+### Overview
+
+`IngestService` normalizes external text, URL, and media input into vault artifacts via the single durable write path (→ Section 1 INVARIANT). All ingestion paths ultimately call `CreateService`, ensuring consistent ID generation, indexing, frontmatter validation, and event dispatch.
+
+```python
+class IngestService(BaseService):
+    def ingest_text(self, title, body_text, *, target_type, ...) -> ServiceResult: ...
+    def ingest_source(self, url, *, title, ...) -> ServiceResult: ...
+    def ingest_media(self, file_path, *, title, ...) -> ServiceResult: ...
+    def list_providers(self) -> ServiceResult: ...
+```
+
+### Two-Phase Media Workflow
+
+Media files (audio, video) follow a two-phase workflow:
+
+1. **Capture phase:** `ingest_media` transcribes the file via `TranscriptionService` and creates a `reference` node with `status=captured`. The transcription text becomes the note body.
+2. **Annotation phase:** An agent or user reviews and annotates the captured reference, transitioning it to `status=annotated` via `update_content`.
+
+This mirrors the existing reference lifecycle (`captured → annotated`) without introducing new status values.
+
+### TranscriptionService
+
+```python
+class TranscriptionService:
+    """Stateless utility — does NOT extend BaseService (no Vault access needed)."""
+
+    SUPPORTED_EXTENSIONS = {".mp3", ".m4a", ".wav", ".mp4", ".ogg", ".flac",
+                             ".mkv", ".webm", ".txt", ".vtt", ".srt"}
+
+    def transcribe_file(self, path: Path) -> TranscriptionResult | ServiceError: ...
+```
+
+`TranscriptionService` uses `faster-whisper` as an optional dependency (guarded import). Plain transcript formats (`.vtt`, `.srt`, `.txt`) are parsed via regex without requiring `faster-whisper`. When `faster-whisper` is not installed, audio/video transcription returns `ServiceError(code="DEPENDENCY_MISSING")` with installation instructions.
+
+### Configuration
+
+```toml
+[ingest.media]
+whisper_model = "base"       # faster-whisper model size
+language = "en"              # ISO 639-1 language code (null = auto-detect)
+compute_type = "int8"        # quantization for CPU inference
+```
+
+### Design Choice
+
+Transcription is local-only: no audio or video data is sent to external services. The `faster-whisper` optional dependency enables fast CPU inference; the `int8` compute type minimizes RAM requirements for typical hardware.
+
+Cross-references: → Section 2 (Content Model — reference lifecycle), → Section 4 (Create Pipeline), → Section 16 (MCP tools — `ingest_media`)
+
+---
+
+## 22. Polaris and Methodology
+
+### Polaris Priorities Layer
+
+Polaris is a persistent priorities document at `garden/groves/polaris.md`. It is the stable reference for agent decision alignment — both agents and users read it to orient long-running work.
+
+**Integration points:**
+
+1. **`ztlctl init`:** Polaris scaffold is written to `garden/groves/polaris.md` during vault initialization.
+2. **Context assembly Layer 1:** `ContextAssembler` injects polaris content into Layer 1 (operational state) at up to 500 tokens. Content is truncated at the token boundary with a `[... polaris truncated]` marker.
+3. **MCP resource `ztlctl://polaris`:** Direct resource access for agents that need the full document.
+4. **`check_alignment` action:** Always returns `aligned=true` — this is intentional. The action is advisory: it surfaces the polaris content for agent reasoning. The agent decides whether its current plan is aligned; the tool does not.
+
+### Methodology Guidance
+
+Methodology guidance documents opinionated conventions for the vault:
+
+- **Prose-as-title convention:** Note titles are full sentences or phrases expressing a claim (e.g., "Spaced repetition outperforms passive re-reading for retention"). Templates enforce this pattern.
+- **Title quality check:** A `CAT_STRUCTURAL` check at `info` severity flags notes whose titles match short stop-phrase patterns. The check is non-blocking — it is an advisory signal, not an error.
+- **Garden backlog candidates:** Notes flagged in the title quality check are surfaced in the garden backlog resource as candidates for human review and improvement.
+
+### Design Choice
+
+`check_alignment` is advisory and `aligned` is always true. Allowing the check to fail would imply the tool can determine whether a plan is aligned — that judgment belongs to the agent or user reading the polaris document. The action's value is surfacing the polaris content in the agent's context at decision time.
+
+Cross-references: → Section 11 (Init and Self-Generation), → Section 10 (CLI — context assembly), → Section 16 (MCP resources — `ztlctl://polaris`)
+
+---
+
+## 23. Decision Log
 
 Decisions made during the design process (CONV-0017):
 
@@ -1461,10 +1674,19 @@ Decisions made during the design process (CONV-0017):
 | — | `extract_decision` FTS5 + edge in single transaction | Prevents partial state if edge insert fails after FTS5 update; atomic write of all derived data |
 | — | `server_default` alongside `default` on all schema columns | Ensures `metadata.create_all()` and Alembic migration produce identical DDL; prevents divergent DEFAULT clauses between init and upgrade paths |
 | — | Init stamp failures surface as warnings, not silent | `ServiceResult.warnings` carries stamp failure message; user knows to run `ztlctl upgrade` without having to diagnose |
+| D-13 | Reliable event model — WAL drain + service-only post_action | Services own all event emission; controllers are pure delegation. 64 controller-side dispatch call sites removed. Bounded shutdown drain (`shutdown_timeout_seconds`) prevents hung processes |
+| D-14 | Generic action executor — `_run_action` on BaseController | Eliminates per-controller boilerplate for pre-action hook dispatch. All 17 controllers share a single executor pattern. Plugins can observe, modify, or reject any action uniformly |
+| D-15 | Feature-local action registration | 2300-line monolithic `_register_core.py` decomposed into 9 feature-local modules (`actions/_creation.py`, `_lifecycle.py`, etc.). ActionDefinitions colocated with their feature area. Zero regressions, 73+ definitions distributed |
+| D-16 | Bridge reversal — stable ActionEvents drive legacy hooks | `post_action` (one per action, stable payload) drives the per-event hooks via adapter, not the reverse. Legacy plugin compatibility preserved without requiring plugin updates |
+| D-17 | Centralized PluginManager factory | `get_plugin_manager(vault_root, scope)` replaces 5 independent constructions. Scope-aware caching eliminates redundant discovery on repeated calls. Closes DEBT-07 (load_plugin_commands config injection) |
+| D-18 | Contradiction detection via heuristic scoring (LLM-free) | Cosine similarity + negation density + key_points divergence; no LLM call required. Candidates surfaced for human confirmation; `contradicts` graph edge recorded only after explicit confirm |
+| D-19 | faster-whisper as optional dependency for transcription | Local transcription only — no audio data leaves the machine. Guarded import with graceful `DEPENDENCY_MISSING` error. 11 audio/video/transcript formats supported |
+| D-20 | Polaris as persistent priorities layer | `garden/groves/polaris.md` is the stable reference for agent decision alignment. Injected as Layer 1 in context assembly (≤500 tokens). `check_alignment` is advisory — `aligned` is always true |
+| D-21 | Session recall queries session metadata, not note content | RecallService operates on session logs and node creation timestamps. Separation preserves the invariant that session state and knowledge artifacts are distinct artifact classes |
 
 ---
 
-## 20. Implementation Backlog
+## 24. Implementation Backlog
 
 | BL | Feature | Priority | Status | Scope |
 |----|---------|----------|--------|-------|

@@ -67,6 +67,7 @@ def test_write_services_dispatch_post_action() -> None:
         "reweave.py",
         "check.py",
         "graph.py",
+        "ingest.py",
     ]
     missing = []
     for filename in service_files:

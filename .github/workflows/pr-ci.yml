@@ -84,3 +84,52 @@ jobs:
           | MCP extra tests | ${{ steps.mcp_tests.outcome }} |
           | Commit lint | ${{ steps.commit_lint.outcome }} |
           EOF
+
+  doc_lint:
+    name: Doc Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+
+      - name: MkDocs build (strict)
+        id: mkdocs_build
+        run: uv run mkdocs build --strict
+
+      - name: Vale prose lint
+        id: vale
+        uses: vale-cli/vale-action@v2.1.1
+        with:
+          fail_on_error: true
+          files: docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: pymarkdownlnt
+        id: pymarkdown
+        run: uv run pymarkdown --config .pymarkdown.json scan --recurse -e docs/plans docs
+
+      - name: Doc lint summary
+        if: ${{ always() }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Doc Lint summary
+
+          | Gate | Result |
+          | --- | --- |
+          | MkDocs build (strict) | ${{ steps.mkdocs_build.outcome }} |
+          | Vale prose lint | ${{ steps.vale.outcome }} |
+          | pymarkdownlnt | ${{ steps.pymarkdown.outcome }} |
+          EOF

@@ -45,6 +45,13 @@ All schemas, states, and constraints on this page are verified against source co
 | Session | Close session + enrichment | `ztlctl agent session close` | `session_close` |
 | Session | Query session status | `ztlctl agent session status` | `session_status` |
 | Session | Log reasoning entry | `ztlctl agent session log` | — |
+| Recall | Query session history by date range | `ztlctl session recall-temporal [--from-date DATE] [--to-date DATE]` | `recall_temporal` |
+| Recall | Find sessions by log content | `ztlctl session recall-topic QUERY` | `recall_topic` |
+| Recall | Discover sessions connected by shared content | `ztlctl session recall-topology [--limit N]` | `recall_topology` |
+| Analysis | Find candidate contradicting note pairs | `ztlctl check contradictions` | `check_contradictions` |
+| Analysis | Confirm a contradiction as a graph edge | `ztlctl check confirm-contradiction NOTE_A NOTE_B` | `confirm_contradiction` |
+| Check | Check decision against polaris alignment | `ztlctl check alignment --decision TEXT` | `check_alignment` |
+| Ingest | Ingest audio, video, or transcript file | `ztlctl ingest media PATH` | `ingest_media` |
 | Export | Markdown export | `ztlctl export markdown` | — |
 | Export | Graph export (dot/json) | `ztlctl export graph` | — |
 | Export | Review dashboard | `ztlctl export dashboard` | — |
@@ -329,6 +336,36 @@ Step 5: Close session
   → Triggers: reweave → orphan sweep → integrity check → graph materialization
 ```
 
+### Recall Flow
+
+Purpose: Load context from past sessions before starting new work on a recurring topic.
+
+```
+Step 1: Read recent sessions resource
+  MCP resource: ztlctl://sessions/recent
+  → Returns: last 5 sessions with topics, timestamps, and note_ids
+
+Step 2: Temporal recall for a broader date window
+  CLI: ztlctl session recall-temporal --from-date {date} --json
+  MCP: recall_temporal(from_date="{date}")
+  → Returns: sessions in range with log_entry_count and note_ids
+
+Step 3: Topic recall to find sessions by content
+  CLI: ztlctl session recall-topic "{query}" --json
+  MCP: recall_topic(query="{query}")
+  → Returns: sessions with matching log entries and matched_entries
+
+Step 4: Fetch notes from recalled sessions
+  CLI: ztlctl query get {note_id} --json  (repeat per note_id from session results)
+  MCP: get_document(content_id="{note_id}")
+  → Returns: full note content for context loading
+
+Step 5 (optional): Topology recall to discover related work streams
+  CLI: ztlctl session recall-topology --limit 10 --json
+  MCP: recall_topology(limit=10)
+  → Returns: session pairs with shared_notes and shared_tags
+```
+
 ---
 
 ## Input/Output Schemas
@@ -452,6 +489,11 @@ Step 5: Close session
 | Duplicate title | 1 | `"Title already exists"` | `"Use a unique title or update existing"` |
 | Semantic search unavailable | 1 | `"sqlite-vec not installed"` | `"pip install sqlite-vec"` |
 | Config not found | 1 | `"ztlctl.toml not found"` | `"Run ztlctl init or cd to vault root"` |
+| No contradiction candidates | 1 | `"No contradiction candidates"` | `"Add more notes or enable semantic search"` |
+| Media file not found | 1 | `"File not found"` | `"Check file path"` |
+| Transcription unavailable | 1 | `"faster-whisper not installed"` | `"uv add --group media faster-whisper"` |
+| Polaris not found | 1 | `"Polaris document not found"` | `"Run ztlctl init or create garden/groves/polaris.md"` |
+| No session history | 1 | `"No sessions found"` | `"Start a session first"` |
 
 **Retry guidance:**
 
@@ -489,5 +531,8 @@ For ongoing operation, use read resources to avoid tool calls for static context
 | `ztlctl://garden/backlog` | Stale seeds and orphan notes |
 | `ztlctl://capture/spec` | Source bundle contract for ingest handoff |
 | `ztlctl://agent-reference` | Full agent onboarding payload |
+| `ztlctl://polaris` | Vault strategic priorities document |
+| `ztlctl://sessions/recent` | Recent session summaries for recall |
+| `ztlctl://review/contradictions` | Contradiction candidate pairs for review |
 
 See [MCP Server](mcp.md) for the complete tool catalog, resource list, and prompt library.
