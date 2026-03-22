@@ -76,7 +76,7 @@ Full details: `.planning/milestones/v3.1-ROADMAP.md`
 - [x] **Phase 28: Plugin Foundation** - Scaffold correct plugin directory layout, validate MCP stdio transport, wire vault gate hook, and establish CI gate for plugin validation (completed 2026-03-22)
 - [x] **Phase 29: MVP Skills** - Implement five table-stakes skills (orient, session, capture, review-triage, align) that cover the core vault workflows agents use most (completed 2026-03-22)
 - [x] **Phase 30: Differentiator Skills** - Implement five advanced skills (synthesize, decision-support, orient-session, garden-health, review-contradictions) that encode ztlctl's unique capabilities (completed 2026-03-22)
-- [ ] **Phase 31: Commands, Agents, and Distribution** - Wire slash commands as skill entry points, implement autonomous agents, and validate end-to-end marketplace installation
+- [x] **Phase 31: Commands, Agents, and Distribution** - Wire slash commands as skill entry points, implement autonomous agents, and validate end-to-end marketplace installation (completed 2026-03-22)
 - [ ] **Phase 32: Validation and Hardening** - Run the full distribution checklist, validate skill activation under installed state, and lock in CI gates before marketplace submission
 
 ## Phase Details
@@ -135,10 +135,10 @@ Plans:
   3. Running the maintenance agent executes integrity check, contradiction scan, and garden cleanup in read-heavy mode — presenting a summary and requesting confirmation before any mutation
   4. Running `claude plugin install ztlctl` on a machine where ztlctl is installed and a vault is initialized successfully installs the plugin and makes all skills and commands available in Claude Code
   5. After a release merges to develop, `plugin.json` version is automatically bumped alongside `pyproject.toml` so that `claude plugin update` delivers the latest skills to users
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 31-01-PLAN.md — Replace scaffold commands and agents with skill-delegating commands and constrained autonomous agents
-- [ ] 31-02-PLAN.md — Create marketplace.json, add version sync to release pipeline, rewrite plugin README
+- [x] 31-01-PLAN.md — Replace scaffold commands and agents with skill-delegating commands and constrained autonomous agents
+- [x] 31-02-PLAN.md — Create marketplace.json, add version sync to release pipeline, rewrite plugin README
 
 ### Phase 32: Validation and Hardening
 **Goal**: Every plugin component has been verified under installed state (not just `--plugin-dir`), all 20+ distribution checklist items pass, skill activation is reliable across all 10 skills, and the plugin is ready for marketplace submission
@@ -162,5 +162,5 @@ Plans:
 | 28. Plugin Foundation | v4.0 | 2/2 | Complete    | 2026-03-22 |
 | 29. MVP Skills | v4.0 | 2/2 | Complete    | 2026-03-22 |
 | 30. Differentiator Skills | v4.0 | 2/2 | Complete    | 2026-03-22 |
-| 31. Commands, Agents, and Distribution | v4.0 | 0/2 | Not started | - |
+| 31. Commands, Agents, and Distribution | v4.0 | 2/2 | Complete   | 2026-03-22 |
 | 32. Validation and Hardening | v4.0 | 0/? | Not started | - |

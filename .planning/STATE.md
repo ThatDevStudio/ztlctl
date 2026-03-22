@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Agentic Skills
 status: unknown
-stopped_at: Completed 30-differentiator-skills/30-02-PLAN.md
-last_updated: "2026-03-22T04:37:11.063Z"
+stopped_at: Completed 31-commands-agents-and-distribution/31-02-PLAN.md
+last_updated: "2026-03-22T04:57:20.998Z"
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 4
+  total_plans: 8
+  completed_plans: 8
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 30 — differentiator-skills
+**Current focus:** Phase 31 — commands-agents-and-distribution
 
 ## Current Position
 
-Phase: 30 (differentiator-skills) — EXECUTING
+Phase: 31 (commands-agents-and-distribution) — EXECUTING
 Plan: 2 of 2
 
 ## Performance Metrics
@@ -61,6 +61,8 @@ Key constraints for v4.0:
 - [Phase 30-02]: garden-health Fan-Out pattern: all reads complete before synthesis to prevent intermediate state leaking into health report
 - [Phase 30-02]: review-contradictions never-auto-confirm is Iron Law: confirm_contradiction inserts permanent bidirectional graph edges that corrupt future queries if false positive
 - [Phase 30-02]: sqlite-vec graceful degradation documented in both SKILL.md and reference file — two discovery surfaces for agents encountering the error
+- [Phase 31-commands-agents-and-distribution]: marketplace.json uses git-subdir format with directory field pointing to plugin/
+- [Phase 31-commands-agents-and-distribution]: Plugin version sync amends cz bump commit atomically before push — single commit, single tag
 
 ### Pending Todos
 
@@ -72,7 +74,7 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-22T04:37:11.061Z
-Stopped at: Completed 30-differentiator-skills/30-02-PLAN.md
+Last session: 2026-03-22T04:57:20.996Z
+Stopped at: Completed 31-commands-agents-and-distribution/31-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 28`

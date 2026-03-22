@@ -38,9 +38,9 @@ Requirements for v4.0 release. Each maps to roadmap phases.
 
 ### Distribution
 
-- [ ] **DIST-01**: Plugin installs via git-subdir marketplace source — `marketplace.json` uses git-subdir pointing to `plugin/` directory in the ztlctl GitHub repo; `claude plugin install ztlctl` works
-- [ ] **DIST-02**: Plugin version is synchronized with release pipeline — plugin.json version bumps alongside pyproject.toml in the release workflow; users get updates via `claude plugin update`
-- [ ] **DIST-03**: Installation documentation covers prerequisites — ztlctl must be installed (`pip install ztlctl` or `brew install ztlctl`), vault must be initialized, user must run `claude` from vault directory
+- [x] **DIST-01**: Plugin installs via git-subdir marketplace source — `marketplace.json` uses git-subdir pointing to `plugin/` directory in the ztlctl GitHub repo; `claude plugin install ztlctl` works
+- [x] **DIST-02**: Plugin version is synchronized with release pipeline — plugin.json version bumps alongside pyproject.toml in the release workflow; users get updates via `claude plugin update`
+- [x] **DIST-03**: Installation documentation covers prerequisites — ztlctl must be installed (`pip install ztlctl` or `brew install ztlctl`), vault must be initialized, user must run `claude` from vault directory
 
 ## v5.0 Requirements
 
@@ -94,9 +94,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CMDA-01 | Phase 31 | Pending |
 | CMDA-02 | Phase 31 | Pending |
 | CMDA-03 | Phase 31 | Pending |
-| DIST-01 | Phase 31 | Pending |
-| DIST-02 | Phase 31 | Pending |
-| DIST-03 | Phase 31 | Pending |
+| DIST-01 | Phase 31 | Complete |
+| DIST-02 | Phase 31 | Complete |
+| DIST-03 | Phase 31 | Complete |
 
 **Coverage:**
 - v4.0 requirements: 19 total
