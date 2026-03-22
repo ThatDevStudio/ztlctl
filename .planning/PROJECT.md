@@ -83,7 +83,7 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ## Context
 
-**Current state (v3.1 shipped):** 126 source files (28,275 LOC Python), 141 test files (29,329 LOC), 2055 tests passing, mypy strict, ruff clean. 16 services, 17 controllers, 73 registered actions, auto-generated MCP adapter (73+ tools from ActionRegistry), semantic search, session recall, contradiction detection, media ingestion. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern, 4-layer action model (Data/Service/Controller/Registry), feature-local action registration (9 modules), centralized PluginManager factory, reliable event delivery with WAL drain. Documentation: CI-gated (MkDocs strict + Vale + pymarkdownlnt), 5 v3.0 feature pages, Diataxis-classified nav, llms.txt/llms-full.txt agent discovery indexes current.
+**Current state (v4.0 Phase 28 complete):** 126 source files (28,275 LOC Python), 141+ test files, 2055+ tests passing, mypy strict, ruff clean. 16 services, 17 controllers, 73 registered actions, auto-generated MCP adapter (73+ tools from ActionRegistry), semantic search, session recall, contradiction detection, media ingestion. Architecture: 6-layer (domain → infrastructure → config → services → output → commands) with Vault repository pattern, 4-layer action model (Data/Service/Controller/Registry), feature-local action registration (9 modules), centralized PluginManager factory, reliable event delivery with WAL drain. Documentation: CI-gated (MkDocs strict + Vale + pymarkdownlnt), 5 v3.0 feature pages, Diataxis-classified nav, llms.txt/llms-full.txt agent discovery indexes current. Claude Code plugin foundation: validated manifest, clean MCP stdio transport (PYTHONUNBUFFERED=1), PreToolUse vault gate hook, CI plugin_validate job (8 gates).
 
 **Key architectural insight (realized):** CLI and MCP are auto-generated presentation layers over a unified ActionRegistry — define once, generate both surfaces. This is the foundation all future work builds on.
 
@@ -133,4 +133,4 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 | Documentation Conventions in CLAUDE.md | Google CLI style, 3-type admonitions, "What's next" links | ✓ Good — enforced by CI + CLAUDE.md |
 
 ---
-*Last updated: 2026-03-22 after v4.0 Agentic Skills milestone started*
+*Last updated: 2026-03-22 after Phase 28 Plugin Foundation complete*
