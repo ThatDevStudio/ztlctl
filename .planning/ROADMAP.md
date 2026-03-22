@@ -75,7 +75,7 @@ Full details: `.planning/milestones/v3.1-ROADMAP.md`
 
 - [x] **Phase 28: Plugin Foundation** - Scaffold correct plugin directory layout, validate MCP stdio transport, wire vault gate hook, and establish CI gate for plugin validation (completed 2026-03-22)
 - [x] **Phase 29: MVP Skills** - Implement five table-stakes skills (orient, session, capture, review-triage, align) that cover the core vault workflows agents use most (completed 2026-03-22)
-- [ ] **Phase 30: Differentiator Skills** - Implement five advanced skills (synthesize, decision-support, orient-session, garden-health, review-contradictions) that encode ztlctl's unique capabilities
+- [x] **Phase 30: Differentiator Skills** - Implement five advanced skills (synthesize, decision-support, orient-session, garden-health, review-contradictions) that encode ztlctl's unique capabilities (completed 2026-03-22)
 - [ ] **Phase 31: Commands, Agents, and Distribution** - Wire slash commands as skill entry points, implement autonomous agents, and validate end-to-end marketplace installation
 - [ ] **Phase 32: Validation and Hardening** - Run the full distribution checklist, validate skill activation under installed state, and lock in CI gates before marketplace submission
 
@@ -120,10 +120,10 @@ Plans:
   3. Asking to start a session on a topic previously worked on causes `ztl:orient-session` to surface what was worked on via temporal and topic recall before starting the session grounded in prior context
   4. Asking to run garden maintenance causes `ztl:garden-health` to audit orphans, structural gaps, and bridge nodes autonomously, then present a maintenance report with a confirmation gate before executing any writes
   5. Asking to review contradictions causes `ztl:review-contradictions` to surface candidate pairs, present each for human evaluation, and only call `confirm_contradiction` after explicit per-pair user approval — never auto-confirming; gracefully degrades if sqlite-vec is absent
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 30-01-PLAN.md — Create synthesize, decision-support, and orient-session skills
-- [ ] 30-02-PLAN.md — Create garden-health and review-contradictions skills
+- [x] 30-01-PLAN.md — Create synthesize, decision-support, and orient-session skills
+- [x] 30-02-PLAN.md — Create garden-health and review-contradictions skills
 
 ### Phase 31: Commands, Agents, and Distribution
 **Goal**: Slash commands provide quick entry points to skills, autonomous agents operate safely within constrained tool allowlists, and the plugin installs correctly from the marketplace with synchronized versioning and clear prerequisite documentation
@@ -158,6 +158,6 @@ Plans:
 | 23-27. v3.1 Documentation & Hardening | v3.1 | 10/10 | Complete | 2026-03-22 |
 | 28. Plugin Foundation | v4.0 | 2/2 | Complete    | 2026-03-22 |
 | 29. MVP Skills | v4.0 | 2/2 | Complete    | 2026-03-22 |
-| 30. Differentiator Skills | v4.0 | 0/2 | Not started | - |
+| 30. Differentiator Skills | v4.0 | 2/2 | Complete   | 2026-03-22 |
 | 31. Commands, Agents, and Distribution | v4.0 | 0/? | Not started | - |
 | 32. Validation and Hardening | v4.0 | 0/? | Not started | - |

@@ -24,9 +24,9 @@ Requirements for v4.0 release. Each maps to roadmap phases.
 
 ### Differentiator Skills
 
-- [ ] **SKIL-06**: `ztl:synthesize` skill drives topic-driven research pipeline — search vault, assemble topic packet, analyze gaps, generate draft — via search, topic_packet, graph_gaps, draft_from_topic MCP calls
-- [ ] **SKIL-07**: `ztl:decision-support` skill provides structured decision analysis — gathers relevant notes, runs decision_support, evaluates against polaris — via search, decision_support, check_alignment MCP calls
-- [ ] **SKIL-08**: `ztl:orient-session` skill starts recall-driven sessions — queries what was worked on recently, identifies continuation points, starts session with context — via recall_temporal, recall_topic, session_start MCP calls
+- [x] **SKIL-06**: `ztl:synthesize` skill drives topic-driven research pipeline — search vault, assemble topic packet, analyze gaps, generate draft — via search, topic_packet, graph_gaps, draft_from_topic MCP calls
+- [x] **SKIL-07**: `ztl:decision-support` skill provides structured decision analysis — gathers relevant notes, runs decision_support, evaluates against polaris — via search, decision_support, check_alignment MCP calls
+- [x] **SKIL-08**: `ztl:orient-session` skill starts recall-driven sessions — queries what was worked on recently, identifies continuation points, starts session with context — via recall_temporal, recall_topic, session_start MCP calls
 - [ ] **SKIL-09**: `ztl:garden-health` skill runs full garden maintenance cycle — check integrity, identify stale seeds, review orphans, suggest reweave candidates — via check_integrity, vault_review, work_queue, reweave MCP calls
 - [ ] **SKIL-10**: `ztl:review-contradictions` skill manages contradiction review workflow — surface candidates, present for evaluation, record confirmed contradictions — via check_contradictions, confirm_contradiction MCP calls
 
@@ -86,9 +86,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SKIL-03 | Phase 29 | Complete |
 | SKIL-04 | Phase 29 | Complete |
 | SKIL-05 | Phase 29 | Complete |
-| SKIL-06 | Phase 30 | Pending |
-| SKIL-07 | Phase 30 | Pending |
-| SKIL-08 | Phase 30 | Pending |
+| SKIL-06 | Phase 30 | Complete |
+| SKIL-07 | Phase 30 | Complete |
+| SKIL-08 | Phase 30 | Complete |
 | SKIL-09 | Phase 30 | Pending |
 | SKIL-10 | Phase 30 | Pending |
 | CMDA-01 | Phase 31 | Pending |

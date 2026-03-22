@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Agentic Skills
 status: unknown
-stopped_at: Completed 29-mvp-skills/29-02-PLAN.md
-last_updated: "2026-03-22T04:17:14.849Z"
+stopped_at: Completed 30-differentiator-skills/30-01-PLAN.md
+last_updated: "2026-03-22T04:37:02.619Z"
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 29 — mvp-skills
+**Current focus:** Phase 30 — differentiator-skills
 
 ## Current Position
 
-Phase: 29 (mvp-skills) — EXECUTING
+Phase: 30 (differentiator-skills) — EXECUTING
 Plan: 2 of 2
 
 ## Performance Metrics
@@ -55,6 +55,9 @@ Key constraints for v4.0:
 - [Phase 29-mvp-skills]: align is standalone: other skills mention polaris but do NOT invoke align (prevents skill-chaining cascades)
 - [Phase 29-mvp-skills]: Single ztl:session skill with path detection instead of separate start/close skills — single activation point is cleaner
 - [Phase 29-mvp-skills]: Batch confirmation gate in review-triage — present full proposed action set before any writes
+- [Phase 30]: All 3 differentiator skills have disable-model-invocation: true (all have write side-effects or session starts)
+- [Phase 30]: synthesize: mandatory draft approval checkpoint before create_note (user must approve draft)
+- [Phase 30]: orient-session: uses ' — continued' topic suffix convention for session lineage tracing via recall_topic
 
 ### Pending Todos
 
@@ -66,7 +69,7 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-22T04:17:14.846Z
-Stopped at: Completed 29-mvp-skills/29-02-PLAN.md
+Last session: 2026-03-22T04:36:54.167Z
+Stopped at: Completed 30-differentiator-skills/30-01-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 28`
