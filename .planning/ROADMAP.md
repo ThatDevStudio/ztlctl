@@ -141,15 +141,18 @@ Plans:
 - [x] 31-02-PLAN.md — Create marketplace.json, add version sync to release pipeline, rewrite plugin README
 
 ### Phase 32: Validation and Hardening
-**Goal**: Every plugin component has been verified under installed state (not just `--plugin-dir`), all 20+ distribution checklist items pass, skill activation is reliable across all 10 skills, and the plugin is ready for marketplace submission
+**Goal**: Every plugin component has been verified under installed state (not just `--plugin-dir`), all 20+ distribution checklist items pass, skill activation is reliable across all 13 skills, and the plugin is ready for marketplace submission
 **Depends on**: Phases 28, 29, 30, 31 (all prior phases must be complete)
 **Requirements**: (cross-cutting quality pass — no new requirements; validates PLGN-01 through DIST-03)
 **Success Criteria** (what must be TRUE):
   1. Every skill activates correctly on at least 5 distinct trigger prompts and does not activate on at least 3 non-trigger prompts, tested under installed state (not `--plugin-dir`)
-  2. Loading all 10 skills simultaneously in a Claude Code session leaves sufficient context window for a normal conversation (verified via `/context` check showing skills consuming less than 2% of context budget)
+  2. Loading all 13 skills simultaneously in a Claude Code session leaves sufficient context window for a normal conversation (verified via `/context` check showing skills consuming less than 2% of context budget)
   3. The full PITFALLS.md distribution checklist passes with zero open items — covering directory structure, stdout cleanliness, version bump gate, hook exit codes, agent frontmatter, and MCP tool name consistency
   4. `claude plugin validate` reports zero warnings on the final plugin directory structure
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 32-01-PLAN.md — Extend test suite with distribution checklist validations and fix issues (CHANGELOG, README counts)
+- [ ] 32-02-PLAN.md — Human verification checklist for installed-state and context budget testing
 
 ## Progress
 
@@ -162,5 +165,5 @@ Plans:
 | 28. Plugin Foundation | v4.0 | 2/2 | Complete    | 2026-03-22 |
 | 29. MVP Skills | v4.0 | 2/2 | Complete    | 2026-03-22 |
 | 30. Differentiator Skills | v4.0 | 2/2 | Complete    | 2026-03-22 |
-| 31. Commands, Agents, and Distribution | v4.0 | 2/2 | Complete   | 2026-03-22 |
-| 32. Validation and Hardening | v4.0 | 0/? | Not started | - |
+| 31. Commands, Agents, and Distribution | v4.0 | 2/2 | Complete    | 2026-03-22 |
+| 32. Validation and Hardening | v4.0 | 0/2 | Not started | - |
