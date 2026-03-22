@@ -59,9 +59,18 @@ Agents should only ever have to orchestrate the tool — not build custom functi
 
 ### Active
 
-<!-- No active milestone — planning next -->
+<!-- Current milestone: v4.0 Agentic Skills -->
 
-No active requirements. Next milestone to be defined.
+## Current Milestone: v4.0 Agentic Skills
+
+**Goal:** Create a production-grade Claude Code plugin for ztlctl that wraps the MCP server with deep skills encoding core vault workflows, enabling agents to orchestrate zettelkasten operations through guided skill invocations rather than raw tool calls. Distribute via Claude Code plugin marketplace.
+
+**Target features:**
+- Claude Code plugin packaging: plugin.json manifest, hooks, commands, agents, skills — full plugin structure
+- Deep skills wrapping MCP tools: session lifecycle, capture workflows, research pipelines, review cycles, decision support — each skill encodes a multi-step workflow from the docs
+- Agentic workflow orchestration: skills that compose multiple MCP tool calls into coherent workflows (e.g., "start research session" = session start + context assembly + polaris alignment + capture pipeline)
+- Marketplace distribution: hosting, versioning, installation via Claude Code plugin registry
+- MCP server integration: skills wrap and enhance the existing 73+ MCP tools, not duplicate them
 
 ### Out of Scope
 
@@ -78,10 +87,7 @@ No active requirements. Next milestone to be defined.
 
 **Key architectural insight (realized):** CLI and MCP are auto-generated presentation layers over a unified ActionRegistry — define once, generate both surfaces. This is the foundation all future work builds on.
 
-**Known technical debt (from v3.0 audit):**
-- IngestService._ingest_normalized missing _dispatch_post_action_event (post_action plugin hooks for ingest_* actions don't fire)
-- Cosmetic: stale docstrings/comments in ContradictionController, commands/generator.py
-- Documentation: v3.0 features (recall, polaris, contradiction, ingestion, methodology) not yet documented in docs site
+**Known technical debt:** None blocking — v3.1 cleared IngestService dispatch, stale docstrings, and docs gaps. Minor: agents.md missing hyperlinks to 5 feature pages, DESIGN.md service diagram enumerates 11/16 services.
 
 **Target audience:** Small group of users, building toward broader adoption. Tool must work fully without agentic systems.
 
@@ -127,4 +133,4 @@ No active requirements. Next milestone to be defined.
 | Documentation Conventions in CLAUDE.md | Google CLI style, 3-type admonitions, "What's next" links | ✓ Good — enforced by CI + CLAUDE.md |
 
 ---
-*Last updated: 2026-03-22 after v3.1 milestone complete*
+*Last updated: 2026-03-22 after v4.0 Agentic Skills milestone started*
