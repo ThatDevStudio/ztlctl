@@ -1,6 +1,6 @@
 # ztlctl Plugin for Claude Code
 
-Agentic research assistant for ztlctl knowledge vaults. Wraps the ztlctl MCP server with 10 deep skills, 5 slash commands, and 2 autonomous agents.
+Agentic research assistant for ztlctl knowledge vaults. Wraps the ztlctl MCP server with 13 deep skills, 5 slash commands, and 2 autonomous agents.
 
 ## Prerequisites
 
@@ -42,7 +42,7 @@ Confirm `ztlctl` appears in the server list. If it does not, see Troubleshooting
 
 | Component | Count | Purpose |
 |-----------|-------|---------|
-| Skills | 10 | Multi-step workflow guides (orient, session, capture, etc.) |
+| Skills | 13 | Multi-step workflow guides (orient, session, capture, synthesize, graph-intelligence, garden-health, decision-support, review-triage, review-contradictions, orient-session, session-workflow, align, vault-methodology) |
 | Commands | 5 | `/ztlctl:session`, `/ztlctl:capture`, `/ztlctl:review`, `/ztlctl:seed`, `/ztlctl:align` |
 | Agents | 2 | Autonomous research and maintenance |
 | Hooks | 1 | Vault gate (blocks tools when no vault found) |
