@@ -1,17 +1,8 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "ztlctl-plugins",
-  "description": "Agentic note-taking plugins for ztlctl",
-  "owner": {
-    "name": "ThatDev Studio"
-  },
-  "plugins": [
-    {
-      "name": "ztlctl",
-      "description": "Research assistant for ztlctl knowledge vaults",
-      "version": "1.0.0",
-      "source": "./plugin",
-      "category": "productivity"
-    }
-  ]
+  "name": "ztlctl",
+  "description": "Agentic research assistant for ztlctl knowledge vaults",
+  "repository": "https://github.com/ThatDevStudio/ztlctl",
+  "directory": "plugin",
+  "license": "MIT",
+  "keywords": ["zettelkasten", "knowledge-management", "research", "notes", "agentic", "mcp"]
 }
