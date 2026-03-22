@@ -1,5 +1,17 @@
 # Milestones
 
+## v3.1 Documentation & Hardening (Shipped: 2026-03-22)
+
+**Phases completed:** 2 phases, 3 plans, 4 tasks
+
+**Key accomplishments:**
+
+- 1. [Rule 2 - Auto-fix] Scoped pymarkdown scan to exclude docs/plans/
+- Documentation enforcement rule added to CLAUDE.md, IngestService post_action dispatch wired for both note and reference success paths, stale docstrings corrected
+- One-liner:
+
+---
+
 ## v3.0 Memory and Hardening (Shipped: 2026-03-21)
 
 **Phases completed:** 8 phases, 20 plans, 27 tasks
