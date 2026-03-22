@@ -10,6 +10,5 @@
   "license": "MIT",
   "keywords": ["zettelkasten", "knowledge-management", "research", "notes", "agentic"],
   "commands": "./commands",
-  "agents": ["./agents"],
   "hooks": "./hooks/hooks.json"
 }
