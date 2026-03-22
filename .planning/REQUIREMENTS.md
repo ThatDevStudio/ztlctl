@@ -12,7 +12,7 @@ Requirements for v4.0 release. Each maps to roadmap phases.
 - [x] **PLGN-01**: Plugin directory layout follows Claude Code conventions — plugin.json manifest, .mcp.json, skills/, hooks/, commands/, agents/ all in correct locations; `claude plugin validate` passes
 - [x] **PLGN-02**: MCP stdio transport is clean — ztlctl serve produces zero stdout pollution; JSON-RPC stream verified with protocol-level test
 - [x] **PLGN-03**: PreToolUse vault gate hook blocks all mcp__ztlctl__* calls when no vault is initialized, returning a user-friendly error with `ztlctl init` guidance
-- [ ] **PLGN-04**: Plugin validation runs in CI — pr-ci.yml includes a `plugin_validate` job that catches manifest errors, missing files, and broken hooks before merge
+- [x] **PLGN-04**: Plugin validation runs in CI — pr-ci.yml includes a `plugin_validate` job that catches manifest errors, missing files, and broken hooks before merge
 
 ### Table Stakes Skills
 
@@ -80,7 +80,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLGN-01 | Phase 28 | Complete |
 | PLGN-02 | Phase 28 | Complete |
 | PLGN-03 | Phase 28 | Complete |
-| PLGN-04 | Phase 28 | Pending |
+| PLGN-04 | Phase 28 | Complete |
 | SKIL-01 | Phase 29 | Pending |
 | SKIL-02 | Phase 29 | Pending |
 | SKIL-03 | Phase 29 | Pending |

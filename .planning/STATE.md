@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Agentic Skills
 status: unknown
-stopped_at: Completed 28-plugin-foundation/28-01-PLAN.md
-last_updated: "2026-03-22T03:53:42.247Z"
+stopped_at: Completed 28-plugin-foundation/28-02-PLAN.md
+last_updated: "2026-03-22T03:56:25.533Z"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -50,6 +50,7 @@ Key constraints for v4.0:
 - `plugin.json` version must bump on every plugin-modifying PR (CI-enforced from Phase 28)
 - [Phase 28-plugin-foundation]: vault-gate.sh walks CWD upward for ztlctl.toml — matches ztlctl's own config discovery behavior
 - [Phase 28-plugin-foundation]: test_stdio_no_stdout_pollution skips gracefully when mcp extra absent — consistent with existing mcp test pattern
+- [Phase 28]: plugin_validate runs in parallel (no needs:) — plugin CI is independent of Python linting and doc linting
 
 ### Pending Todos
 
@@ -61,7 +62,7 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-22T03:53:42.245Z
-Stopped at: Completed 28-plugin-foundation/28-01-PLAN.md
+Last session: 2026-03-22T03:56:25.530Z
+Stopped at: Completed 28-plugin-foundation/28-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 28`
