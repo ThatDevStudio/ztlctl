@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Agentic Skills
-status: roadmapped
-stopped_at: null
-last_updated: "2026-03-22T00:00:00.000Z"
+status: unknown
+stopped_at: Completed 28-plugin-foundation/28-01-PLAN.md
+last_updated: "2026-03-22T03:53:42.247Z"
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -19,18 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** v4.0 Agentic Skills — Phase 28: Plugin Foundation
+**Current focus:** Phase 28 — plugin-foundation
 
 ## Current Position
 
-Phase: 28 of 32 (Plugin Foundation)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-22 — Roadmap created, 5 phases defined, 19 requirements mapped
-
-```
-Progress: [----------] 0/5 phases complete (v4.0)
-```
+Phase: 28 (plugin-foundation) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
@@ -48,11 +42,14 @@ Progress: [----------] 0/5 phases complete (v4.0)
 Decisions are logged in PROJECT.md Key Decisions table.
 
 Key constraints for v4.0:
+
 - Plugin is a pure filesystem artifact — no new Python packages, no build step
 - Skills encode multi-step workflow sequences, never single-tool wrappers
 - All write-operation skills must have `disable-model-invocation: true`
 - Test every skill under installed state, not just `--plugin-dir`
 - `plugin.json` version must bump on every plugin-modifying PR (CI-enforced from Phase 28)
+- [Phase 28-plugin-foundation]: vault-gate.sh walks CWD upward for ztlctl.toml — matches ztlctl's own config discovery behavior
+- [Phase 28-plugin-foundation]: test_stdio_no_stdout_pollution skips gracefully when mcp extra absent — consistent with existing mcp test pattern
 
 ### Pending Todos
 
@@ -64,7 +61,7 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-22 — Roadmap created
-Stopped at: Roadmap written, ready to plan Phase 28
+Last session: 2026-03-22T03:53:42.245Z
+Stopped at: Completed 28-plugin-foundation/28-01-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 28`

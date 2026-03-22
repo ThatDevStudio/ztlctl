@@ -90,9 +90,9 @@ Full details: `.planning/milestones/v3.1-ROADMAP.md`
   2. Sending a raw JSON-RPC request to `ztlctl serve` via stdin produces a well-formed JSON response with no non-JSON bytes on stdout
   3. Invoking any `mcp__ztlctl__*` tool without an initialized vault causes Claude Code to display a user-friendly error message directing the user to run `ztlctl init`
   4. Opening a pull request that introduces a manifest error or missing hook file causes the `plugin_validate` CI job to fail and block the merge
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 28-01-PLAN.md — Harden plugin manifest, MCP transport config, vault gate hook, and automated tests
+- [x] 28-01-PLAN.md — Harden plugin manifest, MCP transport config, vault gate hook, and automated tests
 - [ ] 28-02-PLAN.md — Add plugin_validate CI job to pr-ci.yml
 
 ### Phase 29: MVP Skills
@@ -150,7 +150,7 @@ Plans:
 | 8-14. v2.1 Documentation | v2.1 | 21/21 | Complete | 2026-03-21 |
 | 15-22. v3.0 Memory and Hardening | v3.0 | 22/22 | Complete | 2026-03-21 |
 | 23-27. v3.1 Documentation & Hardening | v3.1 | 10/10 | Complete | 2026-03-22 |
-| 28. Plugin Foundation | v4.0 | 0/2 | In progress | - |
+| 28. Plugin Foundation | v4.0 | 1/2 | In Progress|  |
 | 29. MVP Skills | v4.0 | 0/? | Not started | - |
 | 30. Differentiator Skills | v4.0 | 0/? | Not started | - |
 | 31. Commands, Agents, and Distribution | v4.0 | 0/? | Not started | - |
