@@ -77,13 +77,32 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| PLGN-01 | Phase 28 | Pending |
+| PLGN-02 | Phase 28 | Pending |
+| PLGN-03 | Phase 28 | Pending |
+| PLGN-04 | Phase 28 | Pending |
+| SKIL-01 | Phase 29 | Pending |
+| SKIL-02 | Phase 29 | Pending |
+| SKIL-03 | Phase 29 | Pending |
+| SKIL-04 | Phase 29 | Pending |
+| SKIL-05 | Phase 29 | Pending |
+| SKIL-06 | Phase 30 | Pending |
+| SKIL-07 | Phase 30 | Pending |
+| SKIL-08 | Phase 30 | Pending |
+| SKIL-09 | Phase 30 | Pending |
+| SKIL-10 | Phase 30 | Pending |
+| CMDA-01 | Phase 31 | Pending |
+| CMDA-02 | Phase 31 | Pending |
+| CMDA-03 | Phase 31 | Pending |
+| DIST-01 | Phase 31 | Pending |
+| DIST-02 | Phase 31 | Pending |
+| DIST-03 | Phase 31 | Pending |
 
 **Coverage:**
 - v4.0 requirements: 19 total
-- Mapped to phases: 0
-- Unmapped: 19
+- Mapped to phases: 19
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 after initial definition*
+*Last updated: 2026-03-22 after roadmap creation*
