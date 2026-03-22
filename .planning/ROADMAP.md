@@ -149,9 +149,9 @@ Plans:
   2. Loading all 13 skills simultaneously in a Claude Code session leaves sufficient context window for a normal conversation (verified via `/context` check showing skills consuming less than 2% of context budget)
   3. The full PITFALLS.md distribution checklist passes with zero open items — covering directory structure, stdout cleanliness, version bump gate, hook exit codes, agent frontmatter, and MCP tool name consistency
   4. `claude plugin validate` reports zero warnings on the final plugin directory structure
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 32-01-PLAN.md — Extend test suite with distribution checklist validations and fix issues (CHANGELOG, README counts)
+- [x] 32-01-PLAN.md — Extend test suite with distribution checklist validations and fix issues (CHANGELOG, README counts)
 - [ ] 32-02-PLAN.md — Human verification checklist for installed-state and context budget testing
 
 ## Progress
@@ -166,4 +166,4 @@ Plans:
 | 29. MVP Skills | v4.0 | 2/2 | Complete    | 2026-03-22 |
 | 30. Differentiator Skills | v4.0 | 2/2 | Complete    | 2026-03-22 |
 | 31. Commands, Agents, and Distribution | v4.0 | 2/2 | Complete    | 2026-03-22 |
-| 32. Validation and Hardening | v4.0 | 0/2 | Not started | - |
+| 32. Validation and Hardening | v4.0 | 1/2 | In Progress|  |

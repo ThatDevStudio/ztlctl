@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Agentic Skills
 status: unknown
-stopped_at: Completed 31-commands-agents-and-distribution/31-01-PLAN.md
-last_updated: "2026-03-22T04:57:33.403Z"
+stopped_at: Completed 32-validation-and-hardening/32-01-PLAN.md
+last_updated: "2026-03-22T05:14:05.861Z"
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
 ---
 
 # Project State
@@ -19,11 +19,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Agents should only ever have to orchestrate the tool — not build custom functionality that is lacking from the tool.
-**Current focus:** Phase 31 — commands-agents-and-distribution
+**Current focus:** Phase 32 — validation-and-hardening
 
 ## Current Position
 
-Phase: 31 (commands-agents-and-distribution) — EXECUTING
+Phase: 32 (validation-and-hardening) — EXECUTING
 Plan: 2 of 2
 
 ## Performance Metrics
@@ -63,6 +63,8 @@ Key constraints for v4.0:
 - [Phase 30-02]: sqlite-vec graceful degradation documented in both SKILL.md and reference file — two discovery surfaces for agents encountering the error
 - [Phase 31-commands-agents-and-distribution]: marketplace.json uses git-subdir format with directory field pointing to plugin/
 - [Phase 31-commands-agents-and-distribution]: Plugin version sync amends cz bump commit atomically before push — single commit, single tag
+- [Phase 32]: Write-tool detection uses function-call syntax (tool_name() pattern) not word search — avoids false positives from prose mentions
+- [Phase 32]: align skill read-only: removed create_note() call template from body; guidance preserved in prose without function-call syntax
 
 ### Pending Todos
 
@@ -74,7 +76,7 @@ None identified.
 
 ## Session Continuity
 
-Last session: 2026-03-22T04:57:33.400Z
-Stopped at: Completed 31-commands-agents-and-distribution/31-01-PLAN.md
+Last session: 2026-03-22T05:14:05.859Z
+Stopped at: Completed 32-validation-and-hardening/32-01-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 28`
