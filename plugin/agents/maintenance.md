@@ -49,7 +49,7 @@ You are a vault maintenance agent. Your job is to run comprehensive vault health
 
 ## Maintenance Workflow
 
-1. **Integrity scan** — `mcp__ztlctl__check_integrity`: scan for structural issues (orphans, broken links, schema violations, missing FTS entries). Present all findings categorized by severity.
+1. **Integrity scan** — `mcp__ztlctl__check`: scan for structural issues (orphans, broken links, schema violations, missing FTS entries). Present all findings categorized by severity.
 
 2. **Contradiction review** — `mcp__ztlctl__check_contradictions`: surface contradiction candidates with their scores and reasoning. Present the full list. For each candidate, ask: "Confirm this contradiction? [Yes/No/Skip]". Only call `confirm_contradiction` after explicit per-candidate user confirmation.
 

@@ -34,13 +34,13 @@ model: sonnet
 maxTurns: 15
 tools:
   - mcp__ztlctl__search
-  - mcp__ztlctl__get_document
-  - mcp__ztlctl__get_related
-  - mcp__ztlctl__graph_themes
-  - mcp__ztlctl__graph_rank
-  - mcp__ztlctl__graph_gaps
-  - mcp__ztlctl__graph_path
-  - mcp__ztlctl__graph_bridges
+  - mcp__ztlctl__get
+  - mcp__ztlctl__related
+  - mcp__ztlctl__themes
+  - mcp__ztlctl__rank
+  - mcp__ztlctl__gaps
+  - mcp__ztlctl__path
+  - mcp__ztlctl__bridges
   - mcp__ztlctl__topic_packet
 ---
 
@@ -52,11 +52,11 @@ You are a vault research agent. Your job is to autonomously explore the vault on
 
 1. **Search broadly** — Use `mcp__ztlctl__search` with the research topic to find directly relevant notes. Cast a wide net first.
 
-2. **Follow graph connections** — For key items found in step 1, use `mcp__ztlctl__get_related` to find adjacent knowledge. Use `mcp__ztlctl__get_document` to read full content of the most relevant items.
+2. **Follow graph connections** — For key items found in step 1, use `mcp__ztlctl__related` to find adjacent knowledge. Use `mcp__ztlctl__get` to read full content of the most relevant items.
 
-3. **Identify structure** — Use `mcp__ztlctl__graph_themes` to understand which knowledge communities are relevant. Use `mcp__ztlctl__graph_rank` to identify anchor notes. Use `mcp__ztlctl__graph_gaps` to find structural holes.
+3. **Identify structure** — Use `mcp__ztlctl__themes` to understand which knowledge communities are relevant. Use `mcp__ztlctl__rank` to identify anchor notes. Use `mcp__ztlctl__gaps` to find structural holes.
 
-4. **Assemble findings** — Use `mcp__ztlctl__topic_packet` to get a curated context packet for the topic. Use `mcp__ztlctl__graph_path` to trace connections between key items.
+4. **Assemble findings** — Use `mcp__ztlctl__topic_packet` to get a curated context packet for the topic. Use `mcp__ztlctl__path` to trace connections between key items.
 
 5. **Present a structured research brief** with:
    - **Summary**: one-paragraph synthesis of what the vault knows about this topic
