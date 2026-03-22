@@ -120,7 +120,10 @@ Plans:
   3. Asking to start a session on a topic previously worked on causes `ztl:orient-session` to surface what was worked on via temporal and topic recall before starting the session grounded in prior context
   4. Asking to run garden maintenance causes `ztl:garden-health` to audit orphans, structural gaps, and bridge nodes autonomously, then present a maintenance report with a confirmation gate before executing any writes
   5. Asking to review contradictions causes `ztl:review-contradictions` to surface candidate pairs, present each for human evaluation, and only call `confirm_contradiction` after explicit per-pair user approval — never auto-confirming; gracefully degrades if sqlite-vec is absent
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 30-01-PLAN.md — Create synthesize, decision-support, and orient-session skills
+- [ ] 30-02-PLAN.md — Create garden-health and review-contradictions skills
 
 ### Phase 31: Commands, Agents, and Distribution
 **Goal**: Slash commands provide quick entry points to skills, autonomous agents operate safely within constrained tool allowlists, and the plugin installs correctly from the marketplace with synchronized versioning and clear prerequisite documentation
@@ -154,7 +157,7 @@ Plans:
 | 15-22. v3.0 Memory and Hardening | v3.0 | 22/22 | Complete | 2026-03-21 |
 | 23-27. v3.1 Documentation & Hardening | v3.1 | 10/10 | Complete | 2026-03-22 |
 | 28. Plugin Foundation | v4.0 | 2/2 | Complete    | 2026-03-22 |
-| 29. MVP Skills | v4.0 | 2/2 | Complete   | 2026-03-22 |
-| 30. Differentiator Skills | v4.0 | 0/? | Not started | - |
+| 29. MVP Skills | v4.0 | 2/2 | Complete    | 2026-03-22 |
+| 30. Differentiator Skills | v4.0 | 0/2 | Not started | - |
 | 31. Commands, Agents, and Distribution | v4.0 | 0/? | Not started | - |
 | 32. Validation and Hardening | v4.0 | 0/? | Not started | - |
