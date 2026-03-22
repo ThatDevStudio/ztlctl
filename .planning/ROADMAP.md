@@ -105,7 +105,10 @@ Plans:
   3. Asking to capture a note, reference, or task causes `ztl:capture` to search the vault for existing related content, create the item with appropriate metadata and links, and trigger reweave — without the user specifying MCP tool names
   4. Asking to review the work queue or vault health causes `ztl:review-triage` to surface integrity issues, work queue priorities, and garden backlog, then present a proposed action set for user approval before executing any writes
   5. Asking whether a decision aligns with priorities causes `ztl:align` to read the polaris document, run `check_alignment`, and present a structured alignment analysis with a clear recommendation
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 29-01-PLAN.md — Create orient, capture, and align skills (read-heavy, low-complexity workflows)
+- [ ] 29-02-PLAN.md — Create session and review-triage skills (medium-complexity workflows with path detection and batch confirmation)
 
 ### Phase 30: Differentiator Skills
 **Goal**: Five advanced skills are installed and correctly activated, covering knowledge synthesis, decision analysis, recall-driven sessions, garden maintenance, and contradiction review — each encoding multi-step workflows that would be error-prone to perform through raw MCP calls
@@ -150,8 +153,8 @@ Plans:
 | 8-14. v2.1 Documentation | v2.1 | 21/21 | Complete | 2026-03-21 |
 | 15-22. v3.0 Memory and Hardening | v3.0 | 22/22 | Complete | 2026-03-21 |
 | 23-27. v3.1 Documentation & Hardening | v3.1 | 10/10 | Complete | 2026-03-22 |
-| 28. Plugin Foundation | v4.0 | 2/2 | Complete   | 2026-03-22 |
-| 29. MVP Skills | v4.0 | 0/? | Not started | - |
+| 28. Plugin Foundation | v4.0 | 2/2 | Complete    | 2026-03-22 |
+| 29. MVP Skills | v4.0 | 0/2 | In Progress | - |
 | 30. Differentiator Skills | v4.0 | 0/? | Not started | - |
 | 31. Commands, Agents, and Distribution | v4.0 | 0/? | Not started | - |
 | 32. Validation and Hardening | v4.0 | 0/? | Not started | - |
